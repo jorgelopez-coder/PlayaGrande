@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Ecosistema Kioskos · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;
+  --font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{padding:2rem 2rem 1rem;max-width:960px;margin:0 auto}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--font-d);font-size:26px;font-weight:800;margin-top:4px}
+.sub{font-size:13px;color:var(--muted);margin-top:6px}
+main{max-width:960px;margin:0 auto;padding:1rem 2rem 4rem}
+.section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:1.75rem 0 .75rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.tile{display:block;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;text-decoration:none;color:var(--text);transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--border-h);transform:translateY(-1px)}
+.tile-icon{font-size:22px;margin-bottom:.6rem;display:block}
+.tile-title{font-family:var(--font-d);font-weight:700;font-size:14px;margin-bottom:3px}
+.tile-desc{font-size:12px;color:var(--muted);line-height:1.4}
+.tile.disabled{opacity:.5;cursor:default;pointer-events:none}
+.badge-soon{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;margin-top:8px}
+@media(max-width:600px){header,main{padding-left:1rem;padding-right:1rem}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Ecosistema Kioskos</div>
+  <h1>Playa Grande Brew House</h1>
+  <div class="sub">Cerveza y cocteles · Playa Grande · Liberia · Nosara · Playa Hermosa</div>
+</header>
+
+<main>
+  <div class="section-title">Operaciones</div>
+  <div class="grid">
+    <a href="cierres.html" class="tile">
+      <span class="tile-icon">💰</span>
+      <div class="tile-title">Cierre de Caja</div>
+      <div class="tile-desc">Registrar ventas diarias por kiosko, arqueo de efectivo e historial comparado.</div>
+    </a>
+    <div class="tile disabled">
+      <span class="tile-icon">📦</span>
+      <div class="tile-title">Inventario y Compras</div>
+      <div class="tile-desc">Control de stock de cerveza, licores e insumos por kiosko.</div>
+      <span class="badge-soon">Próximamente</span>
+    </div>
+    <div class="tile disabled">
+      <span class="tile-icon">👥</span>
+      <div class="tile-title">RRHH y Turnos</div>
+      <div class="tile-desc">Personal, horarios y turnos por ubicación.</div>
+      <span class="badge-soon">Próximamente</span>
+    </div>
+    <div class="tile disabled">
+      <span class="tile-icon">📊</span>
+      <div class="tile-title">Reportes</div>
+      <div class="tile-desc">Comparativos consolidados entre kioskos.</div>
+      <span class="badge-soon">Próximamente</span>
+    </div>
+  </div>
+</main>
+
+<script>
+// Redirige a login si no hay sesión válida (8 horas).
+const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!sesion || (Date.now() - sesion.ts) >= 8 * 60 * 60 * 1000) {
+  window.location.href = 'login.html';
+}
+</script>
+</body>
+</html>
