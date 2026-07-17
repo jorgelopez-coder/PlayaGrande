@@ -232,8 +232,11 @@ async function cargarKioskos() {
     } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
 }
-// Sentinel para colaboradores sin Kiosko fijo (rotativos): aparecen en todas
-// las pestañas, igual que en el dropdown de rrhh.html ("Rotativo (cualquier kiosko)").
+// Sentinel histórico para colaboradores sin Kiosko fijo. Ya NO se usa para
+// mostrarlos en horarios.html — por decisión del negocio, un colaborador sin
+// Kiosko asignado no está sujeto a horario y se excluye por completo (ver
+// buildFromPersonal). Se deja declarado porque otras funciones todavía
+// comparan contra él (comparación que ahora nunca calza, sin efecto).
 const ROTATIVO = 'ROTATIVO';
 
 const DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -508,8 +511,9 @@ function aplicarEstadoUI(){
 // Convierte el listado de "Personal" (RRHH) en empleados activos para el
 // horario. Cada kiosko es un "resto" (el horario original de Lorito era un
 // solo punto de venta); el filtro de departamento sigue disponible dentro de
-// cada kiosko. Un colaborador sin Kiosko asignado (campo vacío = "Rotativo"
-// en rrhh.html) aparece en las 4 pestañas.
+// cada kiosko. Un colaborador sin Kiosko asignado NO está sujeto a horario
+// (ej. puestos administrativos como Gerencia/Finanzas) y se excluye acá por
+// completo — no aparece en ninguna pestaña ni cuenta en los totales.
 function buildFromPersonal(regs){
   const activos = (regs||[]).filter(p=>((p['Estado']||p.estado||'').toString().toUpperCase())==='ACTIVO');
 
@@ -528,12 +532,12 @@ function buildFromPersonal(regs){
     return {
       id: 'EMP-'+(p['Cédula']||p.cedula||nombre),
       name: nombre,
-      restoId: kiosko || ROTATIVO,
+      restoId: kiosko,
       kiosko: kiosko,
       area: (p['Departamento']||p.departamento||'').toString(),
       puesto: p['Puesto']||p.puesto||''
     };
-  }).filter(e=>e.name.trim());
+  }).filter(e=>e.name.trim() && e.kiosko); // sin Kiosko asignado = no sujeto a horario, se excluye
 
   employees = employees.concat(extras);
   employees.forEach(emp=>initSchedule(emp));
