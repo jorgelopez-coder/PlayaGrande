@@ -75,7 +75,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
 
 /* ── KPI STRIP (tickets) ────────────────────────────────── */
-.ticket-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:1.5rem; }
+.ticket-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:1.5rem; }
 .ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
 .ticket.clickable { cursor:pointer; transition:border-color .12s; }
 .ticket.clickable:hover { border-color:var(--border-h); }
@@ -93,6 +93,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
 /* ── GRID PRINCIPAL ─────────────────────────────────────── */
 .main-grid { display:grid; grid-template-columns:1fr 300px; gap:14px; margin-bottom:1.5rem; }
+.grid-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 
 /* ── SECCIÓN ────────────────────────────────────────────── */
 .section-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
@@ -128,6 +129,20 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .kb-none { background:var(--surface); color:var(--subtle); }
 .kb-soon { background:var(--amber-bg); color:var(--amber); }
 
+/* ── COMPARATIVO POR KIOSKO ─────────────────────────────── */
+.compare-wrap { overflow-x:auto; }
+.compare-table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:680px; }
+.compare-table th { text-align:left; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:.7rem 1.1rem; border-bottom:1px solid var(--border); background:var(--surface); white-space:nowrap; }
+.compare-table td { padding:.65rem 1.1rem; border-bottom:1px solid var(--border); vertical-align:middle; white-space:nowrap; }
+.compare-table tbody tr:last-child td { border-bottom:none; }
+.compare-table tbody tr:hover { background:var(--surface); }
+.compare-kiosko { display:flex; align-items:center; gap:8px; font-weight:600; }
+.compare-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.compare-tag-new { font-family:var(--font-m); font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--blue); background:var(--blue-bg); padding:1px 6px; border-radius:20px; margin-left:2px; }
+.compare-val { font-family:var(--font-m); font-weight:600; }
+.compare-sub { font-size:10.5px; color:var(--muted); margin-top:1px; }
+.compare-dash { color:var(--subtle); font-family:var(--font-m); }
+
 /* ── TOP 10 PRODUCTOS ───────────────────────────────────── */
 .prod-row { display:flex; align-items:center; gap:12px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
 .prod-row:last-child { border-bottom:none; }
@@ -136,6 +151,17 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .prod-nombre { font-size:12.5px; font-weight:500; }
 .prod-meta { font-size:11px; color:var(--muted); margin-top:1px; }
 .prod-monto { font-family:var(--font-m); font-size:13px; font-weight:600; color:var(--green); flex-shrink:0; white-space:nowrap; }
+
+/* ── VOLUMEN DE CERVEZA DE BARRIL (ONZAS) ─────────────────── */
+.volcerv-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+.volcerv-card { padding:1.1rem 1.25rem; border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+.volcerv-nombre { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:6px; }
+.volcerv-kpi { font-family:var(--font-m); font-size:24px; font-weight:600; color:var(--text); }
+.volcerv-kpi-sub { font-size:11px; color:var(--subtle); margin-bottom:10px; }
+.volcerv-warn { font-size:10.5px; color:var(--amber); margin-bottom:8px; }
+.volcerv-hist-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:8px 0 4px; }
+.volcerv-hist-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--border); }
+.volcerv-hist-row:last-child { border-bottom:none; }
 
 /* ── DETALLE DESPLEGABLE DE KPI (personal / ventas) ──────── */
 .kpi-detail { display:none; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:1.5rem; }
@@ -174,6 +200,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
   main { padding:1.25rem 1rem 3rem; }
   .ticket-strip { grid-template-columns:1fr 1fr; }
   .main-grid { grid-template-columns:1fr; }
+  .grid-2col { grid-template-columns:1fr; }
   .hero { align-items:flex-start; }
   .date-chip, .logo-sub, .sync-label { display:none; }
   .topnav { padding:0 1rem; top:56px; overflow-x:auto; }
@@ -328,20 +355,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-lbl">Último cierre registrado</div>
       <div class="ticket-sub" id="kpi-cierre-sub" style="color:var(--muted);"></div>
     </div>
-    <div class="ticket clickable" data-kpi="ventas" onclick="toggleKpiDetail('ventas')">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-ventas-hoy" style="color:var(--amber);">—</div>
-      <div class="ticket-lbl">Ventas de hoy</div>
-      <div class="ticket-sub" id="kpi-ventas-hoy-sub" style="color:var(--muted);"></div>
-      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
-    <div class="ticket clickable" data-kpi="tamarindo" onclick="toggleKpiDetail('tamarindo')">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-ventas-tamarindo" style="color:var(--amber);">—</div>
-      <div class="ticket-lbl">Ventas Tamarindo hoy</div>
-      <div class="ticket-sub" id="kpi-ventas-tamarindo-sub" style="color:var(--muted);"></div>
-      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
     <div class="ticket clickable" data-kpi="tips" onclick="toggleKpiDetail('tips')">
       <span class="ticket-punch"></span>
       <div class="ticket-val" id="kpi-tips-pend" style="color:var(--amber);">—</div>
@@ -355,22 +368,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-lbl">Efectivo pendiente de depositar</div>
       <div class="ticket-sub" id="kpi-efectivo-pend-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
-  </div>
-
-  <!-- Detalle desplegable: top 10 productos vendidos hoy -->
-  <div class="kpi-detail" id="kpi-detail-ventas" data-kpi="ventas">
-    <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy</div>
-    <div id="top-productos-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-  </div>
-
-  <!-- Detalle desplegable: top 10 productos vendidos hoy — Tamarindo -->
-  <div class="kpi-detail" id="kpi-detail-tamarindo" data-kpi="tamarindo">
-    <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy — Tamarindo</div>
-    <div id="top-productos-tamarindo-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
 
@@ -394,21 +391,70 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
-  <!-- Placeholder: ventas por kiosko (pendiente de que Square reporte el kiosko en Ventas_Por_Producto) -->
+  <!-- Comparativo por kiosko: mismos indicadores para todos, uno al lado del otro -->
   <div class="section-card" style="margin-bottom:1.5rem;">
     <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Ventas por kiosko</span>
+      <span class="section-title"><span class="clip"></span>Comparativo por kiosko</span>
+      <a href="configuracion.html" class="section-link">Configurar kioskos →</a>
     </div>
-    <div id="ventas-kiosko-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Kiosko</th>
+            <th>Último cierre</th>
+            <th>Cuadre</th>
+            <th>Ventas hoy (Square)</th>
+            <th>Tips pendientes</th>
+            <th>Efectivo pendiente</th>
+          </tr>
+        </thead>
+        <tbody id="compare-kioskos-body">
+          <tr><td colspan="6"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
+      "Ventas hoy" solo aparece en kioskos con su propio Square conectado (ver README). Los demás indicadores salen de los cierres de caja diarios y aplican igual a todos los kioskos.
     </div>
   </div>
 
-  <!-- Grid principal -->
-  <div class="main-grid">
-
-    <!-- Acciones rápidas -->
+  <!-- Top 10 productos vendidos hoy, por fuente de Square -->
+  <div class="grid-2col" style="margin-bottom:1.5rem;">
     <div class="section-card">
+      <div class="section-head">
+        <span class="section-title"><span class="clip"></span>Top 10 — Tamarindo</span>
+      </div>
+      <div id="top-productos-tamarindo-body">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title"><span class="clip"></span>Top 10 — Agregado (Square, sin desglose)</span>
+        <span id="top10-agregado-sub" style="font-size:11px;color:var(--muted);"></span>
+      </div>
+      <div id="top-productos-body">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cerveza de barril (draft) vendida — onzas por día, por kiosko con Square propio -->
+  <div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-head">
+      <span class="section-title"><span class="clip"></span>Cerveza de barril vendida (onzas)</span>
+    </div>
+    <div id="volumen-cerveza-body" class="volcerv-grid">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
+      Solo cuenta cerveza de barril (no embotellada): categoría "DRAFT", o categoría de cervezas sin la palabra "botella" en el nombre. Las onzas se sacan del nombre de cada producto.
+    </div>
+  </div>
+
+  <!-- Acciones rápidas -->
+  <div class="section-card" style="margin-bottom:1.5rem;">
       <div class="section-head">
         <span class="section-title"><span class="clip"></span>Acciones rápidas</span>
       </div>
@@ -491,18 +537,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         </div>
         <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
       </a>
-    </div>
-
-    <!-- Último cierre por kiosko -->
-    <div class="section-card">
-      <div class="section-head">
-        <span class="section-title"><span class="clip"></span>Último cierre por kiosko</span>
-        <a href="cierres.html" class="section-link">Ver todos →</a>
-      </div>
-      <div id="kiosko-grid-body">
-        <div class="no-alerts"><span class="spinner"></span></div>
-      </div>
-    </div>
   </div>
 
   <div class="status-bar">
@@ -522,16 +556,35 @@ const SHEETS_URL_CIERRES  = 'https://script.google.com/macros/s/AKfycbzegddEwvSB
 // Hoja pública "Lector Square" (Square POS) — pestaña Ventas_Por_Producto, leída vía gviz sin backend.
 const VENTAS_SHEET_ID     = '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA';
 const VENTAS_SHEET_NOMBRE = 'Ventas_Por_Producto';
-// Hoja "Square - Tamarindo" (propia de ese kiosko, ver nota en README sobre
-// una copia de sheet+script de Square por kiosko) — pestaña
+// Hojas "Square - <kiosko>" propias de cada kiosko (ver nota en README sobre
+// copiar sheet+script de Square por kiosko: se edita el Location ID y el
+// nombre del kiosko, el resto queda igual). Cada una trae dos pestañas:
 // Resumen_Cierre_Diario (Fecha · Location ID · Ventas Brutas · Descuentos y
-// Cortesías · Ventas Netas), leída vía gviz sin backend. Para sumar otro
-// kiosko con su propio Square, agregar su ID/pestaña acá con el mismo patrón.
-const TAMARINDO_SHEET_ID  = '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ';
-const TAMARINDO_SHEET_TAB = 'Resumen_Cierre_Diario';
-// Misma hoja de Tamarindo también tiene su propia pestaña Ventas_Por_Producto
-// (idéntica estructura a VENTAS_SHEET_NOMBRE) — de ahí sale el top 10.
-const TAMARINDO_VENTAS_TAB = 'Ventas_Por_Producto';
+// Cortesías · Ventas Netas) y Ventas_Por_Producto (mismo formato que
+// VENTAS_SHEET_NOMBRE), ambas leídas vía gviz sin backend. Para sumar otro
+// kiosko con su propio Square, agregar acá una entrada con el mismo patrón —
+// el nombre debe coincidir con el de Configuración → Kioskos una vez que se
+// dé de alta ahí (mientras tanto aparece en el comparativo marcado "Nuevo").
+const SQUARE_KIOSKOS = {
+  'Tamarindo': {
+    sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  }
+};
+
+// Kioskos con hoja de Square propia y pestaña Ventas_Por_Producto, usados
+// para el indicador de volumen de cerveza de barril más abajo. Separado de
+// SQUARE_KIOSKOS porque ese objeto también exige una pestaña
+// Resumen_Cierre_Diario (para el comparativo de "Ventas hoy") que Playa
+// Grande todavía no tiene — pero sí tiene Ventas_Por_Producto (es la misma
+// hoja "Lector Square" de VENTAS_SHEET_ID). Para sumar otro kiosko acá
+// (Liberia, Nosara, Playa Hermosa) agregar una entrada con el mismo patrón
+// una vez que tenga su propio Square conectado.
+const VENTAS_KIOSKOS = {
+  'Playa Grande': { sheetId: VENTAS_SHEET_ID, ventasTab: VENTAS_SHEET_NOMBRE },
+  'Tamarindo': { sheetId: SQUARE_KIOSKOS['Tamarindo'].sheetId, ventasTab: SQUARE_KIOSKOS['Tamarindo'].ventasTab }
+};
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -681,13 +734,10 @@ async function cargarKPIs() {
     kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
   }
 
-  const listaKioskosVentas = kioskosActivos.length ? kioskosActivos : KIOSKOS;
-  document.getElementById('ventas-kiosko-body').innerHTML = listaKioskosVentas.map(nombre => `
-    <div class="kiosko-row">
-      <span class="kiosko-dot" style="background:var(--subtle);"></span>
-      <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">Aún sin ventas desglosadas por kiosko</div></div>
-      <span class="kiosko-badge kb-soon">Próximamente</span>
-    </div>`).join('');
+  // Kioskos a comparar: los activos en Configuración + cualquiera con Square
+  // propio que todavía no esté dado de alta ahí (ej. Tamarindo).
+  const listaKioskos = (kioskosActivos.length ? kioskosActivos.slice() : KIOSKOS.slice());
+  Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!listaKioskos.includes(n)) listaKioskos.push(n); });
 
   // 2. PERSONAL (solo se usa el conteo para la barra de estado inferior)
   try {
@@ -699,13 +749,17 @@ async function cargarKPIs() {
     personalActivo = 0;
   }
 
-  // 3. CIERRES — último general + último por kiosko + propinas pendientes
-  const grid = document.getElementById('kiosko-grid-body');
+  // 3. CIERRES — último general + comparativo por kiosko + propinas
+  //    pendientes + efectivo pendiente, más las ventas Square de cada
+  //    kiosko que tenga su propio Square conectado (en paralelo).
+  const compareBody = document.getElementById('compare-kioskos-body');
+  const squareEntries = Object.entries(SQUARE_KIOSKOS);
   try {
-    const [respCierres, respTipsPagos, respDepositos] = await Promise.all([
+    const [respCierres, respTipsPagos, respDepositos, ...squareResumenes] = await Promise.all([
       fetch(SHEETS_URL_CIERRES + '?action=read'),
       fetch(SHEETS_URL_CIERRES + '?action=tipspagos'),
-      fetch(SHEETS_URL_CIERRES + '?action=depositos')
+      fetch(SHEETS_URL_CIERRES + '?action=depositos'),
+      ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
     ]);
     const data = await respCierres.json();
     const dataTipsPagos = await respTipsPagos.json();
@@ -718,8 +772,11 @@ async function cargarKPIs() {
       tarjetaCuadra: r[39] === 'SI',
     })).filter(r => r.fecha && r.kiosko);
 
-    renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
-    renderEfectivoPendiente(cierresRaw, dataDepositos.records || []);
+    const squareResumen = {};
+    squareEntries.forEach(([nombre], i) => { squareResumen[nombre] = squareResumenes[i]; });
+
+    const tipsPendientesArr = renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
+    const efectivoPendientesArr = renderEfectivoPendiente(cierresRaw, dataDepositos.records || []);
 
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
@@ -741,28 +798,11 @@ async function cargarKPIs() {
       if (!porKiosko[r.kiosko] || r.fecha > porKiosko[r.kiosko].fecha) porKiosko[r.kiosko] = r;
     });
 
-    const listaKioskos = kioskosActivos.length ? kioskosActivos : KIOSKOS;
-    grid.innerHTML = listaKioskos.map(nombre => {
-      const r = porKiosko[nombre];
-      if (!r) {
-        return `<div class="kiosko-row">
-          <span class="kiosko-dot" style="background:var(--subtle);"></span>
-          <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">Sin registros</div></div>
-          <span class="kiosko-badge kb-none">—</span>
-        </div>`;
-      }
-      const cuadra = r.cajaCuadra && r.tarjetaCuadra;
-      const dK = diasDesde(r.fecha);
-      return `<div class="kiosko-row">
-        <span class="kiosko-dot" style="background:${cuadra ? 'var(--green)' : 'var(--red)'};"></span>
-        <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">${etiquetaDias(dK)} · ${r.fecha}</div></div>
-        <span class="kiosko-badge ${cuadra ? 'kb-ok' : 'kb-warn'}">${cuadra ? 'Cuadra' : 'Revisar'}</span>
-      </div>`;
-    }).join('');
+    renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen);
   } catch(e) {
     document.getElementById('kpi-cierre').textContent = 'Sin conexión';
     document.getElementById('kpi-cierre-sub').textContent = 'No se pudo cargar Cierres';
-    grid.innerHTML = '<div class="no-alerts">No se pudo cargar el historial de cierres.</div>';
+    compareBody.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No se pudo cargar el comparativo por kiosko.</div></td></tr>';
     document.getElementById('kpi-tips-pend').textContent = 'Sin conexión';
     document.getElementById('kpi-tips-pend-sub').textContent = 'No se pudo cargar Tips';
     document.getElementById('tips-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar las propinas pendientes.</div>';
@@ -771,11 +811,14 @@ async function cargarKPIs() {
     document.getElementById('efectivo-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar el efectivo pendiente.</div>';
   }
 
-  // 4. VENTAS DE HOY + TOP 10 PRODUCTOS (hoja Ventas_Por_Producto)
+  // 4. TOP 10 PRODUCTOS — agregado (hoja Ventas_Por_Producto, todos los
+  //    kioskos sin desglose) y por cada kiosko con Square propio.
   await cargarVentasHoy();
+  await cargarTop10PorKioskoSquare();
 
-  // 5. VENTAS DE HOY — TAMARINDO (hoja Square - Tamarindo, Resumen_Cierre_Diario)
-  await cargarVentasTamarindo();
+  // 5. VOLUMEN DE CERVEZA DE BARRIL (onzas) — hoy + histórico por día,
+  //    por cada kiosko con Square propio (ver VENTAS_KIOSKOS).
+  await cargarVolumenCervezaPorKiosko();
 
   document.getElementById('status-dot').className = 'sdot';
   document.getElementById('status-texto').textContent =
@@ -819,6 +862,8 @@ function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
         <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
       </div>`).join('')
     : '<div class="no-alerts">No hay propinas pendientes de pago ✓</div>';
+
+  return pendientes;
 }
 
 // ── EFECTIVO PENDIENTE DE DEPOSITAR (hoja Cierres agregada por kiosko +
@@ -870,11 +915,129 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw) {
         <div class="persona-puesto" style="color:var(--red);font-family:var(--font-m);">${fmtCRC(p.crc)}${p.usd ? ' + ' + fmtUSD(p.usd) : ''}</div>
       </div>`).join('')
     : '<div class="no-alerts">No hay efectivo pendiente de depósito ✓</div>';
+
+  return pendientes;
 }
 
+// ── COMPARATIVO POR KIOSKO — mismos indicadores en una fila por kiosko,
+// para poder comparar de un vistazo (Último cierre/cuadre desde Cierres,
+// Ventas hoy desde el Square propio de cada kiosko si existe, Tips y
+// Efectivo pendientes filtrados de los mismos datos que ya alimentan los
+// tickets/dropdowns generales de arriba). ──
+function renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen) {
+  const body = document.getElementById('compare-kioskos-body');
+  if (!listaKioskos.length) {
+    body.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No hay kioskos configurados.</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML = listaKioskos.map(nombre => {
+    const cierre = porKiosko[nombre];
+    const esNuevo = !cierre && SQUARE_KIOSKOS[nombre];
+
+    let cierreHtml, cuadraHtml, dotColor;
+    if (cierre) {
+      const cuadra = cierre.cajaCuadra && cierre.tarjetaCuadra;
+      const dK = diasDesde(cierre.fecha);
+      dotColor = cuadra ? 'var(--green)' : 'var(--red)';
+      cierreHtml = `<div class="compare-val">${etiquetaDias(dK)}</div><div class="compare-sub">${cierre.fecha}</div>`;
+      cuadraHtml = `<span class="kiosko-badge ${cuadra ? 'kb-ok' : 'kb-warn'}">${cuadra ? 'Cuadra' : 'Revisar'}</span>`;
+    } else {
+      dotColor = 'var(--subtle)';
+      cierreHtml = '<span class="compare-dash">Sin registros</span>';
+      cuadraHtml = '<span class="kiosko-badge kb-none">—</span>';
+    }
+
+    let ventasHtml;
+    const sq = squareResumen[nombre];
+    if (sq === undefined) {
+      ventasHtml = '<span class="compare-dash">Sin Square propio</span>';
+    } else if (sq === null) {
+      ventasHtml = '<span class="compare-dash">Sin conexión</span>';
+    } else if (sq.sinDatos) {
+      ventasHtml = '<span class="compare-dash">Sin ventas hoy</span>';
+    } else {
+      ventasHtml = `<div class="compare-val" style="color:var(--amber);">${fmtCRC(sq.netas)}</div>` +
+        (sq.descuentos > 0 ? `<div class="compare-sub">Desc. ${fmtCRC(sq.descuentos)}</div>` : '');
+    }
+
+    const tipsK = tipsPendientesArr.filter(t => t.kiosko === nombre);
+    const tipsTotal = tipsK.reduce((s,t) => s + t.monto, 0);
+    const tipsHtml = tipsK.length
+      ? `<div class="compare-val" style="color:var(--amber);">${fmtCRC(tipsTotal)}</div><div class="compare-sub">${tipsK.length} cierre${tipsK.length===1?'':'s'}</div>`
+      : `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`;
+
+    const efK = efectivoPendientesArr.filter(p => p.kiosko === nombre);
+    const efCrc = efK.reduce((s,p) => s + p.crc, 0);
+    const efUsd = efK.reduce((s,p) => s + p.usd, 0);
+    const efHtml = efK.length
+      ? `<div class="compare-val" style="color:var(--red);">${fmtCRC(efCrc)}</div><div class="compare-sub">${efK.length} fecha${efK.length===1?'':'s'}${efUsd ? ' · ' + fmtUSD(efUsd) : ''}</div>`
+      : `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`;
+
+    return `<tr>
+      <td><div class="compare-kiosko"><span class="compare-dot" style="background:${dotColor};"></span>${nombre}${esNuevo ? '<span class="compare-tag-new">Nuevo</span>' : ''}</div></td>
+      <td>${cierreHtml}</td>
+      <td>${cuadraHtml}</td>
+      <td>${ventasHtml}</td>
+      <td>${tipsHtml}</td>
+      <td>${efHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SQUARE POR KIOSKO — hoja "Resumen_Cierre_Diario" de cada kiosko con
+// Square propio (ver SQUARE_KIOSKOS arriba). Devuelve null si falla la
+// conexión, o { netas, brutas, descuentos, sinDatos } si conectó bien. ──
+async function obtenerResumenHoySquare(cfg) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+    const ahora = new Date();
+    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
+
+    // Columnas de Resumen_Cierre_Diario: Fecha, Location ID, Ventas Brutas,
+    // Descuentos y Cortesías, Ventas Netas.
+    const filaHoy = filas.find(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      return fecha === hoyISO;
+    });
+
+    if (!filaHoy) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
+    const c = filaHoy.c || [];
+    return {
+      netas: Number((c[4] && c[4].v) || 0),
+      brutas: Number((c[2] && c[2].v) || 0),
+      descuentos: Number((c[3] && c[3].v) || 0),
+      sinDatos: false
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+// ── TOP 10 productos por fuente (arma un bloque de filas .prod-row) ──
+function fmtTop10(top10) {
+  return top10 === null
+    ? '<div class="no-alerts">No se pudo cargar el top de productos.</div>'
+    : (top10.length
+      ? top10.map(([nombre, monto], i) => `
+        <div class="prod-row">
+          <span class="prod-rank">${i + 1}</span>
+          <div class="prod-info"><div class="prod-nombre">${nombre}</div></div>
+          <span class="prod-monto">${fmtCRC(monto)}</span>
+        </div>`).join('')
+      : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>');
+}
+
+// ── TOP 10 AGREGADO (hoja pública "Lector Square", Ventas_Por_Producto —
+// todos los kioskos mezclados, hasta que Square reporte el kiosko de cada
+// línea) ──
 async function cargarVentasHoy() {
-  const kpiEl  = document.getElementById('kpi-ventas-hoy');
-  const subEl  = document.getElementById('kpi-ventas-hoy-sub');
+  const subEl = document.getElementById('top10-agregado-sub');
   const topBody = document.getElementById('top-productos-body');
   try {
     const url = `https://docs.google.com/spreadsheets/d/${VENTAS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(VENTAS_SHEET_NOMBRE)}`;
@@ -901,73 +1064,27 @@ async function cargarVentasHoy() {
       porProducto[producto] = (porProducto[producto] || 0) + totalLinea;
     });
 
-    kpiEl.textContent = fmtCRC(totalHoy);
-    subEl.textContent = pedidosHoy.size
-      ? `${pedidosHoy.size} pedido${pedidosHoy.size === 1 ? '' : 's'} hoy`
-      : 'Sin ventas registradas hoy';
-
+    subEl.textContent = `${fmtCRC(totalHoy)} · ${pedidosHoy.size} pedido${pedidosHoy.size === 1 ? '' : 's'} hoy`;
     const top10 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    topBody.innerHTML = top10.length
-      ? top10.map(([nombre, monto], i) => `
-        <div class="prod-row">
-          <span class="prod-rank">${i + 1}</span>
-          <div class="prod-info"><div class="prod-nombre">${nombre}</div></div>
-          <span class="prod-monto">${fmtCRC(monto)}</span>
-        </div>`).join('')
-      : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>';
+    topBody.innerHTML = fmtTop10(top10);
   } catch (e) {
-    kpiEl.textContent = 'Sin conexión';
-    subEl.textContent = 'No se pudo cargar Ventas_Por_Producto';
-    topBody.innerHTML = '<div class="no-alerts">No se pudo cargar el top de productos.</div>';
+    subEl.textContent = 'Sin conexión';
+    topBody.innerHTML = fmtTop10(null);
   }
 }
 
-async function cargarVentasTamarindo() {
-  const kpiEl = document.getElementById('kpi-ventas-tamarindo');
-  const subEl = document.getElementById('kpi-ventas-tamarindo-sub');
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${TAMARINDO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TAMARINDO_SHEET_TAB)}`;
-    const resp = await fetch(url);
-    const texto = await resp.text();
-    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
-    const filas = json.table.rows || [];
-
-    const ahora = new Date();
-    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
-
-    // Columnas de Resumen_Cierre_Diario: Fecha, Location ID, Ventas Brutas,
-    // Descuentos y Cortesías, Ventas Netas.
-    const filaHoy = filas.find(fila => {
-      const c = fila.c || [];
-      const fecha = c[0] && (c[0].f || c[0].v);
-      return fecha === hoyISO;
-    });
-
-    if (filaHoy) {
-      const c = filaHoy.c || [];
-      const brutas = Number((c[2] && c[2].v) || 0);
-      const descuentos = Number((c[3] && c[3].v) || 0);
-      const netas = Number((c[4] && c[4].v) || 0);
-      kpiEl.textContent = fmtCRC(netas);
-      subEl.textContent = descuentos > 0
-        ? `Brutas ${fmtCRC(brutas)} · Desc. ${fmtCRC(descuentos)}`
-        : `Brutas ${fmtCRC(brutas)}`;
-    } else {
-      kpiEl.textContent = fmtCRC(0);
-      subEl.textContent = 'Sin ventas registradas hoy';
-    }
-  } catch (e) {
-    kpiEl.textContent = 'Sin conexión';
-    subEl.textContent = 'No se pudo cargar Square Tamarindo';
-  }
-
-  // Top 10 productos vendidos hoy en Tamarindo (pestaña Ventas_Por_Producto
-  // de la misma hoja "Square - Tamarindo" — mismas columnas que
-  // VENTAS_SHEET_NOMBRE: Fecha, Hora, Location ID, Order ID, Producto,
-  // Categoría, Cantidad, Precio Unitario, Descuento, Total Línea).
+// ── TOP 10 por cada kiosko con Square propio (pestaña Ventas_Por_Producto
+// de su misma hoja — mismas columnas que VENTAS_SHEET_NOMBRE: Fecha, Hora,
+// Location ID, Order ID, Producto, Categoría, Cantidad, Precio Unitario,
+// Descuento, Total Línea). Hoy solo hay una tarjeta fija en el HTML
+// (#top-productos-tamarindo-body) — si se agrega un segundo kiosko con
+// Square propio, duplicar esa tarjeta en el HTML y este bloque.
+async function cargarTop10PorKioskoSquare() {
+  const cfg = SQUARE_KIOSKOS['Tamarindo'];
   const topBody = document.getElementById('top-productos-tamarindo-body');
+  if (!cfg || !topBody) return;
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${TAMARINDO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TAMARINDO_VENTAS_TAB)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
     const resp = await fetch(url);
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
@@ -987,17 +1104,109 @@ async function cargarVentasTamarindo() {
     });
 
     const top10 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    topBody.innerHTML = top10.length
-      ? top10.map(([nombre, monto], i) => `
-        <div class="prod-row">
-          <span class="prod-rank">${i + 1}</span>
-          <div class="prod-info"><div class="prod-nombre">${nombre}</div></div>
-          <span class="prod-monto">${fmtCRC(monto)}</span>
-        </div>`).join('')
-      : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>';
+    topBody.innerHTML = fmtTop10(top10);
   } catch (e) {
-    topBody.innerHTML = '<div class="no-alerts">No se pudo cargar el top de productos de Tamarindo.</div>';
+    topBody.innerHTML = fmtTop10(null);
   }
+}
+
+// ── VOLUMEN DE CERVEZA DE BARRIL (ONZAS) — por kiosko, con histórico por
+// día. Lee la misma pestaña Ventas_Por_Producto que el Top 10 de arriba
+// (ver VENTAS_KIOSKOS) y para cada línea decide si es cerveza de barril:
+//   - Playa Grande clasifica sus chorros con categoría "DRAFT".
+//   - Tamarindo no tiene esa categoría separada — ahí todo lo de "CERVEZAS"
+//     que NO diga "botella" en el nombre es de barril.
+// La cantidad de onzas se saca del nombre del producto (ej. "16 onz",
+// "16oz", "10 oz"). Si un producto de barril no trae onzas identificables
+// en el nombre (ej. "2x1 LAGER DRAFT"), esa línea se cuenta pero se avisa
+// aparte en vez de sumarla con un valor inventado.
+function esCervezaBarril(categoria, nombre) {
+  const cat = (categoria || '').toUpperCase();
+  const nom = (nombre || '').toUpperCase();
+  if (nom.includes('BOTELLA')) return false;
+  return cat === 'DRAFT' || cat.includes('CERVEZA');
+}
+
+function extraerOnzas(nombre) {
+  const m = (nombre || '').match(/(\d+(?:[.,]\d+)?)\s*(?:onz|oz)\b/i);
+  return m ? parseFloat(m[1].replace(',', '.')) : null;
+}
+
+const ML_POR_ONZA = 29.5735;
+
+async function cargarVolumenCervezaPorKiosko() {
+  const cont = document.getElementById('volumen-cerveza-body');
+  if (!cont) return;
+  const entradas = Object.entries(VENTAS_KIOSKOS);
+  if (!entradas.length) {
+    cont.innerHTML = '<div class="no-alerts">No hay kioskos con Square propio conectado todavía.</div>';
+    return;
+  }
+  const resultados = await Promise.all(
+    entradas.map(([nombre, cfg]) => obtenerVolumenCervezaKiosko(nombre, cfg))
+  );
+  cont.innerHTML = resultados.map(fmtVolumenCervezaCard).join('');
+}
+
+async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+
+    const ahora = new Date();
+    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
+
+    const porDia = {};
+    let sinOnzas = 0;
+
+    filas.forEach(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      if (!fecha) return;
+      const producto = (c[4] && c[4].v) || '';
+      const categoria = (c[5] && c[5].v) || '';
+      const cantidad = Number((c[6] && c[6].v) || 0);
+      if (!esCervezaBarril(categoria, producto)) return;
+      const onzasUnit = extraerOnzas(producto);
+      if (onzasUnit == null) { sinOnzas++; return; }
+      porDia[fecha] = (porDia[fecha] || 0) + onzasUnit * cantidad;
+    });
+
+    const historico = Object.entries(porDia).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    const hoy = porDia[hoyISO] || 0;
+
+    return { nombreKiosko, ok: true, hoy, historico, sinOnzas };
+  } catch (e) {
+    return { nombreKiosko, ok: false };
+  }
+}
+
+function fmtVolumenCervezaCard(r) {
+  if (!r.ok) {
+    return `<div class="volcerv-card">
+      <div class="volcerv-nombre">${r.nombreKiosko}</div>
+      <div class="no-alerts">No se pudo cargar el volumen de cerveza.</div>
+    </div>`;
+  }
+  const fmtOz = n => n.toLocaleString('es-CR', { maximumFractionDigits: 1 });
+  const litrosHoy = r.hoy * ML_POR_ONZA / 1000;
+  const filasHist = r.historico.slice(0, 14).map(([fecha, oz]) => `
+    <div class="volcerv-hist-row">
+      <span>${fecha}</span>
+      <span>${fmtOz(oz)} oz</span>
+    </div>`).join('');
+
+  return `<div class="volcerv-card">
+    <div class="volcerv-nombre">${r.nombreKiosko}</div>
+    <div class="volcerv-kpi">${fmtOz(r.hoy)} oz</div>
+    <div class="volcerv-kpi-sub">≈ ${fmtOz(litrosHoy)} L vendidos hoy</div>
+    ${r.sinOnzas ? `<div class="volcerv-warn">⚠ ${r.sinOnzas} línea(s) de barril sin onzas identificables en el nombre — no se sumaron.</div>` : ''}
+    <div class="volcerv-hist-title">Histórico por día</div>
+    ${filasHist || '<div class="no-alerts">Todavía no hay ventas de cerveza de barril.</div>'}
+  </div>`;
 }
 
 // ── INIT ──────────────────────────────────────────────────────
