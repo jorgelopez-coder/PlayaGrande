@@ -234,22 +234,26 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
         </div>
         <div class="field">
           <label for="f-tc">Tipo de cambio del día (₡ por $1)</label>
-          <input type="number" id="f-tc" placeholder="Ej: 520" min="1" step="0.01" oninput="actualizarResumen();calcCuadre()"/>
+          <input type="number" id="f-tc" placeholder="Ej: 520" min="1" step="0.01" oninput="calcCuadre()"/>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <p class="card-title">Evidencia fotográfica (opcional)</p>
-      <div class="field">
-        <label class="foto-label">Foto del cierre / arqueo</label>
-        <div class="foto-box" id="foto-box" onclick="document.getElementById('input-foto').click()">
-          <svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
-          <span class="foto-hint">Tocá para tomar o subir una foto de respaldo del cierre (opcional)</span>
+      <p class="card-title">Ventas SQUARE</p>
+      <div class="resumen-card" id="square-resumen" style="margin-top:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.75rem;flex-wrap:wrap">
+          <p class="resumen-title" style="margin-bottom:0">Resumen Square del día</p>
+          <button class="btn-secondary" id="btn-actualizar-square" onclick="actualizarResumenSquare()" style="padding:5px 10px;font-size:11px">↻ Actualizar resumen de cierre</button>
         </div>
-        <input type="file" id="input-foto" accept="image/*" capture="environment" style="display:none"/>
+        <div class="resumen-grid" id="square-resumen-grid"></div>
+        <div id="square-resumen-estado" style="font-size:12px;color:var(--muted)"></div>
       </div>
-      <div class="field" style="margin-top:1rem">
+    </div>
+
+    <div class="card">
+      <p class="card-title">Evidencia fotográfica — Cierre de Tarjeta</p>
+      <div class="field">
         <label class="foto-label">Foto del cierre de tarjeta (datáfono)</label>
         <div class="foto-box" id="foto-box-datafono" onclick="document.getElementById('input-foto-datafono').click()">
           <svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
@@ -261,61 +265,22 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
         <button class="btn-secondary" id="btn-extraer-ia" onclick="extraerConIA()" disabled style="width:100%">🪄 Extraer venta total, base y propina con IA</button>
         <div id="ia-resultado" style="display:none;margin-top:10px"></div>
       </div>
-    </div>
 
-    <div class="card">
-      <p class="card-title">Ventas SQUARE</p>
-
-      <div class="resumen-card" id="square-resumen" style="margin-top:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.75rem;flex-wrap:wrap">
-          <p class="resumen-title" style="margin-bottom:0">Resumen Square del día</p>
-          <button class="btn-secondary" id="btn-actualizar-square" onclick="actualizarResumenSquare()" style="padding:5px 10px;font-size:11px">↻ Actualizar resumen de cierre</button>
-        </div>
-        <div class="resumen-grid" id="square-resumen-grid"></div>
-        <div id="square-resumen-estado" style="font-size:12px;color:var(--muted)"></div>
-      </div>
-
-      <p class="denom-group-title" style="margin-top:1.25rem;margin-bottom:.75rem">Desglose manual por medio de pago (para cuadre de caja)</p>
-      <div class="field-row">
+      <div class="field-row-3" style="margin-top:1.25rem">
         <div class="field">
-          <label for="f-efectivo">Ventas en Efectivo (₡)</label>
-          <input type="number" id="f-efectivo" placeholder="0" min="0" oninput="actualizarResumen();calcCuadre()"/>
+          <label for="f-df-base">Total Base Ventas (₡)</label>
+          <input type="number" id="f-df-base" placeholder="0" min="0" oninput="calcCuadre()"/>
         </div>
         <div class="field">
-          <label for="f-tarjeta">Ventas con Tarjeta (₡)</label>
-          <input type="number" id="f-tarjeta" placeholder="0" min="0" oninput="actualizarResumen();calcRevisionTarjeta()"/>
+          <label for="f-df-propina">Propina (₡)</label>
+          <input type="number" id="f-df-propina" placeholder="0" min="0" oninput="calcCuadre()"/>
         </div>
         <div class="field">
-          <label for="f-sinpe">Transferencia / SINPE (₡)</label>
-          <input type="number" id="f-sinpe" placeholder="0" min="0" oninput="actualizarResumen()"/>
-        </div>
-        <div class="field">
-          <label for="f-otras">Otras Ventas (₡)</label>
-          <input type="number" id="f-otras" placeholder="0" min="0" oninput="actualizarResumen()"/>
+          <label for="f-df-total">Venta Total Datáfono (₡)</label>
+          <input type="number" id="f-df-total" placeholder="0" min="0" oninput="calcCuadre()"/>
         </div>
       </div>
-      <p style="font-size:11px;color:var(--muted);margin-top:-.5rem;margin-bottom:1rem">Si el cliente pagó en dólares en efectivo, convertí a colones con el tipo de cambio del día e incluilo en "Ventas en Efectivo".</p>
-
-      <div class="field-row">
-        <div class="field" style="max-width:260px">
-          <label for="f-datafono-total">Total procesado en datáfono (₡)</label>
-          <input type="number" id="f-datafono-total" placeholder="0" min="0" oninput="calcRevisionTarjeta()"/>
-        </div>
-        <div class="field" style="max-width:260px">
-          <label for="f-tips">Propinas / Tips del día (₡)</label>
-          <input type="number" id="f-tips" placeholder="0" min="0" oninput="actualizarResumen()"/>
-        </div>
-      </div>
-      <p style="font-size:11px;color:var(--muted);margin-top:-.5rem;margin-bottom:1rem">Propinas informativas — no se suman a "Total ventas" ni afectan el cuadre de caja.</p>
-
-      <div class="resumen-card" id="resumen-ventas">
-        <p class="resumen-title">Resumen de ventas</p>
-        <div class="resumen-grid" id="resumen-grid"></div>
-        <div class="resumen-total">
-          <span>Total ventas</span>
-          <span class="v" id="resumen-total">₡0</span>
-        </div>
-      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:-.5rem">La Base de Ventas se usa para el cuadre contra Ventas Netas Square. Venta Total = Base + Propina (según el cierre de lote del datáfono).</p>
     </div>
 
     <div class="submit-area">
@@ -386,43 +351,19 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
   <div class="paso" id="paso-3">
 
     <div class="card">
-      <p class="card-title">Revisión de Tarjeta</p>
+      <p class="card-title">Cuadre General</p>
       <div class="cuadre-card">
-        <div class="cuadre-row"><label>Tarjeta reportada</label><span class="val" id="rt-reportado">₡0</span></div>
-        <div class="cuadre-row"><label>Total datáfono</label><span class="val" id="rt-datafono">₡0</span></div>
+        <div class="cuadre-row"><label>Total contado en caja (₡ + USD≈₡)</label><span class="val" id="cg-contado">₡0</span></div>
+        <div class="cuadre-row"><label>Fondo de caja inicial</label><span class="val" id="cg-fondo">₡0</span></div>
+        <div class="cuadre-row"><label>Efectivo de ventas (contado − fondo)</label><span class="val" id="cg-efectivo">₡0</span></div>
+        <div class="cuadre-row"><label>Base de ventas (tarjeta, datáfono)</label><span class="val" id="cg-base">₡0</span></div>
+        <div class="cuadre-row"><label>Total declarado (Base + Efectivo)</label><span class="val" id="cg-declarado">₡0</span></div>
+        <div class="cuadre-row"><label>Ventas Netas Square</label><span class="val" id="cg-square">₡0</span></div>
         <div class="cuadre-total">
-          <span>Diferencia</span>
-          <span class="val" id="rt-diff">₡0</span>
+          <span>Diferencia (Declarado − Square)</span>
+          <span class="val" id="cg-diff">₡0</span>
         </div>
-        <div id="rt-badge" style="margin-top:10px"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <p class="card-title">Revisión de Efectivo</p>
-      <div class="cuadre-card">
-        <div class="cuadre-row"><label>Total en colones</label><span class="val" id="cuadre-total-crc">₡0</span></div>
-        <div class="cuadre-row"><label>Total en dólares (≈₡ al tipo de cambio)</label><span class="val" id="cuadre-total-usd">$0 (≈₡0)</span></div>
-        <div class="cuadre-row"><label>Total contado en caja</label><span class="val" id="cuadre-total">₡0</span></div>
-        <div class="cuadre-row"><label>Efectivo esperado (ventas + fondo)</label><span class="val" id="cuadre-esperado">₡0</span></div>
-        <div class="cuadre-total">
-          <span>Diferencia de caja (₡)</span>
-          <span class="val" id="cuadre-diff">₡0</span>
-        </div>
-        <div id="cuadre-badge" style="margin-top:10px"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <p class="card-title">Balance Final</p>
-      <div class="cuadre-card">
-        <div class="cuadre-row"><label>Diferencia Tarjeta</label><span class="val" id="bf-tarjeta">₡0</span></div>
-        <div class="cuadre-row"><label>Diferencia Efectivo</label><span class="val" id="bf-efectivo">₡0</span></div>
-        <div class="cuadre-total">
-          <span>Balance Final</span>
-          <span class="val" id="bf-total">₡0</span>
-        </div>
-        <div id="bf-badge" style="margin-top:10px"></div>
+        <div id="cg-badge" style="margin-top:10px"></div>
       </div>
     </div>
 
@@ -550,19 +491,7 @@ function alCambiarKiosko() {
 }
 
 // ── FOTOS DE RESPALDO ────────────────────────────────────────────
-const fotos = { sistema: null, datafono: null };
-
-async function handleFotoSelect(file) {
-  if (!file) return;
-  if (!file.type.startsWith('image/')) { showToast('Seleccioná una imagen válida', 'error'); return; }
-  try {
-    const { base64, mime } = await comprimirImagen(file);
-    fotos.sistema = { base64, mime, nombre: file.name };
-    renderFotoBox();
-  } catch (e) {
-    showToast('No se pudo procesar la imagen', 'error');
-  }
-}
+const fotos = { datafono: null };
 
 async function handleFotoSelectDatafono(file) {
   if (!file) return;
@@ -608,28 +537,9 @@ function actualizarBtnExtraer() {
   if (btn) btn.disabled = !fotos.datafono;
 }
 
-function fotoBoxPlaceholder() {
-  return `<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
-    <span class="foto-hint">Tocá para tomar o subir una foto de respaldo del cierre (opcional)</span>`;
-}
-
 function fotoBoxDatafonoPlaceholder() {
   return `<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
     <span class="foto-hint">Tocá para tomar o subir la foto del cierre de lote del datáfono</span>`;
-}
-
-function renderFotoBox() {
-  const box = document.getElementById('foto-box');
-  const f = fotos.sistema;
-  if (!f) {
-    box.classList.remove('has-img');
-    box.innerHTML = fotoBoxPlaceholder();
-    return;
-  }
-  box.classList.add('has-img');
-  box.innerHTML = `<img src="data:${f.mime};base64,${f.base64}" alt="Foto del cierre"/>
-    <button type="button" class="foto-remove" onclick="event.stopPropagation();quitarFoto()">✕</button>
-    <span class="foto-badge">✓ Cargada</span>`;
 }
 
 function renderFotoBoxDatafono() {
@@ -644,13 +554,6 @@ function renderFotoBoxDatafono() {
   box.innerHTML = `<img src="data:${f.mime};base64,${f.base64}" alt="Foto del cierre de tarjeta"/>
     <button type="button" class="foto-remove" onclick="event.stopPropagation();quitarFotoDatafono()">✕</button>
     <span class="foto-badge">✓ Cargada</span>`;
-}
-
-function quitarFoto() {
-  fotos.sistema = null;
-  const input = document.getElementById('input-foto');
-  if (input) input.value = '';
-  renderFotoBox();
 }
 
 function quitarFotoDatafono() {
@@ -700,15 +603,16 @@ function aplicarExtraccionIA(d) {
     const el = document.getElementById(id);
     if (el && typeof val === 'number') el.value = val || '';
   };
-  setIfNum('f-datafono-total', d.base);
-  setIfNum('f-tips', d.propina);
-  actualizarResumen(); calcCuadre(); calcRevisionTarjeta();
+  setIfNum('f-df-base', d.base);
+  setIfNum('f-df-propina', d.propina);
+  setIfNum('f-df-total', d.ventaTotal);
+  calcCuadre();
   const resultBox = document.getElementById('ia-resultado');
   resultBox.style.display = 'block';
   const fmt = v => v === null || v === undefined ? '—' : fmtCRC(v);
   resultBox.innerHTML = `<div class="ia-box ia-ok"><b>✓ Extraído</b><br/>
     Venta total: ${fmt(d.ventaTotal)} · Base: ${fmt(d.base)} · Propina: ${fmt(d.propina)}<br/>
-    Revisá los montos antes de guardar (se cargaron en "Total procesado en datáfono" y "Propinas").</div>`;
+    Revisá los montos antes de guardar.</div>`;
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
@@ -767,106 +671,13 @@ async function cargarEncargados() {
   }
 }
 
-// ── TOTALES ───────────────────────────────────────────────────────
-function getTotales() {
+// ── VENTA DE TARJETA (extraída del cierre de datáfono) ────────────
+function getVentaTarjeta() {
   const v = id => parseFloat(document.getElementById(id)?.value) || 0;
-  const efectivo = v('f-efectivo');
-  const tarjeta  = v('f-tarjeta');
-  const sinpe    = v('f-sinpe');
-  const otras    = v('f-otras');
-  const datafonoTotal = v('f-datafono-total');
-  const tips = v('f-tips');
-  const totalVentas = efectivo + tarjeta + sinpe + otras;
-  return {efectivo, tarjeta, sinpe, otras, datafonoTotal, tips, tc: getTC(), totalVentas};
+  return { base: v('f-df-base'), propina: v('f-df-propina'), total: v('f-df-total') };
 }
 
-function actualizarResumen() {
-  const t = getTotales();
-  const items = [
-    ['Efectivo ₡', t.efectivo],['Tarjeta ₡', t.tarjeta],
-    ['SINPE ₡', t.sinpe],['Otras ₡', t.otras],
-  ].filter(([,v]) => v > 0);
-
-  const grid = document.getElementById('resumen-grid');
-  grid.innerHTML = items.map(([lbl,val]) =>
-    `<div class="resumen-item"><span>${lbl}</span><span class="v">${fmtCRC(val)}</span></div>`
-  ).join('');
-  document.getElementById('resumen-total').textContent = fmtCRC(t.totalVentas);
-
-  let tipsEl = document.getElementById('resumen-tips');
-  const card = document.getElementById('resumen-ventas');
-  if (t.tips > 0) {
-    if (!tipsEl) {
-      tipsEl = document.createElement('div');
-      tipsEl.id = 'resumen-tips';
-      tipsEl.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding-top:6px;margin-top:6px;border-top:1px dashed var(--border)';
-      card.appendChild(tipsEl);
-    }
-    tipsEl.innerHTML = `<span>Propinas (no incluidas)</span><span class="v" style="font-family:var(--font-m);color:var(--text);font-weight:500">${fmtCRC(t.tips)}</span>`;
-  } else if (tipsEl) {
-    tipsEl.remove();
-  }
-  actualizarWhatsAppBtn();
-}
-
-function calcRevisionTarjeta() {
-  const tarjeta = parseFloat(document.getElementById('f-tarjeta')?.value) || 0;
-  const datafono = parseFloat(document.getElementById('f-datafono-total')?.value) || 0;
-  const diff = datafono - tarjeta;
-
-  document.getElementById('rt-reportado').textContent = fmtCRC(tarjeta);
-  document.getElementById('rt-datafono').textContent = fmtCRC(datafono);
-  const diffEl = document.getElementById('rt-diff');
-  diffEl.textContent = (diff >= 0 ? '+' : '') + fmtCRC(diff);
-  diffEl.className = 'val ' + (Math.abs(diff) <= 500 ? 'diff-ok' : 'diff-warn');
-
-  const badge = document.getElementById('rt-badge');
-  if (!datafono && !tarjeta) {
-    badge.innerHTML = '';
-  } else {
-    const cuadra = Math.abs(diff) <= 500;
-    badge.innerHTML = cuadra
-      ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
-      : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(diff))} (tolerancia ±₡500)</div>`;
-  }
-  actualizarBalanceFinal();
-  actualizarWhatsAppBtn();
-}
-
-function actualizarBalanceFinal() {
-  const bfTarjeta = document.getElementById('bf-tarjeta');
-  if (!bfTarjeta) return;
-  const tarjeta = parseFloat(document.getElementById('f-tarjeta')?.value) || 0;
-  const datafono = parseFloat(document.getElementById('f-datafono-total')?.value) || 0;
-  const diffTarjeta = datafono - tarjeta;
-
-  let totalCaja = 0;
-  DENOMS_CRC.forEach(d => { totalCaja += (parseInt(document.getElementById('d-'+d)?.value)||0) * d; });
-  let totalUsd = 0;
-  DENOMS_USD.forEach(({id,val}) => { totalUsd += (parseInt(document.getElementById('d-'+id)?.value)||0) * val; });
-  const tc = getTC();
-  const totalUsdEnColones = Math.round(totalUsd * tc);
-  const efectivo = parseFloat(document.getElementById('f-efectivo')?.value) || 0;
-  const fondo = parseFloat(document.getElementById('f-fondo')?.value) || 0;
-  const diffEfectivo = (totalCaja + totalUsdEnColones) - (efectivo + fondo);
-
-  const balance = diffTarjeta + diffEfectivo;
-
-  bfTarjeta.textContent = (diffTarjeta >= 0 ? '+' : '') + fmtCRC(diffTarjeta);
-  const bfEfectivoEl = document.getElementById('bf-efectivo');
-  bfEfectivoEl.textContent = (diffEfectivo >= 0 ? '+' : '') + fmtCRC(diffEfectivo);
-  bfEfectivoEl.className = 'val ' + (diffEfectivo >= 0 ? 'diff-ok' : 'diff-warn');
-  const totalEl = document.getElementById('bf-total');
-  totalEl.textContent = (balance >= 0 ? '+' : '') + fmtCRC(balance);
-  totalEl.className = 'val ' + (balance >= 0 ? 'diff-ok' : 'diff-warn');
-
-  const badge = document.getElementById('bf-badge');
-  const cuadra = Math.abs(balance) <= 500;
-  badge.innerHTML = cuadra
-    ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
-    : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(balance))} (tolerancia ±₡500)</div>`;
-}
-
+// ── CAJA (Paso 2: denominaciones) + CUADRE GENERAL (Paso 3) ───────
 function calcCuadre() {
   let total = 0;
   DENOMS_CRC.forEach(d => {
@@ -886,42 +697,64 @@ function calcCuadre() {
     if (el) el.textContent = '$' + sub;
   });
 
-  const efectivo = parseFloat(document.getElementById('f-efectivo')?.value) || 0;
-  const fondo    = parseFloat(document.getElementById('f-fondo')?.value) || 0;
   const tc = getTC();
   const totalUsdEnColones = Math.round(totalUsd * tc);
-  const totalContado = total + totalUsdEnColones;
-  const esperado = efectivo + fondo;
-  const diff     = totalContado - esperado;
-
-  document.getElementById('cuadre-total-crc').textContent = fmtCRC(total);
-  document.getElementById('cuadre-total-usd').textContent = '$' + totalUsd + (tc > 0 ? ` (≈${fmtCRC(totalUsdEnColones)})` : '');
-  document.getElementById('cuadre-total').textContent   = fmtCRC(totalContado);
-  document.getElementById('cuadre-esperado').textContent= fmtCRC(Math.max(0, esperado));
   const p2Crc = document.getElementById('p2-total-crc');
   const p2Usd = document.getElementById('p2-total-usd');
   if (p2Crc) p2Crc.textContent = fmtCRC(total);
   if (p2Usd) p2Usd.textContent = '$' + totalUsd;
 
-  const diffEl = document.getElementById('cuadre-diff');
-  diffEl.textContent = (diff >= 0 ? '+' : '') + fmtCRC(diff);
-  diffEl.className = 'val ' + (diff === 0 ? 'diff-ok' : Math.abs(diff) <= 500 ? 'diff-minor' : 'diff-warn');
-
-  const badge = document.getElementById('cuadre-badge');
-  if (efectivo || fondo || totalContado) {
-    const cuadra = Math.abs(diff) <= 500;
-    badge.innerHTML = cuadra
-      ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
-      : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(diff))} (tolerancia ±₡500)</div>`;
-  } else {
-    badge.innerHTML = '';
-  }
-
-  actualizarBalanceFinal();
+  actualizarCuadreGeneral();
   actualizarWhatsAppBtn();
 }
 
+// El cuadre general compara lo que Square reporta como Ventas Netas contra
+// lo declarado por el kiosko: Base de ventas (tarjeta, del cierre de
+// datáfono) + Efectivo de ventas (total contado en billetes/monedas menos el
+// Fondo de Caja Inicial, para no confundir el vuelto de apertura con ventas).
+function actualizarCuadreGeneral() {
+  const cgBase = document.getElementById('cg-base');
+  if (!cgBase) return;
+
+  let totalCaja = 0;
+  DENOMS_CRC.forEach(d => { totalCaja += (parseInt(document.getElementById('d-'+d)?.value)||0) * d; });
+  let totalUsd = 0;
+  DENOMS_USD.forEach(({id,val}) => { totalUsd += (parseInt(document.getElementById('d-'+id)?.value)||0) * val; });
+  const tc = getTC();
+  const totalUsdEnColones = Math.round(totalUsd * tc);
+  const totalContado = totalCaja + totalUsdEnColones;
+  const fondo = parseFloat(document.getElementById('f-fondo')?.value) || 0;
+  const efectivoVentas = totalContado - fondo;
+
+  const { base } = getVentaTarjeta();
+  const totalDeclarado = base + efectivoVentas;
+  const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
+  const diff = totalDeclarado - ventasNetasSquare;
+  const cuadra = Math.abs(diff) <= 500;
+
+  document.getElementById('cg-contado').textContent = fmtCRC(totalContado);
+  document.getElementById('cg-fondo').textContent = fmtCRC(fondo);
+  document.getElementById('cg-efectivo').textContent = fmtCRC(efectivoVentas);
+  document.getElementById('cg-base').textContent = fmtCRC(base);
+  document.getElementById('cg-declarado').textContent = fmtCRC(totalDeclarado);
+  document.getElementById('cg-square').textContent = fmtCRC(ventasNetasSquare);
+
+  const diffEl = document.getElementById('cg-diff');
+  diffEl.textContent = (diff >= 0 ? '+' : '') + fmtCRC(diff);
+  diffEl.className = 'val ' + (cuadra ? 'diff-ok' : 'diff-warn');
+
+  const badge = document.getElementById('cg-badge');
+  if (!base && !totalContado && !squareResumenActual) {
+    badge.innerHTML = '';
+  } else {
+    badge.innerHTML = cuadra
+      ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
+      : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(diff))} (tolerancia ±₡500)</div>`;
+  }
+}
+
 // ── VENTAS SQUARE (Resumen_Cierre_Diario) ─────────────────────────
+let squareResumenActual = null;
 async function cargarVentasSquare() {
   const kiosko = document.getElementById('f-kiosko').value;
   const fecha = document.getElementById('f-fecha').value;
@@ -965,28 +798,29 @@ async function actualizarResumenSquare() {
 }
 
 function renderVentasSquare(resumen, mensaje) {
+  squareResumenActual = resumen || null;
   const grid = document.getElementById('square-resumen-grid');
   const estado = document.getElementById('square-resumen-estado');
-  if (!grid || !estado) return;
-
-  if (mensaje) {
-    grid.innerHTML = '';
-    estado.textContent = mensaje;
-    estado.style.display = 'block';
-    return;
+  if (grid && estado) {
+    if (mensaje) {
+      grid.innerHTML = '';
+      estado.textContent = mensaje;
+      estado.style.display = 'block';
+    } else if (!resumen) {
+      grid.innerHTML = '';
+      estado.textContent = 'Sin datos de Square para este kiosko y fecha todavía.';
+      estado.style.display = 'block';
+    } else {
+      estado.style.display = 'none';
+      grid.innerHTML = `
+        <div class="resumen-item"><span>Ventas Brutas</span><span class="v">${fmtCRC(resumen.ventasBrutas)}</span></div>
+        <div class="resumen-item"><span>Descuentos y Cortesías</span><span class="v">${fmtCRC(resumen.descuentosCortesias)}</span></div>
+        <div class="resumen-item"><span>Ventas Netas</span><span class="v" style="color:var(--green);font-weight:700">${fmtCRC(resumen.ventasNetas)}</span></div>
+      `;
+    }
   }
-  if (!resumen) {
-    grid.innerHTML = '';
-    estado.textContent = 'Sin datos de Square para este kiosko y fecha todavía.';
-    estado.style.display = 'block';
-    return;
-  }
-  estado.style.display = 'none';
-  grid.innerHTML = `
-    <div class="resumen-item"><span>Ventas Brutas</span><span class="v">${fmtCRC(resumen.ventasBrutas)}</span></div>
-    <div class="resumen-item"><span>Descuentos y Cortesías</span><span class="v">${fmtCRC(resumen.descuentosCortesias)}</span></div>
-    <div class="resumen-item"><span>Ventas Netas</span><span class="v" style="color:var(--green);font-weight:700">${fmtCRC(resumen.ventasNetas)}</span></div>
-  `;
+  actualizarCuadreGeneral();
+  actualizarWhatsAppBtn();
 }
 
 // ── PASOS (WIZARD) ────────────────────────────────────────────────
@@ -995,7 +829,7 @@ function irPaso(n) {
   document.getElementById('paso-'+n).classList.add('active');
   document.querySelectorAll('.paso-nav-item').forEach(p => p.classList.remove('active'));
   document.getElementById('pnav-'+n).classList.add('active');
-  if (n == 3) { calcRevisionTarjeta(); calcCuadre(); }
+  if (n == 3) { calcCuadre(); }
   window.scrollTo(0, 0);
 }
 
@@ -1008,12 +842,20 @@ function irPaso1Siguiente() {
 }
 
 // ── PAYLOAD ───────────────────────────────────────────────────────
+// El modelo de datos del Sheet ("Cierres") mantiene sus columnas originales
+// (Efectivo/Tarjeta/SINPE/Otras/Total Datáfono/Caja Total Contada/Efectivo
+// Esperado/etc.), pero ahora se llenan con valores DERIVADOS del cierre de
+// tarjeta (foto + IA) y del conteo de caja, en vez de tipeo manual:
+//   tarjeta          = Base de ventas extraída del cierre de datáfono
+//   efectivo         = Total contado (₡ + USD≈₡) − Fondo de Caja Inicial
+//   cajaTotalContada = Base + Efectivo declarados (lo que el kiosko reporta)
+//   efectivoEsperado = Ventas Netas Square (lo que Square dice que se vendió)
+//   diferenciaCaja   = cajaTotalContada − efectivoEsperado → cuadre general
 function construirPayload() {
   const kiosko = document.getElementById('f-kiosko').value;
   const encargado = document.getElementById('f-encargado').value.trim();
-  const {efectivo,tarjeta,sinpe,otras,datafonoTotal,tips,tc,totalVentas} = getTotales();
-  const diferenciaTarjeta = datafonoTotal - tarjeta;
-  const tarjetaCuadra = Math.abs(diferenciaTarjeta) <= 500;
+  const tc = getTC();
+  const { base, propina, total: ventaTotalDatafono } = getVentaTarjeta();
   const fondo = parseFloat(document.getElementById('f-fondo').value) || 0;
   const obs   = document.getElementById('f-obs').value.trim();
   const fecha = document.getElementById('f-fecha').value || hoy();
@@ -1029,16 +871,27 @@ function construirPayload() {
   const usdCajaTotalContado = DENOMS_USD.reduce((s,{id,val}) => s+(parseInt(document.getElementById('d-'+id)?.value)||0)*val, 0);
   const usdCajaEnColones = Math.round(usdCajaTotalContado * tc);
   const cajaTotalConUsd = caja + usdCajaEnColones;
-  const diferenciaCaja = cajaTotalConUsd - (efectivo + fondo);
+  const efectivoVentas = cajaTotalConUsd - fondo;
+
+  const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
+  const totalDeclarado = base + efectivoVentas;
+  const diferenciaCaja = totalDeclarado - ventasNetasSquare;
   const cajaCuadra = Math.abs(diferenciaCaja) <= 500;
-  const balanceFinal = diferenciaTarjeta + diferenciaCaja;
-  const balanceCuadra = Math.abs(balanceFinal) <= 500;
+
+  // Chequeo interno de consistencia del recibo del datáfono (Base + Propina
+  // debería coincidir con la Venta Total extraída de la misma foto).
+  const diferenciaTarjeta = ventaTotalDatafono - (base + propina);
+  const tarjetaCuadra = Math.abs(diferenciaTarjeta) <= 500;
+
+  const totalVentas = base + efectivoVentas;
+  const balanceFinal = diferenciaCaja;
+  const balanceCuadra = cajaCuadra;
 
   return {
     id: Date.now(),
     fecha, hora: new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit'}),
     kiosko, encargado,
-    efectivo, tarjeta, sinpe, otras, totalVentas, tips,
+    efectivo: efectivoVentas, tarjeta: base, sinpe: 0, otras: 0, totalVentas, tips: propina,
     fondoCajaInicial: fondo,
     d50000: denomDetalle[50000]||0, d20000: denomDetalle[20000]||0,
     d10000: denomDetalle[10000]||0, d5000: denomDetalle[5000]||0,
@@ -1051,13 +904,11 @@ function construirPayload() {
     usdD20:  usdDenomDetalle.usd20||0,  usdD10: usdDenomDetalle.usd10||0,
     usdD5:   usdDenomDetalle.usd5||0,   usdD1:  usdDenomDetalle.usd1||0,
     usdCajaTotalContado,
-    cajaTotalContada: cajaTotalConUsd,
-    efectivoEsperado: efectivo + fondo,
+    cajaTotalContada: totalDeclarado,
+    efectivoEsperado: ventasNetasSquare,
     diferenciaCaja, cajaCuadra,
-    datafonoTotal, diferenciaTarjeta, tarjetaCuadra,
+    datafonoTotal: ventaTotalDatafono, diferenciaTarjeta, tarjetaCuadra,
     balanceFinal, balanceCuadra, obs,
-    fotoSistema: fotos.sistema ? fotos.sistema.base64 : '',
-    fotoSistemaMime: fotos.sistema ? fotos.sistema.mime : '',
     fotoDatafono: fotos.datafono ? fotos.datafono.base64 : '',
     fotoDatafonoMime: fotos.datafono ? fotos.datafono.mime : '',
   };
@@ -1094,31 +945,22 @@ const WA_NUMERO_DEFAULT = '';
 
 function buildWAMessage(r) {
   const fecha = new Date((r.fecha||hoy())+'T12:00:00').toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'});
-  const difCaja = r.diferenciaCaja || 0;
-  const efectivoCuadra = Math.abs(difCaja) <= 500;
-  const efectivoEmoji = efectivoCuadra ? '✅' : '⚠️';
-
-  const difTarjeta = r.diferenciaTarjeta || 0;
-  const tarjetaCuadra = !!r.tarjetaCuadra;
-  const tarjetaEmoji = tarjetaCuadra ? '✅' : '⚠️';
-  const tieneTarjetaRev = !!(r.datafonoTotal || r.tarjeta);
-
-  const balanceFinal = r.balanceFinal || 0;
-  const balanceCuadra = !!r.balanceCuadra;
-  const balanceEmoji = balanceCuadra ? '✅' : '⚠️';
+  const diff = r.diferenciaCaja || 0;
+  const cuadra = !!r.cajaCuadra;
+  const emoji = cuadra ? '✅' : '⚠️';
 
   return `📊 *Cierre de Caja*
 🏖️ Kiosko: ${r.kiosko || '—'}
 📅 Fecha: ${fecha}
 👤 Encargado: ${r.encargado || '—'}
 
-💰 *Ventas Totales: ₡${(r.totalVentas||0).toLocaleString('es-CR')}*
-• Efectivo: ₡${(r.efectivo||0).toLocaleString('es-CR')}
-• Tarjeta: ₡${(r.tarjeta||0).toLocaleString('es-CR')}${r.sinpe?`\n• SINPE: ₡${r.sinpe.toLocaleString('es-CR')}`:''}${r.otras?`\n• Otras: ₡${r.otras.toLocaleString('es-CR')}`:''}
+💰 *Ventas Netas Square: ₡${(r.efectivoEsperado||0).toLocaleString('es-CR')}*
+• Base tarjeta (datáfono): ₡${(r.tarjeta||0).toLocaleString('es-CR')}
+• Efectivo de ventas: ₡${(r.efectivo||0).toLocaleString('es-CR')}
+• Total declarado: ₡${(r.cajaTotalContada||0).toLocaleString('es-CR')}
 
-${tieneTarjetaRev ? `💳 *Revisión Tarjeta:* ${tarjetaEmoji} ${tarjetaCuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(difTarjeta).toLocaleString('es-CR')})\n` : ''}💵 *Revisión Efectivo:* ${efectivoEmoji} ${efectivoCuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(difCaja).toLocaleString('es-CR')})
-📊 *Balance Final:* ${balanceEmoji} ${balanceCuadra ? 'Cuadra' : 'No cuadra'} (₡${balanceFinal>=0?'+':''}${balanceFinal.toLocaleString('es-CR')})
-${r.tips?`\n💵 Propinas del día: ₡${r.tips.toLocaleString('es-CR')} (informativo)`:''}
+📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(diff).toLocaleString('es-CR')})
+${r.tips?`\n💵 Propina del día: ₡${r.tips.toLocaleString('es-CR')} (informativo)`:''}
 ${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}`;
 }
 
@@ -1291,43 +1133,24 @@ function toggleDetalle(i) {
 
 function renderDetalleCierre(r) {
   const item = (label, val) => `<div class="hist-detail-item"><span>${label}</span><span class="v">${val}</span></div>`;
-  const balanceFinal = (r.diferenciaTarjeta||0) + (r.diferenciaCaja||0);
-  const balanceCuadra = Math.abs(balanceFinal) <= 500;
   return `
     <div class="hist-detail-section">
       <div class="hist-detail-title">Ventas</div>
       <div class="hist-detail-grid">
-        ${item('Efectivo', fmtCRC(r.efectivo))}
-        ${item('Tarjeta', fmtCRC(r.tarjeta))}
-        ${item('SINPE', fmtCRC(r.sinpe))}
-        ${item('Otras', fmtCRC(r.otras))}
+        ${item('Base tarjeta (datáfono)', fmtCRC(r.tarjeta))}
+        ${item('Efectivo de ventas', fmtCRC(r.efectivo))}
+        ${item('Venta total datáfono', fmtCRC(r.datafonoTotal))}
         ${r.turno ? item('Turno', r.turno) : ''}
-        ${r.tips ? item('Propinas (informativo)', fmtCRC(r.tips)) : ''}
+        ${r.tips ? item('Propina (informativo)', fmtCRC(r.tips)) : ''}
       </div>
     </div>
     <div class="hist-detail-section">
-      <div class="hist-detail-title">Revisión de Tarjeta</div>
+      <div class="hist-detail-title">Cuadre General</div>
       <div class="hist-detail-grid">
-        ${item('Tarjeta reportada', fmtCRC(r.tarjeta))}
-        ${item('Total datáfono', fmtCRC(r.datafonoTotal))}
-        ${item('Diferencia', (r.diferenciaTarjeta>=0?'+':'')+fmtCRC(r.diferenciaTarjeta))}
-        ${item('Cuadra', r.tarjetaCuadra ? '✅ Sí' : '⚠️ No')}
-      </div>
-    </div>
-    <div class="hist-detail-section">
-      <div class="hist-detail-title">Revisión de Efectivo</div>
-      <div class="hist-detail-grid">
-        ${item('Caja contada', fmtCRC(r.cajaTotalContada))}
-        ${item('Efectivo esperado', fmtCRC(r.efectivoEsperado))}
+        ${item('Total declarado (Base + Efectivo)', fmtCRC(r.cajaTotalContada))}
+        ${item('Ventas Netas Square', fmtCRC(r.efectivoEsperado))}
         ${item('Diferencia', (r.diferenciaCaja>=0?'+':'')+fmtCRC(r.diferenciaCaja))}
         ${item('Cuadra', r.cajaCuadra ? '✅ Sí' : '⚠️ No')}
-      </div>
-    </div>
-    <div class="hist-detail-section">
-      <div class="hist-detail-title">Balance Final</div>
-      <div class="hist-detail-grid">
-        <div class="hist-detail-item"><span>Balance Final</span><span class="v" style="color:${balanceFinal>=0?'var(--green)':'var(--red)'}">${(balanceFinal>=0?'+':'')+fmtCRC(balanceFinal)}</span></div>
-        ${item('Cuadra', balanceCuadra ? '✅ Sí' : '⚠️ No')}
       </div>
     </div>
     ${r.obs ? `<div class="hist-detail-section"><div class="hist-detail-title">Observaciones</div><div style="color:var(--text)">${r.obs}</div></div>` : ''}
@@ -1341,7 +1164,7 @@ function renderDetalleCierre(r) {
 // ── LIMPIAR FORM ──────────────────────────────────────────────────
 function limpiarForm() {
   document.getElementById('f-obs').value = '';
-  ['f-efectivo','f-tarjeta','f-sinpe','f-otras','f-datafono-total','f-tips','f-tc','f-fondo'].forEach(id => {
+  ['f-df-base','f-df-propina','f-df-total','f-tc','f-fondo'].forEach(id => {
     const el=document.getElementById(id); if(el)el.value='';
   });
   document.getElementById('f-fecha').value = hoy();
@@ -1349,13 +1172,12 @@ function limpiarForm() {
   if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = 'Guardar cierre ✓'; }
   DENOMS_CRC.forEach(d => { const el=document.getElementById('d-'+d); if(el)el.value=''; });
   DENOMS_USD.forEach(({id}) => { const el=document.getElementById('d-'+id); if(el)el.value=''; });
-  calcCuadre(); actualizarResumen(); calcRevisionTarjeta();
-  quitarFoto();
   quitarFotoDatafono();
   document.getElementById('ia-resultado').style.display = 'none';
   irPaso(1);
   cargarEncargados();
   cargarVentasSquare();
+  calcCuadre();
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
@@ -1368,11 +1190,8 @@ document.getElementById('date-chip').textContent =
 document.getElementById('f-fecha').value = hoy();
 cargarKioskos();
 if (EXTRACTOR_URL) document.getElementById('ia-box-extractor').style.display = 'block';
-actualizarResumen();
-calcRevisionTarjeta();
 calcCuadre();
 cargarVentasSquare();
-document.getElementById('input-foto').addEventListener('change', e => handleFotoSelect(e.target.files[0]));
 document.getElementById('input-foto-datafono').addEventListener('change', e => handleFotoSelectDatafono(e.target.files[0]));
 
 </script>

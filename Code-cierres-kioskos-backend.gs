@@ -292,6 +292,17 @@ function hoyCR() {
   return Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
 }
 
+// Corré esta función UNA VEZ manualmente desde el editor (▶ con
+// "autorizarPermisos" seleccionada en el desplegable de arriba) para que
+// Apps Script pida el permiso "Conectarse a un servicio externo"
+// (script.external_request), necesario para que extraerDatosTarjetaConIA()
+// pueda llamar a la API de Claude. Sin este paso, el extractor con IA falla
+// con "No cuentas con el permiso para llamar a UrlFetchApp.fetch".
+function autorizarPermisos() {
+  UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', { method: 'post', muteHttpExceptions: true });
+  Logger.log('Permiso de conexión externa autorizado correctamente.');
+}
+
 // ── EXTRACCIÓN CON IA (foto del cierre de tarjeta / datáfono) ────
 // Recibe { fotoDatafono (base64), fotoDatafonoMime } y le pide a Claude
 // (Anthropic) que lea el comprobante de cierre de lote del datáfono y
