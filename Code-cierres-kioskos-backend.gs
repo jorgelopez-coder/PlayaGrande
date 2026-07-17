@@ -21,6 +21,11 @@
 // correr agregarEncabezados() de nuevo para que la fila de encabezados se
 // actualice sin tocar los datos ya guardados.
 
+// API key de Anthropic (Claude) para extraer datos del cierre de tarjeta por
+// foto. Configurala en Extensiones → Apps Script → Configuración del
+// proyecto (⚙️) → Propiedades del script → agregar ANTHROPIC_API_KEY.
+const ANTHROPIC_API_KEY = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+
 const HEADERS = [
   'ID', 'Fecha', 'Hora', 'Kiosko', 'Encargado', 'Turno',
   'Ventas Efectivo ₡', 'Ventas Tarjeta ₡', 'Ventas SINPE ₡', 'Otras Ventas ₡',
@@ -69,6 +74,10 @@ function doPost(e) {
 
     if (data.type === 'deposito') {
       return guardarDeposito(ss, data);
+    }
+
+    if (data.type === 'extraerIA') {
+      return extraerDatosTarjetaConIA(data);
     }
 
     let sheet = ss.getSheetByName('Cierres');
@@ -262,9 +271,11 @@ function getOrCreateCarpetaKiosko(kiosko) {
   return existing.hasNext() ? existing.next() : root.createFolder(nombre);
 }
 
-// Reemplazá este ID por el de tu carpeta "Cierres de caja - Kioskos" en Drive
-// (ver paso 6 en el comentario de arriba).
-const FOLDER_ID_CIERRES = 'TODO_FOLDER_ID_CIERRES_KIOSKOS';
+// Carpeta "Cierres de caja - Kioskos" en Drive (ver paso 6 en el comentario
+// de arriba). Adentro se crea una subcarpeta por kiosko y, dentro de esa,
+// una subcarpeta por fecha (yyyy-MM-dd) donde se guardan las fotos de cada
+// cierre.
+const FOLDER_ID_CIERRES = '1bx45Q9J16XTfFZ2QBlg9o3-ACGLynB_l';
 
 function getRootFolderFotos() {
   return DriveApp.getFolderById(FOLDER_ID_CIERRES);
@@ -279,4 +290,80 @@ function guardarImagenBase64(folder, base64, mimeType, fileName) {
 
 function hoyCR() {
   return Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
+}
+
+// ── EXTRACCIÓN CON IA (foto del cierre de tarjeta / datáfono) ────
+// Recibe { fotoDatafono (base64), fotoDatafonoMime } y le pide a Claude
+// (Anthropic) que lea el comprobante de cierre de lote del datáfono y
+// devuelva venta total, base y propina.
+function extraerDatosTarjetaConIA(data) {
+  try {
+    if (!ANTHROPIC_API_KEY) {
+      return jsonOut({ result: 'error', ok: false, error: 'Falta configurar ANTHROPIC_API_KEY en Propiedades del Script.' });
+    }
+    if (!data.fotoDatafono) {
+      return jsonOut({ result: 'error', ok: false, error: 'No se recibió ninguna foto.' });
+    }
+
+    const body = {
+      model: 'claude-sonnet-5',
+      max_tokens: 512,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: data.fotoDatafonoMime || 'image/jpeg',
+              data: data.fotoDatafono
+            }
+          },
+          {
+            type: 'text',
+            text: 'Esta es una foto del cierre de lote (batch closing) de un datáfono/POS de tarjeta en Costa Rica. '
+              + 'Extraé estos tres montos numéricos: venta total, base (monto de venta sin propina) y propina (tip). '
+              + 'Respondé ÚNICAMENTE con un objeto JSON válido, sin texto adicional, con este formato exacto: '
+              + '{"ventaTotal": <número o null>, "base": <número o null>, "propina": <número o null>}. '
+              + 'Usá punto decimal, sin símbolos de moneda ni separadores de miles.'
+          }
+        ]
+      }]
+    };
+
+    const resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
+    });
+
+    const result = JSON.parse(resp.getContentText());
+    if (result.error) {
+      return jsonOut({ result: 'error', ok: false, error: result.error.message || 'Error de la API de Claude' });
+    }
+
+    const textoRespuesta = (result.content || []).map(c => c.text || '').join('');
+    const match = textoRespuesta.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return jsonOut({ result: 'error', ok: false, error: 'La IA no devolvió datos reconocibles. Completá manualmente.' });
+    }
+    const extraido = JSON.parse(match[0]);
+
+    return jsonOut({
+      result: 'ok',
+      ok: true,
+      data: {
+        ventaTotal: extraido.ventaTotal === null || extraido.ventaTotal === undefined ? null : Number(extraido.ventaTotal),
+        base: extraido.base === null || extraido.base === undefined ? null : Number(extraido.base),
+        propina: extraido.propina === null || extraido.propina === undefined ? null : Number(extraido.propina)
+      }
+    });
+  } catch (err) {
+    return jsonOut({ result: 'error', ok: false, error: err.toString() });
+  }
 }

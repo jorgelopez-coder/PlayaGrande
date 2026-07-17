@@ -230,7 +230,7 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
         </div>
         <div class="field">
           <label for="f-fecha">Fecha de cierre <span class="req">*</span></label>
-          <input type="date" id="f-fecha"/>
+          <input type="date" id="f-fecha" oninput="cargarVentasSquare()"/>
         </div>
         <div class="field">
           <label for="f-tc">Tipo de cambio del día (₡ por $1)</label>
@@ -249,14 +249,33 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
         </div>
         <input type="file" id="input-foto" accept="image/*" capture="environment" style="display:none"/>
       </div>
+      <div class="field" style="margin-top:1rem">
+        <label class="foto-label">Foto del cierre de tarjeta (datáfono)</label>
+        <div class="foto-box" id="foto-box-datafono" onclick="document.getElementById('input-foto-datafono').click()">
+          <svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <span class="foto-hint">Tocá para tomar o subir la foto del cierre de lote del datáfono</span>
+        </div>
+        <input type="file" id="input-foto-datafono" accept="image/*" capture="environment" style="display:none"/>
+      </div>
       <div id="ia-box-extractor" style="display:none;margin-top:12px">
-        <button class="btn-secondary" id="btn-extraer-ia" onclick="extraerConIA()" disabled style="width:100%">🪄 Extraer datos con IA</button>
+        <button class="btn-secondary" id="btn-extraer-ia" onclick="extraerConIA()" disabled style="width:100%">🪄 Extraer venta total, base y propina con IA</button>
         <div id="ia-resultado" style="display:none;margin-top:10px"></div>
       </div>
     </div>
 
     <div class="card">
-      <p class="card-title">Ventas del día</p>
+      <p class="card-title">Ventas SQUARE</p>
+
+      <div class="resumen-card" id="square-resumen" style="margin-top:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.75rem;flex-wrap:wrap">
+          <p class="resumen-title" style="margin-bottom:0">Resumen Square del día</p>
+          <button class="btn-secondary" id="btn-actualizar-square" onclick="actualizarResumenSquare()" style="padding:5px 10px;font-size:11px">↻ Actualizar resumen de cierre</button>
+        </div>
+        <div class="resumen-grid" id="square-resumen-grid"></div>
+        <div id="square-resumen-estado" style="font-size:12px;color:var(--muted)"></div>
+      </div>
+
+      <p class="denom-group-title" style="margin-top:1.25rem;margin-bottom:.75rem">Desglose manual por medio de pago (para cuadre de caja)</p>
       <div class="field-row">
         <div class="field">
           <label for="f-efectivo">Ventas en Efectivo (₡)</label>
@@ -466,10 +485,14 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 // Pegá acá las URLs /exec de tus Web Apps de Apps Script (ver README.md).
 const SHEETS_URL       = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-// Opcional — solo si desplegás el extractor con IA (ver README.md). Si lo
-// dejás vacío, el botón "Extraer datos con IA" queda oculto y el formulario
-// funciona igual, 100% manual.
-const EXTRACTOR_URL    = '';
+// El extractor con IA vive en el MISMO Apps Script que SHEETS_URL (rama
+// data.type==='extraerIA' en Code-cierres-kioskos-backend.gs), así que usa
+// la misma URL — no hace falta un despliegue aparte.
+const EXTRACTOR_URL    = SHEETS_URL;
+// URL /exec del Web App de Square_Sync.gs (otro Apps Script, atado al Sheet
+// de Square). Pegá acá la URL una vez que lo despliegues como Aplicación
+// web. Si la dejás vacía, la sección "Ventas SQUARE" se muestra sin datos.
+const SQUARE_URL       = '';
 
 // Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
 // Sheet de RRHH (ver cargarKioskos()/configuracion.html). Este arreglo es
@@ -523,10 +546,11 @@ function alCambiarKiosko() {
   const kiosko = document.getElementById('f-kiosko').value;
   if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
   cargarEncargados();
+  cargarVentasSquare();
 }
 
 // ── FOTOS DE RESPALDO ────────────────────────────────────────────
-const fotos = { sistema: null };
+const fotos = { sistema: null, datafono: null };
 
 async function handleFotoSelect(file) {
   if (!file) return;
@@ -535,6 +559,18 @@ async function handleFotoSelect(file) {
     const { base64, mime } = await comprimirImagen(file);
     fotos.sistema = { base64, mime, nombre: file.name };
     renderFotoBox();
+  } catch (e) {
+    showToast('No se pudo procesar la imagen', 'error');
+  }
+}
+
+async function handleFotoSelectDatafono(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Seleccioná una imagen válida', 'error'); return; }
+  try {
+    const { base64, mime } = await comprimirImagen(file);
+    fotos.datafono = { base64, mime, nombre: file.name };
+    renderFotoBoxDatafono();
     actualizarBtnExtraer();
   } catch (e) {
     showToast('No se pudo procesar la imagen', 'error');
@@ -569,12 +605,17 @@ function comprimirImagen(file, maxDim = 1600, calidad = 0.82) {
 
 function actualizarBtnExtraer() {
   const btn = document.getElementById('btn-extraer-ia');
-  if (btn) btn.disabled = !fotos.sistema;
+  if (btn) btn.disabled = !fotos.datafono;
 }
 
 function fotoBoxPlaceholder() {
   return `<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
     <span class="foto-hint">Tocá para tomar o subir una foto de respaldo del cierre (opcional)</span>`;
+}
+
+function fotoBoxDatafonoPlaceholder() {
+  return `<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span class="foto-hint">Tocá para tomar o subir la foto del cierre de lote del datáfono</span>`;
 }
 
 function renderFotoBox() {
@@ -591,17 +632,39 @@ function renderFotoBox() {
     <span class="foto-badge">✓ Cargada</span>`;
 }
 
+function renderFotoBoxDatafono() {
+  const box = document.getElementById('foto-box-datafono');
+  const f = fotos.datafono;
+  if (!f) {
+    box.classList.remove('has-img');
+    box.innerHTML = fotoBoxDatafonoPlaceholder();
+    return;
+  }
+  box.classList.add('has-img');
+  box.innerHTML = `<img src="data:${f.mime};base64,${f.base64}" alt="Foto del cierre de tarjeta"/>
+    <button type="button" class="foto-remove" onclick="event.stopPropagation();quitarFotoDatafono()">✕</button>
+    <span class="foto-badge">✓ Cargada</span>`;
+}
+
 function quitarFoto() {
   fotos.sistema = null;
   const input = document.getElementById('input-foto');
   if (input) input.value = '';
   renderFotoBox();
-  actualizarBtnExtraer();
 }
 
-// ── EXTRACCIÓN CON IA (opcional) ─────────────────────────────────
+function quitarFotoDatafono() {
+  fotos.datafono = null;
+  const input = document.getElementById('input-foto-datafono');
+  if (input) input.value = '';
+  renderFotoBoxDatafono();
+  actualizarBtnExtraer();
+  document.getElementById('ia-resultado').style.display = 'none';
+}
+
+// ── EXTRACCIÓN CON IA (foto del cierre de tarjeta / datáfono) ────
 async function extraerConIA() {
-  if (!EXTRACTOR_URL || !fotos.sistema) return;
+  if (!EXTRACTOR_URL || !fotos.datafono) return;
   const btn = document.getElementById('btn-extraer-ia');
   const resultBox = document.getElementById('ia-resultado');
   btn.disabled = true;
@@ -613,7 +676,7 @@ async function extraerConIA() {
     const resp = await fetch(EXTRACTOR_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ fotoSistema: fotos.sistema.base64, fotoSistemaMime: fotos.sistema.mime })
+      body: JSON.stringify({ type: 'extraerIA', fotoDatafono: fotos.datafono.base64, fotoDatafonoMime: fotos.datafono.mime })
     });
     const raw = await resp.text();
     let json;
@@ -627,7 +690,7 @@ async function extraerConIA() {
     resultBox.innerHTML = `<div class="ia-box ia-error"><b>⚠️ No se pudo extraer</b><br/>${e.message} — completá los campos manualmente.</div>`;
     showToast('Error al extraer — completá manualmente', 'error');
   } finally {
-    btn.disabled = !fotos.sistema;
+    btn.disabled = !fotos.datafono;
     btn.textContent = textoOriginal;
   }
 }
@@ -637,16 +700,15 @@ function aplicarExtraccionIA(d) {
     const el = document.getElementById(id);
     if (el && typeof val === 'number') el.value = val || '';
   };
-  if (d.fecha && /^\d{4}-\d{2}-\d{2}$/.test(d.fecha)) document.getElementById('f-fecha').value = d.fecha;
-  setIfNum('f-efectivo', d.ventasEfectivo);
-  setIfNum('f-tarjeta', d.ventasTarjeta);
-  setIfNum('f-sinpe', d.ventasSinpe);
-  setIfNum('f-otras', d.ventasOtros);
-  setIfNum('f-datafono-total', d.datafonoTotalGlobal);
+  setIfNum('f-datafono-total', d.base);
+  setIfNum('f-tips', d.propina);
   actualizarResumen(); calcCuadre(); calcRevisionTarjeta();
   const resultBox = document.getElementById('ia-resultado');
   resultBox.style.display = 'block';
-  resultBox.innerHTML = `<div class="ia-box ia-ok"><b>✓ Extraído</b><br/>Revisá los montos antes de guardar.</div>`;
+  const fmt = v => v === null || v === undefined ? '—' : fmtCRC(v);
+  resultBox.innerHTML = `<div class="ia-box ia-ok"><b>✓ Extraído</b><br/>
+    Venta total: ${fmt(d.ventaTotal)} · Base: ${fmt(d.base)} · Propina: ${fmt(d.propina)}<br/>
+    Revisá los montos antes de guardar (se cargaron en "Total procesado en datáfono" y "Propinas").</div>`;
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
@@ -859,6 +921,74 @@ function calcCuadre() {
   actualizarWhatsAppBtn();
 }
 
+// ── VENTAS SQUARE (Resumen_Cierre_Diario) ─────────────────────────
+async function cargarVentasSquare() {
+  const kiosko = document.getElementById('f-kiosko').value;
+  const fecha = document.getElementById('f-fecha').value;
+  if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) {
+    renderVentasSquare(null, 'Configurá SQUARE_URL primero.');
+    return;
+  }
+  if (!kiosko || !fecha) {
+    renderVentasSquare(null, 'Seleccioná kiosko y fecha para ver Ventas SQUARE.');
+    return;
+  }
+  renderVentasSquare(null, 'Cargando…');
+  try {
+    const resp = await fetch(SQUARE_URL + '?action=resumenCierre&fecha=' + encodeURIComponent(fecha) + '&kiosko=' + encodeURIComponent(kiosko));
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    renderVentasSquare(data.resumen);
+  } catch (e) {
+    renderVentasSquare(null, 'No se pudo cargar Ventas SQUARE (' + e.message + ').');
+  }
+}
+
+async function actualizarResumenSquare() {
+  const btn = document.getElementById('btn-actualizar-square');
+  if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) { showToast('Configurá SQUARE_URL primero', 'error'); return; }
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Actualizando…';
+  try {
+    const resp = await fetch(SQUARE_URL + '?action=actualizarResumen');
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast(data.mensaje || 'Resumen de cierre actualizado');
+    await cargarVentasSquare();
+  } catch (e) {
+    showToast('Error al actualizar resumen (' + e.message + ')', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+function renderVentasSquare(resumen, mensaje) {
+  const grid = document.getElementById('square-resumen-grid');
+  const estado = document.getElementById('square-resumen-estado');
+  if (!grid || !estado) return;
+
+  if (mensaje) {
+    grid.innerHTML = '';
+    estado.textContent = mensaje;
+    estado.style.display = 'block';
+    return;
+  }
+  if (!resumen) {
+    grid.innerHTML = '';
+    estado.textContent = 'Sin datos de Square para este kiosko y fecha todavía.';
+    estado.style.display = 'block';
+    return;
+  }
+  estado.style.display = 'none';
+  grid.innerHTML = `
+    <div class="resumen-item"><span>Ventas Brutas</span><span class="v">${fmtCRC(resumen.ventasBrutas)}</span></div>
+    <div class="resumen-item"><span>Descuentos y Cortesías</span><span class="v">${fmtCRC(resumen.descuentosCortesias)}</span></div>
+    <div class="resumen-item"><span>Ventas Netas</span><span class="v" style="color:var(--green);font-weight:700">${fmtCRC(resumen.ventasNetas)}</span></div>
+  `;
+}
+
 // ── PASOS (WIZARD) ────────────────────────────────────────────────
 function irPaso(n) {
   document.querySelectorAll('.paso').forEach(p => p.classList.remove('active'));
@@ -928,6 +1058,8 @@ function construirPayload() {
     balanceFinal, balanceCuadra, obs,
     fotoSistema: fotos.sistema ? fotos.sistema.base64 : '',
     fotoSistemaMime: fotos.sistema ? fotos.sistema.mime : '',
+    fotoDatafono: fotos.datafono ? fotos.datafono.base64 : '',
+    fotoDatafonoMime: fotos.datafono ? fotos.datafono.mime : '',
   };
 }
 
@@ -1200,7 +1332,8 @@ function renderDetalleCierre(r) {
     </div>
     ${r.obs ? `<div class="hist-detail-section"><div class="hist-detail-title">Observaciones</div><div style="color:var(--text)">${r.obs}</div></div>` : ''}
     ${(r.fotoSistemaUrl||r.fotoDatafonoUrl) ? `<div class="hist-detail-section"><div class="hist-detail-title">Fotos</div><div class="hist-detail-fotos">
-      ${r.fotoSistemaUrl?`<a href="${r.fotoSistemaUrl}" target="_blank">📷 Foto</a>`:''}
+      ${r.fotoSistemaUrl?`<a href="${r.fotoSistemaUrl}" target="_blank">📷 Foto sistema</a>`:''}
+      ${r.fotoDatafonoUrl?`<a href="${r.fotoDatafonoUrl}" target="_blank">💳 Foto datáfono</a>`:''}
     </div></div>` : ''}
   `;
 }
@@ -1218,9 +1351,11 @@ function limpiarForm() {
   DENOMS_USD.forEach(({id}) => { const el=document.getElementById('d-'+id); if(el)el.value=''; });
   calcCuadre(); actualizarResumen(); calcRevisionTarjeta();
   quitarFoto();
+  quitarFotoDatafono();
   document.getElementById('ia-resultado').style.display = 'none';
   irPaso(1);
   cargarEncargados();
+  cargarVentasSquare();
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
@@ -1236,7 +1371,9 @@ if (EXTRACTOR_URL) document.getElementById('ia-box-extractor').style.display = '
 actualizarResumen();
 calcRevisionTarjeta();
 calcCuadre();
+cargarVentasSquare();
 document.getElementById('input-foto').addEventListener('change', e => handleFotoSelect(e.target.files[0]));
+document.getElementById('input-foto-datafono').addEventListener('change', e => handleFotoSelectDatafono(e.target.files[0]));
 
 </script>
 </body>
