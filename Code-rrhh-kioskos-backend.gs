@@ -92,7 +92,7 @@ const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa
 // Carpeta de Drive donde se guarda una copia del PDF al cerrar una semana de
 // horarios. Pegá acá el ID de una carpeta tuya (ver instrucciones arriba) —
 // mientras esté vacío, "Cerrar horario" va a fallar al generar el PDF.
-const FOLDER_ID_HORARIOS = 'TODO_FOLDER_ID_HORARIOS_KIOSKOS';
+const FOLDER_ID_HORARIOS = '1nK59bV-QSeip4f-L7cvG9QjVzYdL-CA2';
 
 // Carpeta de Drive donde se guarda la foto de cédula de cada colaborador
 // dado de alta desde rrhh-nuevo-ingreso.html (un archivo por persona,
