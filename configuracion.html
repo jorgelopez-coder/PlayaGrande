@@ -90,6 +90,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 
+.horario-dias{display:flex;flex-direction:column;gap:6px}
+.horario-dia{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-wrap:wrap}
+.horario-dia.cerrado{opacity:.65}
+.horario-dia-check{display:flex;align-items:center;gap:6px;width:100px;flex-shrink:0;font-size:13px;font-weight:500;cursor:pointer}
+.horario-dia-check input{width:auto;cursor:pointer}
+.horario-dia-horas{display:flex;align-items:center;gap:6px;flex:1;min-width:180px}
+.horario-dia-horas input[type=time]{width:auto;flex:1;min-width:0;padding:6px 8px;font-size:13px}
+.horario-dia-sep{color:var(--muted);font-size:12px}
+.horario-dia-copiar{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;flex-shrink:0;padding:2px}
+.horario-dia-copiar:hover{color:var(--text)}
+
+.horario-semanal-toggle{background:none;border:none;color:var(--blue);font-size:12px;font-weight:500;cursor:pointer;padding:4px 0;margin-top:6px}
+.horario-semanal-toggle:hover{opacity:.8}
+.horario-semanal{display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+.horario-semanal.open{display:block}
+.horario-semanal-row{display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted)}
+.horario-semanal-row.hoy{color:var(--text);font-weight:600}
+.horario-semanal-row .v{color:var(--text);font-weight:500}
+.horario-semanal-row.hoy .v{color:var(--green)}
+
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -163,10 +183,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <input type="text" id="f-whatsapp" placeholder="Ej: 8888-8888"/>
       </div>
       <div class="field">
-        <label for="f-horario">Horario</label>
-        <input type="text" id="f-horario" placeholder="Ej: Vie-Dom 4pm-11pm"/>
-      </div>
-      <div class="field">
         <label for="f-activo">Estado</label>
         <select id="f-activo">
           <option value="Sí">Activo</option>
@@ -174,6 +190,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </select>
       </div>
     </div>
+
+    <div class="field">
+      <label>Horario de atención</label>
+      <div class="horario-dias" id="horario-dias"></div>
+      <p class="field-hint">Marcá los días que abre el kiosko y definí su hora de apertura y cierre. Un día sin marcar queda como "Cerrado".</p>
+    </div>
+
     <div class="submit-area">
       <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
       <button class="btn-primary" id="btn-guardar" onclick="guardarKiosko()">Guardar kiosko ✓</button>
@@ -201,6 +224,102 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjG
 
 let kioskos = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
 let editando = null; // nombre original del kiosko en edición, o null si es nuevo
+
+// ── HORARIO POR DÍA ───────────────────────────────────────────────
+// Mismas abreviaturas que usa el backend (Configuracion) y horarios.html.
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const DIAS_NOMBRE = { Lun: 'Lunes', Mar: 'Martes', Mié: 'Miércoles', Jue: 'Jueves', Vie: 'Viernes', Sáb: 'Sábado', Dom: 'Domingo' };
+// Índice de DIAS_SEMANA que corresponde a "hoy", usado en el mapa y en la lista.
+function diaDeHoyIdx() { return (new Date().getDay() + 6) % 7; } // getDay(): 0=Dom..6=Sáb → 0=Lun..6=Dom
+
+function construirFilasHorario() {
+  const cont = document.getElementById('horario-dias');
+  cont.innerHTML = DIAS_SEMANA.map(d => `
+    <div class="horario-dia cerrado" id="hd-${d}">
+      <label class="horario-dia-check">
+        <input type="checkbox" id="hd-check-${d}" onchange="toggleDiaHorario('${d}')"/> ${DIAS_NOMBRE[d]}
+      </label>
+      <div class="horario-dia-horas">
+        <input type="time" id="hd-abre-${d}" disabled/>
+        <span class="horario-dia-sep">–</span>
+        <input type="time" id="hd-cierra-${d}" disabled/>
+      </div>
+      <button type="button" class="horario-dia-copiar" onclick="copiarHorarioATodos('${d}')">Copiar a todos</button>
+    </div>`).join('');
+}
+
+function toggleDiaHorario(d) {
+  const abierto = document.getElementById('hd-check-' + d).checked;
+  document.getElementById('hd-abre-' + d).disabled = !abierto;
+  document.getElementById('hd-cierra-' + d).disabled = !abierto;
+  document.getElementById('hd-' + d).classList.toggle('cerrado', !abierto);
+}
+
+function copiarHorarioATodos(dOrigen) {
+  const abierto = document.getElementById('hd-check-' + dOrigen).checked;
+  const abre = document.getElementById('hd-abre-' + dOrigen).value;
+  const cierra = document.getElementById('hd-cierra-' + dOrigen).value;
+  if (!abierto || !abre || !cierra) { showToast('Definí la hora de este día antes de copiarla', 'error'); return; }
+  DIAS_SEMANA.forEach(d => {
+    document.getElementById('hd-check-' + d).checked = true;
+    document.getElementById('hd-abre-' + d).value = abre;
+    document.getElementById('hd-cierra-' + d).value = cierra;
+    document.getElementById('hd-abre-' + d).disabled = false;
+    document.getElementById('hd-cierra-' + d).disabled = false;
+    document.getElementById('hd-' + d).classList.remove('cerrado');
+  });
+  showToast('Horario copiado a todos los días ✓');
+}
+
+// Carga el formulario con un objeto {Lun:'HH:MM-HH:MM'|'', ...}. Vacío = cerrado.
+function setHorarioForm(horarios) {
+  DIAS_SEMANA.forEach(d => {
+    const val = (horarios && horarios[d]) || '';
+    const [abre, cierra] = val.split('-');
+    const abierto = !!(abre && cierra);
+    document.getElementById('hd-check-' + d).checked = abierto;
+    document.getElementById('hd-abre-' + d).value = abre || '';
+    document.getElementById('hd-cierra-' + d).value = cierra || '';
+    document.getElementById('hd-abre-' + d).disabled = !abierto;
+    document.getElementById('hd-cierra-' + d).disabled = !abierto;
+    document.getElementById('hd-' + d).classList.toggle('cerrado', !abierto);
+  });
+}
+
+// Devuelve el formulario como {Lun:'HH:MM-HH:MM'|'', ...} para mandar al backend.
+function leerHorarioForm() {
+  const horarios = {};
+  DIAS_SEMANA.forEach(d => {
+    const abierto = document.getElementById('hd-check-' + d).checked;
+    const abre = document.getElementById('hd-abre-' + d).value;
+    const cierra = document.getElementById('hd-cierra-' + d).value;
+    horarios[d] = (abierto && abre && cierra) ? (abre + '-' + cierra) : '';
+  });
+  return horarios;
+}
+
+// Extrae {Lun:'HH:MM-HH:MM', ...} de un registro tal cual viene del Sheet.
+function horariosDeRegistro(k) {
+  const h = {};
+  DIAS_SEMANA.forEach(d => { h[d] = (k['Horario ' + d] || '').toString().trim(); });
+  return h;
+}
+
+// "16:00" → "4:00 pm"
+function fmtHora(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12 = ((h + 11) % 12) + 1;
+  return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+// "16:00-23:00" → "4:00 pm – 11:00 pm"; vacío → "Cerrado"
+function fmtRangoHorario(val) {
+  if (!val) return 'Cerrado';
+  const [abre, cierra] = val.split('-');
+  if (!abre || !cierra) return 'Cerrado';
+  return fmtHora(abre) + ' – ' + fmtHora(cierra);
+}
 
 // ── MAPA ──────────────────────────────────────────────────────────
 // Guanacaste (donde están los 4 kioskos originales) como vista inicial.
@@ -272,10 +391,13 @@ async function renderMapa() {
 
     const nombre = k['Kiosko'] || '';
     const activo = String(k['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    const horarios = horariosDeRegistro(k);
+    const tieneHorario = DIAS_SEMANA.some(d => horarios[d]);
+    const horarioHoy = tieneHorario ? fmtRangoHorario(horarios[DIAS_SEMANA[diaDeHoyIdx()]]) : '';
     const popup = `<b>${nombre}</b>${activo ? '' : ' <span style="color:#c84a20">(inactivo)</span>'}<br>`
       + (k['Encargado'] ? `Encargado: ${k['Encargado']}<br>` : '')
       + (k['Contacto'] ? `${k['Contacto']}<br>` : '')
-      + (k['Horario'] ? `${k['Horario']}<br>` : '')
+      + (tieneHorario ? `Hoy: ${horarioHoy}<br>` : '')
       + `<a href="${linkGoogleMaps(ubicacion)}" target="_blank" rel="noopener">Abrir en Google Maps ↗</a>`;
 
     L.marker([coords.lat, coords.lng]).addTo(marcadoresLayer).bindPopup(popup);
@@ -326,17 +448,21 @@ function renderLista() {
     return;
   }
 
-  lista.innerHTML = kioskos.map(k => {
+  const hoyIdx = diaDeHoyIdx();
+
+  lista.innerHTML = kioskos.map((k, i) => {
     const nombre = k['Kiosko'] || '';
     const activo = String(k['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
     const ubicacion = k['Ubicación'] || '';
     const encargado = k['Encargado'] || '';
     const contacto = k['Contacto'] || '';
     const whatsapp = k['WhatsApp'] || '';
-    const horario = k['Horario'] || '';
-    const tieneDetalle = ubicacion || encargado || contacto || whatsapp || horario;
+    const horarios = horariosDeRegistro(k);
+    const tieneHorario = DIAS_SEMANA.some(d => horarios[d]);
+    const tieneDetalle = ubicacion || encargado || contacto || whatsapp || tieneHorario;
 
     const linkMaps = linkGoogleMaps(ubicacion);
+    const horarioHoy = tieneHorario ? fmtRangoHorario(horarios[DIAS_SEMANA[hoyIdx]]) : '';
 
     return `
     <div class="kiosko-card ${activo ? '' : 'inactive'}">
@@ -356,10 +482,26 @@ function renderLista() {
         ${encargado ? `<div class="kc-detail-item"><span>Encargado</span><span class="v">${encargado}</span></div>` : ''}
         ${contacto ? `<div class="kc-detail-item"><span>Contacto</span><span class="v">${contacto}</span></div>` : ''}
         ${whatsapp ? `<div class="kc-detail-item"><span>WhatsApp</span><span class="v">${whatsapp}</span></div>` : ''}
-        ${horario ? `<div class="kc-detail-item"><span>Horario</span><span class="v">${horario}</span></div>` : ''}
+        ${tieneHorario ? `<div class="kc-detail-item"><span>Hoy</span><span class="v">${horarioHoy}</span></div>` : ''}
       </div>` : '<div class="kc-empty">Sin información general cargada todavía.</div>'}
+      ${tieneHorario ? `
+      <button type="button" class="horario-semanal-toggle" onclick="toggleHorarioSemanal(${i})">▾ Ver horario semanal</button>
+      <div class="horario-semanal" id="hs-${i}">
+        ${DIAS_SEMANA.map((d, di) => `
+          <div class="horario-semanal-row ${di === hoyIdx ? 'hoy' : ''}">
+            <span>${DIAS_NOMBRE[d]}</span>
+            <span class="v">${fmtRangoHorario(horarios[d])}</span>
+          </div>`).join('')}
+      </div>` : ''}
     </div>`;
   }).join('');
+}
+
+function toggleHorarioSemanal(i) {
+  const el = document.getElementById('hs-' + i);
+  const btn = el.previousElementSibling;
+  const open = el.classList.toggle('open');
+  btn.textContent = (open ? '▴ Ocultar' : '▾ Ver') + ' horario semanal';
 }
 
 // ── FORMULARIO (agregar / editar) ────────────────────────────────
@@ -371,8 +513,8 @@ function abrirForm() {
   document.getElementById('f-encargado').value = '';
   document.getElementById('f-contacto').value = '';
   document.getElementById('f-whatsapp').value = '';
-  document.getElementById('f-horario').value = '';
   document.getElementById('f-activo').value = 'Sí';
+  setHorarioForm({});
   document.getElementById('form-card').classList.add('open');
   document.getElementById('f-nombre').focus();
   window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
@@ -388,8 +530,8 @@ function editarKiosko(nombre) {
   document.getElementById('f-encargado').value = k['Encargado'] || '';
   document.getElementById('f-contacto').value = k['Contacto'] || '';
   document.getElementById('f-whatsapp').value = k['WhatsApp'] || '';
-  document.getElementById('f-horario').value = k['Horario'] || '';
   document.getElementById('f-activo').value = String(k['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
+  setHorarioForm(horariosDeRegistro(k));
   document.getElementById('form-card').classList.add('open');
   window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
 }
@@ -411,7 +553,7 @@ async function guardarKiosko() {
     encargado: document.getElementById('f-encargado').value.trim(),
     contacto: document.getElementById('f-contacto').value.trim(),
     whatsapp: document.getElementById('f-whatsapp').value.trim(),
-    horario: document.getElementById('f-horario').value.trim(),
+    horarios: leerHorarioForm(),
     activo: document.getElementById('f-activo').value,
     registrado_en: new Date().toISOString()
   };
@@ -468,6 +610,7 @@ function showToast(msg, type='success') {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
+construirFilasHorario();
 cargarKioskos();
 
 // Redirige a login si no hay sesión válida (8 horas) — mismo patrón que index.html.

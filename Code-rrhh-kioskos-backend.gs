@@ -69,14 +69,22 @@ const ENCABEZADOS_HORARIOS = [
 const ENCABEZADOS_HORARIOS_ESTADO = [
   'Semana inicio', 'Cerrado', 'Actualizado', 'PDF URL'
 ];
+// Mismas abreviaturas que ENCABEZADOS_HORARIOS/horarios.html, para que el
+// horario de atención del kiosko (Configuracion) use el mismo criterio de
+// día que los turnos del equipo (Horarios).
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const ENCABEZADOS_HORARIO_KIOSKO = DIAS_SEMANA.map(function (d) { return 'Horario ' + d; });
+
 // Configuración inicial: acá vive la lista de kioskos y su info general —
 // única fuente de verdad, la consumen cierres.html, rrhh.html,
 // rrhh-nuevo-ingreso.html, rrhh-personal.html y horarios.html vía
 // ?modulo=kioskos, en vez de tener un arreglo hardcodeado y duplicado en
-// cada archivo.
+// cada archivo. El horario de atención va desplegado por día (una columna
+// por día, valor "HH:MM-HH:MM" o vacío/"Cerrado") en vez de un solo campo
+// de texto libre.
 const ENCABEZADOS_CONFIGURACION = [
-  'Kiosko', 'Activo', 'Ubicación', 'Encargado', 'Contacto', 'WhatsApp', 'Horario', 'Registrado'
-];
+  'Kiosko', 'Activo', 'Ubicación', 'Encargado', 'Contacto', 'WhatsApp'
+].concat(ENCABEZADOS_HORARIO_KIOSKO).concat(['Registrado']);
 // Kioskos con los que arranca el sistema — solo se usan para sembrar la
 // pestaña "Configuracion" la primera vez (si ya tiene filas, no se tocan).
 const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -118,16 +126,17 @@ function sembrarConfiguracion() {
   const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
   if (hoja.getLastRow() > 1) return;
   KIOSKOS_POR_DEFECTO.forEach(function (nombre) {
-    agregarFilaPorEncabezado(hoja, ENCABEZADOS_CONFIGURACION, {
+    const valores = {
       'Kiosko': nombre,
       'Activo': 'Sí',
       'Ubicación': '',
       'Encargado': '',
       'Contacto': '',
       'WhatsApp': '',
-      'Horario': '',
       'Registrado': new Date().toISOString()
-    });
+    };
+    ENCABEZADOS_HORARIO_KIOSKO.forEach(function (h) { valores[h] = ''; });
+    agregarFilaPorEncabezado(hoja, ENCABEZADOS_CONFIGURACION, valores);
   });
 }
 
@@ -159,6 +168,9 @@ function prepararHoja(nombre, encabezados) {
   const COLUMNAS_TEXTO_POR_HOJA = {};
   COLUMNAS_TEXTO_POR_HOJA[HOJA_HORARIOS] = ['Semana inicio', 'Fecha', 'Hora entrada', 'Hora salida'];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_HORARIOS_ESTADO] = ['Semana inicio'];
+  // "Horario Lun".."Horario Dom" guardan "HH:MM-HH:MM" (o vacío/"Cerrado"),
+  // no una hora de reloj real — forzar texto para que Sheets no autoconvierta.
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_CONFIGURACION] = ENCABEZADOS_HORARIO_KIOSKO;
   (COLUMNAS_TEXTO_POR_HOJA[nombre] || []).forEach(function (col) {
     const idx = encabezados.indexOf(col) + 1;
     if (idx > 0) hoja.getRange(2, idx, Math.max(hoja.getMaxRows() - 1, 1), 1).setNumberFormat('@');
@@ -744,9 +756,12 @@ function guardarKiosko(p) {
     'Encargado': p.encargado || '',
     'Contacto': p.contacto || '',
     'WhatsApp': p.whatsapp || '',
-    'Horario': p.horario || '',
     'Registrado': p.registrado_en || new Date().toISOString()
   };
+  // p.horarios: { Lun: 'HH:MM-HH:MM', Mar: '', ... } — un día cerrado o sin
+  // definir se guarda vacío. configuracion.html siempre manda los 7 días.
+  const horarios = p.horarios || {};
+  DIAS_SEMANA.forEach(function (d) { valores['Horario ' + d] = horarios[d] || ''; });
 
   if (filaExistente !== -1) {
     escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_CONFIGURACION, valores);
