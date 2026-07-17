@@ -419,22 +419,22 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
-  <!-- Top 10 productos vendidos hoy, por fuente de Square -->
+  <!-- Top 10 productos vendidos hoy, por kiosko con Square propio -->
   <div class="grid-2col" style="margin-bottom:1.5rem;">
     <div class="section-card">
       <div class="section-head">
-        <span class="section-title"><span class="clip"></span>Top 10 — Tamarindo</span>
+        <span class="section-title"><span class="clip"></span>Top 10 — Playa Grande</span>
+        <span id="top10-playagrande-sub" style="font-size:11px;color:var(--muted);"></span>
       </div>
-      <div id="top-productos-tamarindo-body">
+      <div id="top-productos-playagrande-body">
         <div class="no-alerts"><span class="spinner"></span></div>
       </div>
     </div>
     <div class="section-card">
       <div class="section-head">
-        <span class="section-title"><span class="clip"></span>Top 10 — Agregado (Square, sin desglose)</span>
-        <span id="top10-agregado-sub" style="font-size:11px;color:var(--muted);"></span>
+        <span class="section-title"><span class="clip"></span>Top 10 — Tamarindo</span>
       </div>
-      <div id="top-productos-body">
+      <div id="top-productos-tamarindo-body">
         <div class="no-alerts"><span class="spinner"></span></div>
       </div>
     </div>
@@ -553,37 +553,26 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 // horarios.html (ver README.md).
 const APPS_SCRIPT_URL     = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 const SHEETS_URL_CIERRES  = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
-// Hoja pública "Lector Square" (Square POS) — pestaña Ventas_Por_Producto, leída vía gviz sin backend.
-const VENTAS_SHEET_ID     = '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA';
-const VENTAS_SHEET_NOMBRE = 'Ventas_Por_Producto';
 // Hojas "Square - <kiosko>" propias de cada kiosko (ver nota en README sobre
 // copiar sheet+script de Square por kiosko: se edita el Location ID y el
-// nombre del kiosko, el resto queda igual). Cada una trae dos pestañas:
-// Resumen_Cierre_Diario (Fecha · Location ID · Ventas Brutas · Descuentos y
-// Cortesías · Ventas Netas) y Ventas_Por_Producto (mismo formato que
-// VENTAS_SHEET_NOMBRE), ambas leídas vía gviz sin backend. Para sumar otro
-// kiosko con su propio Square, agregar acá una entrada con el mismo patrón —
-// el nombre debe coincidir con el de Configuración → Kioskos una vez que se
-// dé de alta ahí (mientras tanto aparece en el comparativo marcado "Nuevo").
+// nombre del kiosko, el resto queda igual). Cada una trae varias pestañas,
+// entre ellas Resumen_Cierre_Diario (Fecha · Location ID · Ventas Brutas ·
+// Descuentos y Cortesías · Ventas Netas) y Ventas_Por_Producto, ambas
+// leídas vía gviz sin backend. Para sumar otro kiosko con su propio Square,
+// agregar acá una entrada con el mismo patrón — el nombre debe coincidir
+// con el de Configuración → Kioskos una vez que se dé de alta ahí (mientras
+// tanto aparece en el comparativo marcado "Nuevo").
 const SQUARE_KIOSKOS = {
+  'Playa Grande': {
+    sheetId: '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  },
   'Tamarindo': {
     sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
     resumenTab: 'Resumen_Cierre_Diario',
     ventasTab: 'Ventas_Por_Producto'
   }
-};
-
-// Kioskos con hoja de Square propia y pestaña Ventas_Por_Producto, usados
-// para el indicador de volumen de cerveza de barril más abajo. Separado de
-// SQUARE_KIOSKOS porque ese objeto también exige una pestaña
-// Resumen_Cierre_Diario (para el comparativo de "Ventas hoy") que Playa
-// Grande todavía no tiene — pero sí tiene Ventas_Por_Producto (es la misma
-// hoja "Lector Square" de VENTAS_SHEET_ID). Para sumar otro kiosko acá
-// (Liberia, Nosara, Playa Hermosa) agregar una entrada con el mismo patrón
-// una vez que tenga su propio Square conectado.
-const VENTAS_KIOSKOS = {
-  'Playa Grande': { sheetId: VENTAS_SHEET_ID, ventasTab: VENTAS_SHEET_NOMBRE },
-  'Tamarindo': { sheetId: SQUARE_KIOSKOS['Tamarindo'].sheetId, ventasTab: SQUARE_KIOSKOS['Tamarindo'].ventasTab }
 };
 
 // Respaldo si todavía no hay conexión con Configuración.
@@ -811,13 +800,12 @@ async function cargarKPIs() {
     document.getElementById('efectivo-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar el efectivo pendiente.</div>';
   }
 
-  // 4. TOP 10 PRODUCTOS — agregado (hoja Ventas_Por_Producto, todos los
-  //    kioskos sin desglose) y por cada kiosko con Square propio.
-  await cargarVentasHoy();
-  await cargarTop10PorKioskoSquare();
+  // 4. TOP 10 PRODUCTOS — por cada kiosko con Square propio.
+  await cargarTop10PlayaGrande();
+  await cargarTop10Tamarindo();
 
   // 5. VOLUMEN DE CERVEZA DE BARRIL (onzas) — hoy + histórico por día,
-  //    por cada kiosko con Square propio (ver VENTAS_KIOSKOS).
+  //    por cada kiosko con Square propio (ver SQUARE_KIOSKOS).
   await cargarVolumenCervezaPorKiosko();
 
   document.getElementById('status-dot').className = 'sdot';
@@ -1033,14 +1021,14 @@ function fmtTop10(top10) {
       : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>');
 }
 
-// ── TOP 10 AGREGADO (hoja pública "Lector Square", Ventas_Por_Producto —
-// todos los kioskos mezclados, hasta que Square reporte el kiosko de cada
-// línea) ──
-async function cargarVentasHoy() {
-  const subEl = document.getElementById('top10-agregado-sub');
-  const topBody = document.getElementById('top-productos-body');
+// ── TOP 10 — PLAYA GRANDE (hoja "Square - Playa Grande", Ventas_Por_Producto) ──
+async function cargarTop10PlayaGrande() {
+  const cfg = SQUARE_KIOSKOS['Playa Grande'];
+  const subEl = document.getElementById('top10-playagrande-sub');
+  const topBody = document.getElementById('top-productos-playagrande-body');
+  if (!cfg || !topBody) return;
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${VENTAS_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(VENTAS_SHEET_NOMBRE)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
     const resp = await fetch(url);
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
@@ -1073,13 +1061,12 @@ async function cargarVentasHoy() {
   }
 }
 
-// ── TOP 10 por cada kiosko con Square propio (pestaña Ventas_Por_Producto
-// de su misma hoja — mismas columnas que VENTAS_SHEET_NOMBRE: Fecha, Hora,
-// Location ID, Order ID, Producto, Categoría, Cantidad, Precio Unitario,
-// Descuento, Total Línea). Hoy solo hay una tarjeta fija en el HTML
-// (#top-productos-tamarindo-body) — si se agrega un segundo kiosko con
-// Square propio, duplicar esa tarjeta en el HTML y este bloque.
-async function cargarTop10PorKioskoSquare() {
+// ── TOP 10 — TAMARINDO (pestaña Ventas_Por_Producto de su misma hoja —
+// mismas columnas que la de Playa Grande: Fecha, Hora, Location ID, Order
+// ID, Producto, Categoría, Cantidad, Precio Unitario, Descuento, Total
+// Línea). Si se agrega un tercer kiosko con Square propio, duplicar esta
+// función + su tarjeta en el HTML (#top-productos-<kiosko>-body).
+async function cargarTop10Tamarindo() {
   const cfg = SQUARE_KIOSKOS['Tamarindo'];
   const topBody = document.getElementById('top-productos-tamarindo-body');
   if (!cfg || !topBody) return;
@@ -1112,7 +1099,7 @@ async function cargarTop10PorKioskoSquare() {
 
 // ── VOLUMEN DE CERVEZA DE BARRIL (ONZAS) — por kiosko, con histórico por
 // día. Lee la misma pestaña Ventas_Por_Producto que el Top 10 de arriba
-// (ver VENTAS_KIOSKOS) y para cada línea decide si es cerveza de barril:
+// (ver SQUARE_KIOSKOS) y para cada línea decide si es cerveza de barril:
 //   - Playa Grande clasifica sus chorros con categoría "DRAFT".
 //   - Tamarindo no tiene esa categoría separada — ahí todo lo de "CERVEZAS"
 //     que NO diga "botella" en el nombre es de barril.
@@ -1137,7 +1124,7 @@ const ML_POR_ONZA = 29.5735;
 async function cargarVolumenCervezaPorKiosko() {
   const cont = document.getElementById('volumen-cerveza-body');
   if (!cont) return;
-  const entradas = Object.entries(VENTAS_KIOSKOS);
+  const entradas = Object.entries(SQUARE_KIOSKOS);
   if (!entradas.length) {
     cont.innerHTML = '<div class="no-alerts">No hay kioskos con Square propio conectado todavía.</div>';
     return;
