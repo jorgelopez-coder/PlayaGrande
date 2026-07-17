@@ -2,88 +2,608 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Ecosistema Kioskos · Playa Grande Brew House</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Portal · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
-  --border:#c8ddd0;--border-h:#8ab89e;
-  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
-  --green:#1a7a4a;--green-bg:#eef8f2;
-  --font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#faf7f0; --surface:#f2ede2; --card:#ffffff;
+  --border:#c8ddd0; --border-h:#8ab89e;
+  --text:#1c3a28; --muted:#5a8a6a; --subtle:#a0c8b0;
+  --green:#1a7a4a; --green-bg:#eef8f2; --green-lt:#d0eedd;
+  --red:#c84a20; --red-bg:#fdf0eb; --red-lt:#f0c0a8;
+  --amber:#c87820; --amber-bg:#fdf6e3; --amber-lt:#f0d890;
+  --blue:#185fa5; --blue-bg:#eef4fb; --blue-lt:#b8d0f0;
+  --purple:#6a3a9a; --purple-bg:#f3eefb; --purple-lt:#d0b8f0;
+  --radius:12px; --font-d:'Inter Tight',sans-serif; --font-b:'Inter',sans-serif; --font-m:'JetBrains Mono',monospace;
 }
-body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
-header{padding:2rem 2rem 1rem;max-width:960px;margin:0 auto}
-.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-h1{font-family:var(--font-d);font-size:26px;font-weight:800;margin-top:4px}
-.sub{font-size:13px;color:var(--muted);margin-top:6px}
-main{max-width:960px;margin:0 auto;padding:1rem 2rem 4rem}
-.section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:1.75rem 0 .75rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.tile{display:block;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.25rem;text-decoration:none;color:var(--text);transition:border-color .15s,transform .15s}
-.tile:hover{border-color:var(--border-h);transform:translateY(-1px)}
-.tile-icon{font-size:22px;margin-bottom:.6rem;display:block}
-.tile-title{font-family:var(--font-d);font-weight:700;font-size:14px;margin-bottom:3px}
-.tile-desc{font-size:12px;color:var(--muted);line-height:1.4}
-.tile.disabled{opacity:.5;cursor:default;pointer-events:none}
-.badge-soon{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;margin-top:8px}
-@media(max-width:600px){header,main{padding-left:1rem;padding-right:1rem}}
+body { background:var(--bg); color:var(--text); font-family:var(--font-b); font-size:14px; line-height:1.6; min-height:100vh; }
+:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+.clip { display:inline-block; width:8px; height:8px; border-radius:50%; border:1.6px solid var(--border-h); margin-right:7px; flex-shrink:0; }
+
+/* ── HEADER ─────────────────────────────────────────────── */
+header {
+  min-height:60px; border-bottom:1px solid var(--border);
+  padding:0 2rem; display:flex; align-items:center;
+  justify-content:space-between; background:var(--bg);
+  position:sticky; top:0; z-index:20;
+}
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-mark { width:32px; height:32px; border-radius:8px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.logo-mark svg { width:18px; height:18px; stroke:#fff; fill:none; }
+.logo-name { font-family:var(--font-d); font-size:15px; font-weight:700; }
+.logo-sub { font-size:11px; color:var(--muted); margin-left:4px; }
+.header-right { display:flex; align-items:center; gap:8px; }
+.date-chip { font-family:var(--font-m); font-size:11px; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:20px; padding:5px 12px; }
+.user-chip { display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px 10px; }
+.user-chip svg { width:13px; height:13px; color:var(--muted); }
+.user-chip span { font-size:12px; font-weight:500; color:var(--muted); }
+.user-chip button { background:none; border:none; font-size:11px; color:var(--subtle); cursor:pointer; padding:0 2px; font-family:var(--font-b); }
+.user-chip button:hover { color:var(--red); }
+.sync-btn { font-family:var(--font-m); font-size:11px; color:var(--muted); background:transparent; border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.sync-btn:hover { border-color:var(--border-h); color:var(--text); }
+.sync-btn svg { width:12px; height:12px; }
+
+/* ── MENÚ HORIZONTAL DE MÓDULOS ── */
+.topnav { height:46px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:stretch; gap:2px; background:var(--card); position:sticky; top:60px; z-index:19; }
+.nav-item { position:relative; display:flex; }
+.nav-btn { display:flex; align-items:center; gap:7px; padding:0 14px; border:none; background:none; cursor:pointer; font-family:var(--font-m); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); border-bottom:2px solid transparent; white-space:nowrap; }
+.nav-btn svg { width:11px; height:11px; stroke:currentColor; fill:none; stroke-width:2; transition:transform .15s; flex-shrink:0; }
+.nav-item:hover .nav-btn, .nav-item.open .nav-btn { color:var(--text); border-bottom-color:var(--border-h); }
+.nav-item.open .nav-btn svg { transform:rotate(180deg); }
+.nav-panel {
+  display:none; position:absolute; top:100%; left:0; background:var(--card);
+  border:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius);
+  box-shadow:0 10px 28px rgba(28,58,40,.14); padding:12px; z-index:30; min-width:420px;
+}
+.nav-item.open .nav-panel { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }
+.nav-panel.single-col { min-width:230px; }
+.nav-item.open .nav-panel.single-col { grid-template-columns:1fr; }
+
+/* ── MAIN ───────────────────────────────────────────────── */
+main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
+
+/* ── SALUDO / HERO ──────────────────────────────────────── */
+.hero { display:flex; align-items:flex-end; justify-content:space-between; gap:1.5rem; margin-bottom:1.75rem; flex-wrap:wrap; }
+.hero h1 { font-family:var(--font-d); font-size:28px; font-weight:800; letter-spacing:-.01em; margin-bottom:5px; }
+.hero p { font-size:13px; color:var(--muted); }
+.board { background:var(--text); color:var(--bg); border-radius:var(--radius); padding:10px 18px; text-align:right; flex-shrink:0; }
+.board-date { font-family:var(--font-m); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#9fc4ab; }
+.board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
+
+/* ── KPI STRIP (tickets) ────────────────────────────────── */
+.ticket-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:1.5rem; }
+.ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
+.ticket::before {
+  content:''; position:absolute; top:-1px; left:0; right:0; height:9px;
+  background-image:radial-gradient(circle at 7px 5px, var(--bg) 3px, transparent 3.3px);
+  background-size:15px 9px; background-repeat:repeat-x;
+}
+.ticket-punch { position:absolute; top:9px; left:12px; width:9px; height:9px; border-radius:50%; background:var(--bg); border:1.5px solid var(--border-h); }
+.ticket-val { font-family:var(--font-m); font-size:21px; font-weight:600; letter-spacing:-.01em; margin-bottom:3px; }
+.ticket-lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.ticket-sub { font-size:11px; margin-top:5px; color:var(--subtle); }
+
+/* ── GRID PRINCIPAL ─────────────────────────────────────── */
+.main-grid { display:grid; grid-template-columns:1fr 300px; gap:14px; margin-bottom:1.5rem; }
+
+/* ── SECCIÓN ────────────────────────────────────────────── */
+.section-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.section-head { padding:.9rem 1.25rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.section-title { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.section-link { font-size:12px; color:var(--blue); text-decoration:none; font-weight:500; }
+.section-link:hover { text-decoration:underline; }
+
+/* ── ACCIONES RÁPIDAS ───────────────────────────────────── */
+.quick-action { display:flex; align-items:center; gap:12px; padding:.85rem 1.25rem; border-bottom:1px solid var(--border); text-decoration:none; color:var(--text); transition:background .12s; cursor:pointer; }
+.quick-action:last-child { border-bottom:none; }
+.quick-action:hover { background:var(--surface); }
+.qa-icon { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.qa-icon svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.qa-text { flex:1; min-width:0; }
+.qa-name { font-size:13px; font-weight:500; }
+.qa-sub { font-size:11px; color:var(--muted); }
+.qa-arrow { color:var(--subtle); flex-shrink:0; }
+.qa-arrow svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.qa-badge { font-family:var(--font-m); font-size:10px; font-weight:600; padding:2px 7px; border-radius:20px; flex-shrink:0; }
+.no-alerts { padding:1.5rem 1.25rem; text-align:center; font-size:12px; color:var(--subtle); }
+
+/* ── ÚLTIMO CIERRE POR KIOSKO ───────────────────────────── */
+.kiosko-row { display:flex; align-items:center; gap:10px; padding:.75rem 1.25rem; border-bottom:1px solid var(--border); }
+.kiosko-row:last-child { border-bottom:none; }
+.kiosko-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.kiosko-info { flex:1; min-width:0; }
+.kiosko-nombre { font-size:12.5px; font-weight:500; }
+.kiosko-meta { font-size:11px; color:var(--muted); margin-top:1px; }
+.kiosko-badge { font-family:var(--font-m); font-size:9.5px; font-weight:600; padding:2px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+.kb-ok { background:var(--green-bg); color:var(--green); }
+.kb-warn { background:var(--red-bg); color:var(--red); }
+.kb-none { background:var(--surface); color:var(--subtle); }
+
+/* ── MÓDULOS (tiles dentro del menú desplegable) ────────── */
+.mod-tile { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px; text-decoration:none; color:var(--text); transition:background .12s; }
+.mod-tile:hover { background:var(--surface); }
+.mod-tile.disabled { opacity:.45; pointer-events:none; }
+.mod-tile-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.mod-tile-icon svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.mod-tile-txt { min-width:0; }
+.mod-tile-name { font-size:12.5px; font-weight:500; white-space:nowrap; }
+.mod-tile-area { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.ic-green  { background:var(--green-bg); color:var(--green); }
+.ic-blue   { background:var(--blue-bg);  color:var(--blue);  }
+.ic-amber  { background:var(--amber-bg); color:var(--amber); }
+.ic-red    { background:var(--red-bg);   color:var(--red);   }
+.ic-purple { background:var(--purple-bg);color:var(--purple);}
+
+/* ── STATUS ─────────────────────────────────────────────── */
+.status-bar { display:flex; align-items:center; gap:12px; font-family:var(--font-m); font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); padding-top:1rem; margin-top:.5rem; }
+.sdot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+.sdot.off { background:var(--subtle); }
+.spinner { display:inline-block; width:10px; height:10px; border:1.5px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+@media (max-width:720px) {
+  main { padding:1.25rem 1rem 3rem; }
+  .ticket-strip { grid-template-columns:1fr 1fr; }
+  .main-grid { grid-template-columns:1fr; }
+  .hero { align-items:flex-start; }
+  .date-chip, .logo-sub, .sync-label { display:none; }
+  .topnav { padding:0 1rem; top:56px; overflow-x:auto; }
+  .nav-panel { position:fixed; left:1rem; right:1rem; top:102px; min-width:0 !important; grid-template-columns:1fr !important; max-height:70vh; overflow-y:auto; }
+}
 </style>
 </head>
 <body>
-
 <header>
-  <div class="eyebrow">Ecosistema Kioskos</div>
-  <h1>Playa Grande Brew House</h1>
-  <div class="sub">Cerveza y cocteles · Playa Grande · Liberia · Nosara · Playa Hermosa</div>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <div>
+      <span class="logo-name">Kioskos</span>
+      <span class="logo-sub">Playa Grande Brew House</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="date-chip" id="fecha-hoy"></span>
+    <div class="user-chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span id="user-nombre">—</span>
+      <button onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
+    </div>
+    <button class="sync-btn" onclick="cargarKPIs()" title="Actualizar datos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      <span class="sync-label">Actualizar</span>
+    </button>
+  </div>
 </header>
 
-<main>
-  <div class="section-title">Operaciones</div>
-  <div class="grid">
-    <a href="cierres.html" class="tile">
-      <span class="tile-icon">💰</span>
-      <div class="tile-title">Cierre de Caja</div>
-      <div class="tile-desc">Registrar ventas diarias por kiosko, arqueo de efectivo e historial comparado.</div>
-    </a>
-    <div class="tile disabled">
-      <span class="tile-icon">📦</span>
-      <div class="tile-title">Inventario y Compras</div>
-      <div class="tile-desc">Control de stock de cerveza, licores e insumos por kiosko.</div>
-      <span class="badge-soon">Próximamente</span>
-    </div>
-    <a href="rrhh-acciones.html" class="tile">
-      <span class="tile-icon">👥</span>
-      <div class="tile-title">RRHH y Turnos</div>
-      <div class="tile-desc">Personal, vacaciones, amonestaciones, terminaciones, cambios de salario, liquidaciones y horarios por kiosko.</div>
-    </a>
-    <div class="tile disabled">
-      <span class="tile-icon">📊</span>
-      <div class="tile-title">Reportes</div>
-      <div class="tile-desc">Comparativos consolidados entre kioskos.</div>
-      <span class="badge-soon">Próximamente</span>
+<nav class="topnav" id="topnav">
+  <div class="nav-item" data-nav="operaciones">
+    <button class="nav-btn" onclick="toggleNav('operaciones')">
+      <span class="clip"></span>Operaciones
+      <svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+    </button>
+    <div class="nav-panel">
+      <a href="cierres.html" class="mod-tile" data-mod="cierres">
+        <div class="mod-tile-icon ic-green"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Cierre de Caja</div><div class="mod-tile-area">Ventas diarias · arqueo · historial</div></div>
+      </a>
+      <a href="configuracion.html" class="mod-tile" data-mod="configuracion">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.22.75.22 1.15V10.85c0 .4-.08.79-.22 1.15z"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Configuración</div><div class="mod-tile-area">Kioskos activos · ubicación · contacto</div></div>
+      </a>
+      <div class="mod-tile disabled">
+        <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Inventario y Compras</div><div class="mod-tile-area">Próximamente</div></div>
+      </div>
+      <div class="mod-tile disabled">
+        <div class="mod-tile-icon ic-purple"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Reportes</div><div class="mod-tile-area">Próximamente</div></div>
+      </div>
     </div>
   </div>
 
-  <div class="section-title">Sistema</div>
-  <div class="grid">
-    <a href="configuracion.html" class="tile">
-      <span class="tile-icon">⚙️</span>
-      <div class="tile-title">Configuración</div>
-      <div class="tile-desc">Lista de kioskos activos, ubicación, encargado y contacto de cada uno.</div>
-    </a>
+  <div class="nav-item" data-nav="rrhh">
+    <button class="nav-btn" onclick="toggleNav('rrhh')">
+      <span class="clip"></span>Recursos Humanos
+      <svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+    </button>
+    <div class="nav-panel">
+      <a href="rrhh-acciones.html" class="mod-tile" data-mod="rrhh-acciones">
+        <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Acciones de personal</div><div class="mod-tile-area">Menú de RRHH</div></div>
+      </a>
+      <a href="rrhh-personal.html" class="mod-tile" data-mod="rrhh-personal">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Base de Personal</div><div class="mod-tile-area">Expedientes · estado</div></div>
+      </a>
+      <a href="rrhh-nuevo-ingreso.html" class="mod-tile" data-mod="rrhh-nuevo-ingreso">
+        <div class="mod-tile-icon ic-green"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Nuevo ingreso</div><div class="mod-tile-area">Alta de colaborador</div></div>
+      </a>
+      <a href="rrhh-vacaciones.html" class="mod-tile" data-mod="rrhh-vacaciones">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Solicitud de vacaciones</div><div class="mod-tile-area">Nueva solicitud</div></div>
+      </a>
+      <a href="rrhh-control-vacaciones.html" class="mod-tile" data-mod="rrhh-control-vacaciones">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Control de vacaciones</div><div class="mod-tile-area">Saldos · historial</div></div>
+      </a>
+      <a href="rrhh-cambio-salario.html" class="mod-tile" data-mod="rrhh-cambio-salario">
+        <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Cambio de salario</div><div class="mod-tile-area">Ajustes de planilla</div></div>
+      </a>
+      <a href="rrhh-amonestaciones.html" class="mod-tile" data-mod="rrhh-amonestaciones">
+        <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Amonestaciones</div><div class="mod-tile-area">Historial disciplinario</div></div>
+      </a>
+      <a href="rrhh-terminacion.html" class="mod-tile" data-mod="rrhh-terminacion">
+        <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Terminación laboral</div><div class="mod-tile-area">Salidas · finiquito</div></div>
+      </a>
+      <a href="rrhh-liquidaciones.html" class="mod-tile" data-mod="rrhh-liquidaciones">
+        <div class="mod-tile-icon ic-green"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Liquidaciones</div><div class="mod-tile-area">Cálculo y pago</div></div>
+      </a>
+    </div>
   </div>
+
+  <div class="nav-item" data-nav="horarios">
+    <button class="nav-btn" onclick="toggleNav('horarios')">
+      <span class="clip"></span>Horarios
+      <svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></svg>
+    </button>
+    <div class="nav-panel single-col">
+      <a href="horarios.html" class="mod-tile" data-mod="horarios">
+        <div class="mod-tile-icon ic-purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Horario de trabajo</div><div class="mod-tile-area">Turnos por kiosko</div></div>
+      </a>
+      <a href="horarios-historial.html" class="mod-tile" data-mod="horarios-historial">
+        <div class="mod-tile-icon ic-purple"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.3 5.3-3-3L3 17.6"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Historial de horarios</div><div class="mod-tile-area">Semanas anteriores</div></div>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <!-- Saludo -->
+  <div class="hero">
+    <div>
+      <h1 id="saludo">Buen día</h1>
+      <p id="status-general">Cargando datos del sistema…</p>
+    </div>
+    <div class="board">
+      <div class="board-date" id="board-date"></div>
+      <div class="board-time" id="board-time"></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="ticket-strip">
+    <div class="ticket">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-kioskos" style="color:var(--green);">—</div>
+      <div class="ticket-lbl">Kioskos activos</div>
+      <div class="ticket-sub" id="kpi-kioskos-sub" style="color:var(--muted);"></div>
+    </div>
+    <div class="ticket">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-personal" style="color:var(--blue);">—</div>
+      <div class="ticket-lbl">Personal activo</div>
+      <div class="ticket-sub" id="kpi-personal-sub" style="color:var(--muted);"></div>
+    </div>
+    <div class="ticket">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-cierre" style="color:var(--text);">—</div>
+      <div class="ticket-lbl">Último cierre registrado</div>
+      <div class="ticket-sub" id="kpi-cierre-sub" style="color:var(--muted);"></div>
+    </div>
+  </div>
+
+  <!-- Grid principal -->
+  <div class="main-grid">
+
+    <!-- Acciones rápidas -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title"><span class="clip"></span>Acciones rápidas</span>
+      </div>
+
+      <a href="cierres.html" class="quick-action" data-mod="cierres">
+        <div class="qa-icon ic-green">
+          <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Nuevo cierre de caja</div>
+          <div class="qa-sub">Ventas del día · arqueo de efectivo</div>
+        </div>
+        <div id="cierre-badge-qa"></div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+
+      <a href="rrhh-nuevo-ingreso.html" class="quick-action" data-mod="rrhh-nuevo-ingreso">
+        <div class="qa-icon ic-green">
+          <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Agregar colaborador</div>
+          <div class="qa-sub">Alta de personal</div>
+        </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+
+      <a href="rrhh-acciones.html" class="quick-action" data-mod="rrhh-acciones">
+        <div class="qa-icon ic-red">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Acción de personal</div>
+          <div class="qa-sub">Vacaciones · amonestaciones · salario · terminación</div>
+        </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+
+      <a href="horarios.html" class="quick-action" data-mod="horarios">
+        <div class="qa-icon ic-purple">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Ver horario de la semana</div>
+          <div class="qa-sub">Turnos por kiosko</div>
+        </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+
+      <a href="configuracion.html" class="quick-action" data-mod="configuracion">
+        <div class="qa-icon ic-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.22.75.22 1.15V10.85c0 .4-.08.79-.22 1.15z"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Configurar kioskos</div>
+          <div class="qa-sub">Ubicación · encargado · contacto</div>
+        </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+    </div>
+
+    <!-- Último cierre por kiosko -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title"><span class="clip"></span>Último cierre por kiosko</span>
+        <a href="cierres.html" class="section-link">Ver todos →</a>
+      </div>
+      <div id="kiosko-grid-body">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span class="sdot" id="status-dot"></span>
+    <span id="status-texto">Cargando…</span>
+    <span style="margin-left:auto;color:var(--subtle);">v1.0 · Ecosistema Kioskos</span>
+  </div>
+
 </main>
 
 <script>
-// Redirige a login si no hay sesión válida (8 horas).
-const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
-if (!sesion || (Date.now() - sesion.ts) >= 8 * 60 * 60 * 1000) {
+// ── CONFIG ────────────────────────────────────────────────────
+// Mismas URLs /exec usadas en cierres.html, rrhh.html, configuracion.html y
+// horarios.html (ver README.md).
+const APPS_SCRIPT_URL     = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const SHEETS_URL_CIERRES  = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+
+// Respaldo si todavía no hay conexión con Configuración.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+const pad = n => String(n).padStart(2,'0');
+const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+
+// ── CONTROL DE ACCESO (mismo patrón que el resto del sistema) ──
+function verificarAcceso() {
+  const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+  if (!sesion || (Date.now() - sesion.ts) > 8 * 60 * 60 * 1000) {
+    localStorage.removeItem('portal_sesion');
+    window.location.href = 'login.html';
+    return null;
+  }
+  return sesion;
+}
+function cerrarSesion() {
+  localStorage.removeItem('portal_sesion');
   window.location.href = 'login.html';
 }
+function aplicarRol(sesion) {
+  const nombreEl = document.getElementById('user-nombre');
+  if (nombreEl) nombreEl.textContent = sesion.nombre;
+  if (sesion.modulos === 'todos') return;
+  document.querySelectorAll('.mod-tile[data-mod]').forEach(tile => {
+    if (!sesion.modulos.includes(tile.dataset.mod)) tile.style.display = 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const visibles = item.querySelectorAll('.mod-tile:not([style*="display: none"])');
+    if (!visibles.length) item.style.display = 'none';
+  });
+  document.querySelectorAll('.quick-action[data-mod]').forEach(qa => {
+    if (!sesion.modulos.includes(qa.dataset.mod)) qa.style.display = 'none';
+  });
+}
+
+const sesionActual = verificarAcceso();
+
+// ── SALUDO Y FECHA ───────────────────────────────────────────
+const hoyDate = new Date();
+const hora = hoyDate.getHours();
+const saludo = hora < 12 ? 'Buenos días' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
+document.getElementById('saludo').textContent = saludo + (sesionActual ? ', ' + sesionActual.nombre.split(' ')[0] : '');
+document.getElementById('fecha-hoy').textContent =
+  hoyDate.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+// ── RELOJ DEL ENCABEZADO ─────────────────────────────────────
+const DIAS_CORTOS = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+const MESES_CORTOS = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+function tickReloj() {
+  const n = new Date();
+  document.getElementById('board-date').textContent = DIAS_CORTOS[n.getDay()] + ' ' + n.getDate() + ' ' + MESES_CORTOS[n.getMonth()];
+  document.getElementById('board-time').textContent = pad(n.getHours()) + ':' + pad(n.getMinutes());
+}
+tickReloj();
+setInterval(tickReloj, 15000);
+
+// ── MENÚ DESPLEGABLE DE MÓDULOS ──────────────────────────────
+function toggleNav(key) {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    if (item.dataset.nav === key) item.classList.toggle('open');
+    else item.classList.remove('open');
+  });
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.nav-item')) {
+    document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+  }
+});
+
+// ── KPIs ──────────────────────────────────────────────────────
+function diasDesde(fechaISO) {
+  if (!fechaISO) return null;
+  const d = Math.round((new Date(new Date().toISOString().slice(0,10)+'T00:00:00') - new Date(fechaISO+'T00:00:00')) / 86400000);
+  return d;
+}
+function etiquetaDias(d) {
+  if (d == null) return 'Sin registros';
+  if (d <= 0) return 'Hoy';
+  if (d === 1) return 'Ayer';
+  return `Hace ${d} días`;
+}
+
+async function cargarKPIs() {
+  document.getElementById('status-texto').innerHTML = '<span class="spinner"></span> Actualizando datos…';
+
+  let kioskosActivos = [];
+  let totalKioskos = 0;
+  let personalActivo = 0;
+
+  // 1. KIOSKOS
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await resp.json();
+    const registros = (data.registros && data.registros.length) ? data.registros : null;
+    if (registros) {
+      totalKioskos = registros.length;
+      kioskosActivos = registros
+        .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
+        .map(k => k['Kiosko']).filter(Boolean);
+    } else if (Array.isArray(data.kioskos) && data.kioskos.length) {
+      kioskosActivos = data.kioskos;
+      totalKioskos = data.kioskos.length;
+    } else {
+      kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
+    }
+    if (kioskosActivos.length) KIOSKOS = kioskosActivos;
+    document.getElementById('kpi-kioskos').textContent = kioskosActivos.length + '/' + totalKioskos;
+    document.getElementById('kpi-kioskos-sub').textContent = 'Playa Grande · Liberia · Nosara · Playa Hermosa';
+  } catch(e) {
+    kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
+    document.getElementById('kpi-kioskos').textContent = 'Sin conexión';
+    document.getElementById('kpi-kioskos-sub').textContent = 'No se pudo cargar Configuración';
+  }
+
+  // 2. PERSONAL
+  let personalData = [];
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
+    const data = await resp.json();
+    personalData = data.registros || [];
+    personalActivo = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO').length;
+    document.getElementById('kpi-personal').textContent = personalActivo;
+    document.getElementById('kpi-personal-sub').textContent = personalActivo + ' de ' + personalData.length + ' colaboradores';
+  } catch(e) {
+    document.getElementById('kpi-personal').textContent = 'Sin conexión';
+    document.getElementById('kpi-personal-sub').textContent = 'No se pudo cargar RRHH';
+  }
+
+  // 3. CIERRES — último general + último por kiosko
+  const grid = document.getElementById('kiosko-grid-body');
+  try {
+    const resp = await fetch(SHEETS_URL_CIERRES + '?action=read');
+    const data = await resp.json();
+    const registros = (data.records || []).map(r => ({
+      fecha: String(r[1]||'').slice(0,10),
+      kiosko: r[3] || '',
+      cajaCuadra: r[36] === 'SI',
+      tarjetaCuadra: r[39] === 'SI',
+    })).filter(r => r.fecha && r.kiosko);
+
+    if (registros.length) {
+      const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
+      const d = diasDesde(ultimoGeneral.fecha);
+      document.getElementById('kpi-cierre').textContent = etiquetaDias(d);
+      document.getElementById('kpi-cierre-sub').textContent = `${ultimoGeneral.kiosko} · ${ultimoGeneral.fecha}`;
+      document.getElementById('kpi-cierre').style.color = (d != null && d > 1) ? 'var(--red)' : 'var(--green)';
+      if (d != null && d > 1) {
+        document.getElementById('cierre-badge-qa').innerHTML =
+          `<span class="qa-badge" style="background:var(--amber-bg);color:var(--amber);">${d}d sin cerrar</span>`;
+      }
+    } else {
+      document.getElementById('kpi-cierre').textContent = 'Sin datos';
+      document.getElementById('kpi-cierre-sub').textContent = 'Todavía no hay cierres registrados';
+    }
+
+    const porKiosko = {};
+    registros.forEach(r => {
+      if (!porKiosko[r.kiosko] || r.fecha > porKiosko[r.kiosko].fecha) porKiosko[r.kiosko] = r;
+    });
+
+    const listaKioskos = kioskosActivos.length ? kioskosActivos : KIOSKOS;
+    grid.innerHTML = listaKioskos.map(nombre => {
+      const r = porKiosko[nombre];
+      if (!r) {
+        return `<div class="kiosko-row">
+          <span class="kiosko-dot" style="background:var(--subtle);"></span>
+          <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">Sin registros</div></div>
+          <span class="kiosko-badge kb-none">—</span>
+        </div>`;
+      }
+      const cuadra = r.cajaCuadra && r.tarjetaCuadra;
+      const dK = diasDesde(r.fecha);
+      return `<div class="kiosko-row">
+        <span class="kiosko-dot" style="background:${cuadra ? 'var(--green)' : 'var(--red)'};"></span>
+        <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">${etiquetaDias(dK)} · ${r.fecha}</div></div>
+        <span class="kiosko-badge ${cuadra ? 'kb-ok' : 'kb-warn'}">${cuadra ? 'Cuadra' : 'Revisar'}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('kpi-cierre').textContent = 'Sin conexión';
+    document.getElementById('kpi-cierre-sub').textContent = 'No se pudo cargar Cierres';
+    grid.innerHTML = '<div class="no-alerts">No se pudo cargar el historial de cierres.</div>';
+  }
+
+  document.getElementById('status-dot').className = 'sdot';
+  document.getElementById('status-texto').textContent =
+    `${kioskosActivos.length} kioskos activos · ${personalActivo} colaboradores · actualizado ${new Date().toLocaleTimeString('es-CR')}`;
+  document.getElementById('status-general').textContent = sesionActual
+    ? `Sesión activa · ${kioskosActivos.length} kioskos en operación`
+    : 'Cargando datos del sistema…';
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+if (sesionActual) aplicarRol(sesionActual);
+cargarKPIs();
 </script>
 </body>
 </html>
