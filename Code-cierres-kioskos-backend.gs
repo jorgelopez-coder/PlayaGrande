@@ -35,7 +35,8 @@ const HEADERS = [
   'Caja Total Contada ₡', 'Efectivo Esperado ₡', 'Diferencia Caja ₡', 'Caja Cuadra',
   'Total Datáfono ₡', 'Diferencia Tarjeta ₡', 'Tarjeta Cuadra',
   'Foto Cierre Sistema (URL)', 'Foto Cierre Datáfono (URL)',
-  'Observaciones'
+  'Observaciones',
+  'Tips ₡'
 ];
 
 const HEADERS_DEPOSITOS = [
@@ -110,7 +111,8 @@ function doPost(e) {
       data.tarjetaCuadra ? 'SI' : 'NO', // Tarjeta Cuadra
       fotoUrls.fotoSistemaUrl || '', // Foto Cierre Sistema (URL)
       fotoUrls.fotoDatafonoUrl || '',// Foto Cierre Datáfono (URL)
-      data.obs || ''                 // Observaciones
+      data.obs || '',                // Observaciones
+      data.tips || 0                 // Tips ₡
     ]);
 
     return jsonOut({ result: 'ok' });

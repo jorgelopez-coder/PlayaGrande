@@ -13,7 +13,22 @@ de venta fijo como en Lorito) y categorías de venta simplificadas — sin
 crédito, plataformas de delivery ni 10% de servicio, porque no aplican a un
 kiosko de playa.
 
-Segundo módulo: **RRHH completo**, adaptado 1:1 de la lógica de
+Segundo módulo: **Depósitos**, adaptado de `depositos.html`/`Code-cierres-backend.gs`
+(hoja "Depositos") de Ecosistema Lorito, con selector de **Kiosko** (Lorito es
+un solo punto de venta y agrupa directo por fecha; acá primero se filtra por
+el kiosko elegido arriba de las 3 pestañas y recién ahí se agrupa por fecha):
+
+- `depositos.html` — 3 pestañas: **Resumen diario** (efectivo sin depósito
+  asignado, por fecha, con detalle desplegable por denominación), **Asignar
+  depósito** (foto del comprobante, fecha/referencia/monto, selección de una
+  o varias fechas pendientes a cubrir, comparación comprobante vs. calculado
+  con tolerancia ±₡500/±$1, botón de WhatsApp con el resumen) e **Historial
+  de depósitos** (depósitos ya asignados, con las fechas que cubre cada uno).
+  El backend (`guardarDeposito`/`agregarEncabezadosDepositos` en
+  `Code-cierres-kioskos-backend.gs`) ya venía armado con el campo Kiosko —
+  solo faltaba esta pantalla para poder usarlo.
+
+Tercer módulo: **RRHH completo**, adaptado 1:1 de la lógica de
 `Code-rrhh-backend.gs`/las 8 pantallas `rrhh-*.html` + `horarios.html` de
 Ecosistema Lorito, con el campo **Kiosko** agregado en Personal y Horarios
 (Lorito es un solo punto de venta y no lo necesita):
@@ -71,20 +86,27 @@ Archivos:
   propio — roles guardados en `localStorage`; ver "Pendiente" más abajo).
 - `configuracion.html` — sección de configuración inicial: alta/edición/
   activación de kioskos (nombre, ubicación, encargado, contacto, WhatsApp,
-  horario). Única fuente de la lista de kioskos que consume el resto del
-  sistema (ver "Kioskos activos" más abajo). Incluye un mapa (Leaflet +
-  OpenStreetMap, sin API key) con un marcador por kiosko: el campo
-  "Ubicación" acepta coordenadas `lat,lng`, un link de Google Maps, o una
-  dirección/nombre de lugar (en ese caso se geocodifica con Nominatim y se
-  cachea en `localStorage` para no repetir la consulta).
+  horario de atención desplegado por día con hora de apertura y cierre).
+  Única fuente de la lista de kioskos que consume el resto del sistema (ver
+  "Kioskos activos" más abajo). Incluye un mapa (Leaflet + OpenStreetMap,
+  sin API key) con un marcador por kiosko: el campo "Ubicación" acepta
+  coordenadas `lat,lng`, un link de Google Maps, o una dirección/nombre de
+  lugar (en ese caso se geocodifica con Nominatim y se cachea en
+  `localStorage` para no repetir la consulta). El popup de cada marcador y
+  la tarjeta de la lista muestran el horario de hoy; cada tarjeta tiene un
+  desplegable "Ver horario semanal" con los 7 días.
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
+- `depositos.html` — módulo de depósitos bancarios (resumen diario, asignar
+  depósito, historial — ver detalle arriba).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
   `rrhh-control-vacaciones.html`, `rrhh-amonestaciones.html`,
   `rrhh-terminacion.html`, `rrhh-cambio-salario.html`,
   `rrhh-liquidaciones.html`, `horarios.html`, `horarios-historial.html` —
   módulo de RRHH completo (ver detalle arriba).
-- `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas.
+- `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas (hoja
+  "Cierres") y de depósitos bancarios (hoja "Depositos", que alimenta
+  `depositos.html`).
 - `Code-rrhh-kioskos-backend.gs` — backend completo de RRHH (Personal,
   Vacaciones, Amonestaciones, Terminaciones, CambiosSalario, Liquidaciones,
   Horarios, HorariosEstado, Configuracion) — alimenta las 12 pantallas de
@@ -96,23 +118,28 @@ Archivos:
 Apps Script no tiene API para automatizar el despliegue — estos pasos hay
 que hacerlos una vez a mano.
 
-### 1. Sheet de ventas (Cierres de Caja)
+### 1. Sheet de ventas (Cierres de Caja y Depósitos)
 
 1. Creá un Google Sheet nuevo, ej. **"Registro Ventas - Kioskos"**.
 2. Extensiones → Apps Script, pegá **todo** el contenido de
    `Code-cierres-kioskos-backend.gs`.
 3. Corré **una vez** `agregarEncabezados()` desde el editor (▶ con esa
-   función seleccionada) para crear la pestaña "Cierres" con encabezados.
+   función seleccionada) para crear la pestaña "Cierres" con encabezados, y
+   **una vez más** `agregarEncabezadosDepositos()` para crear la pestaña
+   "Depositos" con los suyos.
 4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquiera**
-5. Copiá la URL `/exec` resultante y pegala en `cierres.html`, constante
-   `SHEETS_URL` (arriba del todo en el `<script>`).
+5. Copiá la URL `/exec` resultante y pegala en `cierres.html` **y en
+   `depositos.html`**, constante `SHEETS_URL` (arriba del todo en el
+   `<script>` de cada uno) — es el mismo Sheet para los dos módulos.
 6. Creá una carpeta en Drive para las fotos de respaldo de los cierres (ej.
    **"Cierres de caja - Kioskos"**), copiá su ID (de la URL de la carpeta) y
    pegalo en `Code-cierres-kioskos-backend.gs`, constante
    `FOLDER_ID_CIERRES` — después de pegarlo, volvé a Implementar → Gestionar
-   implementaciones → Editar → Nueva versión (la URL `/exec` no cambia).
+   implementaciones → Editar → Nueva versión (la URL `/exec` no cambia). Esta
+   misma carpeta se usa también para los comprobantes de depósito (subcarpeta
+   "Depósitos - Comprobantes", se crea sola).
 
 Sin el paso 6, guardar un cierre con foto va a fallar (`DriveApp.getFolderById`
 con un ID inválido) — si por ahora no vas a usar fotos, no pasa nada, se puede
@@ -194,6 +221,7 @@ backend. Los siguientes archivos leen la lista de kioskos activos al cargar
 hardcodeado como respaldo si no hay conexión):
 
 - `cierres.html`
+- `depositos.html`
 - `rrhh.html`
 - `rrhh-nuevo-ingreso.html`
 - `rrhh-personal.html`
@@ -216,16 +244,20 @@ automáticamente como una pestaña más.
 
 ## Extracción con IA (opcional, no incluida todavía)
 
-En Lorito, `cierres.html` tiene un botón "Extraer datos con IA" que lee la
-foto del cierre con un extractor separado (Apps Script + `ANTHROPIC_API_KEY`,
-ver `EXTRACTOR_URL` en el código de Lorito). Acá quedó **desconectado a
-propósito** (`EXTRACTOR_URL = ''`) — el botón queda oculto y todo el
-formulario funciona 100% manual. Si más adelante lo querés activar, hay que:
+En Lorito, `cierres.html` y `depositos.html` tienen un botón "Extraer datos
+con IA" que lee la foto (del cierre o del comprobante de depósito) con un
+extractor separado (Apps Script + `ANTHROPIC_API_KEY`, ver `EXTRACTOR_URL` en
+el código de Lorito). Acá quedó **desconectado a propósito** en los dos
+(`EXTRACTOR_URL = ''`) — el botón queda oculto y ambos formularios funcionan
+100% manual. Si más adelante lo querés activar, hay que:
 
 1. Copiar el proyecto `cierre-extractor/Code.gs` de Ecosistema-Lorito a un
    Sheet nuevo, desplegarlo como Web App con su propia `ANTHROPIC_API_KEY` en
    Propiedades del script.
-2. Pegar esa URL `/exec` en `EXTRACTOR_URL` dentro de `cierres.html`.
+2. Pegar esa URL `/exec` en `EXTRACTOR_URL` dentro de `cierres.html` y/o
+   `depositos.html`, según cuál de los dos querás activar (son independientes
+   — `depositos.html` manda `tipo:'deposito'` en el payload para que el
+   extractor sepa qué formato de respuesta devolver).
 
 ## Login / control de accesos
 

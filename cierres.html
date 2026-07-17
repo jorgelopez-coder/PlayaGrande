@@ -229,14 +229,6 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
           </div>
         </div>
         <div class="field">
-          <label for="f-turno">Turno</label>
-          <select id="f-turno">
-            <option>Día</option>
-            <option>Tarde/Noche</option>
-            <option>Único</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="f-fecha">Fecha de cierre <span class="req">*</span></label>
           <input type="date" id="f-fecha"/>
         </div>
@@ -285,10 +277,17 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
       </div>
       <p style="font-size:11px;color:var(--muted);margin-top:-.5rem;margin-bottom:1rem">Si el cliente pagó en dólares en efectivo, convertí a colones con el tipo de cambio del día e incluilo en "Ventas en Efectivo".</p>
 
-      <div class="field" style="max-width:260px">
-        <label for="f-datafono-total">Total procesado en datáfono (₡)</label>
-        <input type="number" id="f-datafono-total" placeholder="0" min="0" oninput="calcRevisionTarjeta()"/>
+      <div class="field-row">
+        <div class="field" style="max-width:260px">
+          <label for="f-datafono-total">Total procesado en datáfono (₡)</label>
+          <input type="number" id="f-datafono-total" placeholder="0" min="0" oninput="calcRevisionTarjeta()"/>
+        </div>
+        <div class="field" style="max-width:260px">
+          <label for="f-tips">Propinas / Tips del día (₡)</label>
+          <input type="number" id="f-tips" placeholder="0" min="0" oninput="actualizarResumen()"/>
+        </div>
       </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:-.5rem;margin-bottom:1rem">Propinas informativas — no se suman a "Total ventas" ni afectan el cuadre de caja.</p>
 
       <div class="resumen-card" id="resumen-ventas">
         <p class="resumen-title">Resumen de ventas</p>
@@ -714,8 +713,9 @@ function getTotales() {
   const sinpe    = v('f-sinpe');
   const otras    = v('f-otras');
   const datafonoTotal = v('f-datafono-total');
+  const tips = v('f-tips');
   const totalVentas = efectivo + tarjeta + sinpe + otras;
-  return {efectivo, tarjeta, sinpe, otras, datafonoTotal, tc: getTC(), totalVentas};
+  return {efectivo, tarjeta, sinpe, otras, datafonoTotal, tips, tc: getTC(), totalVentas};
 }
 
 function actualizarResumen() {
@@ -730,6 +730,20 @@ function actualizarResumen() {
     `<div class="resumen-item"><span>${lbl}</span><span class="v">${fmtCRC(val)}</span></div>`
   ).join('');
   document.getElementById('resumen-total').textContent = fmtCRC(t.totalVentas);
+
+  let tipsEl = document.getElementById('resumen-tips');
+  const card = document.getElementById('resumen-ventas');
+  if (t.tips > 0) {
+    if (!tipsEl) {
+      tipsEl = document.createElement('div');
+      tipsEl.id = 'resumen-tips';
+      tipsEl.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);padding-top:6px;margin-top:6px;border-top:1px dashed var(--border)';
+      card.appendChild(tipsEl);
+    }
+    tipsEl.innerHTML = `<span>Propinas (no incluidas)</span><span class="v" style="font-family:var(--font-m);color:var(--text);font-weight:500">${fmtCRC(t.tips)}</span>`;
+  } else if (tipsEl) {
+    tipsEl.remove();
+  }
   actualizarWhatsAppBtn();
 }
 
@@ -867,8 +881,7 @@ function irPaso1Siguiente() {
 function construirPayload() {
   const kiosko = document.getElementById('f-kiosko').value;
   const encargado = document.getElementById('f-encargado').value.trim();
-  const turno = document.getElementById('f-turno').value;
-  const {efectivo,tarjeta,sinpe,otras,datafonoTotal,tc,totalVentas} = getTotales();
+  const {efectivo,tarjeta,sinpe,otras,datafonoTotal,tips,tc,totalVentas} = getTotales();
   const diferenciaTarjeta = datafonoTotal - tarjeta;
   const tarjetaCuadra = Math.abs(diferenciaTarjeta) <= 500;
   const fondo = parseFloat(document.getElementById('f-fondo').value) || 0;
@@ -894,8 +907,8 @@ function construirPayload() {
   return {
     id: Date.now(),
     fecha, hora: new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit'}),
-    kiosko, encargado, turno,
-    efectivo, tarjeta, sinpe, otras, totalVentas,
+    kiosko, encargado,
+    efectivo, tarjeta, sinpe, otras, totalVentas, tips,
     fondoCajaInicial: fondo,
     d50000: denomDetalle[50000]||0, d20000: denomDetalle[20000]||0,
     d10000: denomDetalle[10000]||0, d5000: denomDetalle[5000]||0,
@@ -973,6 +986,7 @@ function buildWAMessage(r) {
 
 ${tieneTarjetaRev ? `💳 *Revisión Tarjeta:* ${tarjetaEmoji} ${tarjetaCuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(difTarjeta).toLocaleString('es-CR')})\n` : ''}💵 *Revisión Efectivo:* ${efectivoEmoji} ${efectivoCuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(difCaja).toLocaleString('es-CR')})
 📊 *Balance Final:* ${balanceEmoji} ${balanceCuadra ? 'Cuadra' : 'No cuadra'} (₡${balanceFinal>=0?'+':''}${balanceFinal.toLocaleString('es-CR')})
+${r.tips?`\n💵 Propinas del día: ₡${r.tips.toLocaleString('es-CR')} (informativo)`:''}
 ${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}`;
 }
 
@@ -1007,7 +1021,8 @@ async function cargarHistorial() {
     // 26-31 denominaciones $, 32 Total USD Contado, 33 Caja Total Contada,
     // 34 Efectivo Esperado, 35 Diferencia Caja, 36 Caja Cuadra,
     // 37 Total Datáfono, 38 Diferencia Tarjeta, 39 Tarjeta Cuadra,
-    // 40 Foto Sistema, 41 Foto Datáfono, 42 Observaciones.
+    // 40 Foto Sistema, 41 Foto Datáfono, 42 Observaciones, 43 Tips ₡ (nueva,
+    // agregada al final para no correr las columnas de cierres anteriores).
     historialData = (data.records || []).map(r => {
       const fecha = soloFecha(r[1]);
       let anio = '', mes = '';
@@ -1018,7 +1033,7 @@ async function cargarHistorial() {
       return {
         id: r[0], fecha, hora: r[2], kiosko: r[3], encargado: r[4], turno: r[5],
         efectivo: +r[6]||0, tarjeta: +r[7]||0, sinpe: +r[8]||0, otras: +r[9]||0,
-        totalVentas: +r[10]||0, fondo: +r[11]||0,
+        totalVentas: +r[10]||0, fondo: +r[11]||0, tips: +r[43]||0,
         cajaTotalContada: +r[33]||0, efectivoEsperado: +r[34]||0,
         diferenciaCaja: +r[35]||0, cajaCuadra: r[36]==='SI',
         datafonoTotal: +r[37]||0, diferenciaTarjeta: +r[38]||0, tarjetaCuadra: r[39]==='SI',
@@ -1154,7 +1169,8 @@ function renderDetalleCierre(r) {
         ${item('Tarjeta', fmtCRC(r.tarjeta))}
         ${item('SINPE', fmtCRC(r.sinpe))}
         ${item('Otras', fmtCRC(r.otras))}
-        ${item('Turno', r.turno||'—')}
+        ${r.turno ? item('Turno', r.turno) : ''}
+        ${r.tips ? item('Propinas (informativo)', fmtCRC(r.tips)) : ''}
       </div>
     </div>
     <div class="hist-detail-section">
@@ -1192,7 +1208,7 @@ function renderDetalleCierre(r) {
 // ── LIMPIAR FORM ──────────────────────────────────────────────────
 function limpiarForm() {
   document.getElementById('f-obs').value = '';
-  ['f-efectivo','f-tarjeta','f-sinpe','f-otras','f-datafono-total','f-tc','f-fondo'].forEach(id => {
+  ['f-efectivo','f-tarjeta','f-sinpe','f-otras','f-datafono-total','f-tips','f-tc','f-fondo'].forEach(id => {
     const el=document.getElementById(id); if(el)el.value='';
   });
   document.getElementById('f-fecha').value = hoy();
