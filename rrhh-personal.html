@@ -243,10 +243,27 @@
 <script>
 // ─── CONFIGURACIÓN ─────────────────────────────────────────────────
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-// Lista de kioskos activos — mismo arreglo que en cierres.html/rrhh.html.
-const KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-document.getElementById('filter-kiosko').innerHTML =
-  '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+// Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
+// Sheet (ver cargarKioskos()/configuracion.html). Este arreglo es solo el
+// respaldo si todavía no se corrió configurarHojas() o falla la conexión.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+function poblarKioskos() {
+  document.getElementById('filter-kiosko').innerHTML =
+    '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+}
+async function cargarKioskos() {
+  if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith('TODO_')) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+        KIOSKOS = data.kioskos;
+      }
+    } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  }
+  poblarKioskos();
+}
+cargarKioskos();
 // ───────────────────────────────────────────────────────────────────
 
 let todosPersonal   = [];

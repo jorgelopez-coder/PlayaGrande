@@ -214,11 +214,24 @@ tbody tr:last-child td{border-bottom:none}
 // Mismo Apps Script de RRHH que usan rrhh-vacaciones.html / rrhh-control-vacaciones.html / rrhh-personal.html
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 
-// Lista de kioskos activos — mismo arreglo que en cierres.html/rrhh.html. Si
-// sumás un kiosko nuevo, agregalo también acá. Cada kiosko es un "resto" (el
-// horario original de Lorito es un solo punto de venta; acá cada kiosko
-// tiene su propia pestaña con su propio equipo).
-const KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+// Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
+// Sheet (ver cargarKioskos()/configuracion.html) antes de traer la planilla.
+// Este arreglo es solo el respaldo si todavía no se corrió configurarHojas()
+// o falla la conexión. Cada kiosko es un "resto" (el horario original de
+// Lorito es un solo punto de venta; acá cada kiosko tiene su propia pestaña
+// con su propio equipo).
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+async function cargarKioskos() {
+  if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith('TODO_')) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+        KIOSKOS = data.kioskos;
+      }
+    } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  }
+}
 // Sentinel para colaboradores sin Kiosko fijo (rotativos): aparecen en todas
 // las pestañas, igual que en el dropdown de rrhh.html ("Rotativo (cualquier kiosko)").
 const ROTATIVO = 'ROTATIVO';
@@ -908,7 +921,7 @@ async function enviarWhatsApp(){
 }
 
 initWeek();
-loadSheet();
+cargarKioskos().then(loadSheet);
 </script>
 </body>
 </html>

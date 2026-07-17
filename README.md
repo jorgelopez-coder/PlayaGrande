@@ -62,6 +62,10 @@ Archivos:
 - `index.html` — home con navegación entre módulos.
 - `login.html` — acceso por PIN (mismo patrón simple que Lorito, sin backend
   propio — roles guardados en `localStorage`; ver "Pendiente" más abajo).
+- `configuracion.html` — sección de configuración inicial: alta/edición/
+  activación de kioskos (nombre, ubicación, encargado, contacto, WhatsApp,
+  horario). Única fuente de la lista de kioskos que consume el resto del
+  sistema (ver "Kioskos activos" más abajo).
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
@@ -72,8 +76,9 @@ Archivos:
 - `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas.
 - `Code-rrhh-kioskos-backend.gs` — backend completo de RRHH (Personal,
   Vacaciones, Amonestaciones, Terminaciones, CambiosSalario, Liquidaciones,
-  Horarios, HorariosEstado) — alimenta las 12 pantallas de arriba y el
-  dropdown de "Encargado" en cierres.html.
+  Horarios, HorariosEstado, Configuracion) — alimenta las 12 pantallas de
+  arriba, el dropdown de "Encargado" en cierres.html y la lista de kioskos
+  de `configuracion.html` + selects del resto del sistema.
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -115,7 +120,9 @@ guardar el cierre sin adjuntar ninguna.
    Antigüedad, Banco, Cuenta, Tipo cuenta, Contrato, CCSS, INS RT, Carnet
    alimentos, Vence carnet, Saldo vacaciones, Observaciones) y crea las
    pestañas nuevas: Vacaciones, Amonestaciones, Terminaciones,
-   CambiosSalario, Liquidaciones, Horarios, HorariosEstado.
+   CambiosSalario, Liquidaciones, Horarios, HorariosEstado, Configuracion
+   (esta última sembrada automáticamente con los 4 kioskos originales, ver
+   "Kioskos activos" más abajo).
 4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
    (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
    falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
@@ -147,13 +154,19 @@ hacelo directamente en la pestaña "Personal" del Sheet — salvo salario y
 estado, que tienen sus propias pantallas (`rrhh-cambio-salario.html`,
 `rrhh-terminacion.html`, `rrhh-liquidaciones.html`) para dejar historial.
 
-## Kioskos activos
+## Kioskos activos — sección de Configuración
 
-La lista de kioskos vive como constante `KIOSKOS` al inicio del `<script>`
-en varios archivos — no depende de ningún backend. Para sumar un kiosko
-nuevo (o abrir uno más adelante) hay que agregarlo al arreglo **en cada
-uno** de estos archivos (están duplicados a propósito, sin build step que
-los comparta):
+La lista de kioskos ya **no** está duplicada en cada `.html`. Vive en la
+pestaña **"Configuracion"** del Sheet de RRHH, y se administra desde
+`configuracion.html` (tile "Configuración" en `index.html`): nombre,
+ubicación (link o ID de Google Maps), encargado, contacto, WhatsApp,
+horario y estado activo/inactivo.
+
+Para abrir un kiosko nuevo (o desactivar uno), entrá a `configuracion.html`
+y usá "+ Agregar kiosko" — no hace falta tocar ningún archivo `.html` ni el
+backend. Los siguientes archivos leen la lista de kioskos activos al cargar
+(`fetch(APPS_SCRIPT_URL + '?modulo=kioskos')`, con un arreglo `KIOSKOS`
+hardcodeado como respaldo si no hay conexión):
 
 - `cierres.html`
 - `rrhh.html`
@@ -161,9 +174,20 @@ los comparta):
 - `rrhh-personal.html`
 - `horarios.html`
 
-El Sheet no necesita ningún cambio — el nombre nuevo se guarda tal cual en
-la columna "Kiosko", y en `horarios.html` aparece automáticamente como una
-pestaña más.
+Backend (`Code-rrhh-kioskos-backend.gs`): `configurarHojas()` crea la
+pestaña "Configuracion" y, si está vacía, la siembra con los 4 kioskos
+originales (`sembrarConfiguracion()`). `doGet` con `?modulo=kioskos`
+devuelve tanto los registros completos (para `configuracion.html`, que
+también necesita ver los inactivos) como el array `kioskos` con solo los
+nombres activos, en orden — eso es lo que consumen los selects del resto de
+pantallas. `doPost` con `modulo: 'kiosko_guardar'` crea o edita un kiosko
+(incluye renombrar, vía `kiosko_original`) y `modulo: 'kiosko_estado'`
+activa/desactiva uno sin abrir el formulario completo.
+
+El Sheet no necesita ningún cambio manual más allá de correr
+`configurarHojas()` una vez — el nombre del kiosko se guarda tal cual en la
+columna "Kiosko" de Personal/Horarios/Cierres, y en `horarios.html` aparece
+automáticamente como una pestaña más.
 
 ## Extracción con IA (opcional, no incluida todavía)
 

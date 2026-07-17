@@ -465,16 +465,18 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Pegá acá las URLs /exec de tus Web Apps de Apps Script (ver README.md).
-const SHEETS_URL       = 'TODO_APPS_SCRIPT_CIERRES_KIOSKOS';
-const APPS_SCRIPT_RRHH = 'TODO_APPS_SCRIPT_RRHH_KIOSKOS';
+const SHEETS_URL       = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 // Opcional — solo si desplegás el extractor con IA (ver README.md). Si lo
 // dejás vacío, el botón "Extraer datos con IA" queda oculto y el formulario
 // funciona igual, 100% manual.
 const EXTRACTOR_URL    = '';
 
-// Lista de kioskos activos. Para abrir uno nuevo, agregalo acá — no requiere
-// tocar el backend, cualquier texto nuevo se guarda tal cual en el Sheet.
-const KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+// Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
+// Sheet de RRHH (ver cargarKioskos()/configuracion.html). Este arreglo es
+// solo el respaldo por si todavía no se corrió configurarHojas() o falla la
+// conexión, para que la pantalla no quede sin opciones.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
 // ── DENOMINACIONES ────────────────────────────────────────────────
 const DENOMS_CRC = [50000,20000,10000,5000,2000,1000,500,100,50,25,10,5];
@@ -488,6 +490,22 @@ let historialData = [];
 let personalData = [];
 
 // ── KIOSKO ────────────────────────────────────────────────────────
+// Trae la lista de kioskos activos desde Configuración (RRHH backend). Si no
+// hay conexión o la pestaña Configuracion todavía no existe, se sigue usando
+// el respaldo definido arriba en KIOSKOS.
+async function cargarKioskos() {
+  if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+        KIOSKOS = data.kioskos;
+      }
+    } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  }
+  poblarKioskos();
+}
+
 function poblarKioskos() {
   const sel = document.getElementById('f-kiosko');
   sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
@@ -1197,7 +1215,7 @@ function fmtCRC(n) { return '₡' + Math.round(n||0).toLocaleString('es-CR'); }
 document.getElementById('date-chip').textContent =
   new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('f-fecha').value = hoy();
-poblarKioskos();
+cargarKioskos();
 if (EXTRACTOR_URL) document.getElementById('ia-box-extractor').style.display = 'block';
 actualizarResumen();
 calcRevisionTarjeta();

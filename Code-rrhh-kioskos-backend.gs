@@ -34,6 +34,7 @@ const HOJA_CAMBIOS_SALARIO = 'CambiosSalario';
 const HOJA_LIQUIDACIONES   = 'Liquidaciones';
 const HOJA_HORARIOS        = 'Horarios';
 const HOJA_HORARIOS_ESTADO = 'HorariosEstado';
+const HOJA_CONFIGURACION   = 'Configuracion';
 
 // Ficha completa de personal (igual que Lorito) + "Kiosko" para saber la
 // ubicación del colaborador (Lorito es un solo punto de venta, no lo tiene).
@@ -67,6 +68,17 @@ const ENCABEZADOS_HORARIOS = [
 const ENCABEZADOS_HORARIOS_ESTADO = [
   'Semana inicio', 'Cerrado', 'Actualizado', 'PDF URL'
 ];
+// Configuración inicial: acá vive la lista de kioskos y su info general —
+// única fuente de verdad, la consumen cierres.html, rrhh.html,
+// rrhh-nuevo-ingreso.html, rrhh-personal.html y horarios.html vía
+// ?modulo=kioskos, en vez de tener un arreglo hardcodeado y duplicado en
+// cada archivo.
+const ENCABEZADOS_CONFIGURACION = [
+  'Kiosko', 'Activo', 'Ubicación', 'Encargado', 'Contacto', 'WhatsApp', 'Horario', 'Registrado'
+];
+// Kioskos con los que arranca el sistema — solo se usan para sembrar la
+// pestaña "Configuracion" la primera vez (si ya tiene filas, no se tocan).
+const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
 // Carpeta de Drive donde se guarda una copia del PDF al cerrar una semana de
 // horarios. Pegá acá el ID de una carpeta tuya (ver instrucciones arriba) —
@@ -85,6 +97,29 @@ function configurarHojas() {
   prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES);
   prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS);
   prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
+  sembrarConfiguracion();
+}
+
+// Crea la pestaña "Configuracion" y, si está recién creada (sin filas de
+// datos todavía), la llena con los kioskos que ya venían hardcodeados en
+// los .html — así configuracion.html y el resto de pantallas no arrancan
+// con la lista vacía. Si ya tiene filas (el usuario ya la editó/agregó
+// kioskos desde configuracion.html), no la vuelve a tocar.
+function sembrarConfiguracion() {
+  const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+  if (hoja.getLastRow() > 1) return;
+  KIOSKOS_POR_DEFECTO.forEach(function (nombre) {
+    agregarFilaPorEncabezado(hoja, ENCABEZADOS_CONFIGURACION, {
+      'Kiosko': nombre,
+      'Activo': 'Sí',
+      'Ubicación': '',
+      'Encargado': '',
+      'Contacto': '',
+      'WhatsApp': '',
+      'Horario': '',
+      'Registrado': new Date().toISOString()
+    });
+  });
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -150,6 +185,13 @@ function doGet(e) {
       case 'horarios':        hoja = prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS); break;
       case 'horarios_estado': hoja = prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO); break;
       case 'acciones':        return jsonOut({ ok: true, registros: [] });
+      case 'kioskos':
+        hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+        // "registros" trae todas las filas (para configuracion.html, que
+        // también necesita ver los inactivos); "kioskos" trae solo los
+        // nombres activos, en orden — eso es lo que consumen los selects
+        // de cierres.html/rrhh*.html/horarios.html.
+        return jsonOut({ ok: true, registros: filasComoObjetos(hoja), kioskos: obtenerKioskosActivos() });
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
@@ -212,6 +254,8 @@ function doPost(e) {
       case 'horario_semana':        result = registrarHorarioSemana(payload); break;
       case 'cerrar_horario':        result = cambiarEstadoHorarioSemana(payload, 'Sí'); break;
       case 'reabrir_horario':       result = cambiarEstadoHorarioSemana(payload, 'No'); break;
+      case 'kiosko_guardar':        result = guardarKiosko(payload); break;
+      case 'kiosko_estado':         result = cambiarEstadoKiosko(payload); break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -528,4 +572,67 @@ function guardarPDFHorarioEnDrive(semanaInicio, base64) {
 
 function hoyCR() {
   return Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
+}
+
+// ── CONFIGURACIÓN DE KIOSKOS (sección de configuración inicial) ─────
+
+// Nombres de kioskos activos, en el orden en que aparecen en el Sheet —
+// esto es lo que alimenta todos los selects de kiosko del sistema.
+function obtenerKioskosActivos() {
+  const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+  return filasComoObjetos(hoja)
+    .filter(function (r) { return String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no'; })
+    .map(function (r) { return r['Kiosko']; })
+    .filter(Boolean);
+}
+
+// Crea un kiosko nuevo o edita uno existente. Si viene "kiosko_original" y
+// existe una fila con ese nombre, la actualiza entera (permite renombrar);
+// si no, crea una fila nueva. Usado por configuracion.html.
+function guardarKiosko(p) {
+  const nombre = String(p.kiosko || '').trim();
+  if (!nombre) throw new Error('Falta el nombre del kiosko.');
+  const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+  const original = String(p.kiosko_original || '').trim();
+  const filaExistente = original ? filaPorColumna(hoja, ENCABEZADOS_CONFIGURACION, 'Kiosko', original) : -1;
+
+  // Si el nombre cambia (o es nuevo), verificar que no choque con otro kiosko.
+  if (nombre.toLowerCase() !== original.toLowerCase()) {
+    const enUso = filasComoObjetos(hoja).some(function (r) {
+      return String(r['Kiosko'] || '').trim().toLowerCase() === nombre.toLowerCase();
+    });
+    if (enUso) throw new Error('Ya existe un kiosko con ese nombre.');
+  }
+
+  const valores = {
+    'Kiosko': nombre,
+    'Activo': p.activo || 'Sí',
+    'Ubicación': p.ubicacion || '',
+    'Encargado': p.encargado || '',
+    'Contacto': p.contacto || '',
+    'WhatsApp': p.whatsapp || '',
+    'Horario': p.horario || '',
+    'Registrado': p.registrado_en || new Date().toISOString()
+  };
+
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_CONFIGURACION, valores);
+    return { fila: filaExistente, kiosko: nombre };
+  }
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_CONFIGURACION, valores);
+  return { fila: fila, kiosko: nombre };
+}
+
+// Activa/desactiva un kiosko sin abrir el formulario completo (toggle rápido
+// desde la lista de configuracion.html). Un kiosko inactivo deja de aparecer
+// en los selects, pero no se borra ni afecta los registros ya guardados con
+// ese nombre.
+function cambiarEstadoKiosko(p) {
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_CONFIGURACION, 'Kiosko', p.kiosko);
+  if (fila === -1) throw new Error('No se encontró ese kiosko.');
+  const colActivo = ENCABEZADOS_CONFIGURACION.indexOf('Activo') + 1;
+  hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
+  return { fila: fila };
 }
