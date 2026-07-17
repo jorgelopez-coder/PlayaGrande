@@ -172,7 +172,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div class="field">
         <label for="f-encargado">Nombre del encargado</label>
-        <input type="text" id="f-encargado" placeholder="Ej: María Rodríguez"/>
+        <select id="f-encargado">
+          <option value="">Sin encargado asignado</option>
+        </select>
+        <p class="field-hint">Se carga desde Personal (RRHH) — solo colaboradores activos.</p>
       </div>
       <div class="field">
         <label for="f-contacto">Contacto (teléfono)</label>
@@ -224,6 +227,38 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjG
 
 let kioskos = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
 let editando = null; // nombre original del kiosko en edición, o null si es nuevo
+
+// ── ENCARGADO (desde Personal / RRHH) ────────────────────────────
+let personalData = [];
+
+async function cargarPersonal() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.startsWith('TODO_')) return;
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
+    const data = await resp.json();
+    if (data.ok) personalData = data.registros || [];
+  } catch (e) { /* el select queda solo con "Sin encargado asignado" */ }
+  poblarEncargados(document.getElementById('f-encargado').value);
+}
+
+// Arma el <select> de encargado con los colaboradores activos de Personal.
+// Si el kiosko ya tenía guardado un nombre que ya no está activo (o se borró
+// de Personal), lo deja como opción aparte para no perder el dato al editar.
+function poblarEncargados(valorActual) {
+  const sel = document.getElementById('f-encargado');
+  const activos = personalData
+    .filter(p => (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO')
+    .map(p => p['Nombre completo'])
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  let opciones = '<option value="">Sin encargado asignado</option>' + activos.map(n => `<option>${n}</option>`).join('');
+  if (valorActual && !activos.includes(valorActual)) {
+    opciones += `<option value="${valorActual}">${valorActual} (no encontrado en Personal)</option>`;
+  }
+  sel.innerHTML = opciones;
+  sel.value = valorActual || '';
+}
 
 // ── HORARIO POR DÍA ───────────────────────────────────────────────
 // Mismas abreviaturas que usa el backend (Configuracion) y horarios.html.
@@ -510,7 +545,7 @@ function abrirForm() {
   document.getElementById('form-title').textContent = 'Nuevo kiosko';
   document.getElementById('f-nombre').value = '';
   document.getElementById('f-ubicacion').value = '';
-  document.getElementById('f-encargado').value = '';
+  poblarEncargados('');
   document.getElementById('f-contacto').value = '';
   document.getElementById('f-whatsapp').value = '';
   document.getElementById('f-activo').value = 'Sí';
@@ -527,7 +562,7 @@ function editarKiosko(nombre) {
   document.getElementById('form-title').textContent = 'Editar kiosko';
   document.getElementById('f-nombre').value = k['Kiosko'] || '';
   document.getElementById('f-ubicacion').value = k['Ubicación'] || '';
-  document.getElementById('f-encargado').value = k['Encargado'] || '';
+  poblarEncargados(k['Encargado'] || '');
   document.getElementById('f-contacto').value = k['Contacto'] || '';
   document.getElementById('f-whatsapp').value = k['WhatsApp'] || '';
   document.getElementById('f-activo').value = String(k['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
@@ -612,6 +647,7 @@ function showToast(msg, type='success') {
 // ── INIT ──────────────────────────────────────────────────────────
 construirFilasHorario();
 cargarKioskos();
+cargarPersonal();
 
 // Redirige a login si no hay sesión válida (8 horas) — mismo patrón que index.html.
 const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
