@@ -43,7 +43,8 @@ const ENCABEZADOS_PERSONAL = [
   'Salario', 'Fecha ingreso', 'Fecha nacimiento', 'Edad', 'Nacionalidad',
   'Teléfono', 'Email', 'Antigüedad', 'Banco', 'Cuenta', 'Tipo cuenta',
   'Contrato', 'CCSS', 'INS RT', 'Carnet alimentos', 'Vence carnet',
-  'Saldo vacaciones', 'Observaciones'
+  'Saldo vacaciones', 'Observaciones',
+  'Foto Cédula (URL)'
 ];
 const ENCABEZADOS_VACACIONES = [
   'ID', 'Colaborador', 'Fecha inicio', 'Fecha fin', 'Días', 'Observaciones', 'Estado', 'Registrado'
@@ -84,6 +85,14 @@ const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa
 // horarios. Pegá acá el ID de una carpeta tuya (ver instrucciones arriba) —
 // mientras esté vacío, "Cerrar horario" va a fallar al generar el PDF.
 const FOLDER_ID_HORARIOS = 'TODO_FOLDER_ID_HORARIOS_KIOSKOS';
+
+// Carpeta de Drive donde se guarda la foto de cédula de cada colaborador
+// dado de alta desde rrhh-nuevo-ingreso.html (un archivo por persona,
+// nombrado con cédula + nombre). Ya viene con el ID de la carpeta que se usó
+// para este proyecto — si se necesita cambiarla, reemplazá el ID de abajo
+// (de la URL de la carpeta en Drive) y volvé a Implementar → Gestionar
+// implementaciones → Editar → Nueva versión.
+const FOLDER_ID_CEDULAS = '1a6cdpjL85_26UP4nto35Ht4ata1rODPA';
 
 // Corré esta función UNA VEZ desde el editor de Apps Script para preparar el
 // Sheet: agrega las columnas nuevas a "Personal" (sin tocar filas existentes)
@@ -318,6 +327,7 @@ function nuevoIngreso(p) {
     throw new Error('Ya existe un colaborador con ese nombre.');
   }
   const doc = p.documentos || {};
+  const fotoCedulaUrl = guardarFotoCedula(p, nombreCompleto);
   const fila = hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_PERSONAL, {
     'Nombre completo': nombreCompleto,
@@ -343,9 +353,35 @@ function nuevoIngreso(p) {
     'Carnet alimentos': !!doc.carnet,
     'Vence carnet': doc.carnet_vence || '',
     'Saldo vacaciones': 0,
-    'Observaciones': p.observaciones || ''
+    'Observaciones': p.observaciones || '',
+    'Foto Cédula (URL)': fotoCedulaUrl
   });
   return { fila: fila, nombre: nombreCompleto };
+}
+
+// ── FOTO DE CÉDULA → GOOGLE DRIVE ─────────────────────────────────
+// Guarda la foto (base64, tomada/subida desde rrhh-nuevo-ingreso.html) en la
+// carpeta fija FOLDER_ID_CEDULAS, un archivo por colaborador nombrado con su
+// cédula y nombre para poder ubicarlo a simple vista. Si no viene foto (alta
+// desde rrhh.html, que no la pide), devuelve '' sin tocar Drive.
+function guardarFotoCedula(p, nombreCompleto) {
+  if (!p.fotoCedula) return '';
+  const carpeta = DriveApp.getFolderById(FOLDER_ID_CEDULAS);
+  const cedulaSlug = (p.cedula || 'sin-cedula').toString().trim().replace(/[^\w\-]+/g, '_');
+  const nombreSlug = nombreCompleto.toString().trim().replace(/[^\w\-]+/g, '_');
+  const fileName = `${cedulaSlug}_${nombreSlug}.jpg`;
+  return guardarImagenBase64(carpeta, p.fotoCedula, p.fotoCedulaMime || 'image/jpeg', fileName);
+}
+
+// Sube un archivo en base64 a una carpeta de Drive y devuelve su URL, con
+// permiso de "cualquiera con el link puede ver" (para que se pueda abrir
+// desde rrhh-personal.html sin pedir acceso).
+function guardarImagenBase64(folder, base64, mimeType, fileName) {
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, mimeType, fileName);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
 }
 
 // Cambia solo el Estado (ACTIVO/INACTIVO) — usado por el toggle rápido de

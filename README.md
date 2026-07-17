@@ -122,11 +122,14 @@ guardar el cierre sin adjuntar ninguna.
    tenía datos en "Personal", esto **no los borra**: agrega al final las
    columnas nuevas (Departamento, Fecha nacimiento, Edad, Nacionalidad,
    Antigüedad, Banco, Cuenta, Tipo cuenta, Contrato, CCSS, INS RT, Carnet
-   alimentos, Vence carnet, Saldo vacaciones, Observaciones) y crea las
-   pestañas nuevas: Vacaciones, Amonestaciones, Terminaciones,
-   CambiosSalario, Liquidaciones, Horarios, HorariosEstado, Configuracion
-   (esta última sembrada automáticamente con los 4 kioskos originales, ver
-   "Kioskos activos" más abajo).
+   alimentos, Vence carnet, Saldo vacaciones, Observaciones, **Foto Cédula
+   (URL)**) y crea las pestañas nuevas: Vacaciones, Amonestaciones,
+   Terminaciones, CambiosSalario, Liquidaciones, Horarios, HorariosEstado,
+   Configuracion (esta última sembrada automáticamente con los 4 kioskos
+   originales, ver "Kioskos activos" más abajo). Si ya habías corrido
+   `configurarHojas()` antes de sumar la foto de cédula, volvé a correrla
+   una vez más: solo agrega la columna que falte, sin tocar las que ya
+   tenías.
 4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
    (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
    falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
@@ -140,13 +143,23 @@ guardar el cierre sin adjuntar ninguna.
    implementaciones → Editar → Nueva versión. Sin este paso, "Cerrar
    horario" en `horarios.html` va a fallar al generar el PDF (podés seguir
    usando Horarios sin cerrar semanas mientras tanto).
-6. Cargá el personal desde `rrhh-nuevo-ingreso.html` (ficha completa) o
-   `rrhh.html` (alta rápida, campos básicos) — ambos escriben en la misma
-   pestaña "Personal". El campo `Kiosko` es opcional: si un colaborador
-   trabaja fijo en un solo kiosko, completalo para que solo aparezca ahí;
-   dejándolo vacío, aparece como "rotativo" — disponible en cualquier
-   kiosko (dropdown de Encargado en cierres.html, y en las 4 pestañas de
-   Horarios).
+6. `rrhh-nuevo-ingreso.html` incluye un espacio para tomar/subir la foto de
+   la cédula del colaborador (opcional) y se guarda en la carpeta de Drive
+   fija `FOLDER_ID_CEDULAS` (ya viene con un ID real cargado en
+   `Code-rrhh-kioskos-backend.gs`, no hace falta configurarlo — si en algún
+   momento querés usar otra carpeta, reemplazá ese ID por el de tu carpeta y
+   volvé a Implementar → Gestionar implementaciones → Editar → Nueva
+   versión). La URL del archivo queda guardada en la columna nueva
+   **"Foto Cédula (URL)"** de "Personal", visible desde el expediente en
+   `rrhh-personal.html` ("Ver foto ↗"). `rrhh.html` (alta rápida) no tiene
+   este campo todavía.
+7. Cargá el personal desde `rrhh-nuevo-ingreso.html` (ficha completa, con
+   foto de cédula) o `rrhh.html` (alta rápida, campos básicos) — ambos
+   escriben en la misma pestaña "Personal". El campo `Kiosko` es opcional:
+   si un colaborador trabaja fijo en un solo kiosko, completalo para que
+   solo aparezca ahí; dejándolo vacío, aparece como "rotativo" — disponible
+   en cualquier kiosko (dropdown de Encargado en cierres.html, y en las 4
+   pestañas de Horarios).
 
 Sin el paso 4, `cierres.html` y todas las pantallas de RRHH muestran
 "Configurá APPS_SCRIPT_RRHH primero" (o el error de conexión equivalente).

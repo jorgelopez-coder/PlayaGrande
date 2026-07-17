@@ -610,6 +610,7 @@ function verExpediente(idx) {
         <div class="dato-row"><span class="dato-label">Nacionalidad</span><span class="dato-valor">${p['Nacionalidad'] || '—'}</span></div>
         <div class="dato-row"><span class="dato-label">Teléfono</span><span class="dato-valor">${p['Teléfono'] || '—'}</span></div>
         <div class="dato-row"><span class="dato-label">Correo</span><span class="dato-valor" style="font-size:12px;">${p['Email'] || '—'}</span></div>
+        <div class="dato-row"><span class="dato-label">Foto de cédula</span><span class="dato-valor">${p['Foto Cédula (URL)'] ? `<a href="${p['Foto Cédula (URL)']}" target="_blank" style="color:var(--blue);font-weight:500;">Ver foto ↗</a>` : '—'}</span></div>
       </div>
 
       <div class="exp-card">
