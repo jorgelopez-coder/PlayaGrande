@@ -75,8 +75,12 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
 
 /* ── KPI STRIP (tickets) ────────────────────────────────── */
-.ticket-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:1.5rem; }
+.ticket-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:1.5rem; }
 .ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
+.ticket.clickable { cursor:pointer; transition:border-color .12s; }
+.ticket.clickable:hover { border-color:var(--border-h); }
+.ticket-chevron { position:absolute; top:16px; right:14px; color:var(--subtle); display:flex; transition:transform .15s; }
+.ticket.clickable.open .ticket-chevron { transform:rotate(180deg); color:var(--text); }
 .ticket::before {
   content:''; position:absolute; top:-1px; left:0; right:0; height:9px;
   background-image:radial-gradient(circle at 7px 5px, var(--bg) 3px, transparent 3.3px);
@@ -122,6 +126,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .kb-ok { background:var(--green-bg); color:var(--green); }
 .kb-warn { background:var(--red-bg); color:var(--red); }
 .kb-none { background:var(--surface); color:var(--subtle); }
+.kb-soon { background:var(--amber-bg); color:var(--amber); }
 
 /* ── TOP 10 PRODUCTOS ───────────────────────────────────── */
 .prod-row { display:flex; align-items:center; gap:12px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
@@ -131,6 +136,16 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .prod-nombre { font-size:12.5px; font-weight:500; }
 .prod-meta { font-size:11px; color:var(--muted); margin-top:1px; }
 .prod-monto { font-family:var(--font-m); font-size:13px; font-weight:600; color:var(--green); flex-shrink:0; white-space:nowrap; }
+
+/* ── DETALLE DESPLEGABLE DE KPI (personal / ventas) ──────── */
+.kpi-detail { display:none; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:1.5rem; }
+.kpi-detail.open { display:block; }
+.kpi-detail-head { padding:.9rem 1.25rem; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.kpi-group-label { padding:.5rem 1.25rem .3rem; font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--subtle); background:var(--surface); }
+.persona-row { display:flex; align-items:center; gap:10px; padding:.6rem 1.25rem; border-bottom:1px solid var(--border); }
+.persona-row:last-child { border-bottom:none; }
+.persona-nombre { font-size:12.5px; font-weight:500; }
+.persona-puesto { font-size:11px; color:var(--muted); margin-left:auto; text-align:right; flex-shrink:0; }
 
 /* ── MÓDULOS (tiles dentro del menú desplegable) ────────── */
 .mod-tile { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px; text-decoration:none; color:var(--text); transition:background .12s; }
@@ -299,17 +314,12 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
   <!-- KPIs -->
   <div class="ticket-strip">
-    <div class="ticket">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-kioskos" style="color:var(--green);">—</div>
-      <div class="ticket-lbl">Kioskos activos</div>
-      <div class="ticket-sub" id="kpi-kioskos-sub" style="color:var(--muted);"></div>
-    </div>
-    <div class="ticket">
+    <div class="ticket clickable" data-kpi="personal" onclick="toggleKpiDetail('personal')">
       <span class="ticket-punch"></span>
       <div class="ticket-val" id="kpi-personal" style="color:var(--blue);">—</div>
       <div class="ticket-lbl">Personal activo</div>
       <div class="ticket-sub" id="kpi-personal-sub" style="color:var(--muted);"></div>
+      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </div>
     <div class="ticket">
       <span class="ticket-punch"></span>
@@ -317,11 +327,38 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-lbl">Último cierre registrado</div>
       <div class="ticket-sub" id="kpi-cierre-sub" style="color:var(--muted);"></div>
     </div>
-    <div class="ticket">
+    <div class="ticket clickable" data-kpi="ventas" onclick="toggleKpiDetail('ventas')">
       <span class="ticket-punch"></span>
       <div class="ticket-val" id="kpi-ventas-hoy" style="color:var(--amber);">—</div>
       <div class="ticket-lbl">Ventas de hoy</div>
       <div class="ticket-sub" id="kpi-ventas-hoy-sub" style="color:var(--muted);"></div>
+      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
+  </div>
+
+  <!-- Detalle desplegable: personal activo por kiosko -->
+  <div class="kpi-detail" id="kpi-detail-personal" data-kpi="personal">
+    <div class="kpi-detail-head"><span class="clip"></span>Personal activo por kiosko</div>
+    <div id="personal-detail-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Detalle desplegable: top 10 productos vendidos hoy -->
+  <div class="kpi-detail" id="kpi-detail-ventas" data-kpi="ventas">
+    <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy</div>
+    <div id="top-productos-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Placeholder: ventas por kiosko (pendiente de que Square reporte el kiosko en Ventas_Por_Producto) -->
+  <div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-head">
+      <span class="section-title"><span class="clip"></span>Ventas por kiosko</span>
+    </div>
+    <div id="ventas-kiosko-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
 
@@ -400,16 +437,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div id="kiosko-grid-body">
         <div class="no-alerts"><span class="spinner"></span></div>
       </div>
-    </div>
-  </div>
-
-  <!-- Top 10 productos vendidos hoy -->
-  <div class="section-card" style="margin-bottom:1.5rem;">
-    <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Top 10 productos vendidos hoy</span>
-    </div>
-    <div id="top-productos-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
 
@@ -499,12 +526,30 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.nav-item')) {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
   }
+  if (!e.target.closest('.ticket.clickable') && !e.target.closest('.kpi-detail')) {
+    cerrarKpiDetail();
+  }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+    cerrarKpiDetail();
   }
 });
+
+// ── KPI DESPLEGABLES (personal activo / top10 ventas) ────────
+function cerrarKpiDetail() {
+  document.querySelectorAll('.kpi-detail.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.ticket.clickable.open').forEach(t => t.classList.remove('open'));
+}
+function toggleKpiDetail(key) {
+  const yaAbierto = document.querySelector(`.kpi-detail[data-kpi="${key}"]`).classList.contains('open');
+  cerrarKpiDetail();
+  if (!yaAbierto) {
+    document.querySelector(`.kpi-detail[data-kpi="${key}"]`).classList.add('open');
+    document.querySelector(`.ticket.clickable[data-kpi="${key}"]`).classList.add('open');
+  }
+}
 
 // ── KPIs ──────────────────────────────────────────────────────
 function diasDesde(fechaISO) {
@@ -543,26 +588,53 @@ async function cargarKPIs() {
       kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
     }
     if (kioskosActivos.length) KIOSKOS = kioskosActivos;
-    document.getElementById('kpi-kioskos').textContent = kioskosActivos.length + '/' + totalKioskos;
-    document.getElementById('kpi-kioskos-sub').textContent = 'Playa Grande · Liberia · Nosara · Playa Hermosa';
   } catch(e) {
     kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
-    document.getElementById('kpi-kioskos').textContent = 'Sin conexión';
-    document.getElementById('kpi-kioskos-sub').textContent = 'No se pudo cargar Configuración';
   }
+
+  const listaKioskosVentas = kioskosActivos.length ? kioskosActivos : KIOSKOS;
+  document.getElementById('ventas-kiosko-body').innerHTML = listaKioskosVentas.map(nombre => `
+    <div class="kiosko-row">
+      <span class="kiosko-dot" style="background:var(--subtle);"></span>
+      <div class="kiosko-info"><div class="kiosko-nombre">${nombre}</div><div class="kiosko-meta">Aún sin ventas desglosadas por kiosko</div></div>
+      <span class="kiosko-badge kb-soon">Próximamente</span>
+    </div>`).join('');
 
   // 2. PERSONAL
   let personalData = [];
+  const personalBody = document.getElementById('personal-detail-body');
   try {
     const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
     const data = await resp.json();
     personalData = data.registros || [];
-    personalActivo = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO').length;
+    const activos = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO');
+    personalActivo = activos.length;
     document.getElementById('kpi-personal').textContent = personalActivo;
     document.getElementById('kpi-personal-sub').textContent = personalActivo + ' de ' + personalData.length + ' colaboradores';
+
+    const grupos = {};
+    activos.forEach(p => {
+      const kiosko = (p['Kiosko'] || '').toString().trim() || 'Sin kiosko asignado';
+      (grupos[kiosko] = grupos[kiosko] || []).push(p);
+    });
+    const ordenKioskos = [...kioskosActivos, 'Sin kiosko asignado'];
+    const nombresGrupos = Object.keys(grupos).sort((a, b) => {
+      const ia = ordenKioskos.indexOf(a), ib = ordenKioskos.indexOf(b);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+    personalBody.innerHTML = activos.length
+      ? nombresGrupos.map(k => `
+        <div class="kpi-group-label">${k}</div>
+        ${grupos[k].map(p => `
+          <div class="persona-row">
+            <div class="persona-nombre">${p['Nombre completo'] || '—'}</div>
+            <div class="persona-puesto">${p['Puesto'] || ''}</div>
+          </div>`).join('')}`).join('')
+      : '<div class="no-alerts">No hay personal activo registrado.</div>';
   } catch(e) {
     document.getElementById('kpi-personal').textContent = 'Sin conexión';
     document.getElementById('kpi-personal-sub').textContent = 'No se pudo cargar RRHH';
+    personalBody.innerHTML = '<div class="no-alerts">No se pudo cargar el personal activo.</div>';
   }
 
   // 3. CIERRES — último general + último por kiosko
