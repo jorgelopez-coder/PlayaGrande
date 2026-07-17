@@ -253,6 +253,7 @@ function doPost(e) {
     let result;
     switch (payload.modulo) {
       case 'nuevo_ingreso':         result = nuevoIngreso(payload); break;
+      case 'editar_colaborador':    result = editarColaborador(payload); break;
       case 'cambiar_estado':        result = cambiarEstado(payload); break;
       case 'vacaciones':            result = crearSolicitudVacaciones(payload); break;
       case 'vacaciones_estado':     result = cambiarEstadoVacaciones(payload); break;
@@ -394,6 +395,78 @@ function cambiarEstado(p) {
   const colEstado = colPorEncabezado(hoja, 'Estado');
   hoja.getRange(fila, colEstado).setValue(p.estado || 'INACTIVO');
   return { fila: fila };
+}
+
+// Edita un expediente ya existente (usado por el botón "Editar" del
+// expediente en rrhh-personal.html). Localiza la fila por "nombre_original"
+// (el nombre completo con el que se abrió el expediente, por si el nombre
+// cambia como parte de la edición) y reescribe todos los campos editables.
+// A propósito NO toca "Estado" ni "Salario" ni "Saldo vacaciones" — esos
+// quedan reservados a sus propias pantallas (rrhh-terminacion.html,
+// rrhh-cambio-salario.html, rrhh-vacaciones.html/control-vacaciones.html)
+// para no perder el historial que esas pantallas registran aparte. La foto
+// de cédula solo se reemplaza si llega una nueva (`p.fotoCedula`); si no,
+// se conserva la que ya hubiera.
+function editarColaborador(p) {
+  const original = (p.nombre_original || '').toString().trim();
+  if (!original) throw new Error('Falta identificar qué colaborador editar.');
+  const hoja = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
+  const fila = filaColaborador(hoja, original);
+  if (fila === -1) throw new Error('No se encontró ese colaborador.');
+
+  const nombreCompleto = (p.nombre || '').toString().trim();
+  if (!nombreCompleto) throw new Error('Falta el nombre completo.');
+
+  // Si el nombre cambia, verificar que no choque con otro colaborador ya existente.
+  if (nombreCompleto.toLowerCase() !== original.toLowerCase()) {
+    const otraFila = filaColaborador(hoja, nombreCompleto);
+    if (otraFila !== -1 && otraFila !== fila) {
+      throw new Error('Ya existe otro colaborador con ese nombre.');
+    }
+  }
+
+  const nCols = Math.max(hoja.getLastColumn(), ENCABEZADOS_PERSONAL.length);
+  const encabezadosReales = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const filaActual = hoja.getRange(fila, 1, 1, nCols).getValues()[0];
+  const valorActual = function (nombreCol) {
+    const idx = encabezadosReales.indexOf(nombreCol);
+    return idx === -1 ? '' : filaActual[idx];
+  };
+
+  const doc = p.documentos || {};
+  let fotoCedulaUrl = valorActual('Foto Cédula (URL)') || '';
+  if (p.fotoCedula) {
+    fotoCedulaUrl = guardarFotoCedula(p, nombreCompleto);
+  }
+
+  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_PERSONAL, {
+    'Nombre completo': nombreCompleto,
+    'Cédula': p.cedula || '',
+    'Puesto': p.puesto || '',
+    'Estado': valorActual('Estado') || 'ACTIVO',
+    'Kiosko': p.kiosko || '',
+    'Departamento': p.departamento || '',
+    'Salario': valorActual('Salario') || 0,
+    'Fecha ingreso': p.fecha_ingreso || valorActual('Fecha ingreso') || '',
+    'Fecha nacimiento': p.fecha_nacimiento || '',
+    'Edad': p.edad || '',
+    'Nacionalidad': p.nacionalidad || '',
+    'Teléfono': p.telefono || '',
+    'Email': p.email || '',
+    'Antigüedad': p.antiguedad || '',
+    'Banco': p.banco || '',
+    'Cuenta': p.cuenta || '',
+    'Tipo cuenta': p.tipo_cuenta || '',
+    'Contrato': !!doc.contrato,
+    'CCSS': !!doc.ccss,
+    'INS RT': !!doc.ins_rt,
+    'Carnet alimentos': !!doc.carnet,
+    'Vence carnet': doc.carnet_vence || '',
+    'Saldo vacaciones': valorActual('Saldo vacaciones') || 0,
+    'Observaciones': p.observaciones || '',
+    'Foto Cédula (URL)': fotoCedulaUrl
+  });
+  return { fila: fila, nombre: nombreCompleto };
 }
 
 function crearSolicitudVacaciones(p) {

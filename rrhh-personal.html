@@ -145,6 +145,77 @@
     .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
+    /* ── BOTÓN EDITAR (expediente) ── */
+    .btn-editar-exp { flex-shrink:0; padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer; transition:border-color .15s; }
+    .btn-editar-exp:hover { border-color:var(--border-h); }
+
+    /* ── MODAL DE EDICIÓN ── */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(28,58,40,.45); z-index:50; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2.5rem 1rem; }
+    .modal-overlay.open { display:flex; }
+    .modal-card { background:var(--card); border-radius:var(--radius); max-width:720px; width:100%; padding:1.75rem; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+    .modal-head h2 { font-family:var(--font-d); font-size:19px; font-weight:700; }
+    .modal-close { background:none; border:none; font-size:16px; color:var(--muted); cursor:pointer; padding:4px 10px; border-radius:6px; }
+    .modal-close:hover { background:var(--surface); color:var(--text); }
+
+    .edit-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.1rem; margin-bottom:.85rem; }
+    .edit-card-title { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:.85rem; }
+    .edit-field { margin-bottom:.85rem; }
+    .edit-field:last-child { margin-bottom:0; }
+    .edit-field label { display:block; font-size:12.5px; font-weight:500; color:var(--text); margin-bottom:5px; }
+    .edit-field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .edit-field-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .edit-hint { font-size:11px; color:var(--muted); margin-top:5px; }
+    .req { color:var(--red); margin-left:2px; }
+
+    .modal-card input, .modal-card select, .modal-card textarea {
+      width:100%; background:var(--card); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); font-family:var(--font-b); font-size:13.5px; padding:8px 11px;
+      outline:none; appearance:none; transition:border-color .15s, box-shadow .15s;
+    }
+    .modal-card input:focus, .modal-card select:focus, .modal-card textarea:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26,122,74,.1); }
+    .modal-card select {
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 10px center; padding-right:32px; cursor:pointer;
+    }
+    .modal-card textarea { resize:vertical; min-height:60px; line-height:1.5; }
+
+    .edit-checklist { display:flex; flex-direction:column; gap:6px; }
+    .edit-check-item { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); cursor:pointer; transition:border-color .15s, background .15s; }
+    .edit-check-item:hover { border-color:var(--border-h); }
+    .edit-check-item.checked { border-color:var(--green); background:var(--green-bg); }
+    .edit-check-item input[type="checkbox"] { width:15px; height:15px; accent-color:var(--green); cursor:pointer; flex-shrink:0; }
+    .edit-check-label { font-size:12.5px; font-weight:500; color:var(--text); flex:1; }
+    .edit-check-extra { margin-left:24px; margin-top:6px; display:none; }
+    .edit-check-extra.visible { display:block; }
+
+    .modal-submit { display:flex; gap:10px; margin-top:.25rem; }
+    .modal-btn-primary { flex:1; background:var(--green); color:#fff; border:none; border-radius:9px; font-family:var(--font-d); font-size:14px; font-weight:700; padding:11px 20px; cursor:pointer; transition:opacity .15s; }
+    .modal-btn-primary:hover { opacity:.9; }
+    .modal-btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+    .modal-btn-secondary { padding:11px 16px; border-radius:9px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+    .modal-btn-secondary:hover { color:var(--text); border-color:var(--border-h); }
+
+    /* Foto de cédula (en el modal) */
+    .foto-label { font-size:12.5px; font-weight:500; color:var(--text); margin-bottom:6px; display:block; }
+    .foto-box { border:2px dashed var(--border); border-radius:10px; padding:.85rem; text-align:center; cursor:pointer; transition:border-color .15s; position:relative; min-height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; background:var(--card); }
+    .foto-box:hover { border-color:var(--border-h); }
+    .foto-box.has-img { border-style:solid; border-color:var(--green-lt); padding:0; overflow:hidden; min-height:140px; }
+    .foto-box img { width:100%; height:140px; object-fit:cover; display:block; }
+    .foto-icon { width:22px; height:22px; color:var(--subtle); }
+    .foto-hint { font-size:10.5px; color:var(--muted); line-height:1.4; }
+    .foto-remove { position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; background:rgba(20,30,25,.6); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; line-height:1; }
+    .foto-remove:hover { background:rgba(20,30,25,.85); }
+    .foto-badge { position:absolute; bottom:6px; left:6px; background:rgba(20,30,25,.6); color:#fff; font-size:10px; font-weight:600; padding:3px 7px; border-radius:5px; }
+    .foto-current-link { font-size:11.5px; color:var(--blue); margin-top:2px; display:inline-block; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border-h); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity:0; z-index:100; white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.success { border-color:var(--green); color:var(--green); }
+    .toast.error { border-color:var(--red); color:var(--red); }
+    .toast svg { width:16px; height:16px; flex-shrink:0; }
+
     @media (max-width:760px) {
       header { padding:0 1rem; }
       main { padding:1.5rem 1rem 3rem; }
@@ -152,6 +223,8 @@
       .exp-grid { grid-template-columns:1fr; }
       .exp-kpis { grid-template-columns:1fr 1fr 1fr; }
       .doc-grid { grid-template-columns:1fr; }
+      .edit-field-row, .edit-field-row-3 { grid-template-columns:1fr; }
+      .modal-card { padding:1.25rem; }
     }
   </style>
 </head>
@@ -239,6 +312,186 @@
     <span style="margin-left:auto;">v1.0 · RRHH · Ecosistema Kioskos</span>
   </div>
 </main>
+
+<!-- ── MODAL: EDITAR EXPEDIENTE ── -->
+<div class="modal-overlay" id="modal-editar">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Editar expediente</h2>
+      <button type="button" class="modal-close" onclick="cerrarModalEditar()">✕</button>
+    </div>
+
+    <form id="form-editar">
+      <input type="hidden" id="edit-nombre-original">
+
+      <!-- Foto de cédula -->
+      <div class="edit-card">
+        <p class="edit-card-title">Foto de cédula</p>
+        <div class="edit-field">
+          <span class="foto-label">Foto del frente de la cédula</span>
+          <div class="foto-box" id="edit-foto-box" onclick="document.getElementById('edit-input-foto').click()"></div>
+          <input type="file" id="edit-input-foto" accept="image/*" capture="environment" style="display:none">
+        </div>
+      </div>
+
+      <!-- Datos personales -->
+      <div class="edit-card">
+        <p class="edit-card-title">Datos personales</p>
+        <div class="edit-field-row-3">
+          <div class="edit-field">
+            <label for="edit-cedula">Cédula</label>
+            <input type="text" id="edit-cedula" placeholder="0-0000-0000">
+          </div>
+          <div class="edit-field">
+            <label for="edit-nombre">Nombre completo <span class="req">*</span></label>
+            <input type="text" id="edit-nombre" placeholder="Nombre completo" required>
+          </div>
+          <div class="edit-field">
+            <label for="edit-fecha-nac">Fecha de nacimiento</label>
+            <input type="date" id="edit-fecha-nac">
+          </div>
+        </div>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-nacionalidad">Nacionalidad</label>
+            <select id="edit-nacionalidad">
+              <option value="">—</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos laborales -->
+      <div class="edit-card">
+        <p class="edit-card-title">Datos laborales</p>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-kiosko">Kiosko</label>
+            <select id="edit-kiosko">
+              <option value="">Rotativo (cualquier kiosko)</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label for="edit-departamento">Departamento</label>
+            <select id="edit-departamento">
+              <option value="">—</option>
+              <option>Administrativo</option>
+              <option>Cocina</option>
+              <option>Barra</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-puesto">Puesto <span class="req">*</span></label>
+            <input type="text" id="edit-puesto" placeholder="Ej. Bartender, encargado de kiosko…" required>
+          </div>
+          <div class="edit-field">
+            <label for="edit-fecha-ingreso">Fecha de ingreso</label>
+            <input type="date" id="edit-fecha-ingreso">
+          </div>
+        </div>
+        <p class="edit-hint">El salario y el estado se cambian desde "Cambio de salario" y "Terminación laboral" — así queda el historial guardado. Acá no se modifican.</p>
+      </div>
+
+      <!-- Contacto -->
+      <div class="edit-card">
+        <p class="edit-card-title">Información de contacto</p>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-telefono">Teléfono</label>
+            <input type="tel" id="edit-telefono" placeholder="0000-0000">
+          </div>
+          <div class="edit-field">
+            <label for="edit-email">Correo electrónico</label>
+            <input type="email" id="edit-email" placeholder="correo@ejemplo.com">
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos bancarios -->
+      <div class="edit-card">
+        <p class="edit-card-title">Datos bancarios</p>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-banco">Banco</label>
+            <select id="edit-banco">
+              <option value="">—</option>
+              <option>BNCR</option>
+              <option>BCR</option>
+              <option>BAC</option>
+              <option>Davivienda</option>
+              <option>Popular</option>
+              <option>Scotiabank</option>
+              <option>Promerica</option>
+              <option>Otro</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label for="edit-cuenta">Número de cuenta / IBAN</label>
+            <input type="text" id="edit-cuenta" placeholder="CR00 0000 0000 0000 0000 00">
+          </div>
+        </div>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-tipo-cuenta">Tipo de cuenta</label>
+            <select id="edit-tipo-cuenta">
+              <option value="">—</option>
+              <option>Ahorros</option>
+              <option>Corriente</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documentos -->
+      <div class="edit-card">
+        <p class="edit-card-title">Documentos entregados</p>
+        <div class="edit-checklist">
+          <label class="edit-check-item" id="edit-ci-contrato">
+            <input type="checkbox" id="edit-chk-contrato" onchange="toggleCheckEditar('edit-ci-contrato','edit-chk-contrato')">
+            <span class="edit-check-label">Contrato laboral firmado</span>
+          </label>
+          <label class="edit-check-item" id="edit-ci-ccss">
+            <input type="checkbox" id="edit-chk-ccss" onchange="toggleCheckEditar('edit-ci-ccss','edit-chk-ccss')">
+            <span class="edit-check-label">CCSS</span>
+          </label>
+          <label class="edit-check-item" id="edit-ci-ins">
+            <input type="checkbox" id="edit-chk-ins" onchange="toggleCheckEditar('edit-ci-ins','edit-chk-ins')">
+            <span class="edit-check-label">INS RT</span>
+          </label>
+          <div>
+            <label class="edit-check-item" id="edit-ci-carnet">
+              <input type="checkbox" id="edit-chk-carnet" onchange="toggleCheckEditar('edit-ci-carnet','edit-chk-carnet'); toggleCarnetEditar()">
+              <span class="edit-check-label">Carnet de manipulación de alimentos</span>
+            </label>
+            <div class="edit-check-extra" id="edit-extra-carnet">
+              <label for="edit-carnet-vence" style="font-size:11.5px;color:var(--muted);margin-bottom:4px;">Fecha de vencimiento</label>
+              <input type="date" id="edit-carnet-vence" style="max-width:220px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Observaciones -->
+      <div class="edit-card">
+        <p class="edit-card-title">Observaciones</p>
+        <textarea id="edit-obs" rows="3" placeholder="Notas del expediente…"></textarea>
+      </div>
+
+      <div class="modal-submit">
+        <button type="button" class="modal-btn-secondary" onclick="cerrarModalEditar()">Cancelar</button>
+        <button type="submit" class="modal-btn-primary" id="btn-guardar-editar">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
 
 <script>
 // ─── CONFIGURACIÓN ─────────────────────────────────────────────────
@@ -578,6 +831,7 @@ function verExpediente(idx) {
             ${p['Nacionalidad'] ? `<span class="badge" style="background:var(--surface);color:var(--muted);">${p['Nacionalidad']}</span>` : ''}
           </div>
         </div>
+        <button type="button" class="btn-editar-exp" onclick="abrirModalEditar()">✎ Editar</button>
       </div>
       <!-- KPIs -->
       <div class="exp-kpis">
@@ -673,6 +927,270 @@ function calcularAntiguedad(fechaIngreso) {
     return `${anios} año${anios !== 1 ? 's' : ''}`;
   } catch { return '—'; }
 }
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── PAÍSES (reutilizado para el select de nacionalidad del modal) ─
+const PAISES_EDITAR = [
+  'Costa Rica','Nicaragua','Honduras','El Salvador','Guatemala','Panamá','México',
+  'Colombia','Venezuela','Perú','Ecuador','Bolivia','Chile','Argentina','Brasil',
+  'República Dominicana','Cuba','Jamaica','Haití','Estados Unidos','España',
+  'Italia','Francia','Alemania','China','Corea del Sur','India','Otro'
+];
+
+// ── EDITAR EXPEDIENTE ─────────────────────────────────────────────
+let fotoCedulaEditar = { data: null, urlActual: '' };
+
+function poblarSelectsEditar() {
+  document.getElementById('edit-kiosko').innerHTML =
+    '<option value="">Rotativo (cualquier kiosko)</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  const selPais = document.getElementById('edit-nacionalidad');
+  if (!selPais.dataset.poblado) {
+    selPais.innerHTML = '<option value="">—</option>' + PAISES_EDITAR.map(p => `<option>${p}</option>`).join('');
+    selPais.dataset.poblado = '1';
+  }
+}
+
+function abrirModalEditar() {
+  const p = colaboradorActivo;
+  if (!p) return;
+  poblarSelectsEditar();
+
+  const nombre = p['Nombre completo'] || `${p['Nombre']||''} ${p['Apellidos']||''}`.trim();
+  document.getElementById('edit-nombre-original').value = nombre;
+  document.getElementById('edit-nombre').value = nombre;
+  document.getElementById('edit-cedula').value = p['Cédula'] || '';
+  document.getElementById('edit-fecha-nac').value = (p['Fecha nacimiento'] || '').toString().slice(0,10);
+  document.getElementById('edit-nacionalidad').value = p['Nacionalidad'] || '';
+  document.getElementById('edit-kiosko').value = p['Kiosko'] || '';
+  document.getElementById('edit-departamento').value = p['Departamento'] || '';
+  document.getElementById('edit-puesto').value = p['Puesto'] || '';
+  document.getElementById('edit-fecha-ingreso').value = (p['Fecha ingreso'] || '').toString().slice(0,10);
+  document.getElementById('edit-telefono').value = p['Teléfono'] || '';
+  document.getElementById('edit-email').value = p['Email'] || '';
+  document.getElementById('edit-banco').value = p['Banco'] || '';
+  document.getElementById('edit-cuenta').value = p['Cuenta'] || '';
+  document.getElementById('edit-tipo-cuenta').value = p['Tipo cuenta'] || '';
+  document.getElementById('edit-obs').value = p['Observaciones'] || '';
+  document.getElementById('edit-carnet-vence').value = (p['Vence carnet'] || '').toString().slice(0,10);
+
+  const esSi = v => ['true','sí','si','1'].includes(String(v||'').trim().toLowerCase());
+  const setChk = (chkId, ciId, val) => {
+    const chk = document.getElementById(chkId);
+    chk.checked = esSi(val);
+    document.getElementById(ciId).classList.toggle('checked', chk.checked);
+  };
+  setChk('edit-chk-contrato', 'edit-ci-contrato', p['Contrato']);
+  setChk('edit-chk-ccss', 'edit-ci-ccss', p['CCSS']);
+  setChk('edit-chk-ins', 'edit-ci-ins', p['INS RT']);
+  setChk('edit-chk-carnet', 'edit-ci-carnet', p['Carnet alimentos']);
+  document.getElementById('edit-extra-carnet').classList.toggle('visible', document.getElementById('edit-chk-carnet').checked);
+
+  fotoCedulaEditar = { data: null, urlActual: p['Foto Cédula (URL)'] || '' };
+  renderFotoEditarBox();
+
+  document.getElementById('modal-editar').classList.add('open');
+}
+
+function cerrarModalEditar() {
+  document.getElementById('modal-editar').classList.remove('open');
+}
+
+function toggleCheckEditar(ciId, chkId) {
+  const ci = document.getElementById(ciId);
+  const chk = document.getElementById(chkId);
+  ci.classList.toggle('checked', chk.checked);
+}
+
+function toggleCarnetEditar() {
+  const chk = document.getElementById('edit-chk-carnet');
+  document.getElementById('edit-extra-carnet').classList.toggle('visible', chk.checked);
+}
+
+// Foto de cédula dentro del modal — mismo patrón de compresión/preview que
+// rrhh-nuevo-ingreso.html, adaptado para mostrar la foto actual (si ya
+// había una) mientras no se elija una nueva.
+function fotoEditarPlaceholder() {
+  const linkActual = fotoCedulaEditar.urlActual
+    ? `<a href="${fotoCedulaEditar.urlActual}" target="_blank" onclick="event.stopPropagation()" class="foto-current-link">Ver foto actual ↗</a>`
+    : '';
+  return `<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span class="foto-hint">Tocá para ${fotoCedulaEditar.urlActual ? 'reemplazar' : 'subir'} la foto de la cédula</span>
+    ${linkActual}`;
+}
+
+function renderFotoEditarBox() {
+  const box = document.getElementById('edit-foto-box');
+  if (fotoCedulaEditar.data) {
+    box.classList.add('has-img');
+    box.innerHTML = `<img src="data:${fotoCedulaEditar.data.mime};base64,${fotoCedulaEditar.data.base64}" alt="Foto de cédula">
+      <button type="button" class="foto-remove" onclick="event.stopPropagation();quitarFotoEditar()">✕</button>
+      <span class="foto-badge">✓ Nueva</span>`;
+  } else {
+    box.classList.remove('has-img');
+    box.innerHTML = fotoEditarPlaceholder();
+  }
+}
+
+function quitarFotoEditar() {
+  fotoCedulaEditar.data = null;
+  const input = document.getElementById('edit-input-foto');
+  if (input) input.value = '';
+  renderFotoEditarBox();
+}
+
+function comprimirImagenEditar(file, maxDim = 1600, calidad = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+        resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg' });
+      };
+      img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFotoEditarSelect(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Seleccioná una imagen válida', 'error'); return; }
+  try {
+    const { base64, mime } = await comprimirImagenEditar(file);
+    fotoCedulaEditar.data = { base64, mime };
+    renderFotoEditarBox();
+  } catch (e) {
+    showToast('No se pudo procesar la imagen', 'error');
+  }
+}
+document.getElementById('edit-input-foto').addEventListener('change', e => handleFotoEditarSelect(e.target.files[0]));
+
+// Edad/antigüedad recalculadas al guardar, igual que en rrhh-nuevo-ingreso.html
+// (acá no se muestran como "tag" en pantalla, solo se recalculan para guardar).
+function calcEdadParaGuardar(fechaNacStr) {
+  if (!fechaNacStr) return '';
+  const nac = new Date(fechaNacStr);
+  if (isNaN(nac)) return '';
+  const ahora = new Date();
+  let edad = ahora.getFullYear() - nac.getFullYear();
+  const m = ahora.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && ahora.getDate() < nac.getDate())) edad--;
+  return `${edad} años`;
+}
+function calcAntiguedadParaGuardar(fechaIngStr) {
+  if (!fechaIngStr) return '';
+  const ing = new Date(fechaIngStr);
+  if (isNaN(ing)) return '';
+  const ahora = new Date();
+  let anios = ahora.getFullYear() - ing.getFullYear();
+  let meses = ahora.getMonth() - ing.getMonth();
+  if (meses < 0) { anios--; meses += 12; }
+  return anios > 0
+    ? `${anios} año${anios>1?'s':''} y ${meses} mes${meses!==1?'es':''}`
+    : `${meses} mes${meses!==1?'es':''}`;
+}
+
+document.getElementById('form-editar').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const nombreOriginal = document.getElementById('edit-nombre-original').value;
+  const nombre         = document.getElementById('edit-nombre').value.trim();
+  const cedula         = document.getElementById('edit-cedula').value.trim();
+  const fechaNac       = document.getElementById('edit-fecha-nac').value;
+  const nacionalidad   = document.getElementById('edit-nacionalidad').value;
+  const kiosko         = document.getElementById('edit-kiosko').value;
+  const departamento   = document.getElementById('edit-departamento').value;
+  const puesto         = document.getElementById('edit-puesto').value.trim();
+  const fechaIngreso   = document.getElementById('edit-fecha-ingreso').value;
+  const telefono       = document.getElementById('edit-telefono').value.trim();
+  const email          = document.getElementById('edit-email').value.trim();
+  const banco          = document.getElementById('edit-banco').value;
+  const cuenta         = document.getElementById('edit-cuenta').value.trim();
+  const tipoCuenta     = document.getElementById('edit-tipo-cuenta').value;
+  const observaciones  = document.getElementById('edit-obs').value.trim();
+
+  if (!nombre || !puesto) {
+    showToast('Completá al menos nombre y puesto.', 'error');
+    return;
+  }
+
+  const docs = {
+    contrato: document.getElementById('edit-chk-contrato').checked,
+    ccss: document.getElementById('edit-chk-ccss').checked,
+    ins_rt: document.getElementById('edit-chk-ins').checked,
+    carnet: document.getElementById('edit-chk-carnet').checked,
+    carnet_vence: document.getElementById('edit-carnet-vence').value,
+  };
+
+  const payload = {
+    modulo: 'editar_colaborador',
+    nombre_original: nombreOriginal,
+    nombre, cedula,
+    fecha_nacimiento: fechaNac,
+    edad: calcEdadParaGuardar(fechaNac),
+    nacionalidad,
+    kiosko, departamento, puesto,
+    fecha_ingreso: fechaIngreso,
+    antiguedad: calcAntiguedadParaGuardar(fechaIngreso),
+    telefono, email,
+    banco, cuenta,
+    tipo_cuenta: tipoCuenta,
+    documentos: docs,
+    observaciones,
+  };
+  if (fotoCedulaEditar.data) {
+    payload.fotoCedula = fotoCedulaEditar.data.base64;
+    payload.fotoCedulaMime = fotoCedulaEditar.data.mime;
+  }
+
+  const btn = document.getElementById('btn-guardar-editar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: new URLSearchParams({ data: JSON.stringify(payload) }),
+    });
+    if (!resp.ok) throw new Error('Error HTTP ' + resp.status);
+    const result = await resp.json().catch(() => ({ ok:false, error:'Respuesta inválida del servidor' }));
+    if (result.ok === false) throw new Error(result.error || 'Error desconocido');
+
+    showToast('Expediente actualizado ✓');
+    cerrarModalEditar();
+    await cargarDatos();
+    const idxNuevo = (window._listaFiltrada || []).findIndex(x => (x['Nombre completo'] || '') === nombre);
+    if (idxNuevo !== -1) verExpediente(idxNuevo);
+  } catch (err) {
+    showToast('Error al guardar: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar cambios';
+  }
+});
 
 // ── INIT ──────────────────────────────────────────────────────────
 cargarDatos();

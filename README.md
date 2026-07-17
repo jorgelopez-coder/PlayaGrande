@@ -22,7 +22,14 @@ Ecosistema Lorito, con el campo **Kiosko** agregado en Personal y Horarios
   desde `index.html`).
 - `rrhh-personal.html` — expedientes digitales del equipo (datos personales,
   laborales, bancarios, documentos, amonestaciones), con búsqueda y filtro
-  por kiosko/departamento/estado.
+  por kiosko/departamento/estado. Botón **"✎ Editar"** en cada expediente:
+  abre un modal para corregir cualquier dato editable (nombre, cédula,
+  contacto, kiosko/departamento/puesto, banco, documentos, observaciones) y
+  para subir o reemplazar la foto de cédula. A propósito no permite tocar
+  **salario** ni **estado** — esos cambios siguen pasando por
+  `rrhh-cambio-salario.html`, `rrhh-terminacion.html` y
+  `rrhh-liquidaciones.html` para no perder el historial que esas pantallas
+  registran aparte.
 - `rrhh-nuevo-ingreso.html` — alta completa de colaborador (ficha larga:
   cédula, nacionalidad, kiosko, departamento, puesto, salario, datos
   bancarios, checklist de documentos entregados).
@@ -164,12 +171,13 @@ guardar el cierre sin adjuntar ninguna.
 Sin el paso 4, `cierres.html` y todas las pantallas de RRHH muestran
 "Configurá APPS_SCRIPT_RRHH primero" (o el error de conexión equivalente).
 
-**Nota:** `rrhh.html` (alta rápida) y `rrhh-personal.html` (expediente
-completo) no permiten editar un registro ya cargado más allá de
-activar/desactivar. Para corregir un dato existente (cédula, banco, etc.),
-hacelo directamente en la pestaña "Personal" del Sheet — salvo salario y
-estado, que tienen sus propias pantallas (`rrhh-cambio-salario.html`,
-`rrhh-terminacion.html`, `rrhh-liquidaciones.html`) para dejar historial.
+**Nota:** `rrhh-personal.html` ya permite editar un expediente completo
+(botón "✎ Editar" en cada colaborador) incluyendo la foto de cédula.
+`rrhh.html` (alta rápida) sigue sin edición, solo activar/desactivar — para
+corregir esos registros básicos, hacelo directamente en la pestaña
+"Personal" del Sheet. En ambos casos, salario y estado siguen reservados a
+sus propias pantallas (`rrhh-cambio-salario.html`, `rrhh-terminacion.html`,
+`rrhh-liquidaciones.html`) para dejar historial.
 
 ## Kioskos activos — sección de Configuración
 
