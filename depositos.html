@@ -390,7 +390,7 @@ let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 // diferencia de Lorito (un solo punto de venta), acá cada fila trae un
 // "Kiosko" en la columna 3, así que el resumen de efectivo se filtra por
 // kiosko antes de agrupar por fecha.
-const COL_FECHA = 1, COL_KIOSKO = 3, COL_FONDO = 11, COL_CAJA = 33, COL_TC = 24, COL_USD_TOTAL = 32;
+const COL_FECHA = 1, COL_KIOSKO = 3, COL_FONDO = 11, COL_USD_TOTAL = 32;
 const COL_BILLETES_CRC = [12,13,14,15,16,17]; // ₡50.000 … ₡1.000
 const COL_MONEDAS_CRC  = [18,19,20,21,22,23]; // ₡500 … ₡5
 const COL_BILLETES_USD = [26,27,28,29,30,31]; // $100 … $1
@@ -532,15 +532,17 @@ function agregarPorFecha(records) {
       billetesUsd: DENOMS_BILLETES_USD.map(()=>0)
     };
     const d = out[fecha];
-    const fondo = +r[COL_FONDO]||0, usdTotal = +r[COL_USD_TOTAL]||0, tc = +r[COL_TC]||0;
-    // "Caja Total Contada ₡" en el sheet incluye el equivalente en colones de
-    // los dólares contados (cierres.html los suma al TC del día) — hay que
-    // restarlo para quedarnos con el monto puro en colones.
-    const caja = (+r[COL_CAJA]||0) - Math.round(usdTotal * tc);
-    d.caja += caja; d.fondo += fondo; d.crc += (caja - fondo); d.usd += usdTotal; d.cierres += 1;
-    COL_BILLETES_CRC.forEach((c,i) => d.billetesCrc[i] += (+r[c]||0));
-    COL_MONEDAS_CRC.forEach((c,i)  => d.monedasCrc[i]  += (+r[c]||0));
+    const fondo = +r[COL_FONDO]||0, usdTotal = +r[COL_USD_TOTAL]||0;
+    // Efectivo físico en colones = suma de billetes + monedas contados, NO la
+    // columna "Caja Total Contada ₡" (esa es tarjeta+efectivo+SINPE, un total
+    // de ventas para el cuadre contra Square — incluye plata que nunca fue
+    // efectivo físico, como ventas con tarjeta o SINPE). El depósito bancario
+    // solo cubre lo que físicamente entró a la caja en colones.
+    let caja = 0;
+    COL_BILLETES_CRC.forEach((c,i) => { const q = +r[c]||0; d.billetesCrc[i] += q; caja += q * DENOMS_BILLETES_CRC[i]; });
+    COL_MONEDAS_CRC.forEach((c,i)  => { const q = +r[c]||0; d.monedasCrc[i]  += q; caja += q * DENOMS_MONEDAS_CRC[i]; });
     COL_BILLETES_USD.forEach((c,i) => d.billetesUsd[i] += (+r[c]||0));
+    d.caja += caja; d.fondo += fondo; d.crc += (caja - fondo); d.usd += usdTotal; d.cierres += 1;
   });
   return out;
 }
