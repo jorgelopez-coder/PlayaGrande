@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Control de Tips · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.kiosko-bar{display:flex;align-items:center;gap:10px;padding:.65rem 2rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:19}
+.kiosko-bar label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.kiosko-bar select{max-width:260px;background:var(--card)}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+input[type=number]{font-family:var(--font-m)}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:11px 22px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:11px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-mini{font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.btn-mini:hover{border-color:var(--border-h);color:var(--text)}
+.submit-area{display:flex;gap:10px;margin-top:1.25rem;flex-wrap:wrap}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-m)}
+.th-chk,.td-chk{width:34px;text-align:center}
+.empty{text-align:center;padding:2.5rem;color:var(--subtle);font-size:13px}
+.table-wrap{overflow-x:auto}
+.kiosko-tag{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap}
+
+.kpi-pendiente-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:24px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-pend{background:var(--amber-bg);color:var(--amber)}
+
+.sel-bar{position:sticky;bottom:1rem;background:var(--card);border:1px solid var(--border-h);border-radius:var(--radius);padding:.9rem 1.25rem;margin-top:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.sel-bar .sel-count{font-size:12px;color:var(--muted)}
+.sel-bar .sel-val{font-family:var(--font-m);font-size:16px;font-weight:700;color:var(--text)}
+
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+
+.hist-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.hist-card:hover{border-color:var(--border-h)}
+.hist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px;flex-wrap:wrap}
+.hist-fecha{font-weight:600;font-size:13px}
+.hist-ref{font-size:12px;color:var(--muted);font-family:var(--font-m)}
+.hist-total{font-family:var(--font-m);font-size:15px;font-weight:700;color:var(--amber);text-align:right}
+.hist-row{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.hist-detail{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1rem 1.25rem;margin-top:-9px;margin-bottom:8px;font-size:12px;display:none}
+.hist-detail.open{display:block}
+.hist-detail-title{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.detalle-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.detalle-row:last-child{border-bottom:none}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .kiosko-bar{padding:.65rem 1rem}
+  .field-row{grid-template-columns:1fr}
+  .sel-bar{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Control de Tips</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="kiosko-bar">
+  <label for="tips-kiosko">🏖️ Kiosko</label>
+  <select id="tips-kiosko" onchange="alCambiarKiosko()"></select>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('pendientes',this)">Pendientes de pago</button>
+  <button class="tab-btn" onclick="showTab('historial',this)">Historial de pagos</button>
+</div>
+
+<main>
+
+<!-- ── TAB PENDIENTES ── -->
+<div class="page active" id="tab-pendientes">
+  <div class="card">
+    <p class="card-title">Propinas pendientes de pago</p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-pend-crc">₡0</div>
+        <div class="kpi-lbl">Total tips pendientes de pagar</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-pend-count">0</div>
+        <div class="kpi-lbl">Cierres con tips sin pagar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Tips registrados en cierres — <span id="pend-kiosko-lbl"></span></p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Cada fila es un tip cobrado en un cierre de tarjeta. Marcá los que ya se depositaron/pagaron al colaborador y asigná abajo el número de referencia y la fecha de pago — se pueden cubrir varios de una vez.</p>
+    <div class="toolbar">
+      <button class="btn-mini" onclick="seleccionarTodo()">Seleccionar todo</button>
+      <button class="btn-mini" onclick="limpiarSeleccion()">Limpiar selección</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-chk"></th><th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th style="text-align:right">Tips ₡</th>
+        </tr></thead>
+        <tbody id="tabla-pendientes-body"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Datos del pago</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="tips-fecha-pago">Fecha de pago <span class="req">*</span></label>
+        <input type="date" id="tips-fecha-pago" onchange="actualizarBotonPagar()"/>
+      </div>
+      <div class="field">
+        <label for="tips-referencia">Número de referencia <span class="req">*</span></label>
+        <input type="text" id="tips-referencia" placeholder="Ej: SINPE 000123456" oninput="actualizarBotonPagar()"/>
+      </div>
+    </div>
+    <div class="field">
+      <label for="tips-notas">Notas (opcional)</label>
+      <input type="text" id="tips-notas" placeholder="A quién se le pagó, banco, observaciones…"/>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-secondary" onclick="limpiarFormPago()">Limpiar</button>
+    <button class="btn-primary" id="btn-pagar" onclick="marcarComoPagado()" disabled>Marcar como pagado ✓</button>
+  </div>
+
+  <div class="sel-bar">
+    <span class="sel-count" id="sel-count">0 seleccionados</span>
+    <div><span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Total seleccionado</span><br><span class="sel-val" id="sel-total">₡0</span></div>
+  </div>
+</div>
+
+<!-- ── TAB HISTORIAL ── -->
+<div class="page" id="tab-historial">
+  <div class="card" style="padding-bottom:.5rem">
+    <p class="card-title" style="margin-bottom:.75rem">Pagos de tips registrados — <span id="historial-kiosko-lbl"></span></p>
+    <div id="hist-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismas URLs /exec usadas en cierres.html y depositos.html (ver README.md).
+const SHEETS_URL       = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+
+// Respaldo si todavía no hay conexión con Configuración.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+// Índices de columnas en `records` de la hoja "Cierres" (ver
+// Code-cierres-kioskos-backend.gs → HEADERS).
+const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_ENCARGADO = 4, COL_TURNO = 5, COL_TIPS = 43;
+
+// Índices de columnas de la hoja "TipsPagos" (HEADERS_TIPS_PAGOS):
+// 0 ID, 1 Fecha registro, 2 Fecha de pago, 3 Referencia,
+// 4 IDs cierres cubiertos (JSON), 5 Kioskos, 6 Monto total ₡, 7 Notas.
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+const hoyISO = hoy.toISOString().slice(0,10);
+
+const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const soloFecha = f => f ? String(f).slice(0,10) : '';
+function fechaLbl(iso) {
+  if (!iso) return '—';
+  return new Date(iso+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
+
+// ── ESTADO ────────────────────────────────────────────────────────
+const KIOSKO_TODOS = ''; // opción "Todos los kioskos" en el selector
+let kioskoActual = localStorage.getItem('kiosko_actual_tips') ?? '';
+let cierresRaw = [];
+let tipsPagosRaw = [];
+let tipsPendientes = [];  // [{id, fecha, kiosko, encargado, turno, monto}], filtrados por kioskoActual
+let tipsPagosData = [];   // [{id, fechaRegistro, fechaPago, referencia, idsCubiertos:Set, kioskos, montoTotal, notas}], filtrados
+const seleccion = new Set();
+
+// ── KIOSKO ────────────────────────────────────────────────────────
+async function cargarKioskos() {
+  if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+        KIOSKOS = data.kioskos;
+      }
+    } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  }
+  poblarKioskosSelect();
+}
+
+function poblarKioskosSelect() {
+  const sel = document.getElementById('tips-kiosko');
+  sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
+  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  kioskoActual = sel.value;
+  actualizarLabels();
+}
+
+function actualizarLabels() {
+  const lbl = kioskoActual || 'Todos los kioskos';
+  document.getElementById('pend-kiosko-lbl').textContent = lbl;
+  document.getElementById('historial-kiosko-lbl').textContent = lbl;
+}
+
+function alCambiarKiosko() {
+  kioskoActual = document.getElementById('tips-kiosko').value;
+  localStorage.setItem('kiosko_actual_tips', kioskoActual);
+  actualizarLabels();
+  recalcularYRenderizar();
+}
+
+// ── CARGA DE DATOS ────────────────────────────────────────────────
+async function cargarDatos() {
+  try {
+    const [rCierres, rTipsPagos] = await Promise.all([
+      fetch(SHEETS_URL + '?action=read').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=tipspagos').then(r => r.json())
+    ]);
+    cierresRaw = rCierres.records || [];
+    tipsPagosRaw = rTipsPagos.records || [];
+    recalcularYRenderizar();
+  } catch(e) {
+    document.getElementById('tabla-pendientes-body').innerHTML = '<tr><td colspan="5" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
+    document.getElementById('hist-lista').innerHTML = '<div class="empty-state">No se pudo cargar. Revisá la conexión.</div>';
+    showToast('Error de conexión: ' + e.message, 'error');
+  }
+}
+
+// Recalcula pendientes/historial para el kiosko seleccionado (o todos) y
+// vuelve a pintar las 2 pestañas — se llama al cargar por primera vez y
+// cada vez que cambia el filtro de kiosko.
+function recalcularYRenderizar() {
+  // IDs de cierres ya cubiertos por algún pago (en TODOS los kioskos, sin
+  // filtrar — un cierre pagado deja de estar pendiente sin importar el
+  // filtro activo).
+  const idsPagados = new Set();
+  tipsPagosRaw.forEach(r => {
+    let ids = [];
+    try { ids = JSON.parse(r[4] || '[]'); } catch(e) { ids = []; }
+    if (Array.isArray(ids)) ids.forEach(id => idsPagados.add(String(id)));
+  });
+
+  const todosTips = cierresRaw
+    .filter(r => (+r[COL_TIPS]||0) > 0)
+    .map(r => ({
+      id: String(r[COL_ID]), fecha: soloFecha(r[COL_FECHA]), kiosko: r[COL_KIOSKO] || '',
+      encargado: r[COL_ENCARGADO] || '', turno: r[COL_TURNO] || '', monto: +r[COL_TIPS] || 0
+    }));
+
+  tipsPendientes = todosTips
+    .filter(t => !idsPagados.has(t.id))
+    .filter(t => !kioskoActual || t.kiosko === kioskoActual)
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  tipsPagosData = tipsPagosRaw.map(r => {
+    let ids = [];
+    try { ids = JSON.parse(r[4] || '[]'); } catch(e) { ids = []; }
+    if (!Array.isArray(ids)) ids = [];
+    return {
+      id: r[0], fechaRegistro: r[1], fechaPago: soloFecha(r[2]), referencia: r[3] || '',
+      idsCubiertos: ids.map(String), kioskos: r[5] || '', montoTotal: +r[6]||0, notas: r[7] || ''
+    };
+  })
+  .filter(p => !kioskoActual || p.kioskos.split(',').map(k=>k.trim()).includes(kioskoActual))
+  .sort((a,b) => (b.fechaPago||'').localeCompare(a.fechaPago||''));
+
+  seleccion.clear();
+  renderKpiPendiente();
+  renderPendientes();
+  renderHistorial();
+  actualizarSeleccion();
+}
+
+// ── TAB 1: PENDIENTES ──────────────────────────────────────────────
+function renderKpiPendiente() {
+  const total = tipsPendientes.reduce((s,t) => s + t.monto, 0);
+  document.getElementById('kpi-pend-crc').textContent = fmtCRC(total);
+  document.getElementById('kpi-pend-count').textContent = tipsPendientes.length;
+}
+
+function renderPendientes() {
+  const body = document.getElementById('tabla-pendientes-body');
+  if (!tipsPendientes.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">No hay tips pendientes de pago' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
+    return;
+  }
+  body.innerHTML = tipsPendientes.map(t => `<tr>
+    <td class="td-chk"><input type="checkbox" class="chk-tip" value="${t.id}" ${seleccion.has(t.id)?'checked':''} onchange="actualizarSeleccion()"></td>
+    <td>${fechaLbl(t.fecha)}</td>
+    <td><span class="kiosko-tag">${t.kiosko || '—'}</span></td>
+    <td>${t.encargado || '—'}${t.turno ? ' · ' + t.turno : ''}</td>
+    <td class="num">${fmtCRC(t.monto)}</td>
+  </tr>`).join('');
+}
+
+// ── SELECCIÓN (checkboxes) ────────────────────────────────────────
+function actualizarSeleccion() {
+  seleccion.clear();
+  document.querySelectorAll('.chk-tip:checked').forEach(chk => seleccion.add(chk.value));
+  const total = tipsPendientes.filter(t => seleccion.has(t.id)).reduce((s,t) => s + t.monto, 0);
+  document.getElementById('sel-count').textContent = seleccion.size + ' seleccionado' + (seleccion.size===1?'':'s');
+  document.getElementById('sel-total').textContent = fmtCRC(total);
+  actualizarBotonPagar();
+}
+
+function seleccionarTodo() {
+  document.querySelectorAll('.chk-tip').forEach(chk => chk.checked = true);
+  actualizarSeleccion();
+}
+function limpiarSeleccion() {
+  document.querySelectorAll('.chk-tip').forEach(chk => chk.checked = false);
+  actualizarSeleccion();
+}
+
+// ── MARCAR COMO PAGADO ────────────────────────────────────────────
+function actualizarBotonPagar() {
+  const fecha = document.getElementById('tips-fecha-pago').value;
+  const referencia = document.getElementById('tips-referencia').value.trim();
+  document.getElementById('btn-pagar').disabled = !(fecha && referencia && seleccion.size > 0);
+}
+
+async function marcarComoPagado() {
+  const fecha = document.getElementById('tips-fecha-pago').value;
+  const referencia = document.getElementById('tips-referencia').value.trim();
+  const notas = document.getElementById('tips-notas').value.trim();
+  const idsCubiertos = Array.from(seleccion);
+
+  if (!fecha || !referencia || !idsCubiertos.length) { showToast('Completá fecha, referencia y al menos un tip seleccionado', 'error'); return; }
+
+  const cubiertos = tipsPendientes.filter(t => seleccion.has(t.id));
+  const montoTotal = cubiertos.reduce((s,t) => s + t.monto, 0);
+  const kioskos = Array.from(new Set(cubiertos.map(t => t.kiosko).filter(Boolean)));
+
+  const payload = {
+    type: 'tipsPago', id: Date.now(),
+    fechaPago: fecha, referencia, idsCubiertos, kioskos, montoTotal, notas
+  };
+
+  const btn = document.getElementById('btn-pagar');
+  btn.disabled = true; const textoOriginal = btn.textContent; btn.textContent = 'Guardando…';
+  try {
+    // mode:'no-cors' porque Apps Script no manda headers CORS — igual que
+    // cierres.html/depositos.html: la respuesta queda opaca, así que si el
+    // fetch no lanza excepción asumimos que se guardó y confirmamos
+    // recargando los datos.
+    await fetch(SHEETS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    showToast(`Pago registrado ✓ (${idsCubiertos.length} tip${idsCubiertos.length===1?'':'s'} · ${fmtCRC(montoTotal)})`, 'success');
+    limpiarFormPago();
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo registrar el pago: ' + e.message, 'error');
+  } finally {
+    btn.textContent = textoOriginal;
+    actualizarBotonPagar();
+  }
+}
+
+function limpiarFormPago() {
+  document.getElementById('tips-fecha-pago').value = '';
+  document.getElementById('tips-referencia').value = '';
+  document.getElementById('tips-notas').value = '';
+  limpiarSeleccion();
+}
+
+// ── TAB 2: HISTORIAL DE PAGOS ──────────────────────────────────────
+function renderHistorial() {
+  const cont = document.getElementById('hist-lista');
+  if (!tipsPagosData.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay pagos de tips registrados' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</div>';
+    return;
+  }
+  cont.innerHTML = tipsPagosData.map((p, i) => `<div class="hist-card" onclick="toggleDetallePago(${i})">
+      <div class="hist-head">
+        <div>
+          <div class="hist-fecha">${fechaLbl(p.fechaPago)}</div>
+          <div class="hist-ref">Ref. ${p.referencia || '—'}</div>
+        </div>
+        <div class="hist-total">${fmtCRC(p.montoTotal)}</div>
+      </div>
+      <div class="hist-row">
+        <span>${p.idsCubiertos.length} tip${p.idsCubiertos.length===1?'':'s'} cubierto${p.idsCubiertos.length===1?'':'s'}</span>
+        <span class="badge b-ok">${p.kioskos || '—'}</span>
+      </div>
+    </div>
+    <div class="hist-detail" id="hist-detail-tip-${i}">${renderDetallePago(p)}</div>`).join('');
+}
+
+function toggleDetallePago(i) {
+  const el = document.getElementById('hist-detail-tip-' + i);
+  if (el) el.classList.toggle('open');
+}
+
+function renderDetallePago(p) {
+  const filas = p.idsCubiertos.map(id => {
+    const t = cierresRaw.find(r => String(r[COL_ID]) === id);
+    if (!t) return `<div class="detalle-row"><span>ID ${id}</span><span>—</span></div>`;
+    return `<div class="detalle-row"><span>${fechaLbl(soloFecha(t[COL_FECHA]))} · ${t[COL_KIOSKO]||'—'}</span><span>${fmtCRC(+t[COL_TIPS]||0)}</span></div>`;
+  }).join('');
+  return `
+    <div style="margin-bottom:10px">
+      <div class="hist-detail-title">Cierres cubiertos</div>
+      ${filas || '—'}
+    </div>
+    ${p.notas ? `<div><div class="hist-detail-title">Notas</div><div>${p.notas}</div></div>` : ''}
+  `;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('tips-fecha-pago').value = hoyISO;
+cargarKioskos().then(cargarDatos);
+</script>
+</body>
+</html>

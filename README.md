@@ -77,6 +77,30 @@ Ecosistema Lorito, con el campo **Kiosko** agregado en Personal y Horarios
   backend, pero ya no es el punto de entrada del módulo — usá
   `rrhh-acciones.html`.
 
+Cuarto módulo: **Control de Tips**, `control-tips.html` — control de pago de
+propinas cobradas por tarjeta en el cierre de caja (campo "Tips ₡" que ya
+existía en la hoja "Cierres"), que se depositan aparte a los colaboradores.
+Dos pestañas:
+
+- **Pendientes de pago**: lista cada cierre con tips > 0 (fecha, kiosko,
+  encargado/turno, monto), con checkbox para seleccionar uno o varios y
+  asignarles de una vez un número de referencia y fecha de pago ("Marcar
+  como pagado ✓"). Filtro opcional por kiosko arriba (o "Todos").
+- **Historial de pagos**: pagos ya registrados, expandibles para ver qué
+  cierres cubre cada uno.
+
+Backend (`Code-cierres-kioskos-backend.gs`, hoja nueva "TipsPagos",
+`agregarEncabezadosTipsPagos()`/`guardarPagoTips()`): cada fila es un PAGO
+(puede cubrir varios cierres de uno o más kioskos a la vez), con los ID de
+"Cierres" cubiertos guardados como JSON en "IDs cierres cubiertos" — mismo
+patrón que "Fechas cubiertas" en Depositos. Un cierre con tips deja de
+aparecer como pendiente en cuanto su ID queda cubierto por algún pago,
+sin importar el filtro de kiosko activo.
+
+`index.html` agrega un 4to ticket "Propinas pendientes de pago" (rojo si
+hay pendientes, verde si no) con detalle desplegable por fecha/kiosko/monto
+al hacer click, más una acción rápida "Pagar propinas pendientes".
+
 El resto de módulos (inventario/compras, reportes) quedan como
 "Próximamente" en `index.html`, a construir después.
 
@@ -98,6 +122,8 @@ Archivos:
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
 - `depositos.html` — módulo de depósitos bancarios (resumen diario, asignar
   depósito, historial — ver detalle arriba).
+- `control-tips.html` — control de pago de propinas de tarjeta (pendientes
+  de pago, historial de pagos — ver detalle arriba).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
   `rrhh-control-vacaciones.html`, `rrhh-amonestaciones.html`,
@@ -124,15 +150,16 @@ que hacerlos una vez a mano.
 2. Extensiones → Apps Script, pegá **todo** el contenido de
    `Code-cierres-kioskos-backend.gs`.
 3. Corré **una vez** `agregarEncabezados()` desde el editor (▶ con esa
-   función seleccionada) para crear la pestaña "Cierres" con encabezados, y
+   función seleccionada) para crear la pestaña "Cierres" con encabezados,
    **una vez más** `agregarEncabezadosDepositos()` para crear la pestaña
-   "Depositos" con los suyos.
+   "Depositos" con los suyos, y **una vez más** `agregarEncabezadosTipsPagos()`
+   para crear la pestaña "TipsPagos" (usada por `control-tips.html`).
 4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquiera**
-5. Copiá la URL `/exec` resultante y pegala en `cierres.html` **y en
-   `depositos.html`**, constante `SHEETS_URL` (arriba del todo en el
-   `<script>` de cada uno) — es el mismo Sheet para los dos módulos.
+5. Copiá la URL `/exec` resultante y pegala en `cierres.html`, `depositos.html`
+   **y `control-tips.html`**, constante `SHEETS_URL` (arriba del todo en el
+   `<script>` de cada uno) — es el mismo Sheet para los tres módulos.
 6. Creá una carpeta en Drive para las fotos de respaldo de los cierres (ej.
    **"Cierres de caja - Kioskos"**), copiá su ID (de la URL de la carpeta) y
    pegalo en `Code-cierres-kioskos-backend.gs`, constante

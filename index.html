@@ -75,7 +75,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
 
 /* ── KPI STRIP (tickets) ────────────────────────────────── */
-.ticket-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:1.5rem; }
+.ticket-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:1.5rem; }
 .ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
 .ticket.clickable { cursor:pointer; transition:border-color .12s; }
 .ticket.clickable:hover { border-color:var(--border-h); }
@@ -224,6 +224,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Depósitos</div><div class="mod-tile-area">Efectivo pendiente · asignar · historial</div></div>
       </a>
+      <a href="control-tips.html" class="mod-tile" data-mod="control-tips">
+        <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5-1.3 2-3 2.5-3 1-3 2.5 1.3 2.5 3 2.5 3-1 3-2.5"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Control de Tips</div><div class="mod-tile-area">Propinas de tarjeta · pagos a colaboradores</div></div>
+      </a>
       <a href="configuracion.html" class="mod-tile" data-mod="configuracion">
         <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.22.75.22 1.15V10.85c0 .4-.08.79-.22 1.15z"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Configuración</div><div class="mod-tile-area">Kioskos activos · ubicación · contacto</div></div>
@@ -338,6 +342,13 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-sub" id="kpi-ventas-hoy-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </div>
+    <div class="ticket clickable" data-kpi="tips" onclick="toggleKpiDetail('tips')">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-tips-pend" style="color:var(--amber);">—</div>
+      <div class="ticket-lbl">Propinas pendientes de pago</div>
+      <div class="ticket-sub" id="kpi-tips-pend-sub" style="color:var(--muted);"></div>
+      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
   </div>
 
   <!-- Detalle desplegable: personal activo por kiosko -->
@@ -352,6 +363,16 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
   <div class="kpi-detail" id="kpi-detail-ventas" data-kpi="ventas">
     <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy</div>
     <div id="top-productos-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Detalle desplegable: propinas pendientes de pago -->
+  <div class="kpi-detail" id="kpi-detail-tips" data-kpi="tips">
+    <div class="kpi-detail-head"><span class="clip"></span>Propinas pendientes de pago
+      <a href="control-tips.html" class="section-link" style="float:right;">Ir a Control de Tips →</a>
+    </div>
+    <div id="tips-detail-body">
       <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
@@ -395,6 +416,18 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
           <div class="qa-name">Asignar depósito bancario</div>
           <div class="qa-sub">Efectivo pendiente de depositar</div>
         </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
+
+      <a href="control-tips.html" class="quick-action" data-mod="control-tips">
+        <div class="qa-icon ic-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5-1.3 2-3 2.5-3 1-3 2.5 1.3 2.5 3 2.5 3-1 3-2.5"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Pagar propinas pendientes</div>
+          <div class="qa-sub">Tips de tarjeta sin depositar a colaboradores</div>
+        </div>
+        <div id="tips-badge-qa"></div>
         <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
       </a>
 
@@ -652,17 +685,24 @@ async function cargarKPIs() {
     personalBody.innerHTML = '<div class="no-alerts">No se pudo cargar el personal activo.</div>';
   }
 
-  // 3. CIERRES — último general + último por kiosko
+  // 3. CIERRES — último general + último por kiosko + propinas pendientes
   const grid = document.getElementById('kiosko-grid-body');
   try {
-    const resp = await fetch(SHEETS_URL_CIERRES + '?action=read');
-    const data = await resp.json();
-    const registros = (data.records || []).map(r => ({
+    const [respCierres, respTipsPagos] = await Promise.all([
+      fetch(SHEETS_URL_CIERRES + '?action=read'),
+      fetch(SHEETS_URL_CIERRES + '?action=tipspagos')
+    ]);
+    const data = await respCierres.json();
+    const dataTipsPagos = await respTipsPagos.json();
+    const cierresRaw = data.records || [];
+    const registros = cierresRaw.map(r => ({
       fecha: String(r[1]||'').slice(0,10),
       kiosko: r[3] || '',
       cajaCuadra: r[36] === 'SI',
       tarjetaCuadra: r[39] === 'SI',
     })).filter(r => r.fecha && r.kiosko);
+
+    renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
 
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
@@ -706,6 +746,9 @@ async function cargarKPIs() {
     document.getElementById('kpi-cierre').textContent = 'Sin conexión';
     document.getElementById('kpi-cierre-sub').textContent = 'No se pudo cargar Cierres';
     grid.innerHTML = '<div class="no-alerts">No se pudo cargar el historial de cierres.</div>';
+    document.getElementById('kpi-tips-pend').textContent = 'Sin conexión';
+    document.getElementById('kpi-tips-pend-sub').textContent = 'No se pudo cargar Tips';
+    document.getElementById('tips-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar las propinas pendientes.</div>';
   }
 
   // 4. VENTAS DE HOY + TOP 10 PRODUCTOS (hoja Ventas_Por_Producto)
@@ -717,6 +760,42 @@ async function cargarKPIs() {
   document.getElementById('status-general').textContent = sesionActual
     ? `Sesión activa · ${kioskosActivos.length} kioskos en operación`
     : 'Cargando datos del sistema…';
+}
+
+// ── PROPINAS PENDIENTES DE PAGO (hoja Cierres, columna Tips, vs. hoja
+// TipsPagos — ver control-tips.html/Code-cierres-kioskos-backend.gs) ──
+function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
+  const idsPagados = new Set();
+  tipsPagosRaw.forEach(r => {
+    let ids = [];
+    try { ids = JSON.parse(r[4] || '[]'); } catch(e) { ids = []; }
+    if (Array.isArray(ids)) ids.forEach(id => idsPagados.add(String(id)));
+  });
+
+  const pendientes = cierresRaw
+    .filter(r => (+r[43]||0) > 0 && !idsPagados.has(String(r[0])))
+    .map(r => ({ fecha: String(r[1]||'').slice(0,10), kiosko: r[3] || '', monto: +r[43]||0 }))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  const total = pendientes.reduce((s,t) => s + t.monto, 0);
+  document.getElementById('kpi-tips-pend').textContent = fmtCRC(total);
+  document.getElementById('kpi-tips-pend-sub').textContent =
+    pendientes.length + ' cierre' + (pendientes.length===1?'':'s') + ' sin pagar';
+  document.getElementById('kpi-tips-pend').style.color = pendientes.length ? 'var(--red)' : 'var(--green)';
+
+  if (pendientes.length) {
+    document.getElementById('tips-badge-qa').innerHTML =
+      `<span class="qa-badge" style="background:var(--amber-bg);color:var(--amber);">${fmtCRC(total)}</span>`;
+  }
+
+  const body = document.getElementById('tips-detail-body');
+  body.innerHTML = pendientes.length
+    ? pendientes.map(t => `
+      <div class="persona-row">
+        <div class="persona-nombre">${t.fecha} · ${t.kiosko || 'Sin kiosko'}</div>
+        <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
+      </div>`).join('')
+    : '<div class="no-alerts">No hay propinas pendientes de pago ✓</div>';
 }
 
 async function cargarVentasHoy() {
