@@ -11,17 +11,30 @@ Google Apps Script + Google Sheets como backend, HTML/JS plano de frontend
 Primer módulo: **Cierre de Caja**, con selector de kiosko (en vez de un punto
 de venta fijo como en Lorito) y categorías de venta simplificadas — sin
 crédito, plataformas de delivery ni 10% de servicio, porque no aplican a un
-kiosko de playa. El resto de módulos (inventario/compras, RRHH completo,
-reportes) quedan como "Próximamente" en `index.html`, a construir después.
+kiosko de playa.
+
+Segundo módulo: **RRHH** (`rrhh.html`) — alta de colaboradores reales (nombre,
+cédula, puesto, kiosko, fecha de ingreso, teléfono, email, salario,
+observaciones) y listado de personal con filtro por kiosko/estado y botón
+para activar/desactivar. Usa el mismo backend mínimo (`Code-rrhh-kioskos-
+backend.gs`) que ya alimentaba el dropdown de "Encargado" en cierres.html —
+no requirió cambios en el Sheet ni en Apps Script. Lo que falta para RRHH
+completo (editar datos ya cargados, vacaciones, amonestaciones, horarios)
+queda para más adelante, ver "Próximos módulos".
+
+El resto de módulos (inventario/compras, reportes) quedan como
+"Próximamente" en `index.html`, a construir después.
 
 Archivos:
 - `index.html` — home con navegación entre módulos.
 - `login.html` — acceso por PIN (mismo patrón simple que Lorito, sin backend
   propio — roles guardados en `localStorage`; ver "Pendiente" más abajo).
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
+- `rrhh.html` — módulo de RRHH (alta de personal + listado con activar/
+  desactivar).
 - `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas.
-- `Code-rrhh-kioskos-backend.gs` — backend mínimo de personal (solo lo
-  necesario para alimentar el dropdown de "Encargado" en cierres.html).
+- `Code-rrhh-kioskos-backend.gs` — backend mínimo de personal (alimenta el
+  dropdown de "Encargado" en cierres.html y ahora también rrhh.html).
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -62,15 +75,23 @@ guardar el cierre sin adjuntar ninguna.
    patrón que arriba: Ejecutar como Yo, Acceso: Cualquiera).
 5. Copiá la URL `/exec` resultante y pegala en `cierres.html`, constante
    `APPS_SCRIPT_RRHH`.
-6. Cargá el personal directamente en la pestaña "Personal" del Sheet — una
-   fila por colaborador, con `Estado = ACTIVO` para que aparezca en el
-   dropdown de "Encargado", y opcionalmente `Kiosko` (si un colaborador
-   trabaja fijo en un solo kiosko) para que solo aparezca como opción ahí.
-   Dejando "Kiosko" vacío, el colaborador aparece como encargado disponible
-   en cualquier kiosko.
+6. Cargá el personal desde `rrhh.html` → pestaña "Agregar colaborador" (queda
+   con `Estado = ACTIVO` automáticamente), o directamente en la pestaña
+   "Personal" del Sheet si preferís cargar varios de una vez. El campo
+   `Kiosko` es opcional: si un colaborador trabaja fijo en un solo kiosko,
+   completalo para que solo aparezca como opción ahí; dejándolo vacío,
+   aparece como encargado disponible en cualquier kiosko.
+7. Copiá esa misma URL `/exec` en `rrhh.html`, constante `APPS_SCRIPT_RRHH`
+   (arriba del todo en el `<script>`) — es la misma URL que en `cierres.html`.
 
-Sin este paso, el dropdown "Encargado" en `cierres.html` muestra "Configurá
-APPS_SCRIPT_RRHH primero".
+Sin el paso 5, el dropdown "Encargado" en `cierres.html` muestra "Configurá
+APPS_SCRIPT_RRHH primero". Sin el paso 7, `rrhh.html` muestra el mismo
+mensaje al intentar cargar o guardar personal.
+
+**Nota:** `rrhh.html` solo permite dar de alta y activar/desactivar
+colaboradores — no permite editar un registro ya cargado (cédula, puesto,
+salario, etc.). Para corregir un dato existente, hacelo directamente en la
+pestaña "Personal" del Sheet.
 
 ## Kioskos activos
 
