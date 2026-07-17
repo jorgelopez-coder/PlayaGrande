@@ -74,23 +74,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .board-date { font-family:var(--font-m); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#9fc4ab; }
 .board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
 
-/* ── KPI STRIP (tickets) ────────────────────────────────── */
-.ticket-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:1.5rem; }
-.ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
-.ticket.clickable { cursor:pointer; transition:border-color .12s; }
-.ticket.clickable:hover { border-color:var(--border-h); }
-.ticket-chevron { position:absolute; top:16px; right:14px; color:var(--subtle); display:flex; transition:transform .15s; }
-.ticket.clickable.open .ticket-chevron { transform:rotate(180deg); color:var(--text); }
-.ticket::before {
-  content:''; position:absolute; top:-1px; left:0; right:0; height:9px;
-  background-image:radial-gradient(circle at 7px 5px, var(--bg) 3px, transparent 3.3px);
-  background-size:15px 9px; background-repeat:repeat-x;
-}
-.ticket-punch { position:absolute; top:9px; left:12px; width:9px; height:9px; border-radius:50%; background:var(--bg); border:1.5px solid var(--border-h); }
-.ticket-val { font-family:var(--font-m); font-size:21px; font-weight:600; letter-spacing:-.01em; margin-bottom:3px; }
-.ticket-lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-.ticket-sub { font-size:11px; margin-top:5px; color:var(--subtle); }
-
 /* ── GRID PRINCIPAL ─────────────────────────────────────── */
 .main-grid { display:grid; grid-template-columns:1fr 300px; gap:14px; margin-bottom:1.5rem; }
 .grid-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -101,6 +84,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .section-title { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
 .section-link { font-size:12px; color:var(--blue); text-decoration:none; font-weight:500; }
 .section-link:hover { text-decoration:underline; }
+.section-head.clickable { cursor:pointer; }
+.section-chevron { display:flex; color:var(--subtle); transition:transform .15s; flex-shrink:0; }
+.section-chevron.open { transform:rotate(180deg); color:var(--text); }
+.collapsible.closed { display:none; }
 
 /* ── ACCIONES RÁPIDAS ───────────────────────────────────── */
 .quick-action { display:flex; align-items:center; gap:12px; padding:.85rem 1.25rem; border-bottom:1px solid var(--border); text-decoration:none; color:var(--text); transition:background .12s; cursor:pointer; }
@@ -142,6 +129,16 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .compare-val { font-family:var(--font-m); font-weight:600; }
 .compare-sub { font-size:10.5px; color:var(--muted); margin-top:1px; }
 .compare-dash { color:var(--subtle); font-family:var(--font-m); }
+.compare-row.clickable { cursor:pointer; }
+.compare-row.clickable:hover { background:var(--surface); }
+.compare-chevron { display:inline-flex; color:var(--subtle); transition:transform .15s; margin-left:2px; }
+.compare-row.open .compare-chevron { transform:rotate(180deg); color:var(--text); }
+.compare-detail-row.closed { display:none; }
+.compare-detail-row td { background:var(--surface); }
+.compare-detail-inner { padding:.3rem 1.1rem .7rem 2.6rem; }
+.compare-detail-block { margin-bottom:.5rem; }
+.compare-detail-block:last-child { margin-bottom:0; }
+.compare-detail-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:.3rem 0 .2rem; }
 
 /* ── TOP 10 PRODUCTOS ───────────────────────────────────── */
 .prod-row { display:flex; align-items:center; gap:12px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
@@ -159,15 +156,15 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .volcerv-kpi { font-family:var(--font-m); font-size:24px; font-weight:600; color:var(--text); }
 .volcerv-kpi-sub { font-size:11px; color:var(--subtle); margin-bottom:10px; }
 .volcerv-warn { font-size:10.5px; color:var(--amber); margin-bottom:8px; }
-.volcerv-hist-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:8px 0 4px; }
 .volcerv-hist-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--border); }
 .volcerv-hist-row:last-child { border-bottom:none; }
+.volcerv-hist-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; padding:8px 0 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); cursor:pointer; font-family:var(--font-b); }
+.volcerv-hist-toggle:hover { color:var(--text); }
+.volcerv-hist-toggle.open .volcerv-hist-chevron { transform:rotate(180deg); color:var(--text); }
+.volcerv-hist-chevron { display:flex; color:var(--subtle); transition:transform .15s; }
+.volcerv-hist-body.closed { display:none; }
 
-/* ── DETALLE DESPLEGABLE DE KPI (personal / ventas) ──────── */
-.kpi-detail { display:none; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:1.5rem; }
-.kpi-detail.open { display:block; }
-.kpi-detail-head { padding:.9rem 1.25rem; border-bottom:1px solid var(--border); font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
-.kpi-group-label { padding:.5rem 1.25rem .3rem; font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--subtle); background:var(--surface); }
+/* ── FILAS DE DETALLE (usadas en Comparativo por kiosko) ──── */
 .persona-row { display:flex; align-items:center; gap:10px; padding:.6rem 1.25rem; border-bottom:1px solid var(--border); }
 .persona-row:last-child { border-bottom:none; }
 .persona-nombre { font-size:12.5px; font-weight:500; }
@@ -198,7 +195,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
 @media (max-width:720px) {
   main { padding:1.25rem 1rem 3rem; }
-  .ticket-strip { grid-template-columns:1fr 1fr; }
   .main-grid { grid-template-columns:1fr; }
   .grid-2col { grid-template-columns:1fr; }
   .hero { align-items:flex-start; }
@@ -347,50 +343,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
-  <!-- KPIs -->
-  <div class="ticket-strip">
-    <div class="ticket">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-cierre" style="color:var(--text);">—</div>
-      <div class="ticket-lbl">Último cierre registrado</div>
-      <div class="ticket-sub" id="kpi-cierre-sub" style="color:var(--muted);"></div>
-    </div>
-    <div class="ticket clickable" data-kpi="tips" onclick="toggleKpiDetail('tips')">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-tips-pend" style="color:var(--amber);">—</div>
-      <div class="ticket-lbl">Propinas pendientes de pago</div>
-      <div class="ticket-sub" id="kpi-tips-pend-sub" style="color:var(--muted);"></div>
-      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
-    <div class="ticket clickable" data-kpi="efectivo" onclick="toggleKpiDetail('efectivo')">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-efectivo-pend" style="color:var(--red);">—</div>
-      <div class="ticket-lbl">Efectivo pendiente de depositar</div>
-      <div class="ticket-sub" id="kpi-efectivo-pend-sub" style="color:var(--muted);"></div>
-      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
-  </div>
-
-  <!-- Detalle desplegable: propinas pendientes de pago -->
-  <div class="kpi-detail" id="kpi-detail-tips" data-kpi="tips">
-    <div class="kpi-detail-head"><span class="clip"></span>Propinas pendientes de pago
-      <a href="control-tips.html" class="section-link" style="float:right;">Ir a Control de Tips →</a>
-    </div>
-    <div id="tips-detail-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-  </div>
-
-  <!-- Detalle desplegable: efectivo pendiente de depositar, por fecha -->
-  <div class="kpi-detail" id="kpi-detail-efectivo" data-kpi="efectivo">
-    <div class="kpi-detail-head"><span class="clip"></span>Efectivo pendiente de depositar, por fecha
-      <a href="depositos.html" class="section-link" style="float:right;">Ir a Depósitos →</a>
-    </div>
-    <div id="efectivo-detail-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-  </div>
-
   <!-- Comparativo por kiosko: mismos indicadores para todos, uno al lado del otro -->
   <div class="section-card" style="margin-bottom:1.5rem;">
     <div class="section-head">
@@ -415,7 +367,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       </table>
     </div>
     <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      "Ventas hoy" solo aparece en kioskos con su propio Square conectado (ver README). Los demás indicadores salen de los cierres de caja diarios y aplican igual a todos los kioskos.
+      "Ventas hoy" solo aparece en kioskos con su propio Square conectado (ver README). Los demás indicadores salen de los cierres de caja diarios y aplican igual a todos los kioskos. Haga clic en una fila con tips o efectivo pendiente para ver el detalle por fecha.
     </div>
   </div>
 
@@ -455,9 +407,11 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
   <!-- Acciones rápidas -->
   <div class="section-card" style="margin-bottom:1.5rem;">
-      <div class="section-head">
+      <div class="section-head clickable" onclick="toggleAccionesRapidas()">
         <span class="section-title"><span class="clip"></span>Acciones rápidas</span>
+        <span class="section-chevron" id="acciones-rapidas-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </div>
+      <div id="acciones-rapidas-body" class="collapsible closed">
 
       <a href="cierres.html" class="quick-action" data-mod="cierres">
         <div class="qa-icon ic-green">
@@ -537,6 +491,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         </div>
         <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
       </a>
+      </div>
   </div>
 
   <div class="status-bar">
@@ -657,29 +612,50 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.nav-item')) {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
   }
-  if (!e.target.closest('.ticket.clickable') && !e.target.closest('.kpi-detail')) {
-    cerrarKpiDetail();
+  if (!e.target.closest('.compare-row') && !e.target.closest('.compare-detail-row')) {
+    cerrarCompareDetail();
   }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
-    cerrarKpiDetail();
+    cerrarCompareDetail();
   }
 });
 
-// ── KPI DESPLEGABLES (personal activo / top10 ventas) ────────
-function cerrarKpiDetail() {
-  document.querySelectorAll('.kpi-detail.open').forEach(el => el.classList.remove('open'));
-  document.querySelectorAll('.ticket.clickable.open').forEach(t => t.classList.remove('open'));
+// ── ACCIONES RÁPIDAS (colapsable) ────────────────────────────
+function toggleAccionesRapidas() {
+  const body = document.getElementById('acciones-rapidas-body');
+  const chevron = document.getElementById('acciones-rapidas-chevron');
+  body.classList.toggle('closed');
+  chevron.classList.toggle('open', !body.classList.contains('closed'));
 }
-function toggleKpiDetail(key) {
-  const yaAbierto = document.querySelector(`.kpi-detail[data-kpi="${key}"]`).classList.contains('open');
-  cerrarKpiDetail();
-  if (!yaAbierto) {
-    document.querySelector(`.kpi-detail[data-kpi="${key}"]`).classList.add('open');
-    document.querySelector(`.ticket.clickable[data-kpi="${key}"]`).classList.add('open');
+
+// ── DETALLE DESPLEGABLE DEL COMPARATIVO POR KIOSKO ───────────
+// (tips pendientes / efectivo pendiente, por fila de kiosko) ──
+function cerrarCompareDetail() {
+  document.querySelectorAll('.compare-detail-row').forEach(r => r.classList.add('closed'));
+  document.querySelectorAll('.compare-row.open').forEach(r => r.classList.remove('open'));
+}
+function toggleCompareDetail(rowId) {
+  const fila = document.getElementById(rowId);
+  if (!fila) return;
+  const abriendo = fila.classList.contains('closed');
+  cerrarCompareDetail();
+  if (abriendo) {
+    fila.classList.remove('closed');
+    const trigger = document.querySelector(`.compare-row[data-row="${rowId}"]`);
+    if (trigger) trigger.classList.add('open');
   }
+}
+
+// ── HISTÓRICO DE CERVEZA POR DÍA (colapsable, por kiosko) ────
+function toggleVolcervHist(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('closed');
+  const btn = document.querySelector(`.volcerv-hist-toggle[data-target="${id}"]`);
+  if (btn) btn.classList.toggle('open', !el.classList.contains('closed'));
 }
 
 // ── KPIs ──────────────────────────────────────────────────────
@@ -770,16 +746,10 @@ async function cargarKPIs() {
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
       const d = diasDesde(ultimoGeneral.fecha);
-      document.getElementById('kpi-cierre').textContent = etiquetaDias(d);
-      document.getElementById('kpi-cierre-sub').textContent = `${ultimoGeneral.kiosko} · ${ultimoGeneral.fecha}`;
-      document.getElementById('kpi-cierre').style.color = (d != null && d > 1) ? 'var(--red)' : 'var(--green)';
       if (d != null && d > 1) {
         document.getElementById('cierre-badge-qa').innerHTML =
           `<span class="qa-badge" style="background:var(--amber-bg);color:var(--amber);">${d}d sin cerrar</span>`;
       }
-    } else {
-      document.getElementById('kpi-cierre').textContent = 'Sin datos';
-      document.getElementById('kpi-cierre-sub').textContent = 'Todavía no hay cierres registrados';
     }
 
     const porKiosko = {};
@@ -789,15 +759,7 @@ async function cargarKPIs() {
 
     renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen);
   } catch(e) {
-    document.getElementById('kpi-cierre').textContent = 'Sin conexión';
-    document.getElementById('kpi-cierre-sub').textContent = 'No se pudo cargar Cierres';
     compareBody.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No se pudo cargar el comparativo por kiosko.</div></td></tr>';
-    document.getElementById('kpi-tips-pend').textContent = 'Sin conexión';
-    document.getElementById('kpi-tips-pend-sub').textContent = 'No se pudo cargar Tips';
-    document.getElementById('tips-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar las propinas pendientes.</div>';
-    document.getElementById('kpi-efectivo-pend').textContent = 'Sin conexión';
-    document.getElementById('kpi-efectivo-pend-sub').textContent = 'No se pudo cargar Depósitos';
-    document.getElementById('efectivo-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar el efectivo pendiente.</div>';
   }
 
   // 4. TOP 10 PRODUCTOS — por cada kiosko con Square propio.
@@ -832,24 +794,11 @@ function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
 
   const total = pendientes.reduce((s,t) => s + t.monto, 0);
-  document.getElementById('kpi-tips-pend').textContent = fmtCRC(total);
-  document.getElementById('kpi-tips-pend-sub').textContent =
-    pendientes.length + ' cierre' + (pendientes.length===1?'':'s') + ' sin pagar';
-  document.getElementById('kpi-tips-pend').style.color = pendientes.length ? 'var(--red)' : 'var(--green)';
 
   if (pendientes.length) {
     document.getElementById('tips-badge-qa').innerHTML =
       `<span class="qa-badge" style="background:var(--amber-bg);color:var(--amber);">${fmtCRC(total)}</span>`;
   }
-
-  const body = document.getElementById('tips-detail-body');
-  body.innerHTML = pendientes.length
-    ? pendientes.map(t => `
-      <div class="persona-row">
-        <div class="persona-nombre">${t.fecha} · ${t.kiosko || 'Sin kiosko'}</div>
-        <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
-      </div>`).join('')
-    : '<div class="no-alerts">No hay propinas pendientes de pago ✓</div>';
 
   return pendientes;
 }
@@ -886,23 +835,6 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw) {
   const pendientes = Object.values(porKioskoFecha)
     .filter(x => !(cubiertas[x.kiosko] && cubiertas[x.kiosko].has(x.fecha)))
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
-
-  const totalCrc = pendientes.reduce((s,p) => s + p.crc, 0);
-  const totalUsd = pendientes.reduce((s,p) => s + p.usd, 0);
-
-  document.getElementById('kpi-efectivo-pend').textContent = fmtCRC(totalCrc);
-  document.getElementById('kpi-efectivo-pend').style.color = pendientes.length ? 'var(--red)' : 'var(--green)';
-  document.getElementById('kpi-efectivo-pend-sub').textContent =
-    pendientes.length + ' fecha' + (pendientes.length===1?'':'s') + ' sin depósito' + (totalUsd ? ' · ' + fmtUSD(totalUsd) : '');
-
-  const body = document.getElementById('efectivo-detail-body');
-  body.innerHTML = pendientes.length
-    ? pendientes.map(p => `
-      <div class="persona-row">
-        <div class="persona-nombre">${p.fecha} · ${p.kiosko || 'Sin kiosko'}</div>
-        <div class="persona-puesto" style="color:var(--red);font-family:var(--font-m);">${fmtCRC(p.crc)}${p.usd ? ' + ' + fmtUSD(p.usd) : ''}</div>
-      </div>`).join('')
-    : '<div class="no-alerts">No hay efectivo pendiente de depósito ✓</div>';
 
   return pendientes;
 }
@@ -962,14 +894,49 @@ function renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, ef
       ? `<div class="compare-val" style="color:var(--red);">${fmtCRC(efCrc)}</div><div class="compare-sub">${efK.length} fecha${efK.length===1?'':'s'}${efUsd ? ' · ' + fmtUSD(efUsd) : ''}</div>`
       : `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`;
 
-    return `<tr>
-      <td><div class="compare-kiosko"><span class="compare-dot" style="background:${dotColor};"></span>${nombre}${esNuevo ? '<span class="compare-tag-new">Nuevo</span>' : ''}</div></td>
+    const tieneDetalle = tipsK.length > 0 || efK.length > 0;
+    const rowId = 'cmp-' + nombre.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const chevron = tieneDetalle
+      ? `<span class="compare-chevron"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
+      : '';
+
+    const filaPrincipal = `<tr class="compare-row${tieneDetalle ? ' clickable' : ''}"${tieneDetalle ? ` onclick="toggleCompareDetail('${rowId}')" data-row="${rowId}"` : ''}>
+      <td><div class="compare-kiosko"><span class="compare-dot" style="background:${dotColor};"></span>${nombre}${esNuevo ? '<span class="compare-tag-new">Nuevo</span>' : ''}${chevron}</div></td>
       <td>${cierreHtml}</td>
       <td>${cuadraHtml}</td>
       <td>${ventasHtml}</td>
       <td>${tipsHtml}</td>
       <td>${efHtml}</td>
     </tr>`;
+
+    if (!tieneDetalle) return filaPrincipal;
+
+    const tipsDetalle = tipsK.length
+      ? `<div class="compare-detail-block">
+          <div class="compare-detail-title">Propinas pendientes de pago</div>
+          ${tipsK.map(t => `
+            <div class="persona-row">
+              <div class="persona-nombre">${t.fecha}</div>
+              <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
+            </div>`).join('')}
+        </div>`
+      : '';
+    const efDetalle = efK.length
+      ? `<div class="compare-detail-block">
+          <div class="compare-detail-title">Efectivo pendiente de depositar</div>
+          ${efK.map(p => `
+            <div class="persona-row">
+              <div class="persona-nombre">${p.fecha}</div>
+              <div class="persona-puesto" style="color:var(--red);font-family:var(--font-m);">${fmtCRC(p.crc)}${p.usd ? ' + ' + fmtUSD(p.usd) : ''}</div>
+            </div>`).join('')}
+        </div>`
+      : '';
+
+    const filaDetalle = `<tr class="compare-detail-row closed" id="${rowId}">
+      <td colspan="6"><div class="compare-detail-inner">${tipsDetalle}${efDetalle}</div></td>
+    </tr>`;
+
+    return filaPrincipal + filaDetalle;
   }).join('');
 }
 
@@ -1185,14 +1152,20 @@ function fmtVolumenCervezaCard(r) {
       <span>${fecha}</span>
       <span>${fmtOz(oz)} oz</span>
     </div>`).join('');
+  const histId = 'hist-' + r.nombreKiosko.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
   return `<div class="volcerv-card">
     <div class="volcerv-nombre">${r.nombreKiosko}</div>
     <div class="volcerv-kpi">${fmtOz(r.hoy)} oz</div>
     <div class="volcerv-kpi-sub">≈ ${fmtOz(litrosHoy)} L vendidos hoy</div>
     ${r.sinOnzas ? `<div class="volcerv-warn">⚠ ${r.sinOnzas} línea(s) de barril sin onzas identificables en el nombre — no se sumaron.</div>` : ''}
-    <div class="volcerv-hist-title">Histórico por día</div>
-    ${filasHist || '<div class="no-alerts">Todavía no hay ventas de cerveza de barril.</div>'}
+    <button type="button" class="volcerv-hist-toggle" data-target="${histId}" onclick="toggleVolcervHist('${histId}')">
+      <span>Histórico por día</span>
+      <span class="volcerv-hist-chevron"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </button>
+    <div class="volcerv-hist-body closed" id="${histId}">
+      ${filasHist || '<div class="no-alerts">Todavía no hay ventas de cerveza de barril.</div>'}
+    </div>
   </div>`;
 }
 
