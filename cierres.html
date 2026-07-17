@@ -292,9 +292,15 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
   <div class="paso" id="paso-2">
     <div class="card">
       <p class="card-title">Efectivo en Caja</p>
-      <div class="field" style="max-width:220px">
-        <label for="f-fondo">Fondo de Caja Inicial (₡)</label>
-        <input type="number" id="f-fondo" placeholder="0" min="0" oninput="calcCuadre()"/>
+      <div class="field-row">
+        <div class="field" style="max-width:220px">
+          <label for="f-fondo">Fondo de Caja Inicial (₡)</label>
+          <input type="number" id="f-fondo" placeholder="0" min="0" oninput="calcCuadre()"/>
+        </div>
+        <div class="field" style="max-width:220px">
+          <label for="f-sinpe">Ventas por SINPE (₡)</label>
+          <input type="number" id="f-sinpe" placeholder="0" min="0" oninput="calcCuadre()"/>
+        </div>
       </div>
 
       <div class="efectivo-cols">
@@ -357,7 +363,8 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
         <div class="cuadre-row"><label>Fondo de caja inicial</label><span class="val" id="cg-fondo">₡0</span></div>
         <div class="cuadre-row"><label>Efectivo de ventas (contado − fondo)</label><span class="val" id="cg-efectivo">₡0</span></div>
         <div class="cuadre-row"><label>Base de ventas (tarjeta, datáfono)</label><span class="val" id="cg-base">₡0</span></div>
-        <div class="cuadre-row"><label>Total declarado (Base + Efectivo)</label><span class="val" id="cg-declarado">₡0</span></div>
+        <div class="cuadre-row"><label>Ventas por SINPE</label><span class="val" id="cg-sinpe">₡0</span></div>
+        <div class="cuadre-row"><label>Total declarado (Base + Efectivo + SINPE)</label><span class="val" id="cg-declarado">₡0</span></div>
         <div class="cuadre-row"><label>Ventas Netas Square</label><span class="val" id="cg-square">₡0</span></div>
         <div class="cuadre-total">
           <span>Diferencia (Declarado − Square)</span>
@@ -726,8 +733,9 @@ function actualizarCuadreGeneral() {
   const fondo = parseFloat(document.getElementById('f-fondo')?.value) || 0;
   const efectivoVentas = totalContado - fondo;
 
+  const sinpe = parseFloat(document.getElementById('f-sinpe')?.value) || 0;
   const { base } = getVentaTarjeta();
-  const totalDeclarado = base + efectivoVentas;
+  const totalDeclarado = base + efectivoVentas + sinpe;
   const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
   const diff = totalDeclarado - ventasNetasSquare;
   const cuadra = Math.abs(diff) <= 500;
@@ -736,6 +744,7 @@ function actualizarCuadreGeneral() {
   document.getElementById('cg-fondo').textContent = fmtCRC(fondo);
   document.getElementById('cg-efectivo').textContent = fmtCRC(efectivoVentas);
   document.getElementById('cg-base').textContent = fmtCRC(base);
+  document.getElementById('cg-sinpe').textContent = fmtCRC(sinpe);
   document.getElementById('cg-declarado').textContent = fmtCRC(totalDeclarado);
   document.getElementById('cg-square').textContent = fmtCRC(ventasNetasSquare);
 
@@ -744,7 +753,7 @@ function actualizarCuadreGeneral() {
   diffEl.className = 'val ' + (cuadra ? 'diff-ok' : 'diff-warn');
 
   const badge = document.getElementById('cg-badge');
-  if (!base && !totalContado && !squareResumenActual) {
+  if (!base && !sinpe && !totalContado && !squareResumenActual) {
     badge.innerHTML = '';
   } else {
     badge.innerHTML = cuadra
@@ -848,7 +857,8 @@ function irPaso1Siguiente() {
 // tarjeta (foto + IA) y del conteo de caja, en vez de tipeo manual:
 //   tarjeta          = Base de ventas extraída del cierre de datáfono
 //   efectivo         = Total contado (₡ + USD≈₡) − Fondo de Caja Inicial
-//   cajaTotalContada = Base + Efectivo declarados (lo que el kiosko reporta)
+//   sinpe            = Ventas por SINPE, tipeado en el Paso 2 (Efectivo en Caja)
+//   cajaTotalContada = Base + Efectivo + SINPE declarados (lo que el kiosko reporta)
 //   efectivoEsperado = Ventas Netas Square (lo que Square dice que se vendió)
 //   diferenciaCaja   = cajaTotalContada − efectivoEsperado → cuadre general
 function construirPayload() {
@@ -857,6 +867,7 @@ function construirPayload() {
   const tc = getTC();
   const { base, propina, total: ventaTotalDatafono } = getVentaTarjeta();
   const fondo = parseFloat(document.getElementById('f-fondo').value) || 0;
+  const sinpe = parseFloat(document.getElementById('f-sinpe').value) || 0;
   const obs   = document.getElementById('f-obs').value.trim();
   const fecha = document.getElementById('f-fecha').value || hoy();
 
@@ -874,7 +885,7 @@ function construirPayload() {
   const efectivoVentas = cajaTotalConUsd - fondo;
 
   const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
-  const totalDeclarado = base + efectivoVentas;
+  const totalDeclarado = base + efectivoVentas + sinpe;
   const diferenciaCaja = totalDeclarado - ventasNetasSquare;
   const cajaCuadra = Math.abs(diferenciaCaja) <= 500;
 
@@ -883,7 +894,7 @@ function construirPayload() {
   const diferenciaTarjeta = ventaTotalDatafono - (base + propina);
   const tarjetaCuadra = Math.abs(diferenciaTarjeta) <= 500;
 
-  const totalVentas = base + efectivoVentas;
+  const totalVentas = base + efectivoVentas + sinpe;
   const balanceFinal = diferenciaCaja;
   const balanceCuadra = cajaCuadra;
 
@@ -891,7 +902,7 @@ function construirPayload() {
     id: Date.now(),
     fecha, hora: new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit'}),
     kiosko, encargado,
-    efectivo: efectivoVentas, tarjeta: base, sinpe: 0, otras: 0, totalVentas, tips: propina,
+    efectivo: efectivoVentas, tarjeta: base, sinpe, otras: 0, totalVentas, tips: propina,
     fondoCajaInicial: fondo,
     d50000: denomDetalle[50000]||0, d20000: denomDetalle[20000]||0,
     d10000: denomDetalle[10000]||0, d5000: denomDetalle[5000]||0,
@@ -956,7 +967,7 @@ function buildWAMessage(r) {
 
 💰 *Ventas Netas Square: ₡${(r.efectivoEsperado||0).toLocaleString('es-CR')}*
 • Base tarjeta (datáfono): ₡${(r.tarjeta||0).toLocaleString('es-CR')}
-• Efectivo de ventas: ₡${(r.efectivo||0).toLocaleString('es-CR')}
+• Efectivo de ventas: ₡${(r.efectivo||0).toLocaleString('es-CR')}${r.sinpe?`\n• SINPE: ₡${r.sinpe.toLocaleString('es-CR')}`:''}
 • Total declarado: ₡${(r.cajaTotalContada||0).toLocaleString('es-CR')}
 
 📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(diff).toLocaleString('es-CR')})
@@ -1139,6 +1150,7 @@ function renderDetalleCierre(r) {
       <div class="hist-detail-grid">
         ${item('Base tarjeta (datáfono)', fmtCRC(r.tarjeta))}
         ${item('Efectivo de ventas', fmtCRC(r.efectivo))}
+        ${item('SINPE', fmtCRC(r.sinpe))}
         ${item('Venta total datáfono', fmtCRC(r.datafonoTotal))}
         ${r.turno ? item('Turno', r.turno) : ''}
         ${r.tips ? item('Propina (informativo)', fmtCRC(r.tips)) : ''}
@@ -1147,7 +1159,7 @@ function renderDetalleCierre(r) {
     <div class="hist-detail-section">
       <div class="hist-detail-title">Cuadre General</div>
       <div class="hist-detail-grid">
-        ${item('Total declarado (Base + Efectivo)', fmtCRC(r.cajaTotalContada))}
+        ${item('Total declarado (Base + Efectivo + SINPE)', fmtCRC(r.cajaTotalContada))}
         ${item('Ventas Netas Square', fmtCRC(r.efectivoEsperado))}
         ${item('Diferencia', (r.diferenciaCaja>=0?'+':'')+fmtCRC(r.diferenciaCaja))}
         ${item('Cuadra', r.cajaCuadra ? '✅ Sí' : '⚠️ No')}
@@ -1164,7 +1176,7 @@ function renderDetalleCierre(r) {
 // ── LIMPIAR FORM ──────────────────────────────────────────────────
 function limpiarForm() {
   document.getElementById('f-obs').value = '';
-  ['f-df-base','f-df-propina','f-df-total','f-tc','f-fondo'].forEach(id => {
+  ['f-df-base','f-df-propina','f-df-total','f-tc','f-fondo','f-sinpe'].forEach(id => {
     const el=document.getElementById(id); if(el)el.value='';
   });
   document.getElementById('f-fecha').value = hoy();
