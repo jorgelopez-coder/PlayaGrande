@@ -448,6 +448,19 @@ const SQUARE_URL       = 'https://script.google.com/macros/s/AKfycbwpAYU0WBAL-ta
 // conexión, para que la pantalla no quede sin opciones.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
+// Kioskos con hoja "Square - <Kiosko>" propia (mismo patrón que index.html,
+// ver SQUARE_KIOSKOS ahí y memoria project-square-apps-script-per-kiosko).
+// Para estos, "Ventas SQUARE" se lee directo de la pestaña Resumen_Cierre_Diario
+// vía gviz — SIN pasar por el Apps Script compartido SQUARE_URL, que no tiene
+// su data. Para sumar otro kiosko con Square propio, agregar acá una entrada
+// con el mismo patrón (sheetId de su hoja "Square - <Kiosko>").
+const SQUARE_KIOSKOS = {
+  'Tamarindo': {
+    sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
+    resumenTab: 'Resumen_Cierre_Diario'
+  }
+};
+
 // ── DENOMINACIONES ────────────────────────────────────────────────
 const DENOMS_CRC = [50000,20000,10000,5000,2000,1000,500,100,50,25,10,5];
 const DENOMS_USD = [
@@ -763,16 +776,60 @@ function actualizarCuadreGeneral() {
 }
 
 // ── VENTAS SQUARE (Resumen_Cierre_Diario) ─────────────────────────
+// Para kioskos con hoja Square propia (SQUARE_KIOSKOS), lee directo vía gviz
+// la fila que coincide con la fecha del cierre (no solo "hoy" — el cierre
+// puede registrarse para cualquier fecha). Columnas de Resumen_Cierre_Diario:
+// Fecha, Location ID, Ventas Brutas, Descuentos y Cortesías, Ventas Netas.
+async function obtenerResumenFechaSquare(cfg, fechaISO) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+    const filaFecha = filas.find(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      return fecha === fechaISO;
+    });
+    if (!filaFecha) return { ventasBrutas: 0, descuentosCortesias: 0, ventasNetas: 0, sinDatos: true };
+    const c = filaFecha.c || [];
+    return {
+      ventasBrutas: Number((c[2] && c[2].v) || 0),
+      descuentosCortesias: Number((c[3] && c[3].v) || 0),
+      ventasNetas: Number((c[4] && c[4].v) || 0),
+      sinDatos: false
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 let squareResumenActual = null;
 async function cargarVentasSquare() {
   const kiosko = document.getElementById('f-kiosko').value;
   const fecha = document.getElementById('f-fecha').value;
-  if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) {
-    renderVentasSquare(null, 'Configurá SQUARE_URL primero.');
-    return;
-  }
   if (!kiosko || !fecha) {
     renderVentasSquare(null, 'Seleccioná kiosko y fecha para ver Ventas SQUARE.');
+    return;
+  }
+
+  const cfgPropio = SQUARE_KIOSKOS[kiosko];
+  if (cfgPropio) {
+    renderVentasSquare(null, 'Cargando…');
+    const resumen = await obtenerResumenFechaSquare(cfgPropio, fecha);
+    if (resumen === null) {
+      renderVentasSquare(null, 'No se pudo cargar Ventas SQUARE de ' + kiosko + '.');
+    } else if (resumen.sinDatos) {
+      renderVentasSquare(null, 'Sin datos de Square para este kiosko y fecha todavía.');
+    } else {
+      renderVentasSquare(resumen);
+    }
+    return;
+  }
+
+  if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) {
+    renderVentasSquare(null, 'Configurá SQUARE_URL primero.');
     return;
   }
   renderVentasSquare(null, 'Cargando…');
@@ -788,6 +845,21 @@ async function cargarVentasSquare() {
 
 async function actualizarResumenSquare() {
   const btn = document.getElementById('btn-actualizar-square');
+  const kiosko = document.getElementById('f-kiosko').value;
+
+  // Kioskos con Square propio (gviz): los datos ya se sincronizan solos por
+  // el trigger horario del Apps Script de ese kiosko — acá solo hace falta
+  // releer la hoja, no hay endpoint "actualizarResumen" que llamar.
+  if (SQUARE_KIOSKOS[kiosko]) {
+    btn.disabled = true;
+    const textoOriginal = btn.textContent;
+    btn.textContent = 'Actualizando…';
+    await cargarVentasSquare();
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+    return;
+  }
+
   if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) { showToast('Configurá SQUARE_URL primero', 'error'); return; }
   btn.disabled = true;
   const textoOriginal = btn.textContent;
