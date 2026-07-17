@@ -73,6 +73,7 @@ tbody tr:last-child td{border-bottom:none}
 .sp-bg{background:var(--per-bg)!important;color:var(--per-text)}
 .sl-bg{background:var(--lib-bg)!important;color:var(--lib-text)}
 .auto-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-top:-2px}
+.cover-tag{font-size:10px;font-weight:600;color:var(--accent);margin-top:1px}
 .btn-extra{font-size:13px;line-height:1;width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 .btn-extra:hover{background:var(--surface2);color:var(--text)}
 .btn-quitar{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid currentColor;background:transparent;color:inherit;opacity:.75;cursor:pointer}
@@ -168,6 +169,7 @@ tbody tr:last-child td{border-bottom:none}
     <select id="filter-area" onchange="renderSched()"><option value="">Todos los departamentos</option></select>
     <div class="toolbar-right">
       <button class="btn btn-sm" id="btn-add-extra" onclick="toggleAddPanel()">+ Empleado extra</button>
+      <button class="btn btn-sm" id="btn-add-cover" onclick="toggleCoverPanel()">&#8644; Colaborador de otro kiosko</button>
       <button class="btn btn-sm btn-primary" id="btn-guardar-semana" onclick="guardarSemana()">&#128190; Guardar semana</button>
       <button class="btn btn-sm" onclick="window.print()">&#9113; Imprimir</button>
     </div>
@@ -181,6 +183,15 @@ tbody tr:last-child td{border-bottom:none}
       <div class="field"><label>Puesto</label><input type="text" id="extra-puesto" placeholder="Ej: salonero" style="width:130px"/></div>
       <button class="btn btn-primary" onclick="addExtraEmp()">Agregar</button>
       <button class="btn btn-ghost" onclick="toggleAddPanel()">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="add-panel" id="cover-panel">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)">Traer colaborador de otro kiosko para cubrir turno</div>
+    <div class="add-panel-grid">
+      <div class="field"><label>Colaborador (kiosko de origen)</label><select id="cover-emp-select" style="width:280px"></select></div>
+      <button class="btn btn-primary" onclick="addCoverEmp()">Agregar</button>
+      <button class="btn btn-ghost" onclick="toggleCoverPanel()">Cancelar</button>
     </div>
   </div>
 
@@ -368,7 +379,14 @@ async function cargarHorarioGuardado(){
       const fecha=r['Fecha']||'';
       const dayIdx=dates.indexOf(fecha);
       if(dayIdx<0)return;
-      const emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
+      // Un mismo colaborador puede aparecer dos veces en "employees" (su
+      // kiosko de origen + una fila de cobertura en otro kiosko, ver
+      // addCoverEmp). Desambiguar primero por la columna "Kiosko" guardada;
+      // si no calza (registros viejos sin ese dato, o sin ambigüedad) cae al
+      // match solo por nombre como antes.
+      const kioskoReg=(r['Kiosko']||'').toString().trim().toLowerCase();
+      let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
+      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
       if(!emp)return;
       if(!schedule[emp.id])initSchedule(emp);
       schedule[emp.id][dayIdx]={
@@ -503,6 +521,8 @@ function aplicarEstadoUI(){
   if(btnGuardar) btnGuardar.disabled=semanaCerrada;
   const btnAddExtra=document.getElementById('btn-add-extra');
   if(btnAddExtra) btnAddExtra.disabled=semanaCerrada;
+  const btnAddCover=document.getElementById('btn-add-cover');
+  if(btnAddCover) btnAddCover.disabled=semanaCerrada;
   if(btnPDF) btnPDF.disabled=!semanaCerrada;
   if(btnWA) btnWA.disabled=!semanaCerrada;
   renderSched();
@@ -776,7 +796,8 @@ function renderSched(){
 
   emps.forEach(emp=>{
     let tot=0;DAYS.forEach((_,i)=>{tot+=calcH(emp.id,i)});
-    html+='<tr><td class="ec"><div class="emp-name">'+esc(emp.name)+'</div><div class="emp-meta">'+esc([emp.area,emp.puesto].filter(Boolean).join(' · '))+'</div>'+((emp.extra&&!semanaCerrada)?'<button class="btn btn-danger" onclick="removeEmployee(\''+emp.id+'\')">&#x2715; quitar</button>':'')+'</td>';
+    const coverTag=emp.cubre?'<div class="cover-tag">&#8644; Cubre desde '+esc(emp.origenKiosko)+'</div>':'';
+    html+='<tr><td class="ec"><div class="emp-name">'+esc(emp.name)+'</div><div class="emp-meta">'+esc([emp.area,emp.puesto].filter(Boolean).join(' · '))+'</div>'+coverTag+((emp.extra&&!semanaCerrada)?'<button class="btn btn-danger" onclick="removeEmployee(\''+emp.id+'\')">&#x2715; quitar</button>':'')+'</td>';
     DAYS.forEach((_,i)=>{html+=buildDayCell(emp.id,i)});
     html+='<td class="hours-lbl" id="tot-'+emp.id+'" style="font-size:13px;vertical-align:middle">'+tot.toFixed(1)+'h</td></tr>';
   });
@@ -827,6 +848,61 @@ function removeEmployee(id){
   const emp=employees.find(e=>e.id===id);
   employees=employees.filter(e=>e.id!==id);delete schedule[id];
   renderAll();if(emp)toast(emp.name+' removido');
+}
+
+/* ── Cubrir turno con colaborador de otro kiosko ──
+   Trae a un colaborador que ya existe en RRHH (activo en otro kiosko) y lo
+   agrega a la pestaña del kiosko activo como cobertura de turno, sin
+   quitarlo de su kiosko de origen. Reutiliza el mecanismo de "empleado
+   extra" (mismo id-espacio de schedule, mismo botón "quitar", se conserva
+   al refrescar la planilla) pero marcado con cubre:true/origenKiosko para
+   poder distinguirlo visualmente y evitar ofrecerlo dos veces. */
+function toggleCoverPanel(){
+  if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  const panel=document.getElementById('cover-panel');
+  const abriendo=!panel.classList.contains('open');
+  if(abriendo) populateCoverSelect();
+  panel.classList.toggle('open');
+}
+function populateCoverSelect(){
+  const sel=document.getElementById('cover-emp-select');
+  if(!sel)return;
+  // Candidatos: colaboradores reales (no extras, no coberturas ya puestas)
+  // de cualquier OTRO kiosko, que todavía no estén cubriendo en el activo.
+  const candidatos=employees.filter(e=>
+    !e.extra && !e.cubre &&
+    e.restoId!==activeResto &&
+    !employees.some(x=>x.cubre && x.origenEmpId===e.id && x.restoId===activeResto)
+  ).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+
+  if(!candidatos.length){
+    sel.innerHTML='<option value="">No hay colaboradores disponibles en otros kioskos</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">Seleccioná un colaborador…</option>'+
+    candidatos.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' — '+esc(e.kiosko)+(e.puesto?' · '+esc(e.puesto):'')+'</option>').join('');
+}
+function addCoverEmp(){
+  if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  if(!activeResto){toast('Elegí primero un kiosko');return}
+  const sel=document.getElementById('cover-emp-select');
+  const origId=sel&&sel.value;
+  if(!origId){toast('Seleccioná un colaborador');return}
+  const orig=employees.find(e=>e.id===origId);
+  if(!orig){toast('Colaborador no encontrado');return}
+
+  const id='COVER-'+orig.id+'-'+activeResto+'-'+uid();
+  const emp={
+    id, name:orig.name,
+    restoId:activeResto, kiosko:activeResto,
+    area:orig.area, puesto:orig.puesto,
+    extra:true, cubre:true, origenKiosko:orig.kiosko, origenEmpId:orig.id
+  };
+  employees.push(emp);
+  initSchedule(emp);
+  document.getElementById('cover-panel').classList.remove('open');
+  renderAll();
+  toast(orig.name+' agregado para cubrir turno en '+activeResto);
 }
 
 /* ── Exports ── */
