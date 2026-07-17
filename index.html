@@ -335,11 +335,12 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-sub" id="kpi-ventas-hoy-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </div>
-    <div class="ticket">
+    <div class="ticket clickable" data-kpi="tamarindo" onclick="toggleKpiDetail('tamarindo')">
       <span class="ticket-punch"></span>
       <div class="ticket-val" id="kpi-ventas-tamarindo" style="color:var(--amber);">—</div>
       <div class="ticket-lbl">Ventas Tamarindo hoy</div>
       <div class="ticket-sub" id="kpi-ventas-tamarindo-sub" style="color:var(--muted);"></div>
+      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </div>
     <div class="ticket clickable" data-kpi="tips" onclick="toggleKpiDetail('tips')">
       <span class="ticket-punch"></span>
@@ -361,6 +362,14 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
   <div class="kpi-detail" id="kpi-detail-ventas" data-kpi="ventas">
     <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy</div>
     <div id="top-productos-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Detalle desplegable: top 10 productos vendidos hoy — Tamarindo -->
+  <div class="kpi-detail" id="kpi-detail-tamarindo" data-kpi="tamarindo">
+    <div class="kpi-detail-head"><span class="clip"></span>Top 10 productos vendidos hoy — Tamarindo</div>
+    <div id="top-productos-tamarindo-body">
       <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
@@ -520,6 +529,9 @@ const VENTAS_SHEET_NOMBRE = 'Ventas_Por_Producto';
 // kiosko con su propio Square, agregar su ID/pestaña acá con el mismo patrón.
 const TAMARINDO_SHEET_ID  = '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ';
 const TAMARINDO_SHEET_TAB = 'Resumen_Cierre_Diario';
+// Misma hoja de Tamarindo también tiene su propia pestaña Ventas_Por_Producto
+// (idéntica estructura a VENTAS_SHEET_NOMBRE) — de ahí sale el top 10.
+const TAMARINDO_VENTAS_TAB = 'Ventas_Por_Producto';
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -947,6 +959,44 @@ async function cargarVentasTamarindo() {
   } catch (e) {
     kpiEl.textContent = 'Sin conexión';
     subEl.textContent = 'No se pudo cargar Square Tamarindo';
+  }
+
+  // Top 10 productos vendidos hoy en Tamarindo (pestaña Ventas_Por_Producto
+  // de la misma hoja "Square - Tamarindo" — mismas columnas que
+  // VENTAS_SHEET_NOMBRE: Fecha, Hora, Location ID, Order ID, Producto,
+  // Categoría, Cantidad, Precio Unitario, Descuento, Total Línea).
+  const topBody = document.getElementById('top-productos-tamarindo-body');
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${TAMARINDO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TAMARINDO_VENTAS_TAB)}`;
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+
+    const ahora = new Date();
+    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
+    const porProducto = {};
+
+    filas.forEach(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      if (fecha !== hoyISO) return;
+      const producto = (c[4] && c[4].v) || 'Sin nombre';
+      const totalLinea = Number((c[9] && c[9].v) || 0);
+      porProducto[producto] = (porProducto[producto] || 0) + totalLinea;
+    });
+
+    const top10 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    topBody.innerHTML = top10.length
+      ? top10.map(([nombre, monto], i) => `
+        <div class="prod-row">
+          <span class="prod-rank">${i + 1}</span>
+          <div class="prod-info"><div class="prod-nombre">${nombre}</div></div>
+          <span class="prod-monto">${fmtCRC(monto)}</span>
+        </div>`).join('')
+      : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>';
+  } catch (e) {
+    topBody.innerHTML = '<div class="no-alerts">No se pudo cargar el top de productos de Tamarindo.</div>';
   }
 }
 
