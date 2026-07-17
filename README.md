@@ -13,14 +13,47 @@ de venta fijo como en Lorito) y categorías de venta simplificadas — sin
 crédito, plataformas de delivery ni 10% de servicio, porque no aplican a un
 kiosko de playa.
 
-Segundo módulo: **RRHH** (`rrhh.html`) — alta de colaboradores reales (nombre,
-cédula, puesto, kiosko, fecha de ingreso, teléfono, email, salario,
-observaciones) y listado de personal con filtro por kiosko/estado y botón
-para activar/desactivar. Usa el mismo backend mínimo (`Code-rrhh-kioskos-
-backend.gs`) que ya alimentaba el dropdown de "Encargado" en cierres.html —
-no requirió cambios en el Sheet ni en Apps Script. Lo que falta para RRHH
-completo (editar datos ya cargados, vacaciones, amonestaciones, horarios)
-queda para más adelante, ver "Próximos módulos".
+Segundo módulo: **RRHH completo**, adaptado 1:1 de la lógica de
+`Code-rrhh-backend.gs`/las 8 pantallas `rrhh-*.html` + `horarios.html` de
+Ecosistema Lorito, con el campo **Kiosko** agregado en Personal y Horarios
+(Lorito es un solo punto de venta y no lo necesita):
+
+- `rrhh-acciones.html` — hub con las 9 pantallas del módulo (link principal
+  desde `index.html`).
+- `rrhh-personal.html` — expedientes digitales del equipo (datos personales,
+  laborales, bancarios, documentos, amonestaciones), con búsqueda y filtro
+  por kiosko/departamento/estado.
+- `rrhh-nuevo-ingreso.html` — alta completa de colaborador (ficha larga:
+  cédula, nacionalidad, kiosko, departamento, puesto, salario, datos
+  bancarios, checklist de documentos entregados).
+- `rrhh-vacaciones.html` / `rrhh-control-vacaciones.html` — solicitud de
+  vacaciones y panel de control (saldos por colaborador, pendientes de
+  aprobar, historial). Saldo calculado automáticamente por antigüedad (1 día
+  por mes trabajado) si no hay un saldo manual cargado en el Sheet.
+- `rrhh-amonestaciones.html` — llamadas de atención, amonestaciones verbales/
+  escritas y suspensiones sin goce de salario, con historial por
+  colaborador.
+- `rrhh-terminacion.html` — registra la salida de un colaborador (cambia su
+  Estado a LIQUIDACIÓN).
+- `rrhh-cambio-salario.html` — actualiza el salario de un colaborador y
+  guarda el historial de cambios.
+- `rrhh-liquidaciones.html` — cálculo preliminar de liquidación (preaviso,
+  cesantía, vacaciones, aguinaldo) según el Código de Trabajo de Costa Rica,
+  para colaboradores en estado LIQUIDACIÓN, y confirmación de pago (pasa el
+  Estado a INACTIVO).
+- `horarios.html` / `horarios-historial.html` — turnos semanales **por
+  kiosko** (pestañas Playa Grande/Liberia/Nosara/Playa Hermosa — un
+  colaborador sin Kiosko asignado aparece como "rotativo" en las 4), con
+  vacaciones aplicadas automáticamente desde las solicitudes aprobadas,
+  cierre de semana en PDF (guardado en Drive) e historial de semanas
+  guardadas. **Importante:** el cierre de semana ("Cerrar horario") es
+  global para esa semana en las 4 pestañas — no hay un cierre independiente
+  por kiosko; el PDF que se genera/descarga sí es el de la pestaña activa en
+  ese momento.
+- `rrhh.html` — la pantalla simple original (alta rápida + listado con
+  activar/desactivar) queda intacta y sigue funcionando contra el mismo
+  backend, pero ya no es el punto de entrada del módulo — usá
+  `rrhh-acciones.html`.
 
 El resto de módulos (inventario/compras, reportes) quedan como
 "Próximamente" en `index.html`, a construir después.
@@ -30,11 +63,17 @@ Archivos:
 - `login.html` — acceso por PIN (mismo patrón simple que Lorito, sin backend
   propio — roles guardados en `localStorage`; ver "Pendiente" más abajo).
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
-- `rrhh.html` — módulo de RRHH (alta de personal + listado con activar/
-  desactivar).
+- `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
+  `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
+  `rrhh-control-vacaciones.html`, `rrhh-amonestaciones.html`,
+  `rrhh-terminacion.html`, `rrhh-cambio-salario.html`,
+  `rrhh-liquidaciones.html`, `horarios.html`, `horarios-historial.html` —
+  módulo de RRHH completo (ver detalle arriba).
 - `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas.
-- `Code-rrhh-kioskos-backend.gs` — backend mínimo de personal (alimenta el
-  dropdown de "Encargado" en cierres.html y ahora también rrhh.html).
+- `Code-rrhh-kioskos-backend.gs` — backend completo de RRHH (Personal,
+  Vacaciones, Amonestaciones, Terminaciones, CambiosSalario, Liquidaciones,
+  Horarios, HorariosEstado) — alimenta las 12 pantallas de arriba y el
+  dropdown de "Encargado" en cierres.html.
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -63,43 +102,68 @@ Sin el paso 6, guardar un cierre con foto va a fallar (`DriveApp.getFolderById`
 con un ID inválido) — si por ahora no vas a usar fotos, no pasa nada, se puede
 guardar el cierre sin adjuntar ninguna.
 
-### 2. Sheet de personal (RRHH mínimo)
+### 2. Sheet de personal (RRHH completo)
 
-1. Creá un Google Sheet nuevo, ej. **"RRHH - Kioskos"**.
-2. Extensiones → Apps Script, pegá **todo** el contenido de
-   `Code-rrhh-kioskos-backend.gs`.
-3. Corré **una vez** `configurarHojas()` desde el editor para crear la
-   pestaña "Personal" con encabezados (Nombre completo, Cédula, Puesto,
-   Estado, Kiosko, Fecha ingreso, Teléfono, Email, Salario, Observaciones).
-4. Implementar → Nueva implementación → Tipo: **Aplicación web** (mismo
-   patrón que arriba: Ejecutar como Yo, Acceso: Cualquiera).
-5. Copiá la URL `/exec` resultante y pegala en `cierres.html`, constante
-   `APPS_SCRIPT_RRHH`.
-6. Cargá el personal desde `rrhh.html` → pestaña "Agregar colaborador" (queda
-   con `Estado = ACTIVO` automáticamente), o directamente en la pestaña
-   "Personal" del Sheet si preferís cargar varios de una vez. El campo
-   `Kiosko` es opcional: si un colaborador trabaja fijo en un solo kiosko,
-   completalo para que solo aparezca como opción ahí; dejándolo vacío,
-   aparece como encargado disponible en cualquier kiosko.
-7. Copiá esa misma URL `/exec` en `rrhh.html`, constante `APPS_SCRIPT_RRHH`
-   (arriba del todo en el `<script>`) — es la misma URL que en `cierres.html`.
+1. Si ya tenías el Sheet **"RRHH - Kioskos"** con la versión mínima
+   desplegada, seguí usando ese mismo Sheet — no hace falta crear uno
+   nuevo. Si es la primera vez, creá un Google Sheet nuevo con ese nombre.
+2. Extensiones → Apps Script, reemplazá **todo** el contenido por
+   `Code-rrhh-kioskos-backend.gs` (la versión completa).
+3. Corré **una vez** `configurarHojas()` desde el editor. Si el Sheet ya
+   tenía datos en "Personal", esto **no los borra**: agrega al final las
+   columnas nuevas (Departamento, Fecha nacimiento, Edad, Nacionalidad,
+   Antigüedad, Banco, Cuenta, Tipo cuenta, Contrato, CCSS, INS RT, Carnet
+   alimentos, Vence carnet, Saldo vacaciones, Observaciones) y crea las
+   pestañas nuevas: Vacaciones, Amonestaciones, Terminaciones,
+   CambiosSalario, Liquidaciones, Horarios, HorariosEstado.
+4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
+   (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
+   falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
+   implementación → Tipo: Aplicación web, Ejecutar como Yo, Acceso:
+   Cualquiera, y pegá la URL resultante en `APPS_SCRIPT_RRHH`/
+   `APPS_SCRIPT_URL` de `cierres.html` y las 12 pantallas de RRHH.
+5. Para que **Horarios** pueda cerrar la semana en PDF, creá una carpeta en
+   Drive (ej. **"Horarios - Kioskos"**), copiá su ID (de la URL de la
+   carpeta) y pegalo en `Code-rrhh-kioskos-backend.gs`, constante
+   `FOLDER_ID_HORARIOS` — después volvé a Implementar → Gestionar
+   implementaciones → Editar → Nueva versión. Sin este paso, "Cerrar
+   horario" en `horarios.html` va a fallar al generar el PDF (podés seguir
+   usando Horarios sin cerrar semanas mientras tanto).
+6. Cargá el personal desde `rrhh-nuevo-ingreso.html` (ficha completa) o
+   `rrhh.html` (alta rápida, campos básicos) — ambos escriben en la misma
+   pestaña "Personal". El campo `Kiosko` es opcional: si un colaborador
+   trabaja fijo en un solo kiosko, completalo para que solo aparezca ahí;
+   dejándolo vacío, aparece como "rotativo" — disponible en cualquier
+   kiosko (dropdown de Encargado en cierres.html, y en las 4 pestañas de
+   Horarios).
 
-Sin el paso 5, el dropdown "Encargado" en `cierres.html` muestra "Configurá
-APPS_SCRIPT_RRHH primero". Sin el paso 7, `rrhh.html` muestra el mismo
-mensaje al intentar cargar o guardar personal.
+Sin el paso 4, `cierres.html` y todas las pantallas de RRHH muestran
+"Configurá APPS_SCRIPT_RRHH primero" (o el error de conexión equivalente).
 
-**Nota:** `rrhh.html` solo permite dar de alta y activar/desactivar
-colaboradores — no permite editar un registro ya cargado (cédula, puesto,
-salario, etc.). Para corregir un dato existente, hacelo directamente en la
-pestaña "Personal" del Sheet.
+**Nota:** `rrhh.html` (alta rápida) y `rrhh-personal.html` (expediente
+completo) no permiten editar un registro ya cargado más allá de
+activar/desactivar. Para corregir un dato existente (cédula, banco, etc.),
+hacelo directamente en la pestaña "Personal" del Sheet — salvo salario y
+estado, que tienen sus propias pantallas (`rrhh-cambio-salario.html`,
+`rrhh-terminacion.html`, `rrhh-liquidaciones.html`) para dejar historial.
 
 ## Kioskos activos
 
-La lista de kioskos vive directo en `cierres.html` (constante `KIOSKOS`, al
-inicio del `<script>`) — no depende de ningún backend. Para sumar un kiosko
-nuevo (o abrir uno más adelante) alcanza con agregarlo a ese arreglo; el
-Sheet no necesita ningún cambio, el nombre nuevo se guarda tal cual en la
-columna "Kiosko".
+La lista de kioskos vive como constante `KIOSKOS` al inicio del `<script>`
+en varios archivos — no depende de ningún backend. Para sumar un kiosko
+nuevo (o abrir uno más adelante) hay que agregarlo al arreglo **en cada
+uno** de estos archivos (están duplicados a propósito, sin build step que
+los comparta):
+
+- `cierres.html`
+- `rrhh.html`
+- `rrhh-nuevo-ingreso.html`
+- `rrhh-personal.html`
+- `horarios.html`
+
+El Sheet no necesita ningún cambio — el nombre nuevo se guarda tal cual en
+la columna "Kiosko", y en `horarios.html` aparece automáticamente como una
+pestaña más.
 
 ## Extracción con IA (opcional, no incluida todavía)
 
@@ -126,8 +190,9 @@ como `admin-accesos.html` en Lorito.
 ## Próximos módulos (sugeridos, sin construir todavía)
 
 - **Inventario y compras** por kiosko (stock de cerveza/licores/insumos).
-- **RRHH completo** (vacaciones, amonestaciones, horarios) — ampliando
-  `Code-rrhh-kioskos-backend.gs` con el mismo patrón que
-  `Code-rrhh-backend.gs` de Lorito.
 - **Reportes consolidados** — comparativo de ventas/balance entre los 4
   kioskos y los que se vayan sumando.
+- **Cierre de semana de Horarios por kiosko** — hoy "Cerrar horario" bloquea
+  la semana completa en las 4 pestañas a la vez (ver nota en la sección de
+  RRHH); si hace falta cerrar cada kiosko por separado, requeriría cambiar
+  la clave de `HorariosEstado` de "Semana inicio" a "Semana inicio + Kiosko".
