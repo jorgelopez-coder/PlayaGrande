@@ -518,7 +518,13 @@ function buildFromPersonal(regs){
   restos = KIOSKOS.map(k=>({id:k, name:k}));
   employees = activos.map(p=>{
     const nombre = p['Nombre completo'] || ((p['Nombre']||p.nombre||'')+' '+(p['Apellidos']||p.apellidos||'')).trim();
-    const kiosko = (p['Kiosko']||p.kiosko||'').toString().trim();
+    const kioskoRaw = (p['Kiosko']||p.kiosko||'').toString().trim();
+    // El Sheet no siempre tiene el mismo "case" que la pestaña Configuracion
+    // (ej. "PLAYA GRANDE" en Personal vs "Playa Grande" en Configuracion). Sin
+    // esto, esos colaboradores quedaban ACTIVO pero invisibles en todas las
+    // pestañas porque restoId no calzaba (===) con ningún kiosko de la tabla.
+    const kioskoMatch = KIOSKOS.find(k=>k.toLowerCase()===kioskoRaw.toLowerCase());
+    const kiosko = kioskoMatch || kioskoRaw;
     return {
       id: 'EMP-'+(p['Cédula']||p.cedula||nombre),
       name: nombre,
@@ -534,7 +540,14 @@ function buildFromPersonal(regs){
 
   if(!activeResto||!restos.find(r=>r.id===activeResto)) activeResto = restos[0]?.id||null;
   renderKioskoTabs();
-  showStatus(employees.length+' colaboradores activos · '+vacaciones.length+' solicitudes de vacaciones cargadas', false);
+  mostrarConteoActivos();
+}
+
+// Cuenta los activos del kiosko actualmente seleccionado (antes mostraba el
+// total global de todos los kioskos, lo que no coincidía con la tabla de abajo).
+function mostrarConteoActivos(){
+  const emps=employees.filter(e=>e.restoId===activeResto||e.restoId===ROTATIVO);
+  showStatus(emps.length+' colaboradores activos en este kiosko · '+vacaciones.length+' solicitudes de vacaciones cargadas', false);
 }
 
 // ── PESTAÑAS DE KIOSKO ────────────────────────────────────────────
@@ -543,13 +556,23 @@ function renderKioskoTabs(){
   if(!restos.length){cont.style.display='none';return}
   cont.style.display='flex';
   cont.innerHTML=restos.map(r=>
-    '<button type="button" class="tab'+(r.id===activeResto?' active':'')+'" onclick="switchResto('+JSON.stringify(r.id)+')">'+esc(r.name)+'</button>'
+    '<button type="button" class="tab'+(r.id===activeResto?' active':'')+'" data-resto-id="'+esc(r.id)+'">'+esc(r.name)+'</button>'
   ).join('');
 }
+// Delegado en vez de onclick="switchResto("+JSON.stringify(r.id)+")" inline: ese
+// patrón generaba onclick="switchResto("Playa Grande")" — las comillas dobles de
+// JSON.stringify cortaban el atributo HTML (que también usa comillas dobles) a la
+// mitad, dejando el handler roto ("switchResto(" sin cerrar) y por eso las
+// pestañas de kiosko no cambiaban de selección al hacer clic.
+document.getElementById('kiosko-tabs').addEventListener('click', function(e){
+  const btn = e.target.closest('.tab');
+  if(btn && btn.dataset.restoId) switchResto(btn.dataset.restoId);
+});
 function switchResto(id){
   activeResto=id;
   renderKioskoTabs();
   renderAll();
+  mostrarConteoActivos();
 }
 
 function normalizarVacaciones(regs){
