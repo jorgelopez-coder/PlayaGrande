@@ -75,7 +75,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .board-time { font-family:var(--font-m); font-size:22px; font-weight:600; color:#e8c93c; letter-spacing:.02em; }
 
 /* ── KPI STRIP (tickets) ────────────────────────────────── */
-.ticket-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:1.5rem; }
+.ticket-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:1.5rem; }
 .ticket { position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px 18px 16px; }
 .ticket.clickable { cursor:pointer; transition:border-color .12s; }
 .ticket.clickable:hover { border-color:var(--border-h); }
@@ -349,6 +349,13 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-sub" id="kpi-tips-pend-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </div>
+    <div class="ticket clickable" data-kpi="efectivo" onclick="toggleKpiDetail('efectivo')">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-efectivo-pend" style="color:var(--red);">—</div>
+      <div class="ticket-lbl">Efectivo pendiente de depositar</div>
+      <div class="ticket-sub" id="kpi-efectivo-pend-sub" style="color:var(--muted);"></div>
+      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
   </div>
 
   <!-- Detalle desplegable: personal activo por kiosko -->
@@ -373,6 +380,16 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <a href="control-tips.html" class="section-link" style="float:right;">Ir a Control de Tips →</a>
     </div>
     <div id="tips-detail-body">
+      <div class="no-alerts"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Detalle desplegable: efectivo pendiente de depositar, por fecha -->
+  <div class="kpi-detail" id="kpi-detail-efectivo" data-kpi="efectivo">
+    <div class="kpi-detail-head"><span class="clip"></span>Efectivo pendiente de depositar, por fecha
+      <a href="depositos.html" class="section-link" style="float:right;">Ir a Depósitos →</a>
+    </div>
+    <div id="efectivo-detail-body">
       <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
@@ -511,6 +528,12 @@ let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const fmtUSD = n => '$' + Number(n||0).toLocaleString('es-CR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// Índices de columnas en la hoja "Cierres" usados también en depositos.html
+// (ver Code-cierres-kioskos-backend.gs → HEADERS) para calcular el efectivo
+// pendiente de depositar.
+const COL_DEP_FECHA = 1, COL_DEP_KIOSKO = 3, COL_DEP_FONDO = 11, COL_DEP_TC = 24, COL_DEP_USD_TOTAL = 32, COL_DEP_CAJA = 33;
 
 // ── CONTROL DE ACCESO (mismo patrón que el resto del sistema) ──
 function verificarAcceso() {
@@ -688,12 +711,14 @@ async function cargarKPIs() {
   // 3. CIERRES — último general + último por kiosko + propinas pendientes
   const grid = document.getElementById('kiosko-grid-body');
   try {
-    const [respCierres, respTipsPagos] = await Promise.all([
+    const [respCierres, respTipsPagos, respDepositos] = await Promise.all([
       fetch(SHEETS_URL_CIERRES + '?action=read'),
-      fetch(SHEETS_URL_CIERRES + '?action=tipspagos')
+      fetch(SHEETS_URL_CIERRES + '?action=tipspagos'),
+      fetch(SHEETS_URL_CIERRES + '?action=depositos')
     ]);
     const data = await respCierres.json();
     const dataTipsPagos = await respTipsPagos.json();
+    const dataDepositos = await respDepositos.json();
     const cierresRaw = data.records || [];
     const registros = cierresRaw.map(r => ({
       fecha: String(r[1]||'').slice(0,10),
@@ -703,6 +728,7 @@ async function cargarKPIs() {
     })).filter(r => r.fecha && r.kiosko);
 
     renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
+    renderEfectivoPendiente(cierresRaw, dataDepositos.records || []);
 
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
@@ -749,6 +775,9 @@ async function cargarKPIs() {
     document.getElementById('kpi-tips-pend').textContent = 'Sin conexión';
     document.getElementById('kpi-tips-pend-sub').textContent = 'No se pudo cargar Tips';
     document.getElementById('tips-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar las propinas pendientes.</div>';
+    document.getElementById('kpi-efectivo-pend').textContent = 'Sin conexión';
+    document.getElementById('kpi-efectivo-pend-sub').textContent = 'No se pudo cargar Depósitos';
+    document.getElementById('efectivo-detail-body').innerHTML = '<div class="no-alerts">No se pudo cargar el efectivo pendiente.</div>';
   }
 
   // 4. VENTAS DE HOY + TOP 10 PRODUCTOS (hoja Ventas_Por_Producto)
@@ -796,6 +825,55 @@ function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
         <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
       </div>`).join('')
     : '<div class="no-alerts">No hay propinas pendientes de pago ✓</div>';
+}
+
+// ── EFECTIVO PENDIENTE DE DEPOSITAR (hoja Cierres agregada por kiosko +
+// fecha, vs. hoja Depositos — mismo cálculo que depositos.html) ──
+function renderEfectivoPendiente(cierresRaw, depositosRaw) {
+  const porKioskoFecha = {};
+  cierresRaw.forEach(r => {
+    const fecha = String(r[COL_DEP_FECHA]||'').slice(0,10);
+    const kiosko = r[COL_DEP_KIOSKO] || '';
+    if (!fecha || !kiosko) return;
+    const key = kiosko + '|' + fecha;
+    if (!porKioskoFecha[key]) porKioskoFecha[key] = { kiosko, fecha, crc:0, usd:0 };
+    const fondo = +r[COL_DEP_FONDO]||0, usdTotal = +r[COL_DEP_USD_TOTAL]||0, tc = +r[COL_DEP_TC]||0;
+    const caja = (+r[COL_DEP_CAJA]||0) - Math.round(usdTotal * tc);
+    porKioskoFecha[key].crc += (caja - fondo);
+    porKioskoFecha[key].usd += usdTotal;
+  });
+
+  const cubiertas = {}; // { kiosko: Set(fechas ya con depósito asignado) }
+  depositosRaw.forEach(r => {
+    if (!r[0]) return;
+    const kiosko = r[3] || '';
+    let fechas = [];
+    try { fechas = JSON.parse(r[7] || '[]'); } catch(e) { fechas = []; }
+    if (!Array.isArray(fechas)) fechas = [];
+    (cubiertas[kiosko] = cubiertas[kiosko] || new Set());
+    fechas.forEach(f => cubiertas[kiosko].add(f));
+  });
+
+  const pendientes = Object.values(porKioskoFecha)
+    .filter(x => !(cubiertas[x.kiosko] && cubiertas[x.kiosko].has(x.fecha)))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  const totalCrc = pendientes.reduce((s,p) => s + p.crc, 0);
+  const totalUsd = pendientes.reduce((s,p) => s + p.usd, 0);
+
+  document.getElementById('kpi-efectivo-pend').textContent = fmtCRC(totalCrc);
+  document.getElementById('kpi-efectivo-pend').style.color = pendientes.length ? 'var(--red)' : 'var(--green)';
+  document.getElementById('kpi-efectivo-pend-sub').textContent =
+    pendientes.length + ' fecha' + (pendientes.length===1?'':'s') + ' sin depósito' + (totalUsd ? ' · ' + fmtUSD(totalUsd) : '');
+
+  const body = document.getElementById('efectivo-detail-body');
+  body.innerHTML = pendientes.length
+    ? pendientes.map(p => `
+      <div class="persona-row">
+        <div class="persona-nombre">${p.fecha} · ${p.kiosko || 'Sin kiosko'}</div>
+        <div class="persona-puesto" style="color:var(--red);font-family:var(--font-m);">${fmtCRC(p.crc)}${p.usd ? ' + ' + fmtUSD(p.usd) : ''}</div>
+      </div>`).join('')
+    : '<div class="no-alerts">No hay efectivo pendiente de depósito ✓</div>';
 }
 
 async function cargarVentasHoy() {
