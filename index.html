@@ -322,13 +322,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
   <!-- KPIs -->
   <div class="ticket-strip">
-    <div class="ticket clickable" data-kpi="personal" onclick="toggleKpiDetail('personal')">
-      <span class="ticket-punch"></span>
-      <div class="ticket-val" id="kpi-personal" style="color:var(--blue);">—</div>
-      <div class="ticket-lbl">Personal activo</div>
-      <div class="ticket-sub" id="kpi-personal-sub" style="color:var(--muted);"></div>
-      <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
     <div class="ticket">
       <span class="ticket-punch"></span>
       <div class="ticket-val" id="kpi-cierre" style="color:var(--text);">—</div>
@@ -341,6 +334,12 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-lbl">Ventas de hoy</div>
       <div class="ticket-sub" id="kpi-ventas-hoy-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </div>
+    <div class="ticket">
+      <span class="ticket-punch"></span>
+      <div class="ticket-val" id="kpi-ventas-tamarindo" style="color:var(--amber);">—</div>
+      <div class="ticket-lbl">Ventas Tamarindo hoy</div>
+      <div class="ticket-sub" id="kpi-ventas-tamarindo-sub" style="color:var(--muted);"></div>
     </div>
     <div class="ticket clickable" data-kpi="tips" onclick="toggleKpiDetail('tips')">
       <span class="ticket-punch"></span>
@@ -355,14 +354,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="ticket-lbl">Efectivo pendiente de depositar</div>
       <div class="ticket-sub" id="kpi-efectivo-pend-sub" style="color:var(--muted);"></div>
       <span class="ticket-chevron"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </div>
-  </div>
-
-  <!-- Detalle desplegable: personal activo por kiosko -->
-  <div class="kpi-detail" id="kpi-detail-personal" data-kpi="personal">
-    <div class="kpi-detail-head"><span class="clip"></span>Personal activo por kiosko</div>
-    <div id="personal-detail-body">
-      <div class="no-alerts"><span class="spinner"></span></div>
     </div>
   </div>
 
@@ -522,6 +513,13 @@ const SHEETS_URL_CIERRES  = 'https://script.google.com/macros/s/AKfycbzegddEwvSB
 // Hoja pública "Lector Square" (Square POS) — pestaña Ventas_Por_Producto, leída vía gviz sin backend.
 const VENTAS_SHEET_ID     = '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA';
 const VENTAS_SHEET_NOMBRE = 'Ventas_Por_Producto';
+// Hoja "Square - Tamarindo" (propia de ese kiosko, ver nota en README sobre
+// una copia de sheet+script de Square por kiosko) — pestaña
+// Resumen_Cierre_Diario (Fecha · Location ID · Ventas Brutas · Descuentos y
+// Cortesías · Ventas Netas), leída vía gviz sin backend. Para sumar otro
+// kiosko con su propio Square, agregar su ID/pestaña acá con el mismo patrón.
+const TAMARINDO_SHEET_ID  = '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ';
+const TAMARINDO_SHEET_TAB = 'Resumen_Cierre_Diario';
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -679,41 +677,14 @@ async function cargarKPIs() {
       <span class="kiosko-badge kb-soon">Próximamente</span>
     </div>`).join('');
 
-  // 2. PERSONAL
-  let personalData = [];
-  const personalBody = document.getElementById('personal-detail-body');
+  // 2. PERSONAL (solo se usa el conteo para la barra de estado inferior)
   try {
     const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
     const data = await resp.json();
-    personalData = data.registros || [];
-    const activos = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO');
-    personalActivo = activos.length;
-    document.getElementById('kpi-personal').textContent = personalActivo;
-    document.getElementById('kpi-personal-sub').textContent = personalActivo + ' de ' + personalData.length + ' colaboradores';
-
-    const grupos = {};
-    activos.forEach(p => {
-      const kiosko = (p['Kiosko'] || '').toString().trim() || 'Sin kiosko asignado';
-      (grupos[kiosko] = grupos[kiosko] || []).push(p);
-    });
-    const ordenKioskos = [...kioskosActivos, 'Sin kiosko asignado'];
-    const nombresGrupos = Object.keys(grupos).sort((a, b) => {
-      const ia = ordenKioskos.indexOf(a), ib = ordenKioskos.indexOf(b);
-      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-    });
-    personalBody.innerHTML = activos.length
-      ? nombresGrupos.map(k => `
-        <div class="kpi-group-label">${k}</div>
-        ${grupos[k].map(p => `
-          <div class="persona-row">
-            <div class="persona-nombre">${p['Nombre completo'] || '—'}</div>
-            <div class="persona-puesto">${p['Puesto'] || ''}</div>
-          </div>`).join('')}`).join('')
-      : '<div class="no-alerts">No hay personal activo registrado.</div>';
+    const personalData = data.registros || [];
+    personalActivo = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO').length;
   } catch(e) {
-    document.getElementById('kpi-personal').textContent = 'Sin conexión';
-    document.getElementById('kpi-personal-sub').textContent = 'No se pudo cargar RRHH';
-    personalBody.innerHTML = '<div class="no-alerts">No se pudo cargar el personal activo.</div>';
+    personalActivo = 0;
   }
 
   // 3. CIERRES — último general + último por kiosko + propinas pendientes
@@ -790,6 +761,9 @@ async function cargarKPIs() {
 
   // 4. VENTAS DE HOY + TOP 10 PRODUCTOS (hoja Ventas_Por_Producto)
   await cargarVentasHoy();
+
+  // 5. VENTAS DE HOY — TAMARINDO (hoja Square - Tamarindo, Resumen_Cierre_Diario)
+  await cargarVentasTamarindo();
 
   document.getElementById('status-dot').className = 'sdot';
   document.getElementById('status-texto').textContent =
@@ -933,6 +907,46 @@ async function cargarVentasHoy() {
     kpiEl.textContent = 'Sin conexión';
     subEl.textContent = 'No se pudo cargar Ventas_Por_Producto';
     topBody.innerHTML = '<div class="no-alerts">No se pudo cargar el top de productos.</div>';
+  }
+}
+
+async function cargarVentasTamarindo() {
+  const kpiEl = document.getElementById('kpi-ventas-tamarindo');
+  const subEl = document.getElementById('kpi-ventas-tamarindo-sub');
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${TAMARINDO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(TAMARINDO_SHEET_TAB)}`;
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+
+    const ahora = new Date();
+    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
+
+    // Columnas de Resumen_Cierre_Diario: Fecha, Location ID, Ventas Brutas,
+    // Descuentos y Cortesías, Ventas Netas.
+    const filaHoy = filas.find(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      return fecha === hoyISO;
+    });
+
+    if (filaHoy) {
+      const c = filaHoy.c || [];
+      const brutas = Number((c[2] && c[2].v) || 0);
+      const descuentos = Number((c[3] && c[3].v) || 0);
+      const netas = Number((c[4] && c[4].v) || 0);
+      kpiEl.textContent = fmtCRC(netas);
+      subEl.textContent = descuentos > 0
+        ? `Brutas ${fmtCRC(brutas)} · Desc. ${fmtCRC(descuentos)}`
+        : `Brutas ${fmtCRC(brutas)}`;
+    } else {
+      kpiEl.textContent = fmtCRC(0);
+      subEl.textContent = 'Sin ventas registradas hoy';
+    }
+  } catch (e) {
+    kpiEl.textContent = 'Sin conexión';
+    subEl.textContent = 'No se pudo cargar Square Tamarindo';
   }
 }
 
