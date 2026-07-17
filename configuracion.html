@@ -6,6 +6,7 @@
 <title>Configuración · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -61,6 +62,14 @@ main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
 
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
 
+.map-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1.5rem}
+.map-card .card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+#mapa-kioskos{height:320px;border-radius:8px;overflow:hidden;background:var(--surface)}
+#mapa-status{font-size:11px;color:var(--muted);margin-top:8px}
+.leaflet-popup-content{font-family:var(--font-b);font-size:12px;line-height:1.5}
+.leaflet-popup-content b{font-family:var(--font-d);font-size:13px}
+.leaflet-popup-content a{color:var(--blue)}
+
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem;display:none}
 .card.open{display:block}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
@@ -114,6 +123,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p>Acá vive la lista de kioskos del sistema — nombre, ubicación, encargado y contacto. Lo que agregués o desactivés acá se refleja automáticamente en Cierre de Caja, RRHH y Horarios: no hace falta tocar ningún otro archivo.</p>
   </div>
 
+  <div class="map-card">
+    <p class="card-title">Mapa de ubicaciones</p>
+    <div id="mapa-kioskos"></div>
+    <p id="mapa-status"></p>
+  </div>
+
   <div class="section-head">
     <span class="section-title" id="kiosko-count">Cargando…</span>
     <button class="btn-primary" onclick="abrirForm()">+ Agregar kiosko</button>
@@ -131,8 +146,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <div class="field-row">
       <div class="field">
-        <label for="f-ubicacion">Ubicación (Google Maps)</label>
-        <input type="text" id="f-ubicacion" placeholder="Pegá el link o el ID de Google Maps"/>
+        <label for="f-ubicacion">Ubicación</label>
+        <input type="text" id="f-ubicacion" placeholder="Ej: 9.9767,-85.6428 o Playa Grande, Guanacaste"/>
+        <p class="field-hint">Coordenadas (lat,lng), un link de Google Maps o una dirección. Para máxima precisión: en Google Maps, clic derecho sobre el punto exacto y copiá el primer número que aparece (las coordenadas).</p>
       </div>
       <div class="field">
         <label for="f-encargado">Nombre del encargado</label>
@@ -175,6 +191,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <span id="status-msg">v1.0 · Configuración · Ecosistema Kioskos</span>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Misma URL /exec del backend de RRHH que usan cierres.html, rrhh.html,
@@ -184,6 +201,98 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjG
 
 let kioskos = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
 let editando = null; // nombre original del kiosko en edición, o null si es nuevo
+
+// ── MAPA ──────────────────────────────────────────────────────────
+// Guanacaste (donde están los 4 kioskos originales) como vista inicial.
+let mapa = null;
+let marcadoresLayer = null;
+
+// Interpreta "Ubicación" como coordenadas directas si el texto ya viene en
+// formato "lat,lng" o si es un link de Google Maps que trae "@lat,lng" en
+// la URL (los links normales de compartir ubicación lo incluyen). Si no,
+// devuelve null y hay que geocodificarlo como dirección/nombre de lugar.
+function extraerCoordenadas(ubicacion) {
+  if (!ubicacion) return null;
+  const directo = ubicacion.match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if (directo) return { lat: parseFloat(directo[1]), lng: parseFloat(directo[2]) };
+  const enLink = ubicacion.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
+  if (enLink) return { lat: parseFloat(enLink[1]), lng: parseFloat(enLink[2]) };
+  return null;
+}
+
+// Geocodifica una dirección/nombre de lugar con Nominatim (OpenStreetMap,
+// gratis, sin API key). Cachea en localStorage para no repetir la consulta
+// en cada carga de la página (y no pegarle al límite de 1 request/seg).
+async function geocodificar(direccion) {
+  const cache = JSON.parse(localStorage.getItem('geocode_cache') || '{}');
+  if (direccion in cache) return cache[direccion];
+  try {
+    const q = direccion + (/costa rica/i.test(direccion) ? '' : ', Costa Rica');
+    const resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cr&q=' + encodeURIComponent(q));
+    const data = await resp.json();
+    const resultado = (data && data[0]) ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null;
+    cache[direccion] = resultado;
+    localStorage.setItem('geocode_cache', JSON.stringify(cache));
+    return resultado;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Devuelve un link de Google Maps que funciona con cualquier formato de
+// "Ubicación" (coordenadas, link ya armado, o dirección/nombre de lugar).
+function linkGoogleMaps(ubicacion) {
+  if (!ubicacion) return '';
+  if (/^https?:\/\//i.test(ubicacion)) return ubicacion;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ubicacion);
+}
+
+async function renderMapa() {
+  const cont = document.getElementById('mapa-kioskos');
+  const status = document.getElementById('mapa-status');
+  if (!cont || typeof L === 'undefined') return;
+
+  if (!mapa) {
+    mapa = L.map('mapa-kioskos').setView([9.9, -85.4], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(mapa);
+    marcadoresLayer = L.layerGroup().addTo(mapa);
+  }
+  marcadoresLayer.clearLayers();
+
+  const conUbicacion = kioskos.filter(k => (k['Ubicación'] || '').toString().trim());
+  const puntos = [];
+
+  for (const k of conUbicacion) {
+    const ubicacion = k['Ubicación'].toString().trim();
+    const coords = extraerCoordenadas(ubicacion) || await geocodificar(ubicacion);
+    if (!coords) continue;
+
+    const nombre = k['Kiosko'] || '';
+    const activo = String(k['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    const popup = `<b>${nombre}</b>${activo ? '' : ' <span style="color:#c84a20">(inactivo)</span>'}<br>`
+      + (k['Encargado'] ? `Encargado: ${k['Encargado']}<br>` : '')
+      + (k['Contacto'] ? `${k['Contacto']}<br>` : '')
+      + (k['Horario'] ? `${k['Horario']}<br>` : '')
+      + `<a href="${linkGoogleMaps(ubicacion)}" target="_blank" rel="noopener">Abrir en Google Maps ↗</a>`;
+
+    L.marker([coords.lat, coords.lng]).addTo(marcadoresLayer).bindPopup(popup);
+    puntos.push([coords.lat, coords.lng]);
+  }
+
+  if (puntos.length) {
+    mapa.fitBounds(puntos, { padding: [30, 30], maxZoom: 13 });
+  }
+  setTimeout(() => mapa.invalidateSize(), 150);
+
+  const sinUbicar = conUbicacion.length - puntos.length;
+  status.textContent = puntos.length
+    ? `${puntos.length} de ${kioskos.length} kiosko${kioskos.length === 1 ? '' : 's'} ubicado${puntos.length === 1 ? '' : 's'} en el mapa`
+      + (sinUbicar ? ` · ${sinUbicar} con ubicación cargada pero no se pudo ubicar` : '')
+    : 'Ningún kiosko tiene ubicación cargada todavía — agregala editando el kiosko.';
+}
 
 // ── CARGA ─────────────────────────────────────────────────────────
 async function cargarKioskos() {
@@ -199,6 +308,7 @@ async function cargarKioskos() {
     if (!data.ok) throw new Error(data.error || 'Sin datos');
     kioskos = data.registros || [];
     renderLista();
+    renderMapa();
   } catch (e) {
     lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
       + '<a href="javascript:void(0)" onclick="cargarKioskos()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
@@ -226,9 +336,7 @@ function renderLista() {
     const horario = k['Horario'] || '';
     const tieneDetalle = ubicacion || encargado || contacto || whatsapp || horario;
 
-    const linkMaps = ubicacion
-      ? (/^https?:\/\//i.test(ubicacion) ? ubicacion : ('https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(ubicacion)))
-      : '';
+    const linkMaps = linkGoogleMaps(ubicacion);
 
     return `
     <div class="kiosko-card ${activo ? '' : 'inactive'}">

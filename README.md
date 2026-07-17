@@ -65,7 +65,11 @@ Archivos:
 - `configuracion.html` — sección de configuración inicial: alta/edición/
   activación de kioskos (nombre, ubicación, encargado, contacto, WhatsApp,
   horario). Única fuente de la lista de kioskos que consume el resto del
-  sistema (ver "Kioskos activos" más abajo).
+  sistema (ver "Kioskos activos" más abajo). Incluye un mapa (Leaflet +
+  OpenStreetMap, sin API key) con un marcador por kiosko: el campo
+  "Ubicación" acepta coordenadas `lat,lng`, un link de Google Maps, o una
+  dirección/nombre de lugar (en ese caso se geocodifica con Nominatim y se
+  cachea en `localStorage` para no repetir la consulta).
 - `cierres.html` — módulo de cierre de caja (formulario + historial).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,

@@ -265,10 +265,31 @@ function doPost(e) {
   }
 }
 
-// Escribe un objeto {NombreDeEncabezado: valor} en una fila, respetando el orden real de columnas.
-function escribirFilaPorEncabezado(hoja, fila, encabezados, valores) {
-  const datos = encabezados.map(function (h) { return (h in valores) ? valores[h] : ''; });
-  hoja.getRange(fila, 1, 1, encabezados.length).setValues([datos]);
+// Devuelve el número de columna (1-indexada) de un encabezado, leyendo la
+// fila 1 REAL de la hoja — nunca asumir que coincide con la posición de ese
+// encabezado dentro de un array ENCABEZADOS_*. Si una hoja ya existía con
+// columnas en otro orden antes de agregar campos nuevos (como pasó con
+// "Personal" al pasar de la versión mínima a la completa, donde las
+// columnas nuevas se agregaron al final en vez de reordenar), el orden real
+// del Sheet puede no coincidir con el orden declarado en el código.
+// Devuelve 0 si el encabezado no existe todavía.
+function colPorEncabezado(hoja, nombreCol) {
+  const nCols = Math.max(hoja.getLastColumn(), 1);
+  const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  return encabezados.indexOf(nombreCol) + 1;
+}
+
+// Escribe un objeto {NombreDeEncabezado: valor} en una fila, ubicando cada
+// valor por el NOMBRE real de la columna en la hoja (fila 1), no por la
+// posición del encabezado dentro del array `encabezadosEsperados` — eso es
+// lo que causaba que columnas como Departamento/Banco/CCSS/etc. quedaran
+// vacías o con el valor de otra columna en el Sheet "Personal" de Kioskos,
+// que ya existía con un orden de columnas distinto antes de ampliarse.
+function escribirFilaPorEncabezado(hoja, fila, encabezadosEsperados, valores) {
+  const nCols = Math.max(hoja.getLastColumn(), encabezadosEsperados.length);
+  const encabezadosReales = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const datos = encabezadosReales.map(function (h) { return (h && (h in valores)) ? valores[h] : ''; });
+  hoja.getRange(fila, 1, 1, datos.length).setValues([datos]);
 }
 
 // Busca la fila (1-indexada) de un colaborador en Personal por "Nombre completo"
@@ -277,7 +298,7 @@ function filaColaborador(hoja, nombre) {
   if (!nombre) return -1;
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) return -1;
-  const colNombre = ENCABEZADOS_PERSONAL.indexOf('Nombre completo') + 1;
+  const colNombre = colPorEncabezado(hoja, 'Nombre completo');
   const nombres = hoja.getRange(2, colNombre, nFilas, 1).getValues();
   const buscado = String(nombre).trim().toLowerCase();
   for (let i = 0; i < nombres.length; i++) {
@@ -334,7 +355,7 @@ function cambiarEstado(p) {
   const hoja = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const fila = filaColaborador(hoja, p.nombre);
   if (fila === -1) throw new Error('No se encontró ese colaborador.');
-  const colEstado = ENCABEZADOS_PERSONAL.indexOf('Estado') + 1;
+  const colEstado = colPorEncabezado(hoja, 'Estado');
   hoja.getRange(fila, colEstado).setValue(p.estado || 'INACTIVO');
   return { fila: fila };
 }
@@ -361,8 +382,8 @@ function cambiarEstadoVacaciones(p) {
   const hoja = prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES);
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) throw new Error('No hay solicitudes registradas.');
-  const colId = ENCABEZADOS_VACACIONES.indexOf('ID') + 1;
-  const colEstado = ENCABEZADOS_VACACIONES.indexOf('Estado') + 1;
+  const colId = colPorEncabezado(hoja, 'ID');
+  const colEstado = colPorEncabezado(hoja, 'Estado');
   const ids = hoja.getRange(2, colId, nFilas, 1).getValues();
   for (let i = 0; i < ids.length; i++) {
     if (String(ids[i][0]) === String(p.id)) {
@@ -406,7 +427,7 @@ function registrarTerminacion(p) {
   const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const filaP = filaColaborador(hojaPersonal, p.colaborador);
   if (filaP !== -1) {
-    const colEstado = ENCABEZADOS_PERSONAL.indexOf('Estado') + 1;
+    const colEstado = colPorEncabezado(hojaPersonal, 'Estado');
     hojaPersonal.getRange(filaP, colEstado).setValue(p.nuevo_estado || 'LIQUIDACIÓN');
   }
   return { fila: fila };
@@ -430,7 +451,7 @@ function registrarCambioSalario(p) {
   const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const filaP = filaColaborador(hojaPersonal, p.colaborador);
   if (filaP !== -1) {
-    const colSalario = ENCABEZADOS_PERSONAL.indexOf('Salario') + 1;
+    const colSalario = colPorEncabezado(hojaPersonal, 'Salario');
     hojaPersonal.getRange(filaP, colSalario).setValue(Number(p.salario_nuevo) || 0);
   }
   return { fila: fila };
@@ -457,7 +478,7 @@ function confirmarLiquidacion(p) {
   const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const filaP = filaColaborador(hojaPersonal, p.colaborador);
   if (filaP !== -1) {
-    const colEstado = ENCABEZADOS_PERSONAL.indexOf('Estado') + 1;
+    const colEstado = colPorEncabezado(hojaPersonal, 'Estado');
     hojaPersonal.getRange(filaP, colEstado).setValue(p.nuevo_estado || 'INACTIVO');
   }
   return { fila: fila };
@@ -466,10 +487,13 @@ function confirmarLiquidacion(p) {
 // ── HORARIOS (compartido con horarios.html / horarios-historial.html) ──
 
 // Busca la fila (1-indexada) donde una columna (por nombre de encabezado) tiene cierto valor.
+// El parámetro `encabezados` ya no se usa para calcular la posición (queda
+// solo por compatibilidad con los call sites existentes) — la columna se
+// resuelve siempre leyendo la fila 1 real de la hoja, ver colPorEncabezado().
 function filaPorColumna(hoja, encabezados, nombreCol, valor) {
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) return -1;
-  const col = encabezados.indexOf(nombreCol) + 1;
+  const col = colPorEncabezado(hoja, nombreCol);
   if (col === 0) return -1;
   const valores = hoja.getRange(2, col, nFilas, 1).getValues();
   const buscado = String(valor).trim();
@@ -484,7 +508,7 @@ function filaPorColumna(hoja, encabezados, nombreCol, valor) {
 function eliminarFilasPorColumna(hoja, encabezados, nombreCol, valor) {
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) return;
-  const col = encabezados.indexOf(nombreCol) + 1;
+  const col = colPorEncabezado(hoja, nombreCol);
   if (col === 0) return;
   const valores = hoja.getRange(2, col, nFilas, 1).getValues();
   const buscado = String(valor).trim();
@@ -632,7 +656,7 @@ function cambiarEstadoKiosko(p) {
   const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
   const fila = filaPorColumna(hoja, ENCABEZADOS_CONFIGURACION, 'Kiosko', p.kiosko);
   if (fila === -1) throw new Error('No se encontró ese kiosko.');
-  const colActivo = ENCABEZADOS_CONFIGURACION.indexOf('Activo') + 1;
+  const colActivo = colPorEncabezado(hoja, 'Activo');
   hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
   return { fila: fila };
 }
