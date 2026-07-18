@@ -945,8 +945,8 @@ function renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, ef
 // conexión, o { netas, brutas, descuentos, sinDatos } si conectó bien. ──
 async function obtenerResumenHoySquare(cfg) {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
-    const resp = await fetch(url);
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const filas = json.table.rows || [];
@@ -995,8 +995,8 @@ async function cargarTop10PlayaGrande() {
   const topBody = document.getElementById('top-productos-playagrande-body');
   if (!cfg || !topBody) return;
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
-    const resp = await fetch(url);
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const filas = json.table.rows || [];
@@ -1038,8 +1038,8 @@ async function cargarTop10Tamarindo() {
   const topBody = document.getElementById('top-productos-tamarindo-body');
   if (!cfg || !topBody) return;
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
-    const resp = await fetch(url);
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const filas = json.table.rows || [];
@@ -1104,8 +1104,8 @@ async function cargarVolumenCervezaPorKiosko() {
 
 async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg) {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}`;
-    const resp = await fetch(url);
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const filas = json.table.rows || [];
