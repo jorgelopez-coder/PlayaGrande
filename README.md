@@ -101,6 +101,24 @@ sin importar el filtro de kiosko activo.
 hay pendientes, verde si no) con detalle desplegable por fecha/kiosko/monto
 al hacer click, más una acción rápida "Pagar propinas pendientes".
 
+Quinto módulo: **Mantenimiento**, adaptado 1:1 de `mantenimiento.html`/
+`Code-mantenimiento-backend.gs` de Ecosistema Lorito, con el campo **Kiosko**
+agregado (Lorito es un solo punto de venta y no lo necesita):
+
+- `mantenimiento.html` — 2 pestañas: **Nuevo reporte** (kiosko, reportado por
+  —filtrado por kiosko igual que en `cierres.html`—, fecha, tipo de
+  incidencia con 12 categorías predefinidas, detalle, foto de evidencia
+  opcional con compresión client-side, botón de WhatsApp con el resumen) y
+  **Seguimiento** (lista de reportes con filtro Activos/Resueltos/Todos +
+  filtro por kiosko + buscador, badge de kiosko en cada tarjeta, marcar en
+  proceso/resuelto, fecha estimada de resolución con alerta si está vencida,
+  notas de seguimiento acumulables).
+- Backend (`Code-mantenimiento-backend.gs`, hoja "Reportes" en su propio
+  Sheet): guarda cada reporte con su columna "Kiosko" y organiza las fotos de
+  evidencia en Drive en una subcarpeta por kiosko dentro de la carpeta raíz
+  fija (mismo patrón que `getOrCreateCarpetaKiosko` en
+  `Code-cierres-kioskos-backend.gs`).
+
 El resto de módulos (inventario/compras, reportes) quedan como
 "Próximamente" en `index.html`, a construir después.
 
@@ -124,6 +142,8 @@ Archivos:
   depósito, historial — ver detalle arriba).
 - `control-tips.html` — control de pago de propinas de tarjeta (pendientes
   de pago, historial de pagos — ver detalle arriba).
+- `mantenimiento.html` — módulo de reportes de mantenimiento por kiosko
+  (nuevo reporte + seguimiento — ver detalle arriba).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
   `rrhh-control-vacaciones.html`, `rrhh-amonestaciones.html`,
@@ -138,6 +158,9 @@ Archivos:
   Horarios, HorariosEstado, Configuracion) — alimenta las 12 pantallas de
   arriba, el dropdown de "Encargado" en cierres.html y la lista de kioskos
   de `configuracion.html` + selects del resto del sistema.
+- `Code-mantenimiento-backend.gs` — backend del Sheet de reportes de
+  mantenimiento (hoja "Reportes"), con fotos organizadas por subcarpeta de
+  kiosko en Drive — alimenta `mantenimiento.html`.
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -233,6 +256,29 @@ corregir esos registros básicos, hacelo directamente en la pestaña
 sus propias pantallas (`rrhh-cambio-salario.html`, `rrhh-terminacion.html`,
 `rrhh-liquidaciones.html`) para dejar historial.
 
+### 3. Sheet de mantenimiento
+
+1. Creá un Google Sheet nuevo, ej. **"Mantenimiento - Kioskos"**.
+2. Extensiones → Apps Script, pegá **todo** el contenido de
+   `Code-mantenimiento-backend.gs`.
+3. Corré **una vez** `configurarHoja()` desde el editor para crear la
+   pestaña "Reportes" con sus encabezados (incluye la columna "Kiosko"). La
+   primera vez va a pedir autorizar el script (accede a Drive para guardar
+   fotos).
+4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquiera**
+5. Copiá la URL `/exec` resultante y pegala en `mantenimiento.html`,
+   constante `MANT_URL` (reemplazá `TODO_APPS_SCRIPT_MANTENIMIENTO`).
+6. La carpeta de fotos ya está creada y cargada en el código —
+   **"Mantenimiento - Fotos"** dentro de la carpeta general de Kioskos en
+   Drive (`FOLDER_ID_MANTENIMIENTO` en `Code-mantenimiento-backend.gs`, ID
+   `1MgRs-4z53D-S3Jr0N5YQGUo09v7WueHC`). Adentro se crea sola una subcarpeta
+   por kiosko la primera vez que alguien adjunta una foto en ese kiosko.
+
+Sin el paso 5, `mantenimiento.html` muestra el error de conexión al abrir
+la pestaña Seguimiento o al guardar un reporte.
+
 ## Kioskos activos — sección de Configuración
 
 La lista de kioskos ya **no** está duplicada en cada `.html`. Vive en la
@@ -253,6 +299,7 @@ hardcodeado como respaldo si no hay conexión):
 - `rrhh-nuevo-ingreso.html`
 - `rrhh-personal.html`
 - `horarios.html`
+- `mantenimiento.html`
 
 Backend (`Code-rrhh-kioskos-backend.gs`): `configurarHojas()` crea la
 pestaña "Configuracion" y, si está vacía, la siembra con los 4 kioskos
