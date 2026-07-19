@@ -969,21 +969,24 @@ async function obtenerResumenHoySquare(cfg) {
     const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
 
     // Columnas de Resumen_Cierre_Diario: Fecha, Location ID, Ventas Brutas,
-    // Descuentos y Cortesías, Ventas Netas.
-    const filaHoy = filas.find(fila => {
+    // Descuentos y Cortesías, Ventas Netas. Puede haber varias líneas para
+    // la misma fecha (una por sincronización/ubicación), así que se suman
+    // todas las filas de hoy en vez de tomar solo la primera.
+    const filasHoy = filas.filter(fila => {
       const c = fila.c || [];
       const fecha = c[0] && (c[0].f || c[0].v);
       return fecha === hoyISO;
     });
 
-    if (!filaHoy) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
-    const c = filaHoy.c || [];
-    return {
-      netas: Number((c[4] && c[4].v) || 0),
-      brutas: Number((c[2] && c[2].v) || 0),
-      descuentos: Number((c[3] && c[3].v) || 0),
-      sinDatos: false
-    };
+    if (!filasHoy.length) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
+    const totales = filasHoy.reduce((acc, fila) => {
+      const c = fila.c || [];
+      acc.brutas += Number((c[2] && c[2].v) || 0);
+      acc.descuentos += Number((c[3] && c[3].v) || 0);
+      acc.netas += Number((c[4] && c[4].v) || 0);
+      return acc;
+    }, { brutas:0, descuentos:0, netas:0 });
+    return { ...totales, sinDatos: false };
   } catch(e) {
     return null;
   }
