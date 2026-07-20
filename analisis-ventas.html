@@ -265,6 +265,14 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
       <div class="prod-selector">
         <span id="prod-kioskos-txt" style="font-size:11px;color:var(--subtle);">Usa los kioskos, el rango de fechas y los días de la semana marcados arriba en Filtros — solo se cuentan los kioskos seleccionados que tengan Square propio conectado.</span>
       </div>
+      <div class="prod-selector">
+        <div class="filtro-group">
+          <label class="grp-lbl">Categoría</label>
+          <select id="filtro-categoria" onchange="renderAnalisisProducto()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;min-width:200px;">
+            <option value="">Todas las categorías</option>
+          </select>
+        </div>
+      </div>
       <div class="kpi-grid" id="prod-kpis">
         <div class="no-alerts"><span class="spinner"></span></div>
       </div>
@@ -937,6 +945,7 @@ function renderAnalisisProducto() {
   const bodyProd = document.getElementById('prod-top-body');
   const bodyCat = document.getElementById('prod-cat-body');
   const txtEl = document.getElementById('prod-kioskos-txt');
+  const catSelect = document.getElementById('filtro-categoria');
   if (!kpis || !bodyProd || !bodyCat) return;
 
   const desde = document.getElementById('filtro-desde').value || '2000-01-01';
@@ -952,19 +961,35 @@ function renderAnalisisProducto() {
       : `Ninguno de los kioskos marcados en Filtros tiene Square propio conectado (disponible en: ${disponibles.join(', ')}).`;
   }
 
-  let filas = [];
+  // filasBase: todo lo que cae dentro de kiosko+fecha+día de la semana, sin
+  // filtrar aún por categoría — se usa para poblar el selector de categorías
+  // y para la tabla "Ventas por categoría" (siempre muestra el desglose completo).
+  let filasBase = [];
   kioskosUsar.forEach(k => {
     const rows = SQUARE_PRODUCT_ROWS[k];
-    if (Array.isArray(rows)) filas = filas.concat(rows);
+    if (Array.isArray(rows)) filasBase = filasBase.concat(rows);
   });
-  filas = filas.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
+  filasBase = filasBase.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
 
-  if (!filas.length) {
+  if (catSelect) {
+    const categoriasDisponibles = Array.from(new Set(filasBase.map(r => r.categoria))).sort((a,b) => a.localeCompare(b));
+    const seleccionActual = catSelect.value;
+    catSelect.innerHTML = '<option value="">Todas las categorías</option>' +
+      categoriasDisponibles.map(c => `<option value="${c}">${c}</option>`).join('');
+    catSelect.value = categoriasDisponibles.includes(seleccionActual) ? seleccionActual : '';
+  }
+  const catFiltro = catSelect ? catSelect.value : '';
+
+  if (!filasBase.length) {
     kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>';
     bodyCat.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
     return;
   }
+
+  // filas: filasBase filtradas por la categoría elegida (si hay alguna) —
+  // se usa para los KPIs y el top de productos.
+  const filas = catFiltro ? filasBase.filter(r => r.categoria === catFiltro) : filasBase;
 
   const porProducto = {};
   const porCategoria = {};
@@ -975,12 +1000,31 @@ function renderAnalisisProducto() {
     if (!porProducto[r.producto]) porProducto[r.producto] = { producto: r.producto, categoria: r.categoria, monto: 0, cantidad: 0 };
     porProducto[r.producto].monto += r.totalLinea;
     porProducto[r.producto].cantidad += r.cantidad;
-
+  });
+  filasBase.forEach(r => {
     if (!porCategoria[r.categoria]) porCategoria[r.categoria] = { monto: 0, cantidad: 0, productos: new Set() };
     porCategoria[r.categoria].monto += r.totalLinea;
     porCategoria[r.categoria].cantidad += r.cantidad;
     porCategoria[r.categoria].productos.add(r.producto);
   });
+  const totalMontoCategorias = filasBase.reduce((s,r) => s + r.totalLinea, 0);
+
+  if (catFiltro && !filas.length) {
+    kpis.innerHTML = '<div class="no-alerts">Sin datos para la categoría seleccionada en el rango filtrado.</div>';
+    bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para la categoría seleccionada.</div></td></tr>';
+    const catOrdenadasVacio = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
+    bodyCat.innerHTML = catOrdenadasVacio.map(([cat,o]) => {
+      const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
+      return `<tr${cat===catFiltro?' style="background:var(--green-bg);"':''}>
+        <td>${cat}</td>
+        <td class="compare-val">${fmtCRC(o.monto)}</td>
+        <td>${o.cantidad.toLocaleString('es-CR')}</td>
+        <td>${o.productos.size}</td>
+        <td>${pct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
 
   const topPorMonto = Object.values(porProducto).sort((a,b) => b.monto - a.monto);
   const topPorCantidad = Object.values(porProducto).slice().sort((a,b) => b.cantidad - a.cantidad)[0];
