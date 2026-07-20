@@ -149,6 +149,7 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('resumen',this)">Ventas por kiosko</button>
   <button class="tab-btn" onclick="showTab('productos',this)">Análisis por producto</button>
+  <button class="tab-btn" onclick="showTab('descuentos',this)">Descuentos</button>
   <button class="tab-btn" onclick="showTab('tendencia',this)">Tendencia (mes / día)</button>
   <button class="tab-btn" onclick="showTab('periodos',this)">Comparar periodos</button>
 </div>
@@ -292,6 +293,59 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
           <thead><tr><th>Categoría</th><th>Monto</th><th>Cantidad</th><th># Productos</th><th>% del total</th></tr></thead>
           <tbody id="prod-cat-body">
             <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: DESCUENTOS ── -->
+  <div class="page" id="tab-descuentos">
+    <div class="card">
+      <p class="card-title">Descuentos y cortesías</p>
+      <span id="desc-kioskos-txt" style="font-size:11px;color:var(--subtle);">Usa los kioskos, el rango de fechas y los días de la semana marcados arriba en Filtros — solo se cuentan los kioskos seleccionados que tengan Square propio conectado (única fuente con detalle de descuento por línea).</span>
+      <div class="kpi-grid" id="desc-kpis" style="margin-top:1rem;">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Descuentos por kiosko</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Kiosko</th><th>Ventas brutas</th><th>Descuentos</th><th>% sobre bruto</th><th>Líneas con descuento</th></tr></thead>
+          <tbody id="desc-kiosko-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Top productos con más descuento</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>#</th><th>Producto</th><th>Líneas c/ descuento</th><th>Monto descontado</th><th>% del total descontado</th></tr></thead>
+          <tbody id="desc-prod-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Descuentos por categoría</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Categoría</th><th>Monto descontado</th><th>Líneas c/ descuento</th><th>% del total descontado</th></tr></thead>
+          <tbody id="desc-cat-body">
+            <tr><td colspan="4"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -468,11 +522,15 @@ async function cargarSquareProductos() {
       SQUARE_PRODUCT_ROWS[nombre] = filas.map(fila => {
         const c = fila.c || [];
         const fecha = c[0] && (c[0].f || c[0].v);
+        const cantidad = Number((c[6] && c[6].v) || 0);
+        const precioUnitario = Number((c[7] && c[7].v) || 0);
         return {
           fecha: fecha ? String(fecha).slice(0,10) : '',
           producto: (c[4] && c[4].v) || 'Sin nombre',
           categoria: (c[5] && c[5].v) || 'Sin categoría',
-          cantidad: Number((c[6] && c[6].v) || 0),
+          cantidad,
+          precioUnitario,
+          descuento: Number((c[8] && c[8].v) || 0),
           totalLinea: Number((c[9] && c[9].v) || 0)
         };
       }).filter(x => x.fecha);
@@ -580,6 +638,7 @@ function renderAll() {
   renderTendenciaMensual(filtrado);
   renderPorDiaSemana(filtrado);
   renderAnalisisProducto();
+  renderDescuentos();
 
   document.getElementById('filtro-resumen-txt').textContent =
     `${filtrado.length} día(s)-kiosko con ventas · ${kioskosSel.size} kiosko(s) seleccionado(s) · ${desde} → ${hasta}`;
@@ -949,6 +1008,125 @@ function renderAnalisisProducto() {
       <td>${pct.toFixed(1)}%</td>
     </tr>`;
   }).join('');
+}
+
+// ── DESCUENTOS (mismos kioskos/filtros que "Análisis por producto" — solo
+// kioskos con Square propio traen detalle de descuento por línea, columna
+// "Descuento" de Ventas_Por_Producto). Aplica rango de fechas, kioskos y
+// días de la semana marcados arriba en Filtros. ──
+function renderDescuentos() {
+  const kpis = document.getElementById('desc-kpis');
+  const bodyKiosko = document.getElementById('desc-kiosko-body');
+  const bodyProd = document.getElementById('desc-prod-body');
+  const bodyCat = document.getElementById('desc-cat-body');
+  const txtEl = document.getElementById('desc-kioskos-txt');
+  if (!kpis || !bodyKiosko || !bodyProd || !bodyCat) return;
+
+  const desde = document.getElementById('filtro-desde').value || '2000-01-01';
+  const hasta = document.getElementById('filtro-hasta').value || isoHoy();
+  const diasSel = diasSemanaSeleccionados();
+  const kioskosSel = kioskosSeleccionados();
+  const disponibles = productoKioskosDisponibles();
+  const kioskosUsar = disponibles.filter(k => kioskosSel.has(k));
+
+  if (txtEl) {
+    txtEl.textContent = kioskosUsar.length
+      ? `Kiosko(s) con Square propio incluidos según el filtro: ${kioskosUsar.join(', ')}.`
+      : `Ninguno de los kioskos marcados en Filtros tiene Square propio conectado (disponible en: ${disponibles.join(', ')}).`;
+  }
+
+  let filas = [];
+  kioskosUsar.forEach(k => {
+    const rows = SQUARE_PRODUCT_ROWS[k];
+    if (Array.isArray(rows)) filas = filas.concat(rows.map(r => ({ ...r, kiosko: k })));
+  });
+  filas = filas.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
+
+  if (!filas.length) {
+    kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
+    bodyKiosko.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
+    bodyProd.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
+    bodyCat.innerHTML = '<tr><td colspan="4"><div class="no-alerts">Sin datos.</div></td></tr>';
+    return;
+  }
+
+  const porKiosko = {}, porProducto = {}, porCategoria = {};
+  let totalBruto = 0, totalDescuento = 0, lineasConDescuento = 0;
+
+  filas.forEach(r => {
+    const bruto = r.cantidad * r.precioUnitario;
+    totalBruto += bruto;
+    totalDescuento += r.descuento;
+    if (r.descuento > 0) lineasConDescuento++;
+
+    if (!porKiosko[r.kiosko]) porKiosko[r.kiosko] = { bruto:0, descuento:0, lineas:0 };
+    porKiosko[r.kiosko].bruto += bruto;
+    porKiosko[r.kiosko].descuento += r.descuento;
+    if (r.descuento > 0) porKiosko[r.kiosko].lineas++;
+
+    if (r.descuento > 0) {
+      if (!porProducto[r.producto]) porProducto[r.producto] = { producto:r.producto, categoria:r.categoria, descuento:0, lineas:0 };
+      porProducto[r.producto].descuento += r.descuento;
+      porProducto[r.producto].lineas++;
+
+      if (!porCategoria[r.categoria]) porCategoria[r.categoria] = { descuento:0, lineas:0 };
+      porCategoria[r.categoria].descuento += r.descuento;
+      porCategoria[r.categoria].lineas++;
+    }
+  });
+
+  const pctSobreB = totalBruto > 0 ? (totalDescuento / totalBruto * 100) : 0;
+  const kioskoLiderDesc = Object.entries(porKiosko).sort((a,b) => b[1].descuento - a[1].descuento)[0];
+  const topProdArr = Object.values(porProducto).sort((a,b) => b.descuento - a.descuento);
+
+  kpis.innerHTML = `
+    <div class="kpi-box"><div class="kpi-val">${fmtCRC(totalDescuento)}</div><div class="kpi-lbl">Total descontado en el período</div></div>
+    <div class="kpi-box"><div class="kpi-val">${fmtCRC(totalBruto)}</div><div class="kpi-lbl">Ventas brutas (antes de descuento)</div></div>
+    <div class="kpi-box"><div class="kpi-val">${pctSobreB.toFixed(1)}%</div><div class="kpi-lbl">% descontado sobre lo bruto</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="font-size:15px;">${kioskoLiderDesc ? kioskoLiderDesc[0] : '—'}</div><div class="kpi-lbl">Kiosko con más descuento</div><div class="compare-sub">${kioskoLiderDesc ? fmtCRC(kioskoLiderDesc[1].descuento) : ''}</div></div>
+    <div class="kpi-box"><div class="kpi-val">${lineasConDescuento.toLocaleString('es-CR')}</div><div class="kpi-lbl">Líneas de venta con descuento</div></div>
+  `;
+
+  bodyKiosko.innerHTML = Object.entries(porKiosko).sort((a,b) => b[1].descuento - a[1].descuento).map(([nombre,o]) => {
+    const pct = o.bruto > 0 ? (o.descuento / o.bruto * 100) : 0;
+    return `<tr>
+      <td>${nombre}</td>
+      <td>${fmtCRC(o.bruto)}</td>
+      <td class="compare-val">${fmtCRC(o.descuento)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td>${o.lineas.toLocaleString('es-CR')}</td>
+    </tr>`;
+  }).join('');
+
+  if (!topProdArr.length) {
+    bodyProd.innerHTML = '<tr><td colspan="5"><div class="no-alerts">No hubo líneas con descuento en el rango filtrado.</div></td></tr>';
+  } else {
+    bodyProd.innerHTML = topProdArr.slice(0,20).map((p,i) => {
+      const pct = totalDescuento > 0 ? (p.descuento / totalDescuento * 100) : 0;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${p.producto}<div class="compare-sub">${p.categoria}</div></td>
+        <td>${p.lineas.toLocaleString('es-CR')}</td>
+        <td class="compare-val">${fmtCRC(p.descuento)}</td>
+        <td>${pct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const catArr = Object.entries(porCategoria).sort((a,b) => b[1].descuento - a[1].descuento);
+  if (!catArr.length) {
+    bodyCat.innerHTML = '<tr><td colspan="4"><div class="no-alerts">No hubo líneas con descuento en el rango filtrado.</div></td></tr>';
+  } else {
+    bodyCat.innerHTML = catArr.map(([cat,o]) => {
+      const pct = totalDescuento > 0 ? (o.descuento / totalDescuento * 100) : 0;
+      return `<tr>
+        <td>${cat}</td>
+        <td class="compare-val">${fmtCRC(o.descuento)}</td>
+        <td>${o.lineas.toLocaleString('es-CR')}</td>
+        <td>${pct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────
