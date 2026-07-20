@@ -112,6 +112,16 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 .btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:13.5px;font-weight:700;padding:10px 20px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
 .btn-primary:hover{opacity:.9}
 
+/* ── FUENTE DEL DATO (Square vs Cierre de caja) ──────────── */
+.fuente-badge{font-family:var(--font-m);font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.fb-square{background:var(--blue-bg);color:var(--blue)}
+.fb-cierre{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+
+/* ── ANÁLISIS POR PRODUCTO ───────────────────────────────── */
+.prod-selector{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
+.prod-selector select{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 12px;outline:none;min-width:260px}
+.prod-selector select:focus{border-color:var(--green)}
+
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .tabs{padding:0 1rem}
@@ -140,6 +150,7 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('resumen',this)">Ventas por kiosko</button>
+  <button class="tab-btn" onclick="showTab('productos',this)">Análisis por producto</button>
   <button class="tab-btn" onclick="showTab('tendencia',this)">Tendencia (mes / día)</button>
   <button class="tab-btn" onclick="showTab('periodos',this)">Comparar periodos</button>
 </div>
@@ -234,7 +245,7 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
         </table>
       </div>
       <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
-        Datos de "Total Ventas ₡" de cada cierre de caja (cubre todos los kioskos desde su primer cierre). Haga clic en una fila para ver el detalle diario; los kioskos con Square propio conectado (Playa Grande, Tamarindo) muestran además sus categorías más vendidas en ese rango.
+        Para Playa Grande y Tamarindo el total diario sale de la venta real por producto (Square, hoja Ventas_Por_Producto); para los kioskos sin Square propio se usa "Total Ventas ₡" del cierre de caja. Haga clic en una fila para ver el detalle diario (con la fuente de cada día) y, si aplica, las categorías más vendidas del rango.
       </div>
     </div>
 
@@ -244,6 +255,49 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
       </div>
       <div id="cek-body">
         <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: ANÁLISIS POR PRODUCTO ── -->
+  <div class="page" id="tab-productos">
+    <div class="card">
+      <p class="card-title">Análisis por producto</p>
+      <div class="prod-selector">
+        <label class="grp-lbl" style="margin-bottom:0;">Kiosko</label>
+        <select id="prod-kiosko" onchange="renderAnalisisProducto()"></select>
+        <span style="font-size:11px;color:var(--subtle);">Usa el rango de fechas y los días de la semana marcados arriba en Filtros. Solo disponible para kioskos con Square propio conectado.</span>
+      </div>
+      <div class="kpi-grid" id="prod-kpis">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Top productos</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>#</th><th>Producto</th><th>Cantidad</th><th>Monto</th><th>Precio prom.</th><th>% del total</th></tr></thead>
+          <tbody id="prod-top-body">
+            <tr><td colspan="6"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Ventas por categoría</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Categoría</th><th>Monto</th><th>Cantidad</th><th># Productos</th><th>% del total</th></tr></thead>
+          <tbody id="prod-cat-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -420,12 +474,51 @@ async function cargarSquareProductos() {
         const fecha = c[0] && (c[0].f || c[0].v);
         return {
           fecha: fecha ? String(fecha).slice(0,10) : '',
+          producto: (c[4] && c[4].v) || 'Sin nombre',
           categoria: (c[5] && c[5].v) || 'Sin categoría',
+          cantidad: Number((c[6] && c[6].v) || 0),
           totalLinea: Number((c[9] && c[9].v) || 0)
         };
       }).filter(x => x.fecha);
     } catch(e) { SQUARE_PRODUCT_ROWS[nombre] = null; }
   }));
+}
+
+// ── VENTAS UNIFICADAS ─────────────────────────────────────────
+// Total de ventas por kiosko+fecha: donde hay Square propio conectado
+// (Playa Grande, Tamarindo) se usa la suma real de Ventas_Por_Producto ese
+// día; donde no hay ese día en Square (u otro kiosko sin Square propio) se
+// cae a "Total Ventas ₡" del cierre de caja de ese día. Esto reemplaza a
+// CIERRES_ROWS como fuente para KPIs, comparativos y tendencias — CIERRES_ROWS
+// se sigue usando solo como respaldo dentro de esta función.
+let VENTAS_ROWS = [];
+
+function construirVentasUnificadas() {
+  const porKioskoFechaCierres = {};
+  CIERRES_ROWS.forEach(r => {
+    const key = r.kiosko + '|' + r.fecha;
+    if (!porKioskoFechaCierres[key]) porKioskoFechaCierres[key] = { total:0 };
+    porKioskoFechaCierres[key].total += r.total;
+  });
+
+  const porKioskoFechaSquare = {};
+  Object.entries(SQUARE_PRODUCT_ROWS).forEach(([kiosko, rows]) => {
+    if (!Array.isArray(rows)) return;
+    rows.forEach(r => {
+      const key = kiosko + '|' + r.fecha;
+      porKioskoFechaSquare[key] = (porKioskoFechaSquare[key] || 0) + r.totalLinea;
+    });
+  });
+
+  const claves = new Set([...Object.keys(porKioskoFechaCierres), ...Object.keys(porKioskoFechaSquare)]);
+  VENTAS_ROWS = Array.from(claves).map(key => {
+    const idx = key.indexOf('|');
+    const kiosko = key.slice(0, idx), fecha = key.slice(idx + 1);
+    if (porKioskoFechaSquare.hasOwnProperty(key)) {
+      return { fecha, kiosko, total: porKioskoFechaSquare[key], fuente: 'square' };
+    }
+    return { fecha, kiosko, total: porKioskoFechaCierres[key].total, fuente: 'cierres' };
+  });
 }
 
 function renderFiltroKioskos() {
@@ -445,6 +538,7 @@ function diasSemanaSeleccionados() {
 async function cargarTodo() {
   document.getElementById('filtro-resumen-txt').innerHTML = '<span class="spinner"></span> Cargando datos…';
   await Promise.all([cargarKioskosLista(), cargarCierres(), cargarSquareProductos()]);
+  construirVentasUnificadas();
   renderFiltroKioskos();
   if (!document.getElementById('filtro-desde').value) setPreset('30d');
   else renderAll();
@@ -480,7 +574,7 @@ function renderAll() {
   const kioskosSel = kioskosSeleccionados();
   const diasSel = diasSemanaSeleccionados();
 
-  const filtrado = CIERRES_ROWS.filter(r =>
+  const filtrado = VENTAS_ROWS.filter(r =>
     r.fecha >= desde && r.fecha <= hasta && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha))
   );
 
@@ -489,9 +583,10 @@ function renderAll() {
   renderComparativoKioskosBars(filtrado);
   renderTendenciaMensual(filtrado);
   renderPorDiaSemana(filtrado);
+  renderAnalisisProducto();
 
   document.getElementById('filtro-resumen-txt').textContent =
-    `${filtrado.length} cierre(s) · ${kioskosSel.size} kiosko(s) seleccionado(s) · ${desde} → ${hasta}`;
+    `${filtrado.length} día(s)-kiosko con ventas · ${kioskosSel.size} kiosko(s) seleccionado(s) · ${desde} → ${hasta}`;
 }
 
 function renderVariacionBadge(variacion, totalAnt, antDesde, antHasta) {
@@ -525,7 +620,7 @@ function renderResumenKPIs(filtrado, desde, hasta, kioskosSel, diasSel) {
   const dias = Math.round((new Date(hasta+'T00:00:00') - new Date(desde+'T00:00:00')) / 86400000) + 1;
   const antHasta = addDias(desde, -1);
   const antDesde = addDias(antHasta, -(dias-1));
-  const filtradoAnt = CIERRES_ROWS.filter(r => r.fecha >= antDesde && r.fecha <= antHasta && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
+  const filtradoAnt = VENTAS_ROWS.filter(r => r.fecha >= antDesde && r.fecha <= antHasta && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
   const totalAnt = filtradoAnt.reduce((s,r) => s + r.total, 0);
   const variacion = totalAnt > 0 ? ((total - totalAnt) / totalAnt * 100) : (total > 0 ? 100 : 0);
 
@@ -570,21 +665,15 @@ function renderVentasPorKiosko(filtrado, kioskosSel, desde, hasta, diasSel) {
       </td>
     </tr>`;
 
-    const porDiaMap = {};
-    rows.forEach(r => {
-      if (!porDiaMap[r.fecha]) porDiaMap[r.fecha] = { efectivo:0, tarjeta:0, sinpe:0, total:0 };
-      const o = porDiaMap[r.fecha];
-      o.efectivo += r.efectivo; o.tarjeta += r.tarjeta; o.sinpe += r.sinpe; o.total += r.total;
-    });
-    const diasOrdenados = Object.keys(porDiaMap).sort().reverse();
+    const diasOrdenados = rows.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
     const detalleDiario = diasOrdenados.length ? `
       <div class="compare-detail-title">Detalle diario</div>
       <div style="max-height:220px;overflow-y:auto;">
         <table class="compare-table" style="min-width:0;">
-          <thead><tr><th>Fecha</th><th>Total</th><th>Efectivo</th><th>Tarjeta</th><th>SINPE</th></tr></thead>
-          <tbody>${diasOrdenados.map(f => { const o = porDiaMap[f]; return `<tr><td>${f}</td><td class="compare-val">${fmtCRC(o.total)}</td><td>${fmtCRC(o.efectivo)}</td><td>${fmtCRC(o.tarjeta)}</td><td>${fmtCRC(o.sinpe)}</td></tr>`; }).join('')}</tbody>
+          <thead><tr><th>Fecha</th><th>Total</th><th>Fuente</th></tr></thead>
+          <tbody>${diasOrdenados.map(r => `<tr><td>${r.fecha}</td><td class="compare-val">${fmtCRC(r.total)}</td><td><span class="fuente-badge ${r.fuente==='square'?'fb-square':'fb-cierre'}">${r.fuente==='square'?'Square':'Cierre de caja'}</span></td></tr>`).join('')}</tbody>
         </table>
-      </div>` : '<div class="no-alerts">Sin cierres en el rango filtrado.</div>';
+      </div>` : '<div class="no-alerts">Sin ventas en el rango filtrado.</div>';
 
     let detalleSquare = '';
     const sqRows = SQUARE_PRODUCT_ROWS[nombre];
@@ -729,8 +818,8 @@ function compararPeriodos() {
     return;
   }
 
-  const filtA = CIERRES_ROWS.filter(r => r.fecha >= aD && r.fecha <= aH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
-  const filtB = CIERRES_ROWS.filter(r => r.fecha >= bD && r.fecha <= bH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
+  const filtA = VENTAS_ROWS.filter(r => r.fecha >= aD && r.fecha <= aH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
+  const filtB = VENTAS_ROWS.filter(r => r.fecha >= bD && r.fecha <= bH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
 
   const porKioskoA = {}, porKioskoB = {};
   filtA.forEach(r => porKioskoA[r.kiosko] = (porKioskoA[r.kiosko]||0) + r.total);
@@ -771,7 +860,104 @@ function compararPeriodos() {
   document.getElementById('cp-labels').textContent = `Período A: ${aD} → ${aH}  ·  Período B: ${bD} → ${bH}`;
 }
 
+// ── ANÁLISIS POR PRODUCTO (solo kioskos con Square propio — hoja
+// Ventas_Por_Producto, ver SQUARE_KIOSKOS) ─────────────────────
+function productoKioskosDisponibles() {
+  return Object.keys(SQUARE_KIOSKOS);
+}
+
+function renderSelectorProductoKiosko() {
+  const sel = document.getElementById('prod-kiosko');
+  if (!sel) return;
+  const disponibles = productoKioskosDisponibles();
+  sel.innerHTML = `<option value="__all__">Todos los kioskos con Square (${disponibles.join(' + ')})</option>` +
+    disponibles.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function renderAnalisisProducto() {
+  const kpis = document.getElementById('prod-kpis');
+  const bodyProd = document.getElementById('prod-top-body');
+  const bodyCat = document.getElementById('prod-cat-body');
+  const selEl = document.getElementById('prod-kiosko');
+  if (!kpis || !bodyProd || !bodyCat || !selEl) return;
+
+  const desde = document.getElementById('filtro-desde').value || '2000-01-01';
+  const hasta = document.getElementById('filtro-hasta').value || isoHoy();
+  const diasSel = diasSemanaSeleccionados();
+  const disponibles = productoKioskosDisponibles();
+  const kioskoSel = selEl.value || '__all__';
+  const kioskosUsar = kioskoSel === '__all__' ? disponibles : [kioskoSel];
+
+  let filas = [];
+  kioskosUsar.forEach(k => {
+    const rows = SQUARE_PRODUCT_ROWS[k];
+    if (Array.isArray(rows)) filas = filas.concat(rows);
+  });
+  filas = filas.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
+
+  if (!filas.length) {
+    kpis.innerHTML = '<div class="no-alerts">Sin datos de Square en el rango filtrado.</div>';
+    bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>';
+    bodyCat.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
+    return;
+  }
+
+  const porProducto = {};
+  const porCategoria = {};
+  let totalMonto = 0, totalUnidades = 0;
+  filas.forEach(r => {
+    totalMonto += r.totalLinea;
+    totalUnidades += r.cantidad;
+    if (!porProducto[r.producto]) porProducto[r.producto] = { producto: r.producto, categoria: r.categoria, monto: 0, cantidad: 0 };
+    porProducto[r.producto].monto += r.totalLinea;
+    porProducto[r.producto].cantidad += r.cantidad;
+
+    if (!porCategoria[r.categoria]) porCategoria[r.categoria] = { monto: 0, cantidad: 0, productos: new Set() };
+    porCategoria[r.categoria].monto += r.totalLinea;
+    porCategoria[r.categoria].cantidad += r.cantidad;
+    porCategoria[r.categoria].productos.add(r.producto);
+  });
+
+  const topPorMonto = Object.values(porProducto).sort((a,b) => b.monto - a.monto);
+  const topPorCantidad = Object.values(porProducto).slice().sort((a,b) => b.cantidad - a.cantidad)[0];
+  const catLider = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto)[0];
+
+  kpis.innerHTML = `
+    <div class="kpi-box"><div class="kpi-val">${fmtCRC(totalMonto)}</div><div class="kpi-lbl">Ventas totales (línea de producto)</div></div>
+    <div class="kpi-box"><div class="kpi-val">${totalUnidades.toLocaleString('es-CR')}</div><div class="kpi-lbl">Unidades vendidas</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="font-size:15px;">${topPorMonto[0] ? topPorMonto[0].producto : '—'}</div><div class="kpi-lbl">Producto más vendido (₡)</div><div class="compare-sub">${topPorMonto[0] ? fmtCRC(topPorMonto[0].monto) : ''}</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="font-size:15px;">${topPorCantidad ? topPorCantidad.producto : '—'}</div><div class="kpi-lbl">Producto más vendido (unidades)</div><div class="compare-sub">${topPorCantidad ? topPorCantidad.cantidad.toLocaleString('es-CR') + ' unid.' : ''}</div></div>
+    <div class="kpi-box"><div class="kpi-val" style="font-size:15px;">${catLider ? catLider[0] : '—'}</div><div class="kpi-lbl">Categoría líder</div><div class="compare-sub">${catLider ? fmtCRC(catLider[1].monto) : ''}</div></div>
+  `;
+
+  bodyProd.innerHTML = topPorMonto.slice(0,20).map((p,i) => {
+    const pct = totalMonto > 0 ? (p.monto / totalMonto * 100) : 0;
+    const precioProm = p.cantidad > 0 ? p.monto / p.cantidad : 0;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${p.producto}<div class="compare-sub">${p.categoria}</div></td>
+      <td>${p.cantidad.toLocaleString('es-CR')}</td>
+      <td class="compare-val">${fmtCRC(p.monto)}</td>
+      <td>${fmtCRC(precioProm)}</td>
+      <td>${pct.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  const catOrdenadas = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
+  bodyCat.innerHTML = catOrdenadas.map(([cat,o]) => {
+    const pct = totalMonto > 0 ? (o.monto / totalMonto * 100) : 0;
+    return `<tr>
+      <td>${cat}</td>
+      <td class="compare-val">${fmtCRC(o.monto)}</td>
+      <td>${o.cantidad.toLocaleString('es-CR')}</td>
+      <td>${o.productos.size}</td>
+      <td>${pct.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+}
+
 // ── INIT ──────────────────────────────────────────────────────
+renderSelectorProductoKiosko();
 cargarTodo();
 </script>
 </body>
