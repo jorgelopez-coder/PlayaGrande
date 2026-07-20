@@ -955,12 +955,19 @@ function renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, ef
   }).join('');
 }
 
-// ── SQUARE POR KIOSKO — hoja "Resumen_Cierre_Diario" de cada kiosko con
-// Square propio (ver SQUARE_KIOSKOS arriba). Devuelve null si falla la
-// conexión, o { netas, brutas, descuentos, sinDatos } si conectó bien. ──
+// ── SQUARE POR KIOSKO — pestaña "Ventas_Por_Producto" de cada kiosko con
+// Square propio (ver SQUARE_KIOSKOS arriba), la misma que alimenta el Top 10
+// y el volumen de cerveza. NO se usa Resumen_Cierre_Diario para "hoy" porque
+// esa pestaña se llena con un resumen diario que corre después del cierre
+// del día (normalmente de madrugada) y por eso nunca trae la fila de la
+// fecha de hoy mientras el kiosko sigue abierto. Ventas_Por_Producto en
+// cambio se sincroniza en el momento con cada venta, así que "hoy" siempre
+// tiene datos. Se suma el "Total Línea" (columna J) de todas las líneas de
+// hoy — Devuelve null si falla la conexión, o { netas, brutas, descuentos,
+// sinDatos } si conectó bien. ──
 async function obtenerResumenHoySquare(cfg) {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}&_=${Date.now()}`;
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
     const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
@@ -968,10 +975,9 @@ async function obtenerResumenHoySquare(cfg) {
     const ahora = new Date();
     const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
 
-    // Columnas de Resumen_Cierre_Diario: Fecha, Location ID, Ventas Brutas,
-    // Descuentos y Cortesías, Ventas Netas. Puede haber varias líneas para
-    // la misma fecha (una por sincronización/ubicación), así que se suman
-    // todas las filas de hoy en vez de tomar solo la primera.
+    // Columnas de Ventas_Por_Producto: Fecha, Hora, Location ID, Order ID,
+    // Producto, Categoría, Cantidad, Precio Unitario, Descuento, Total
+    // Línea. Se suma línea por línea (una fila = un producto de un pedido).
     const filasHoy = filas.filter(fila => {
       const c = fila.c || [];
       const fecha = c[0] && (c[0].f || c[0].v);
@@ -981,9 +987,13 @@ async function obtenerResumenHoySquare(cfg) {
     if (!filasHoy.length) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
     const totales = filasHoy.reduce((acc, fila) => {
       const c = fila.c || [];
-      acc.brutas += Number((c[2] && c[2].v) || 0);
-      acc.descuentos += Number((c[3] && c[3].v) || 0);
-      acc.netas += Number((c[4] && c[4].v) || 0);
+      const cantidad = Number((c[6] && c[6].v) || 0);
+      const precioUnitario = Number((c[7] && c[7].v) || 0);
+      const descuento = Number((c[8] && c[8].v) || 0);
+      const totalLinea = Number((c[9] && c[9].v) || 0);
+      acc.brutas += cantidad * precioUnitario;
+      acc.descuentos += descuento;
+      acc.netas += totalLinea;
       return acc;
     }, { brutas:0, descuentos:0, netas:0 });
     return { ...totales, sinDatos: false };
