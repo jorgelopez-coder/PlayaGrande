@@ -266,11 +266,14 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
         <span id="prod-kioskos-txt" style="font-size:11px;color:var(--subtle);">Usa los kioskos, el rango de fechas y los días de la semana marcados arriba en Filtros — solo se cuentan los kioskos seleccionados que tengan Square propio conectado.</span>
       </div>
       <div class="prod-selector">
-        <div class="filtro-group">
-          <label class="grp-lbl">Categoría</label>
-          <select id="filtro-categoria" onchange="renderAnalisisProducto()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;min-width:200px;">
-            <option value="">Todas las categorías</option>
-          </select>
+        <div class="filtro-group" style="flex:1;min-width:280px;">
+          <label class="grp-lbl">Categorías
+            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
+            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
+          </label>
+          <div class="chk-wrap" id="filtro-categoria-body">
+            <span class="compare-dash">Cargando…</span>
+          </div>
         </div>
       </div>
       <div class="kpi-grid" id="prod-kpis">
@@ -1053,8 +1056,8 @@ function renderAnalisisProducto() {
 
   const catOrdenadas = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
   bodyCat.innerHTML = catOrdenadas.map(([cat,o]) => {
-    const pct = totalMonto > 0 ? (o.monto / totalMonto * 100) : 0;
-    return `<tr>
+    const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
+    return `<tr${cat===catFiltro?' style="background:var(--green-bg);"':''}>
       <td>${cat}</td>
       <td class="compare-val">${fmtCRC(o.monto)}</td>
       <td>${o.cantidad.toLocaleString('es-CR')}</td>
