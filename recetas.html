@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Recetas · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.card-title-row .card-title{margin-bottom:0}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=number],select{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.checkbox-row{display:flex;align-items:center;gap:8px}
+.checkbox-row input{width:auto}
+
+.ingrediente-row{display:grid;grid-template-columns:2fr 90px 90px 32px;gap:8px;margin-bottom:8px;align-items:center}
+.ingrediente-quitar{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;line-height:1}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-sm.btn-danger-outline{color:var(--red);border-color:var(--red-lt)}
+.btn-sm.btn-danger-outline:hover{background:var(--red-bg)}
+.btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
+.btn-sync{width:100%;background:linear-gradient(135deg,#1a7a4a,#2a9a5f);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-sync:hover{opacity:.9}
+.btn-sync:disabled{opacity:.5;cursor:not-allowed}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge-kiosko{background:var(--blue-bg);color:var(--blue)}
+.badge-todos{background:var(--surface);color:var(--muted)}
+
+.receta-card{border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:10px}
+.receta-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.receta-nombre{font-weight:700;font-size:14px;font-family:var(--font-d)}
+.receta-ing{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.6}
+.receta-actions{display:flex;gap:6px;flex-shrink:0}
+
+.sync-result{margin-top:12px;font-size:13px}
+.sync-result b{color:var(--green)}
+.sync-sinmapear{margin-top:8px;font-size:12px;color:var(--amber);background:var(--amber-bg);border-radius:8px;padding:8px 10px}
+
+@media(max-width:640px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .field-row{grid-template-columns:1fr}
+  .ingrediente-row{grid-template-columns:1fr 70px 70px 28px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">🧾 Recetas</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<main>
+
+<div class="card">
+  <p class="card-title">Consumo automático desde ventas</p>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:0">
+    Trae las ventas nuevas de Square (última semana) y descuenta el stock de
+    cada kiosko según la receta que matchee el nombre de venta, o 1:1 si es un
+    producto de venta directa. Corre sola cada hora si se configuró el
+    trigger — este botón la fuerza al momento.
+  </p>
+  <button class="btn-sync" style="margin-top:14px" id="btn-sync" onclick="sincronizarVentas()">Sincronizar ventas ahora</button>
+  <div id="sync-result"></div>
+</div>
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title" id="receta-form-title">Nueva receta</p>
+    <button class="btn-link" id="receta-cancelar-edicion" style="display:none" onclick="cancelarEdicionReceta()">Cancelar edición</button>
+  </div>
+  <input type="hidden" id="receta-id"/>
+  <div class="field-row">
+    <div class="field">
+      <label for="receta-nombre-venta">Nombre de venta <span class="req">*</span></label>
+      <input type="text" id="receta-nombre-venta" placeholder="Como aparece vendido en Square (ej. Mojito)"/>
+    </div>
+    <div class="field">
+      <label for="receta-kiosko">Kiosko</label>
+      <select id="receta-kiosko"><option value="">Todos los kioskos</option></select>
+    </div>
+  </div>
+  <div class="field">
+    <label>Ingredientes <span class="req">*</span></label>
+    <div id="ingredientes-lista"></div>
+    <button class="btn-link" onclick="agregarFilaIngrediente()">+ Agregar ingrediente</button>
+  </div>
+  <div class="field">
+    <div class="checkbox-row">
+      <input type="checkbox" id="receta-activo" checked/>
+      <label for="receta-activo" style="margin:0">Activa</label>
+    </div>
+  </div>
+  <div class="submit-area">
+    <button class="btn-primary" id="btn-receta-guardar" onclick="guardarReceta()">Guardar receta</button>
+  </div>
+</div>
+
+<div class="card">
+  <p class="card-title">Recetas existentes</p>
+  <div id="recetas-lista"><div class="empty-state">Cargando recetas…</div></div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const INVENTARIO_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let PRODUCTOS = [];
+let RECETAS = [];
+
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postInventario(payload) {
+  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  }, 45000);
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+
+async function getInventario(params) {
+  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+function escHtml(s) {
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── KIOSKOS ───────────────────────────────────────────────────────
+async function cargarKioskos() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+      KIOSKOS = data.kioskos;
+    } else if (data.registros && data.registros.length) {
+      const activos = data.registros
+        .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
+        .map(k => k['Kiosko']).filter(Boolean);
+      if (activos.length) KIOSKOS = activos;
+    }
+  } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
+  document.getElementById('receta-kiosko').innerHTML =
+    '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
+}
+
+// ── PRODUCTOS (para el selector de ingredientes) ───────────────────
+async function cargarProductos() {
+  try {
+    const data = await getInventario({ modulo: 'productos' });
+    PRODUCTOS = (data.registros || []).filter(p => p['Activo'] !== false);
+  } catch(e) {
+    PRODUCTOS = [];
+  }
+}
+
+function opcionesProductos(seleccionadoId) {
+  return '<option value="" disabled ' + (seleccionadoId ? '' : 'selected') + '>Elegí un producto…</option>'
+    + PRODUCTOS.map(p => `<option value="${p['ID']}" data-unidad="${escHtml(p['Unidad']||'')}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre Interno'])}</option>`).join('');
+}
+
+// ── INGREDIENTES (filas dinámicas) ─────────────────────────────────
+function agregarFilaIngrediente(productoId, cantidad, unidad) {
+  const div = document.createElement('div');
+  div.className = 'ingrediente-row';
+  div.innerHTML = `
+    <select class="ing-producto" onchange="alCambiarIngProducto(this)">${opcionesProductos(productoId)}</select>
+    <input type="number" class="ing-cantidad" step="any" min="0" placeholder="Cant." value="${cantidad !== undefined ? cantidad : ''}"/>
+    <input type="text" class="ing-unidad" placeholder="Unidad" value="${escHtml(unidad || '')}"/>
+    <button class="ingrediente-quitar" onclick="this.closest('.ingrediente-row').remove()" title="Quitar">×</button>
+  `;
+  document.getElementById('ingredientes-lista').appendChild(div);
+}
+function alCambiarIngProducto(select) {
+  const row = select.closest('.ingrediente-row');
+  const unidad = select.selectedOptions[0]?.dataset.unidad || '';
+  const unidadInput = row.querySelector('.ing-unidad');
+  if (!unidadInput.value) unidadInput.value = unidad;
+}
+
+function leerIngredientes() {
+  return [...document.querySelectorAll('#ingredientes-lista .ingrediente-row')].map(row => {
+    const productoId = row.querySelector('.ing-producto').value;
+    const producto = PRODUCTOS.find(p => String(p['ID']) === String(productoId));
+    return {
+      productoId,
+      productoNombre: producto ? producto['Nombre Interno'] : '',
+      cantidad: Number(row.querySelector('.ing-cantidad').value) || 0,
+      unidad: row.querySelector('.ing-unidad').value.trim()
+    };
+  }).filter(i => i.productoId);
+}
+
+// ── RECETAS ────────────────────────────────────────────────────────
+async function cargarRecetas() {
+  document.getElementById('recetas-lista').innerHTML = '<div class="empty-state">Cargando recetas…</div>';
+  try {
+    const data = await getInventario({ modulo: 'recetas' });
+    RECETAS = data.registros || [];
+    renderRecetas();
+  } catch(e) {
+    document.getElementById('recetas-lista').innerHTML = `<div class="empty-state">No se pudieron cargar las recetas (${escHtml(e.message)}).</div>`;
+  }
+}
+
+function renderRecetas() {
+  const cont = document.getElementById('recetas-lista');
+  const activas = RECETAS.filter(r => r['Activo'] !== false);
+  if (!activas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay recetas. Creá la primera arriba.</div>'; return; }
+  cont.innerHTML = activas.map(r => `
+    <div class="receta-card">
+      <div class="receta-head">
+        <div>
+          <span class="receta-nombre">${escHtml(r['Nombre de Venta'])}</span>
+          ${r['Kiosko'] ? `<span class="badge badge-kiosko">${escHtml(r['Kiosko'])}</span>` : '<span class="badge badge-todos">Todos los kioskos</span>'}
+        </div>
+        <div class="receta-actions">
+          <button class="btn-sm" onclick="editarReceta('${r['ID']}')">✎ Editar</button>
+          <button class="btn-sm btn-danger-outline" onclick="eliminarReceta('${r['ID']}')">Eliminar</button>
+        </div>
+      </div>
+      <div class="receta-ing">${(r.ingredientes||[]).map(i => `${escHtml(i['Producto Nombre'])} × ${i['Cantidad por Unidad Vendida']} ${escHtml(i['Unidad']||'')}`).join(' · ') || 'Sin ingredientes'}</div>
+    </div>
+  `).join('');
+}
+
+function editarReceta(id) {
+  const r = RECETAS.find(x => String(x['ID']) === String(id));
+  if (!r) return;
+  document.getElementById('receta-id').value = r['ID'];
+  document.getElementById('receta-nombre-venta').value = r['Nombre de Venta'] || '';
+  document.getElementById('receta-kiosko').value = r['Kiosko'] || '';
+  document.getElementById('receta-activo').checked = r['Activo'] !== false;
+  document.getElementById('ingredientes-lista').innerHTML = '';
+  (r.ingredientes || []).forEach(i => agregarFilaIngrediente(i['Producto ID'], i['Cantidad por Unidad Vendida'], i['Unidad']));
+  if (!(r.ingredientes || []).length) agregarFilaIngrediente();
+  document.getElementById('receta-form-title').textContent = 'Editar receta';
+  document.getElementById('receta-cancelar-edicion').style.display = 'inline';
+  document.getElementById('btn-receta-guardar').textContent = 'Guardar cambios';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicionReceta() {
+  document.getElementById('receta-id').value = '';
+  document.getElementById('receta-nombre-venta').value = '';
+  document.getElementById('receta-kiosko').value = '';
+  document.getElementById('receta-activo').checked = true;
+  document.getElementById('ingredientes-lista').innerHTML = '';
+  agregarFilaIngrediente();
+  document.getElementById('receta-form-title').textContent = 'Nueva receta';
+  document.getElementById('receta-cancelar-edicion').style.display = 'none';
+  document.getElementById('btn-receta-guardar').textContent = 'Guardar receta';
+}
+
+async function guardarReceta() {
+  const nombreVenta = document.getElementById('receta-nombre-venta').value.trim();
+  if (!nombreVenta) { showToast('Escribí el nombre de venta', 'error'); return; }
+  const ingredientes = leerIngredientes();
+  if (!ingredientes.length) { showToast('Agregá al menos un ingrediente', 'error'); return; }
+
+  const payload = {
+    accion: 'receta_guardar',
+    id: document.getElementById('receta-id').value || undefined,
+    nombreVenta,
+    kiosko: document.getElementById('receta-kiosko').value,
+    activo: document.getElementById('receta-activo').checked,
+    ingredientes
+  };
+
+  const btn = document.getElementById('btn-receta-guardar');
+  btn.disabled = true;
+  try {
+    await postInventario(payload);
+    showToast('Receta guardada ✓');
+    cancelarEdicionReceta();
+    await cargarRecetas();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function eliminarReceta(id) {
+  if (!confirm('¿Eliminar esta receta? Deja de aplicarse a nuevas ventas.')) return;
+  try {
+    await postInventario({ accion: 'receta_eliminar', id });
+    showToast('Receta eliminada ✓');
+    await cargarRecetas();
+  } catch(e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  }
+}
+
+// ── SINCRONIZAR VENTAS ─────────────────────────────────────────────
+async function sincronizarVentas() {
+  const btn = document.getElementById('btn-sync');
+  const result = document.getElementById('sync-result');
+  btn.disabled = true; btn.textContent = 'Sincronizando…';
+  result.innerHTML = '';
+  try {
+    const out = await postInventario({ accion: 'sincronizar_ventas' });
+    let html = `<div class="sync-result">Procesadas <b>${out.lineasProcesadas}</b> línea(s) nuevas de ${out.totalLineasRecibidas} recibidas de Square.</div>`;
+    if (out.sinMapear && out.sinMapear.length) {
+      html += `<div class="sync-sinmapear">⚠️ Sin receta ni producto de venta directa asociado: ${out.sinMapear.map(escHtml).join(', ')}. Creá una receta o completá el "Nombre de venta" del producto correspondiente.</div>`;
+    }
+    result.innerHTML = html;
+    showToast('Sincronización completa ✓');
+  } catch(e) {
+    result.innerHTML = `<div class="sync-sinmapear">${escHtml(e.message)}</div>`;
+    showToast('No se pudo sincronizar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sincronizar ventas ahora';
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('date-chip').textContent =
+  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+cargarKioskos();
+cargarProductos().then(() => {
+  agregarFilaIngrediente();
+  cargarRecetas();
+});
+</script>
+</body>
+</html>

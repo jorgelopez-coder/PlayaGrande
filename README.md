@@ -163,8 +163,59 @@ el % convierte el peso a onzas asumiendo una densidad estándar de cerveza
 exacta, y queda documentada como tal en el pie de esa sección. El histórico
 por día de cada kiosko también muestra la merma junto a las onzas vendidas.
 
-El resto de módulos (inventario/compras, reportes) quedan como
-"Próximamente" en `index.html`, a construir después.
+Séptimo módulo: **Inventario y Recetas**, `inventario.html` + `recetas.html` —
+catálogo de productos, toma de inventario física por kiosko y descuento
+automático de stock según las ventas de Square:
+
+- `inventario.html` — 3 pestañas:
+  - **Productos**: catálogo agrupado por categoría (alta/edición de
+    categorías desde la misma pantalla). Cada producto guarda, además del
+    nombre interno, tres alias: **Nombre de Facturación** (como aparece en la
+    factura del proveedor), **Nombre de Compra** (como se pide/ordena) y
+    **Nombre de Venta** (como aparece vendido en Square/menú — es lo que
+    matchea el consumo automático de `recetas.html`), más unidad y **mínimo
+    recomendado**.
+  - **Toma de Inventario**: selector de kiosko; **"Iniciar toma"** fija la
+    fecha y congela un snapshot (stock esperado) de cada producto activo. Con
+    la toma abierta, se cuenta por categoría con autosave por línea y
+    bandera de bajo-mínimo. **"Cerrar toma"** pide el PIN de un rol admin
+    (mismo mecanismo de roles de `login.html`, `portal_roles`/
+    `ADMIN_DEFAULT`) y, además, el backend valida su propio `ADMIN_PIN`
+    (Script Properties) como segunda barrera — al cerrar, aplica los ajustes
+    de stock por la diferencia contada vs. esperada y bloquea la toma de
+    forma permanente (no hay "reabrir"; el backend rechaza cualquier
+    `toma_guardar_conteo` sobre una toma ya Cerrada, no solo la UI).
+  - **Historial y Stock**: stock en vivo por producto/kiosko con badge de
+    bajo-mínimo y drill-down a los movimientos (compras, ajustes, consumo por
+    venta, conteos), y el historial de tomas cerradas con el detalle
+    esperado/contado/diferencia de cada una.
+- `recetas.html` — recetas que mapean un **Nombre de Venta** (el nombre con
+  el que Square vende el ítem, ej. "Mojito") a una lista de ingredientes
+  (Producto + cantidad por unidad vendida), opcionalmente restringidas a un
+  kiosko. Botón **"Sincronizar ventas ahora"**: trae las ventas nuevas desde
+  el Web App de Square (`?action=ventasPorProducto`, agregado a
+  `Codigo-Square-completo-con-Descuentos.gs`) y por cada línea nueva
+  descuenta stock — según receta si el nombre matchea una, o 1:1 si matchea
+  el "Nombre de Venta" de un Producto (venta directa, sin receta). Lo que no
+  matchea ninguno de los dos se reporta como "sin mapear" (no falla). Cada
+  línea aplicada queda en la pestaña "VentasProcesadas" para no descontarse
+  dos veces si el sync se corre otra vez sobre el mismo rango de fechas.
+
+Backend (`Code-inventario-kioskos-backend.gs`, Sheet nuevo **"Inventario -
+Kioskos"**): 9 pestañas — Productos, Categorias, Stock (cantidad actual por
+producto/kiosko), StockMovimientos (auditoría append-only de toda alta/
+ajuste/consumo/conteo), TomaInventario/TomaInventarioDetalle, Recetas/
+RecetasDetalle y VentasProcesadas. Puede correr `sincronizarVentasAutomatico()`
+sola cada hora si se crea el trigger (`crearTriggerSincronizacion()`, una vez
+desde el editor) — sin eso, el consumo por venta solo se aplica al apretar
+"Sincronizar ventas ahora".
+
+`index.html` reemplaza el tile "Inventario y Compras (Próximamente)" por dos
+tiles activos: **Inventario** (`inventario.html`) y **Recetas**
+(`recetas.html`).
+
+El resto de módulos (reportes consolidados) quedan como "Próximamente" en
+`index.html`, a construir después.
 
 Archivos:
 - `index.html` — home con navegación entre módulos.
@@ -197,6 +248,11 @@ Archivos:
   `rrhh-terminacion.html`, `rrhh-cambio-salario.html`,
   `rrhh-liquidaciones.html`, `horarios.html`, `horarios-historial.html` —
   módulo de RRHH completo (ver detalle arriba).
+- `inventario.html` — catálogo de productos, toma de inventario física por
+  kiosko (con cierre bloqueado por PIN admin) e historial/stock en vivo —
+  ver detalle arriba.
+- `recetas.html` — recetas de venta y sincronización de consumo automático
+  desde Square — ver detalle arriba.
 - `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas (hoja
   "Cierres") y de depósitos bancarios (hoja "Depositos", que alimenta
   `depositos.html`).
@@ -215,6 +271,12 @@ Archivos:
   Anthropic con visión para leer el peso de una foto de báscula — alimenta
   el botón "Extraer peso con IA" de `mermas.html` (ver "Extracción con IA"
   más abajo).
+- `Code-inventario-kioskos-backend.gs` — backend del Sheet nuevo "Inventario
+  - Kioskos": productos, categorías, stock en vivo, toma de inventario y
+  recetas — alimenta `inventario.html` y `recetas.html` (ver detalle
+  arriba). Le pega por `UrlFetchApp` al Web App de
+  `Codigo-Square-completo-con-Descuentos.gs` para traer las ventas por
+  producto y aplicar el consumo automático.
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -364,6 +426,49 @@ Para activar el botón "Extraer peso con IA" (lee el número de la báscula
 directo de la foto), seguí la sección **"Extracción con IA"** más abajo —
 es un despliegue aparte, independiente de este Sheet.
 
+### 5. Inventario, toma de inventario y recetas
+
+1. Creá un Google Sheet nuevo, ej. **"Inventario - Kioskos"**.
+2. Extensiones → Apps Script, pegá **todo** el contenido de
+   `Code-inventario-kioskos-backend.gs`.
+3. Corré **una vez** `configurarHoja()` desde el editor para crear las 9
+   pestañas (Productos, Categorias, Stock, StockMovimientos, TomaInventario,
+   TomaInventarioDetalle, Recetas, RecetasDetalle, VentasProcesadas) con sus
+   encabezados.
+4. ⚙️ Configuración del proyecto → Propiedades del script → agregá
+   `ADMIN_PIN` con el código que va a pedir el botón "Cerrar toma" de
+   `inventario.html` (si no lo configurás, el default es `admin` — mismo PIN
+   que `ADMIN_DEFAULT` en `login.html`; si cambiás uno, cambiá el otro para
+   que sigan coincidiendo).
+5. Implementar → Nueva implementación → Tipo: **Aplicación web**.
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquiera**
+6. Copiá la URL `/exec` resultante y pegala en **`inventario.html` y
+   `recetas.html`**, constante `INVENTARIO_URL` (arriba del todo en el
+   `<script>` de cada uno) — es el mismo Web App para los dos.
+7. Para que el descuento automático por venta funcione, el Sheet de Square
+   (`Codigo-Square-completo-con-Descuentos.gs`) necesita la acción
+   `?action=ventasPorProducto` (ya agregada al archivo): entrá a ese
+   proyecto de Apps Script → Implementar → Gestionar implementaciones →
+   Editar → **Nueva versión** (la URL `/exec` no cambia). Copiá esa URL y
+   pegala en `Code-inventario-kioskos-backend.gs`, constante `SQUARE_URL`, y
+   volvé a Implementar → Gestionar implementaciones → Editar → Nueva
+   versión en **este** proyecto (Inventario) para que tome el cambio.
+8. (Opcional) Corré **una vez** `crearTriggerSincronizacion()` desde el
+   editor de Inventario para que `sincronizarVentasAutomatico()` corra sola
+   cada hora. Sin esto, el consumo por venta solo se aplica cuando alguien
+   aprieta **"Sincronizar ventas ahora"** en `recetas.html`.
+
+Sin el paso 6, `inventario.html` y `recetas.html` muestran el error "Falta
+configurar INVENTARIO_URL" al cargar. Sin los pasos 7-8, el resto del módulo
+(productos, stock manual, toma de inventario, recetas) funciona igual — solo
+el descuento automático por venta queda inactivo, y "Sincronizar ventas
+ahora" avisa que falta `SQUARE_URL` en vez de fallar en silencio. Como hoy
+solo Playa Grande tiene Square conectado (`LOCATION_KIOSKO_MAP`), los demás
+kioskos no van a tener consumo automático hasta que tengan su propio
+`location_id` — pueden seguir usando la toma de inventario y los ajustes
+manuales de stock sin problema mientras tanto.
+
 ## Kioskos activos — sección de Configuración
 
 La lista de kioskos ya **no** está duplicada en cada `.html`. Vive en la
@@ -385,6 +490,8 @@ hardcodeado como respaldo si no hay conexión):
 - `rrhh-personal.html`
 - `horarios.html`
 - `mantenimiento.html`
+- `inventario.html`
+- `recetas.html`
 
 Backend (`Code-rrhh-kioskos-backend.gs`): `configurarHojas()` crea la
 pestaña "Configuracion" y, si está vacía, la siembra con los 4 kioskos
@@ -456,7 +563,6 @@ como `admin-accesos.html` en Lorito.
 
 ## Próximos módulos (sugeridos, sin construir todavía)
 
-- **Inventario y compras** por kiosko (stock de cerveza/licores/insumos).
 - **Reportes consolidados** — comparativo de ventas/balance entre los 4
   kioskos y los que se vayan sumando.
 - **Cierre de semana de Horarios por kiosko** — hoy "Cerrar horario" bloquea

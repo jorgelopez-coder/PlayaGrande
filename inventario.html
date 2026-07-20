@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Inventario · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border)}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.card-title-row .card-title{margin-bottom:0}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+input[readonly],input:disabled{background:var(--green-bg);color:var(--muted);cursor:not-allowed}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.checkbox-row{display:flex;align-items:center;gap:8px}
+.checkbox-row input{width:auto}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-danger{background:var(--red)}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge-ok{background:var(--green-bg);color:var(--green)}
+.badge-bajo{background:var(--red-bg);color:var(--red)}
+.badge-inactivo{background:var(--surface);color:var(--subtle)}
+
+/* Productos */
+.cat-section{margin-bottom:1.5rem}
+.cat-section:last-child{margin-bottom:0}
+.cat-header{font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.prod-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.prod-row:last-child{border-bottom:none}
+.prod-nombre{font-weight:600;font-size:13.5px}
+.prod-alias{font-size:11.5px;color:var(--muted)}
+.prod-min{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.prod-actions{flex-shrink:0}
+
+/* Toma de inventario */
+.toma-kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.toma-kiosko-row select{width:200px}
+.toma-header-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.toma-header-info{font-size:12.5px;color:var(--muted)}
+.toma-header-info b{color:var(--text)}
+.conteo-row{display:grid;grid-template-columns:1fr 90px 110px 90px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.conteo-row:last-child{border-bottom:none}
+.conteo-row input[type=number]{text-align:right}
+.conteo-guardado{font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;white-space:nowrap}
+.conteo-guardado.show{opacity:1}
+.conteo-col-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.conteo-cols{display:grid;grid-template-columns:1fr 90px 110px 90px;gap:10px}
+
+/* Historial / stock */
+.stock-table-wrap,.hist-table-wrap{overflow-x:auto}
+.stock-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.stock-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+.stock-table td{padding:.6rem .9rem;border-bottom:1px solid var(--border);white-space:nowrap}
+.stock-table tbody tr:last-child td{border-bottom:none}
+.stock-table tbody tr:hover{background:var(--surface);cursor:pointer}
+.mov-panel{background:var(--surface);border-radius:8px;padding:10px 12px;margin:6px 0 10px;font-size:12px}
+.mov-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}
+.mov-item:last-child{border-bottom:none}
+
+.toma-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
+.toma-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+.toma-card-title{font-weight:700;font-size:13.5px;font-family:var(--font-d)}
+.toma-card-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.toma-card-body{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.toma-card.abierta .toma-card-body{display:block}
+
+/* Modal PIN */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,40,30,.45);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal-card{background:var(--card);border-radius:var(--radius);padding:1.5rem;max-width:380px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.modal-error{font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-lt);border-radius:8px;padding:8px 10px;margin-top:10px;display:none}
+
+@media(max-width:640px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .field-row,.field-row3{grid-template-columns:1fr}
+  .conteo-row,.conteo-cols{grid-template-columns:1fr 70px 90px}
+  .conteo-col-min{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">📦 Inventario</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('productos',this)">Productos</button>
+  <button class="tab-btn" onclick="showTab('toma',this)">Toma de Inventario</button>
+  <button class="tab-btn" onclick="showTab('historial',this)">Historial y Stock</button>
+</div>
+
+<main>
+
+<!-- ── TAB PRODUCTOS ── -->
+<div class="page active" id="tab-productos">
+  <div class="card">
+    <div class="card-title-row">
+      <p class="card-title" id="prod-form-title">Nuevo producto</p>
+      <button class="btn-link" id="prod-cancelar-edicion" style="display:none" onclick="cancelarEdicionProducto()">Cancelar edición</button>
+    </div>
+    <input type="hidden" id="prod-id"/>
+    <div class="field-row">
+      <div class="field">
+        <label for="prod-nombre-interno">Nombre interno <span class="req">*</span></label>
+        <input type="text" id="prod-nombre-interno" placeholder="Ej. Ron blanco 750ml"/>
+      </div>
+      <div class="field">
+        <label for="prod-categoria">Categoría</label>
+        <select id="prod-categoria"></select>
+        <div style="margin-top:6px" id="nueva-cat-toggle">
+          <button class="btn-link" onclick="mostrarNuevaCategoria()">+ Nueva categoría</button>
+        </div>
+        <div class="field-row" id="nueva-cat-form" style="display:none;margin-top:8px">
+          <input type="text" id="nueva-cat-nombre" placeholder="Nombre de la categoría"/>
+          <button class="btn-sm" onclick="guardarCategoria()">Agregar</button>
+        </div>
+      </div>
+    </div>
+    <div class="field-row3">
+      <div class="field">
+        <label for="prod-nombre-facturacion">Nombre de facturación</label>
+        <input type="text" id="prod-nombre-facturacion" placeholder="Como aparece en la factura del proveedor"/>
+      </div>
+      <div class="field">
+        <label for="prod-nombre-compra">Nombre de compra</label>
+        <input type="text" id="prod-nombre-compra" placeholder="Como se pide/ordena al proveedor"/>
+      </div>
+      <div class="field">
+        <label for="prod-nombre-venta">Nombre de venta</label>
+        <input type="text" id="prod-nombre-venta" placeholder="Como aparece vendido en Square/menú"/>
+      </div>
+    </div>
+    <div class="field-row3">
+      <div class="field">
+        <label for="prod-unidad">Unidad</label>
+        <input type="text" id="prod-unidad" placeholder="unidad, botella, oz, mL, kg…" value="unidad"/>
+      </div>
+      <div class="field">
+        <label for="prod-minimo">Mínimo recomendado</label>
+        <input type="number" id="prod-minimo" placeholder="0" min="0" step="any"/>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <div class="checkbox-row" style="padding-top:9px">
+          <input type="checkbox" id="prod-activo" checked/>
+          <label for="prod-activo" style="margin:0">Activo</label>
+        </div>
+      </div>
+    </div>
+    <div class="submit-area">
+      <button class="btn-primary" id="btn-prod-guardar" onclick="guardarProducto()">Guardar producto</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Catálogo</p>
+    <div id="prod-lista"><div class="empty-state">Cargando productos…</div></div>
+  </div>
+</div><!-- /tab-productos -->
+
+
+<!-- ── TAB TOMA DE INVENTARIO ── -->
+<div class="page" id="tab-toma">
+  <div class="toma-kiosko-row">
+    <select id="toma-kiosko" onchange="alCambiarKioskoToma()"><option value="" disabled selected>Cargando…</option></select>
+  </div>
+  <div id="toma-contenido"><div class="empty-state">Seleccioná un kiosko.</div></div>
+</div><!-- /tab-toma -->
+
+
+<!-- ── TAB HISTORIAL Y STOCK ── -->
+<div class="page" id="tab-historial">
+  <div class="toma-kiosko-row">
+    <select id="hist-kiosko" onchange="alCambiarKioskoHistorial()"><option value="" disabled selected>Cargando…</option></select>
+    <button class="btn-sm" onclick="cargarHistorial()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Stock actual</p>
+    <div class="stock-table-wrap"><div id="stock-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Tomas cerradas</p>
+    <div id="toma-historial-lista"><div class="empty-state">Seleccioná un kiosko.</div></div>
+  </div>
+</div><!-- /tab-historial -->
+
+</main>
+
+<!-- Modal PIN admin para cerrar toma -->
+<div class="modal-overlay" id="pin-modal" style="display:none">
+  <div class="modal-card">
+    <p class="card-title">Código de administrador</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Cerrar la toma aplica los ajustes de stock por conteo y bloquea cualquier
+      cambio posterior — no se puede reabrir. Ingresá el código de administrador
+      para confirmar.
+    </p>
+    <input type="password" id="pin-input" placeholder="Código de administrador" autocomplete="off"
+      onkeydown="if(event.key==='Enter')confirmarCierreToma()"/>
+    <div class="modal-error" id="pin-error">Código incorrecto.</div>
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="cerrarModalPin()">Cancelar</button>
+      <button class="btn-primary btn-danger" onclick="confirmarCierreToma()">Confirmar cierre</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismo backend de RRHH usado en el resto del ecosistema: trae la lista de
+// kioskos activos (?modulo=kioskos).
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const INVENTARIO_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+
+// Respaldo si todavía no hay conexión con Configuración.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+let PRODUCTOS = [];
+let CATEGORIAS = [];
+let tomaActivaActual = null;   // { toma, detalle } para el kiosko de la pestaña Toma
+let stockActualHist = [];
+let movimientosAbiertos = new Set();
+
+// PIN de administrador: mismo mecanismo de login.html (roles guardados en
+// localStorage 'portal_roles'; ADMIN_DEFAULT si todavía no se configuró
+// ninguno). El backend valida además su propio ADMIN_PIN (Script
+// Properties) como segunda barrera — mantenelos iguales si cambiás el PIN.
+const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos' };
+function getRoles() {
+  try { return JSON.parse(localStorage.getItem('portal_roles')||'null') || [ADMIN_DEFAULT]; }
+  catch { return [ADMIN_DEFAULT]; }
+}
+function rolAdminPorPin(pin) {
+  const rol = getRoles().find(r => r.pin === pin);
+  return (rol && rol.modulos === 'todos') ? rol : null;
+}
+
+// fetch con límite de tiempo — sin esto, en redes móviles lentas un botón
+// "Guardando…" puede quedarse colgado indefinidamente.
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postInventario(payload) {
+  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+
+async function getInventario(params) {
+  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'toma') cargarTomaActiva();
+  if (tab === 'historial') cargarHistorial();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function escHtml(s) {
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function hoy() { return new Date().toISOString().slice(0,10); }
+
+// ── KIOSKOS ───────────────────────────────────────────────────────
+async function cargarKioskos() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+      KIOSKOS = data.kioskos;
+    } else if (data.registros && data.registros.length) {
+      const activos = data.registros
+        .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
+        .map(k => k['Kiosko']).filter(Boolean);
+      if (activos.length) KIOSKOS = activos;
+    }
+  } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
+  poblarKioskos();
+}
+
+function poblarKioskos() {
+  const opciones = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
+    + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  document.getElementById('toma-kiosko').innerHTML = opciones;
+  document.getElementById('hist-kiosko').innerHTML = opciones;
+
+  const ultimo = localStorage.getItem('kiosko_actual');
+  if (ultimo && KIOSKOS.includes(ultimo)) {
+    document.getElementById('toma-kiosko').value = ultimo;
+    document.getElementById('hist-kiosko').value = ultimo;
+  }
+}
+
+function alCambiarKioskoToma() {
+  const k = document.getElementById('toma-kiosko').value;
+  if (k) localStorage.setItem('kiosko_actual', k);
+  cargarTomaActiva();
+}
+function alCambiarKioskoHistorial() {
+  const k = document.getElementById('hist-kiosko').value;
+  if (k) localStorage.setItem('kiosko_actual', k);
+  cargarHistorial();
+}
+
+// ── PRODUCTOS Y CATEGORÍAS ─────────────────────────────────────────
+async function cargarProductos() {
+  document.getElementById('prod-lista').innerHTML = '<div class="empty-state">Cargando productos…</div>';
+  try {
+    const [prodResp, catResp] = await Promise.all([
+      getInventario({ modulo: 'productos' }),
+      getInventario({ modulo: 'categorias' })
+    ]);
+    PRODUCTOS = prodResp.registros || [];
+    CATEGORIAS = (catResp.registros || []).sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0));
+    poblarSelectCategorias();
+    renderProductos();
+  } catch(e) {
+    document.getElementById('prod-lista').innerHTML = `<div class="empty-state">No se pudo cargar el catálogo (${escHtml(e.message)}).</div>`;
+  }
+}
+
+function poblarSelectCategorias() {
+  const sel = document.getElementById('prod-categoria');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Sin categoría</option>'
+    + CATEGORIAS.filter(c => c['Activo'] !== false).map(c => `<option>${escHtml(c['Nombre'])}</option>`).join('');
+  if (actual) sel.value = actual;
+}
+
+function mostrarNuevaCategoria() {
+  document.getElementById('nueva-cat-form').style.display = 'flex';
+  document.getElementById('nueva-cat-toggle').style.display = 'none';
+  document.getElementById('nueva-cat-nombre').focus();
+}
+
+async function guardarCategoria() {
+  const nombre = document.getElementById('nueva-cat-nombre').value.trim();
+  if (!nombre) { showToast('Escribí el nombre de la categoría', 'error'); return; }
+  try {
+    await postInventario({ accion: 'categoria_guardar', nombre, orden: CATEGORIAS.length + 1 });
+    showToast('Categoría agregada ✓');
+    document.getElementById('nueva-cat-nombre').value = '';
+    document.getElementById('nueva-cat-form').style.display = 'none';
+    document.getElementById('nueva-cat-toggle').style.display = 'block';
+    const catResp = await getInventario({ modulo: 'categorias' });
+    CATEGORIAS = (catResp.registros || []).sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0));
+    poblarSelectCategorias();
+    document.getElementById('prod-categoria').value = nombre;
+  } catch(e) {
+    showToast('No se pudo guardar la categoría — ' + e.message, 'error');
+  }
+}
+
+function renderProductos() {
+  const cont = document.getElementById('prod-lista');
+  if (!PRODUCTOS.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay productos. Agregá el primero arriba.</div>'; return; }
+
+  const nombresCat = CATEGORIAS.map(c => c['Nombre']);
+  const grupos = {};
+  PRODUCTOS.forEach(p => {
+    const cat = p['Categoría'] && nombresCat.includes(p['Categoría']) ? p['Categoría'] : 'Sin categoría';
+    (grupos[cat] = grupos[cat] || []).push(p);
+  });
+  const ordenCats = [...nombresCat.filter(c => grupos[c]), ...(grupos['Sin categoría'] ? ['Sin categoría'] : [])];
+
+  cont.innerHTML = ordenCats.map(cat => `
+    <div class="cat-section">
+      <div class="cat-header">${escHtml(cat)}</div>
+      ${grupos[cat].map(p => `
+        <div class="prod-row">
+          <div style="flex:1">
+            <div class="prod-nombre">${escHtml(p['Nombre Interno'])} ${p['Activo'] === false ? '<span class="badge badge-inactivo">Inactivo</span>' : ''}</div>
+            <div class="prod-alias">
+              ${p['Nombre Venta'] ? 'Venta: ' + escHtml(p['Nombre Venta']) + ' · ' : ''}
+              ${p['Nombre Compra'] ? 'Compra: ' + escHtml(p['Nombre Compra']) + ' · ' : ''}
+              ${p['Nombre Facturación'] ? 'Facturación: ' + escHtml(p['Nombre Facturación']) : ''}
+            </div>
+          </div>
+          <div class="prod-min">Mín. ${p['Mínimo Recomendado'] || 0} ${escHtml(p['Unidad']||'')}</div>
+          <div class="prod-actions"><button class="btn-sm" onclick="editarProducto('${p['ID']}')">✎ Editar</button></div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function editarProducto(id) {
+  const p = PRODUCTOS.find(x => String(x['ID']) === String(id));
+  if (!p) return;
+  document.getElementById('prod-id').value = p['ID'];
+  document.getElementById('prod-nombre-interno').value = p['Nombre Interno'] || '';
+  document.getElementById('prod-nombre-facturacion').value = p['Nombre Facturación'] || '';
+  document.getElementById('prod-nombre-compra').value = p['Nombre Compra'] || '';
+  document.getElementById('prod-nombre-venta').value = p['Nombre Venta'] || '';
+  document.getElementById('prod-categoria').value = p['Categoría'] || '';
+  document.getElementById('prod-unidad').value = p['Unidad'] || 'unidad';
+  document.getElementById('prod-minimo').value = p['Mínimo Recomendado'] || 0;
+  document.getElementById('prod-activo').checked = p['Activo'] !== false;
+  document.getElementById('prod-form-title').textContent = 'Editar producto';
+  document.getElementById('prod-cancelar-edicion').style.display = 'inline';
+  document.getElementById('btn-prod-guardar').textContent = 'Guardar cambios';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicionProducto() {
+  document.getElementById('prod-id').value = '';
+  ['prod-nombre-interno','prod-nombre-facturacion','prod-nombre-compra','prod-nombre-venta'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('prod-categoria').value = '';
+  document.getElementById('prod-unidad').value = 'unidad';
+  document.getElementById('prod-minimo').value = '';
+  document.getElementById('prod-activo').checked = true;
+  document.getElementById('prod-form-title').textContent = 'Nuevo producto';
+  document.getElementById('prod-cancelar-edicion').style.display = 'none';
+  document.getElementById('btn-prod-guardar').textContent = 'Guardar producto';
+}
+
+async function guardarProducto() {
+  const nombreInterno = document.getElementById('prod-nombre-interno').value.trim();
+  if (!nombreInterno) { showToast('Escribí el nombre interno del producto', 'error'); return; }
+
+  const payload = {
+    accion: 'producto_guardar',
+    id: document.getElementById('prod-id').value || undefined,
+    nombreInterno,
+    nombreFacturacion: document.getElementById('prod-nombre-facturacion').value.trim(),
+    nombreCompra: document.getElementById('prod-nombre-compra').value.trim(),
+    nombreVenta: document.getElementById('prod-nombre-venta').value.trim(),
+    categoria: document.getElementById('prod-categoria').value,
+    unidad: document.getElementById('prod-unidad').value.trim() || 'unidad',
+    minimoRecomendado: Number(document.getElementById('prod-minimo').value) || 0,
+    activo: document.getElementById('prod-activo').checked
+  };
+
+  const btn = document.getElementById('btn-prod-guardar');
+  btn.disabled = true;
+  try {
+    await postInventario(payload);
+    showToast('Producto guardado ✓');
+    cancelarEdicionProducto();
+    await cargarProductos();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── TOMA DE INVENTARIO ─────────────────────────────────────────────
+async function cargarTomaActiva() {
+  const kiosko = document.getElementById('toma-kiosko').value;
+  const cont = document.getElementById('toma-contenido');
+  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const data = await getInventario({ modulo: 'toma_activa', kiosko });
+    tomaActivaActual = data;
+    renderToma(kiosko);
+  } catch(e) {
+    cont.innerHTML = `<div class="empty-state">No se pudo cargar la toma de inventario (${escHtml(e.message)}).</div>`;
+  }
+}
+
+function renderToma(kiosko) {
+  const cont = document.getElementById('toma-contenido');
+  if (!tomaActivaActual || !tomaActivaActual.toma) {
+    cont.innerHTML = `
+      <div class="card">
+        <p class="card-title">Iniciar nueva toma</p>
+        <div class="field">
+          <label for="toma-fecha">Fecha</label>
+          <input type="date" id="toma-fecha" value="${hoy()}"/>
+        </div>
+        <div class="submit-area">
+          <button class="btn-primary" onclick="iniciarToma()">Iniciar toma de inventario</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const toma = tomaActivaActual.toma;
+  const detalle = [...(tomaActivaActual.detalle || [])].sort((a,b) => String(a['Categoría']).localeCompare(String(b['Categoría'])) || String(a['Producto Nombre']).localeCompare(String(b['Producto Nombre'])));
+  const grupos = {};
+  detalle.forEach(d => { (grupos[d['Categoría'] || 'Sin categoría'] = grupos[d['Categoría'] || 'Sin categoría'] || []).push(d); });
+
+  cont.innerHTML = `
+    <div class="card toma-header-card">
+      <div>
+        <div class="toma-card-title">Toma abierta · ${escHtml(kiosko)}</div>
+        <div class="toma-header-info">Fecha ${escHtml(toma['Fecha'])} · Abierta por <b>${escHtml(toma['Abierta por']||'—')}</b></div>
+      </div>
+      <button class="btn-primary btn-danger" style="flex:0" onclick="abrirModalPin()">Cerrar toma</button>
+    </div>
+    ${Object.keys(grupos).sort().map(cat => `
+      <div class="card">
+        <p class="card-title">${escHtml(cat)}</p>
+        <div class="conteo-cols">
+          <div class="conteo-col-label">Producto</div>
+          <div class="conteo-col-label conteo-col-min">Mínimo</div>
+          <div class="conteo-col-label">Cantidad contada</div>
+          <div class="conteo-col-label"></div>
+        </div>
+        ${grupos[cat].map(d => {
+          const minimo = Number(d['Mínimo Recomendado']) || 0;
+          const contada = d['Cantidad Contada'];
+          const bajoMinimo = (contada !== '' && contada !== undefined && contada !== null ? Number(contada) : Number(d['Stock Esperado'])||0) < minimo;
+          return `
+          <div class="conteo-row">
+            <div>
+              ${escHtml(d['Producto Nombre'])}
+              ${bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : ''}
+              <div class="prod-alias">Esperado: ${d['Stock Esperado']}</div>
+            </div>
+            <div class="prod-min conteo-col-min">${minimo}</div>
+            <input type="number" step="any" value="${contada !== '' && contada !== undefined && contada !== null ? contada : ''}"
+              id="conteo-${d['Producto ID']}" onchange="guardarConteoLinea('${d['Producto ID']}')"/>
+            <span class="conteo-guardado" id="conteo-guardado-${d['Producto ID']}">✓ Guardado</span>
+          </div>`;
+        }).join('')}
+      </div>
+    `).join('')}
+  `;
+}
+
+async function iniciarToma() {
+  const kiosko = document.getElementById('toma-kiosko').value;
+  const fecha = document.getElementById('toma-fecha').value || hoy();
+  const usuario = (JSON.parse(localStorage.getItem('portal_sesion')||'null')||{}).nombre || '';
+  try {
+    await postInventario({ accion: 'toma_iniciar', kiosko, fecha, usuario });
+    showToast('Toma de inventario iniciada ✓');
+    await cargarTomaActiva();
+  } catch(e) {
+    showToast('No se pudo iniciar la toma — ' + e.message, 'error');
+  }
+}
+
+async function guardarConteoLinea(productoId) {
+  const input = document.getElementById('conteo-' + productoId);
+  const cantidadContada = input.value === '' ? '' : Number(input.value);
+  try {
+    await postInventario({
+      accion: 'toma_guardar_conteo',
+      tomaId: tomaActivaActual.toma['ID'],
+      lineas: [{ productoId, cantidadContada }]
+    });
+    const marca = document.getElementById('conteo-guardado-' + productoId);
+    marca.classList.add('show');
+    setTimeout(() => marca.classList.remove('show'), 1500);
+    const linea = tomaActivaActual.detalle.find(d => String(d['Producto ID']) === String(productoId));
+    if (linea) linea['Cantidad Contada'] = cantidadContada;
+  } catch(e) {
+    showToast('No se pudo guardar el conteo — ' + e.message, 'error');
+  }
+}
+
+// ── CIERRE DE TOMA (PIN admin) ─────────────────────────────────────
+function abrirModalPin() {
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').style.display = 'none';
+  document.getElementById('pin-modal').style.display = 'flex';
+  document.getElementById('pin-input').focus();
+}
+function cerrarModalPin() {
+  document.getElementById('pin-modal').style.display = 'none';
+}
+
+async function confirmarCierreToma() {
+  const pin = document.getElementById('pin-input').value;
+  const rol = rolAdminPorPin(pin);
+  if (!rol) {
+    document.getElementById('pin-error').style.display = 'block';
+    return;
+  }
+  try {
+    await postInventario({ accion: 'toma_cerrar', tomaId: tomaActivaActual.toma['ID'], pin, usuario: rol.nombre });
+    cerrarModalPin();
+    showToast('Toma de inventario cerrada ✓');
+    await cargarTomaActiva();
+  } catch(e) {
+    document.getElementById('pin-error').textContent = e.message;
+    document.getElementById('pin-error').style.display = 'block';
+  }
+}
+
+// ── HISTORIAL Y STOCK ───────────────────────────────────────────────
+async function cargarHistorial() {
+  const kiosko = document.getElementById('hist-kiosko').value;
+  const stockCont = document.getElementById('stock-lista');
+  const histCont = document.getElementById('toma-historial-lista');
+  if (!kiosko) {
+    stockCont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>';
+    histCont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>';
+    return;
+  }
+  stockCont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  histCont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const [stockResp, histResp] = await Promise.all([
+      getInventario({ modulo: 'stock', kiosko }),
+      getInventario({ modulo: 'toma_historial', kiosko })
+    ]);
+    stockActualHist = stockResp.registros || [];
+    renderStock();
+    renderHistorialTomas(histResp.registros || []);
+  } catch(e) {
+    stockCont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`;
+    histCont.innerHTML = '';
+  }
+}
+
+function renderStock() {
+  const cont = document.getElementById('stock-lista');
+  if (!stockActualHist.length) { cont.innerHTML = '<div class="empty-state">Sin productos activos.</div>'; return; }
+  cont.innerHTML = `
+    <table class="stock-table">
+      <thead><tr><th>Producto</th><th>Categoría</th><th>Cantidad actual</th><th>Mínimo</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${stockActualHist.map(s => `
+          <tr onclick="toggleMovimientos('${s.productoId}')">
+            <td>${escHtml(s.nombre)}</td>
+            <td>${escHtml(s.categoria||'—')}</td>
+            <td>${s.cantidadActual} ${escHtml(s.unidad||'')}</td>
+            <td>${s.minimoRecomendado}</td>
+            <td>${s.bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : '<span class="badge badge-ok">OK</span>'}</td>
+          </tr>
+          <tr id="mov-row-${s.productoId}" style="display:none"><td colspan="5"><div class="mov-panel" id="mov-panel-${s.productoId}">Cargando movimientos…</div></td></tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function toggleMovimientos(productoId) {
+  const row = document.getElementById('mov-row-' + productoId);
+  const abierto = row.style.display !== 'none';
+  if (abierto) { row.style.display = 'none'; return; }
+  row.style.display = 'table-row';
+  const panel = document.getElementById('mov-panel-' + productoId);
+  try {
+    const kiosko = document.getElementById('hist-kiosko').value;
+    const data = await getInventario({ modulo: 'movimientos', kiosko, producto: productoId });
+    const movs = (data.registros || []).slice(0, 15);
+    panel.innerHTML = movs.length
+      ? movs.map(m => `<div class="mov-item"><span>${escHtml(m['Fecha'])} · ${escHtml(m['Tipo'])}</span><span>${m['Cantidad'] > 0 ? '+' : ''}${m['Cantidad']}</span></div>`).join('')
+      : 'Sin movimientos registrados.';
+  } catch(e) {
+    panel.textContent = 'No se pudieron cargar los movimientos.';
+  }
+}
+
+function renderHistorialTomas(tomas) {
+  const cont = document.getElementById('toma-historial-lista');
+  if (!tomas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay tomas cerradas para este kiosko.</div>'; return; }
+  cont.innerHTML = tomas.map(t => `
+    <div class="toma-card" id="hist-toma-${t['ID']}">
+      <div class="toma-card-head" onclick="toggleHistorialToma('${t['ID']}')">
+        <div>
+          <div class="toma-card-title">${escHtml(t['Fecha'])}</div>
+          <div class="toma-card-sub">Abierta por ${escHtml(t['Abierta por']||'—')} · Cerrada por ${escHtml(t['Cerrada por']||'—')}</div>
+        </div>
+        <span>▾</span>
+      </div>
+      <div class="toma-card-body">
+        <div class="stock-table-wrap">
+          <table class="stock-table">
+            <thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead>
+            <tbody>
+              ${(t.detalle||[]).map(d => `<tr><td>${escHtml(d['Producto Nombre'])}</td><td>${d['Stock Esperado']}</td><td>${d['Cantidad Contada']}</td><td>${d['Diferencia']}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function toggleHistorialToma(id) {
+  document.getElementById('hist-toma-' + id).classList.toggle('abierta');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('date-chip').textContent =
+  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+cargarKioskos();
+cargarProductos();
+</script>
+</body>
+</html>

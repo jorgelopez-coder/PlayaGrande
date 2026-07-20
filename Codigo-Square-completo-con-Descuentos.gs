@@ -596,10 +596,15 @@ function leerColumnaComoSet(sheet, col) {
 //   ?action=actualizarResumen                             → recalcula
 //     Resumen_Cierre_Diario a partir de Ventas_Por_Producto (sin volver a
 //     llamar la API de Square; usa lo último sincronizado)
+//   ?action=ventasPorProducto&desde=yyyy-MM-dd&hasta=yyyy-MM-dd&kiosko=Nombre
+//     → línea por línea de Ventas_Por_Producto en ese rango (kiosko
+//     opcional, ya resuelto vía LOCATION_KIOSKO_MAP), para que
+//     Code-inventario-kioskos-backend.gs descuente stock según receta.
 //
 // Desplegar: Implementar → Nueva implementación → Tipo: Aplicación web,
 // Ejecutar como "Yo", Acceso "Cualquiera". Copiá la URL /exec resultante en
-// SQUARE_URL dentro de cierres.html.
+// SQUARE_URL dentro de cierres.html y en SQUARE_URL dentro de
+// Code-inventario-kioskos-backend.gs.
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
   try {
@@ -614,7 +619,10 @@ function doGet(e) {
     if (action === 'resumenCierre') {
       return jsonOutSquare({ ok: true, resumen: obtenerResumenCierre(e.parameter.fecha, e.parameter.kiosko) });
     }
-    return jsonOutSquare({ ok: false, error: 'Acción no reconocida. Usá ?action=resumenCierre o ?action=actualizarResumen.' });
+    if (action === 'ventasPorProducto') {
+      return jsonOutSquare({ ok: true, ventas: obtenerVentasPorProducto(e.parameter.desde, e.parameter.hasta, e.parameter.kiosko) });
+    }
+    return jsonOutSquare({ ok: false, error: 'Acción no reconocida. Usá ?action=resumenCierre, ?action=actualizarResumen o ?action=ventasPorProducto.' });
   } catch (err) {
     return jsonOutSquare({ ok: false, error: err.toString() });
   }
@@ -651,6 +659,40 @@ function obtenerResumenCierre(fecha, kiosko) {
     }
   }
   return null;
+}
+
+// Línea por línea de Ventas_Por_Producto entre "desde" y "hasta" (inclusive,
+// yyyy-MM-dd), con el kiosko ya resuelto vía LOCATION_KIOSKO_MAP. Alimenta
+// ?action=ventasPorProducto (consumida por
+// Code-inventario-kioskos-backend.gs para descontar stock según receta).
+function obtenerVentasPorProducto(desde, hasta, kiosko) {
+  if (!desde || !hasta) return [];
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_PRODUCTO);
+  const filas = sheet.getLastRow() - 1;
+  if (filas <= 0) return [];
+
+  const datos = sheet.getRange(2, 1, filas, 10).getValues();
+  // Fecha, Hora, Location ID, Order ID, Producto, Categoría, Cantidad, Precio Unitario, Descuento, Total Línea
+  const resultado = [];
+  datos.forEach(function(fila) {
+    const [fechaCell, hora, locationId, orderId, producto, categoria, cantidad] = fila;
+    const fechaReal = fechaCell instanceof Date ? fechaCell : new Date(fechaCell);
+    const fechaStr = Utilities.formatDate(fechaReal, TZ, 'yyyy-MM-dd');
+    if (fechaStr < desde || fechaStr > hasta) return;
+    const kioskoLocation = LOCATION_KIOSKO_MAP[locationId] || locationId;
+    if (kiosko && kioskoLocation !== kiosko) return;
+    resultado.push({
+      fecha: fechaStr,
+      hora: hora,
+      kiosko: kioskoLocation,
+      orderId: orderId,
+      producto: producto,
+      categoria: categoria,
+      cantidad: Number(cantidad) || 0
+    });
+  });
+  return resultado;
 }
 
 // Wrapper temporal para poder ejecutar el backfill historico desde el editor
