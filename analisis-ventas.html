@@ -119,8 +119,6 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 
 /* ── ANÁLISIS POR PRODUCTO ───────────────────────────────── */
 .prod-selector{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
-.prod-selector select{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 12px;outline:none;min-width:260px}
-.prod-selector select:focus{border-color:var(--green)}
 
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
@@ -264,9 +262,7 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
     <div class="card">
       <p class="card-title">Análisis por producto</p>
       <div class="prod-selector">
-        <label class="grp-lbl" style="margin-bottom:0;">Kiosko</label>
-        <select id="prod-kiosko" onchange="renderAnalisisProducto()"></select>
-        <span style="font-size:11px;color:var(--subtle);">Usa el rango de fechas y los días de la semana marcados arriba en Filtros. Solo disponible para kioskos con Square propio conectado.</span>
+        <span id="prod-kioskos-txt" style="font-size:11px;color:var(--subtle);">Usa los kioskos, el rango de fechas y los días de la semana marcados arriba en Filtros — solo se cuentan los kioskos seleccionados que tengan Square propio conectado.</span>
       </div>
       <div class="kpi-grid" id="prod-kpis">
         <div class="no-alerts"><span class="spinner"></span></div>
@@ -861,32 +857,31 @@ function compararPeriodos() {
 }
 
 // ── ANÁLISIS POR PRODUCTO (solo kioskos con Square propio — hoja
-// Ventas_Por_Producto, ver SQUARE_KIOSKOS) ─────────────────────
+// Ventas_Por_Producto, ver SQUARE_KIOSKOS). Respeta el filtro de kiosko
+// global (checkboxes de la sección Filtros), no uno propio de esta pestaña.
 function productoKioskosDisponibles() {
   return Object.keys(SQUARE_KIOSKOS);
-}
-
-function renderSelectorProductoKiosko() {
-  const sel = document.getElementById('prod-kiosko');
-  if (!sel) return;
-  const disponibles = productoKioskosDisponibles();
-  sel.innerHTML = `<option value="__all__">Todos los kioskos con Square (${disponibles.join(' + ')})</option>` +
-    disponibles.map(n => `<option value="${n}">${n}</option>`).join('');
 }
 
 function renderAnalisisProducto() {
   const kpis = document.getElementById('prod-kpis');
   const bodyProd = document.getElementById('prod-top-body');
   const bodyCat = document.getElementById('prod-cat-body');
-  const selEl = document.getElementById('prod-kiosko');
-  if (!kpis || !bodyProd || !bodyCat || !selEl) return;
+  const txtEl = document.getElementById('prod-kioskos-txt');
+  if (!kpis || !bodyProd || !bodyCat) return;
 
   const desde = document.getElementById('filtro-desde').value || '2000-01-01';
   const hasta = document.getElementById('filtro-hasta').value || isoHoy();
   const diasSel = diasSemanaSeleccionados();
+  const kioskosSel = kioskosSeleccionados();
   const disponibles = productoKioskosDisponibles();
-  const kioskoSel = selEl.value || '__all__';
-  const kioskosUsar = kioskoSel === '__all__' ? disponibles : [kioskoSel];
+  const kioskosUsar = disponibles.filter(k => kioskosSel.has(k));
+
+  if (txtEl) {
+    txtEl.textContent = kioskosUsar.length
+      ? `Kiosko(s) con Square propio incluidos según el filtro: ${kioskosUsar.join(', ')}.`
+      : `Ninguno de los kioskos marcados en Filtros tiene Square propio conectado (disponible en: ${disponibles.join(', ')}).`;
+  }
 
   let filas = [];
   kioskosUsar.forEach(k => {
@@ -896,7 +891,7 @@ function renderAnalisisProducto() {
   filas = filas.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
 
   if (!filas.length) {
-    kpis.innerHTML = '<div class="no-alerts">Sin datos de Square en el rango filtrado.</div>';
+    kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>';
     bodyCat.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
     return;
@@ -957,7 +952,6 @@ function renderAnalisisProducto() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────
-renderSelectorProductoKiosko();
 cargarTodo();
 </script>
 </body>
