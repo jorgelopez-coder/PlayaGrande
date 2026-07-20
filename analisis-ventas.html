@@ -276,6 +276,17 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
           </div>
         </div>
       </div>
+      <div class="prod-selector">
+        <div class="filtro-group" style="flex:1;min-width:280px;">
+          <label class="grp-lbl">Productos
+            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="prodFiltroSeleccionarTodos(true)">Todos</button>
+            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="prodFiltroSeleccionarTodos(false)">Ninguno</button>
+          </label>
+          <div class="chk-wrap" id="filtro-producto-body" style="max-height:150px;overflow-y:auto;">
+            <span class="compare-dash">Cargando…</span>
+          </div>
+        </div>
+      </div>
       <div class="kpi-grid" id="prod-kpis">
         <div class="no-alerts"><span class="spinner"></span></div>
       </div>
@@ -965,12 +976,34 @@ function catFiltroSeleccionarTodas(marcarTodas) {
   renderAnalisisProducto();
 }
 
+// Productos desmarcados manualmente por el usuario (por nombre de producto).
+// Igual que CATEGORIAS_DESMARCADAS: vacío = todos seleccionados. La lista de
+// productos disponibles depende de las categorías ya filtradas.
+let PRODUCTOS_DESMARCADOS = new Set();
+
+function toggleProductoFiltro(valor, marcado) {
+  if (marcado) PRODUCTOS_DESMARCADOS.delete(valor);
+  else PRODUCTOS_DESMARCADOS.add(valor);
+  renderAnalisisProducto();
+}
+
+function prodFiltroSeleccionarTodos(marcarTodos) {
+  const checks = document.querySelectorAll('#filtro-producto-body input[type=checkbox]');
+  checks.forEach(el => {
+    el.checked = marcarTodos;
+    if (marcarTodos) PRODUCTOS_DESMARCADOS.delete(el.value);
+    else PRODUCTOS_DESMARCADOS.add(el.value);
+  });
+  renderAnalisisProducto();
+}
+
 function renderAnalisisProducto() {
   const kpis = document.getElementById('prod-kpis');
   const bodyProd = document.getElementById('prod-top-body');
   const bodyCat = document.getElementById('prod-cat-body');
   const txtEl = document.getElementById('prod-kioskos-txt');
   const catBody = document.getElementById('filtro-categoria-body');
+  const prodBody = document.getElementById('filtro-producto-body');
   if (!kpis || !bodyProd || !bodyCat) return;
 
   const desde = document.getElementById('filtro-desde').value || '2000-01-01';
@@ -1013,24 +1046,16 @@ function renderAnalisisProducto() {
     kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>';
     bodyCat.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
+    if (prodBody) prodBody.innerHTML = '<span class="compare-dash">Sin productos en el rango filtrado.</span>';
     return;
   }
 
-  // filas: filasBase filtradas por las categorías marcadas (si el filtro
-  // está activo) — se usa para los KPIs y el top de productos.
+  // filasCat: filasBase filtradas por las categorías marcadas (si el filtro
+  // está activo) — determina qué productos hay disponibles para elegir.
   const setSel = new Set(categoriasSeleccionadas);
-  const filas = hayFiltroActivo ? filasBase.filter(r => setSel.has(r.categoria)) : filasBase;
+  const filasCat = hayFiltroActivo ? filasBase.filter(r => setSel.has(r.categoria)) : filasBase;
 
-  const porProducto = {};
   const porCategoria = {};
-  let totalMonto = 0, totalUnidades = 0;
-  filas.forEach(r => {
-    totalMonto += r.totalLinea;
-    totalUnidades += r.cantidad;
-    if (!porProducto[r.producto]) porProducto[r.producto] = { producto: r.producto, categoria: r.categoria, monto: 0, cantidad: 0 };
-    porProducto[r.producto].monto += r.totalLinea;
-    porProducto[r.producto].cantidad += r.cantidad;
-  });
   filasBase.forEach(r => {
     if (!porCategoria[r.categoria]) porCategoria[r.categoria] = { monto: 0, cantidad: 0, productos: new Set() };
     porCategoria[r.categoria].monto += r.totalLinea;
@@ -1039,9 +1064,55 @@ function renderAnalisisProducto() {
   });
   const totalMontoCategorias = filasBase.reduce((s,r) => s + r.totalLinea, 0);
 
-  if (hayFiltroActivo && !filas.length) {
+  if (hayFiltroActivo && !filasCat.length) {
     kpis.innerHTML = '<div class="no-alerts">Sin datos para las categorías seleccionadas en el rango filtrado.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para las categorías seleccionadas.</div></td></tr>';
+    if (prodBody) prodBody.innerHTML = '<span class="compare-dash">Sin productos disponibles.</span>';
+    const catOrdenadasVacio = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
+    bodyCat.innerHTML = catOrdenadasVacio.map(([cat,o]) => {
+      const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
+      return `<tr${setSel.has(cat)?' style="background:var(--green-bg);"':''}>
+        <td>${cat}</td>
+        <td class="compare-val">${fmtCRC(o.monto)}</td>
+        <td>${o.cantidad.toLocaleString('es-CR')}</td>
+        <td>${o.productos.size}</td>
+        <td>${pct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
+  // Filtro de productos: la lista de opciones sale de filasCat (respeta la
+  // categoría ya elegida). Se aplica sobre filasCat para llegar a "filas",
+  // el set final usado en los KPIs y el top de productos.
+  const productosDisponibles = Array.from(new Set(filasCat.map(r => r.producto))).sort((a,b) => a.localeCompare(b));
+  if (prodBody) {
+    prodBody.innerHTML = productosDisponibles.length
+      ? productosDisponibles.map(p => {
+          const marcado = !PRODUCTOS_DESMARCADOS.has(p);
+          const valorEsc = p.replace(/'/g, "\\'");
+          return `<label class="chk-pill"><input type="checkbox" value="${p}" ${marcado ? 'checked' : ''} onchange="toggleProductoFiltro('${valorEsc}', this.checked)"> ${p}</label>`;
+        }).join('')
+      : '<span class="compare-dash">Sin productos disponibles.</span>';
+  }
+  const productosSeleccionados = productosDisponibles.filter(p => !PRODUCTOS_DESMARCADOS.has(p));
+  const hayFiltroProductoActivo = productosSeleccionados.length < productosDisponibles.length;
+  const setSelProd = new Set(productosSeleccionados);
+  const filas = hayFiltroProductoActivo ? filasCat.filter(r => setSelProd.has(r.producto)) : filasCat;
+
+  const porProducto = {};
+  let totalMonto = 0, totalUnidades = 0;
+  filas.forEach(r => {
+    totalMonto += r.totalLinea;
+    totalUnidades += r.cantidad;
+    if (!porProducto[r.producto]) porProducto[r.producto] = { producto: r.producto, categoria: r.categoria, monto: 0, cantidad: 0 };
+    porProducto[r.producto].monto += r.totalLinea;
+    porProducto[r.producto].cantidad += r.cantidad;
+  });
+
+  if (hayFiltroProductoActivo && !filas.length) {
+    kpis.innerHTML = '<div class="no-alerts">Sin datos para los productos seleccionados en el rango filtrado.</div>';
+    bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para los productos seleccionados.</div></td></tr>';
     const catOrdenadasVacio = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
     bodyCat.innerHTML = catOrdenadasVacio.map(([cat,o]) => {
       const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
