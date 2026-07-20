@@ -943,12 +943,34 @@ function productoKioskosDisponibles() {
   return Object.keys(SQUARE_KIOSKOS);
 }
 
+// Categorías desmarcadas manualmente por el usuario en el filtro de
+// "Análisis por producto" (por nombre de categoría). Vacío = todas
+// seleccionadas (sin filtrar). Persiste entre renders para no perder la
+// selección del usuario cada vez que cambian los demás filtros.
+let CATEGORIAS_DESMARCADAS = new Set();
+
+function toggleCategoriaFiltro(valor, marcado) {
+  if (marcado) CATEGORIAS_DESMARCADAS.delete(valor);
+  else CATEGORIAS_DESMARCADAS.add(valor);
+  renderAnalisisProducto();
+}
+
+function catFiltroSeleccionarTodas(marcarTodas) {
+  const checks = document.querySelectorAll('#filtro-categoria-body input[type=checkbox]');
+  checks.forEach(el => {
+    el.checked = marcarTodas;
+    if (marcarTodas) CATEGORIAS_DESMARCADAS.delete(el.value);
+    else CATEGORIAS_DESMARCADAS.add(el.value);
+  });
+  renderAnalisisProducto();
+}
+
 function renderAnalisisProducto() {
   const kpis = document.getElementById('prod-kpis');
   const bodyProd = document.getElementById('prod-top-body');
   const bodyCat = document.getElementById('prod-cat-body');
   const txtEl = document.getElementById('prod-kioskos-txt');
-  const catSelect = document.getElementById('filtro-categoria');
+  const catBody = document.getElementById('filtro-categoria-body');
   if (!kpis || !bodyProd || !bodyCat) return;
 
   const desde = document.getElementById('filtro-desde').value || '2000-01-01';
@@ -965,7 +987,7 @@ function renderAnalisisProducto() {
   }
 
   // filasBase: todo lo que cae dentro de kiosko+fecha+día de la semana, sin
-  // filtrar aún por categoría — se usa para poblar el selector de categorías
+  // filtrar aún por categoría — se usa para poblar el filtro de categorías
   // y para la tabla "Ventas por categoría" (siempre muestra el desglose completo).
   let filasBase = [];
   kioskosUsar.forEach(k => {
@@ -974,14 +996,18 @@ function renderAnalisisProducto() {
   });
   filasBase = filasBase.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
 
-  if (catSelect) {
-    const categoriasDisponibles = Array.from(new Set(filasBase.map(r => r.categoria))).sort((a,b) => a.localeCompare(b));
-    const seleccionActual = catSelect.value;
-    catSelect.innerHTML = '<option value="">Todas las categorías</option>' +
-      categoriasDisponibles.map(c => `<option value="${c}">${c}</option>`).join('');
-    catSelect.value = categoriasDisponibles.includes(seleccionActual) ? seleccionActual : '';
+  const categoriasDisponibles = Array.from(new Set(filasBase.map(r => r.categoria))).sort((a,b) => a.localeCompare(b));
+  if (catBody) {
+    catBody.innerHTML = categoriasDisponibles.length
+      ? categoriasDisponibles.map(c => {
+          const marcado = !CATEGORIAS_DESMARCADAS.has(c);
+          const valorEsc = c.replace(/'/g, "\\'");
+          return `<label class="chk-pill"><input type="checkbox" value="${c}" ${marcado ? 'checked' : ''} onchange="toggleCategoriaFiltro('${valorEsc}', this.checked)"> ${c}</label>`;
+        }).join('')
+      : '<span class="compare-dash">Sin categorías en el rango filtrado.</span>';
   }
-  const catFiltro = catSelect ? catSelect.value : '';
+  const categoriasSeleccionadas = categoriasDisponibles.filter(c => !CATEGORIAS_DESMARCADAS.has(c));
+  const hayFiltroActivo = categoriasSeleccionadas.length < categoriasDisponibles.length;
 
   if (!filasBase.length) {
     kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
@@ -990,9 +1016,10 @@ function renderAnalisisProducto() {
     return;
   }
 
-  // filas: filasBase filtradas por la categoría elegida (si hay alguna) —
-  // se usa para los KPIs y el top de productos.
-  const filas = catFiltro ? filasBase.filter(r => r.categoria === catFiltro) : filasBase;
+  // filas: filasBase filtradas por las categorías marcadas (si el filtro
+  // está activo) — se usa para los KPIs y el top de productos.
+  const setSel = new Set(categoriasSeleccionadas);
+  const filas = hayFiltroActivo ? filasBase.filter(r => setSel.has(r.categoria)) : filasBase;
 
   const porProducto = {};
   const porCategoria = {};
@@ -1012,13 +1039,13 @@ function renderAnalisisProducto() {
   });
   const totalMontoCategorias = filasBase.reduce((s,r) => s + r.totalLinea, 0);
 
-  if (catFiltro && !filas.length) {
-    kpis.innerHTML = '<div class="no-alerts">Sin datos para la categoría seleccionada en el rango filtrado.</div>';
-    bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para la categoría seleccionada.</div></td></tr>';
+  if (hayFiltroActivo && !filas.length) {
+    kpis.innerHTML = '<div class="no-alerts">Sin datos para las categorías seleccionadas en el rango filtrado.</div>';
+    bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para las categorías seleccionadas.</div></td></tr>';
     const catOrdenadasVacio = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
     bodyCat.innerHTML = catOrdenadasVacio.map(([cat,o]) => {
       const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
-      return `<tr${cat===catFiltro?' style="background:var(--green-bg);"':''}>
+      return `<tr${setSel.has(cat)?' style="background:var(--green-bg);"':''}>
         <td>${cat}</td>
         <td class="compare-val">${fmtCRC(o.monto)}</td>
         <td>${o.cantidad.toLocaleString('es-CR')}</td>
@@ -1057,7 +1084,7 @@ function renderAnalisisProducto() {
   const catOrdenadas = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
   bodyCat.innerHTML = catOrdenadas.map(([cat,o]) => {
     const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
-    return `<tr${cat===catFiltro?' style="background:var(--green-bg);"':''}>
+    return `<tr${hayFiltroActivo && setSel.has(cat)?' style="background:var(--green-bg);"':''}>
       <td>${cat}</td>
       <td class="compare-val">${fmtCRC(o.monto)}</td>
       <td>${o.cantidad.toLocaleString('es-CR')}</td>

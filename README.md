@@ -119,6 +119,50 @@ agregado (Lorito es un solo punto de venta y no lo necesita):
   fija (mismo patrón que `getOrCreateCarpetaKiosko` en
   `Code-cierres-kioskos-backend.gs`).
 
+Sexto módulo: **Mermas de Cerveza**, `mermas.html` — captura diaria de merma
+de barril **por peso** (báscula), con foto de la pesada y extracción del
+peso por IA:
+
+- **Nueva merma**: selector de **Kiosko**, fecha, foto de la báscula
+  (comprimida client-side, mismo patrón que `mantenimiento.html`) con botón
+  **"Extraer peso con IA"** (llama a `Code-mermas-extractor.gs`, un Web App
+  de Apps Script independiente que usa la API de Anthropic con visión para
+  leer el número que marca la báscula y devolverlo en gramos — ver
+  "Extracción con IA" más abajo), peso bruto (editable a mano si la IA falla
+  o no está desplegada todavía), peso del contenedor vacío (autocompletado
+  desde la pestaña **Configuración** de este mismo módulo, según el kiosko
+  elegido) y la merma neta calculada en vivo (bruto − contenedor).
+- **Historial**: filtro por kiosko, gráfico lineal (SVG inline, sin
+  librerías externas) de la evolución de la merma neta por día, y tabla con
+  el detalle de cada pesada (fecha, kiosko, peso bruto, contenedor, neto,
+  quién la registró, link a la foto en Drive).
+- **Configuración**: peso del contenedor (barril) vacío **por kiosko** —
+  cada uno puede tener un valor distinto (barriles de distinto tamaño o
+  proveedor). Se guarda en la pestaña "MermasConfig" y se actualiza
+  (upsert), no se acumula historial de cambios de tara.
+
+Unidad de captura: **gramos**. La merma neta de cada pesada queda fija en
+el momento de guardarla (usa el peso de contenedor vigente en ese instante),
+así que corregir la tara de un kiosko más adelante no altera pesadas ya
+guardadas.
+
+Backend: mismo Web App de `mantenimiento.html`
+(`Code-mantenimiento-backend.gs`, Sheet **"Operaciones - Kioskos"**),
+extendido con las pestañas "Mermas" y "MermasConfig"
+(`configurarHoja()`/`?modulo=mermas`/`?modulo=mermas_config`/acciones
+`merma_guardar` y `merma_config_guardar` en `doPost`). Las fotos de báscula
+se organizan en Drive por subcarpeta de kiosko, igual que las de
+mantenimiento pero en una carpeta raíz separada (`FOLDER_ID_MERMAS`).
+
+`index.html` agrega, dentro de la sección **"Cerveza de barril vendida
+(onzas)"** (que ya solo existe para los kioskos con Square propio — ver
+arriba), el peso de la merma del día y el % que representa sobre el total
+vendido: como la merma se pesa en gramos y las ventas se cuentan en onzas,
+el % convierte el peso a onzas asumiendo una densidad estándar de cerveza
+(`DENSIDAD_CERVEZA_G_ML = 1.005`) — es una aproximación, no una medición
+exacta, y queda documentada como tal en el pie de esa sección. El histórico
+por día de cada kiosko también muestra la merma junto a las onzas vendidas.
+
 El resto de módulos (inventario/compras, reportes) quedan como
 "Próximamente" en `index.html`, a construir después.
 
@@ -144,6 +188,9 @@ Archivos:
   de pago, historial de pagos — ver detalle arriba).
 - `mantenimiento.html` — módulo de reportes de mantenimiento por kiosko
   (nuevo reporte + seguimiento — ver detalle arriba).
+- `mermas.html` — módulo de mermas de cerveza por peso (nueva merma +
+  historial con gráfico + configuración de tara por kiosko — ver detalle
+  arriba).
 - `rrhh.html`, `rrhh-acciones.html`, `rrhh-personal.html`,
   `rrhh-nuevo-ingreso.html`, `rrhh-vacaciones.html`,
   `rrhh-control-vacaciones.html`, `rrhh-amonestaciones.html`,
@@ -158,9 +205,16 @@ Archivos:
   Horarios, HorariosEstado, Configuracion) — alimenta las 12 pantallas de
   arriba, el dropdown de "Encargado" en cierres.html y la lista de kioskos
   de `configuracion.html` + selects del resto del sistema.
-- `Code-mantenimiento-backend.gs` — backend del Sheet de reportes de
-  mantenimiento (hoja "Reportes"), con fotos organizadas por subcarpeta de
-  kiosko en Drive — alimenta `mantenimiento.html`.
+- `Code-mantenimiento-backend.gs` — backend del Sheet "Operaciones -
+  Kioskos": reportes de mantenimiento (hoja "Reportes", alimenta
+  `mantenimiento.html`) y mermas de cerveza (hojas "Mermas"/"MermasConfig",
+  alimenta `mermas.html`), ambos con fotos organizadas por subcarpeta de
+  kiosko en Drive (carpetas raíz separadas para cada uno).
+- `Code-mermas-extractor.gs` — proyecto de Apps Script independiente
+  (Web App propio, no comparte Sheet con lo demás) que usa la API de
+  Anthropic con visión para leer el peso de una foto de báscula — alimenta
+  el botón "Extraer peso con IA" de `mermas.html` (ver "Extracción con IA"
+  más abajo).
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -279,6 +333,37 @@ sus propias pantallas (`rrhh-cambio-salario.html`, `rrhh-terminacion.html`,
 Sin el paso 5, `mantenimiento.html` muestra el error de conexión al abrir
 la pestaña Seguimiento o al guardar un reporte.
 
+### 4. Mermas de cerveza (mismo Sheet que Mantenimiento)
+
+El módulo de Mermas **reutiliza el Sheet "Operaciones - Kioskos"** de arriba
+(no crea uno nuevo) — solo hay que agregarle las pestañas nuevas.
+
+1. Sheet "Operaciones - Kioskos" → Extensiones → Apps Script, reemplazá
+   **todo** el contenido por la versión actualizada de
+   `Code-mantenimiento-backend.gs` (ya incluye Mermas y MermasConfig).
+2. Corré **una vez** `configurarHoja()` desde el editor: crea (o deja
+   intactas, si ya existían) las pestañas "Reportes", "Mermas" y
+   "MermasConfig".
+3. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
+   (la URL `/exec` no cambia — no hace falta tocar `mantenimiento.html`).
+4. Pegá esa misma URL `/exec` en `mermas.html`, constante `MERMAS_URL` (ya
+   viene cargada si copiaste este repo tal cual, porque es el mismo Web App
+   que `mantenimiento.html`).
+5. La carpeta de fotos de mermas ya está creada y cargada en el código —
+   **"Mermas - Fotos"** dentro de la carpeta general de Kioskos en Drive
+   (`FOLDER_ID_MERMAS` en `Code-mantenimiento-backend.gs`, ID
+   `1I5_9y1Uqv2pskynPTJi9T9jJzAMx_EDt`). Adentro se crea sola una subcarpeta
+   por kiosko la primera vez que alguien adjunta una foto de báscula en ese
+   kiosko.
+6. Antes de cargar la primera merma de cada kiosko, entrá a `mermas.html` →
+   pestaña **Configuración** y definí el peso del contenedor (barril) vacío
+   de ese kiosko — si no se configura, se usa 0 (la merma neta queda igual
+   al peso bruto, con un aviso en pantalla).
+
+Para activar el botón "Extraer peso con IA" (lee el número de la báscula
+directo de la foto), seguí la sección **"Extracción con IA"** más abajo —
+es un despliegue aparte, independiente de este Sheet.
+
 ## Kioskos activos — sección de Configuración
 
 La lista de kioskos ya **no** está duplicada en cada `.html`. Vive en la
@@ -316,7 +401,9 @@ El Sheet no necesita ningún cambio manual más allá de correr
 columna "Kiosko" de Personal/Horarios/Cierres, y en `horarios.html` aparece
 automáticamente como una pestaña más.
 
-## Extracción con IA (opcional, no incluida todavía)
+## Extracción con IA
+
+### Cierres y Depósitos (opcional, no incluida todavía)
 
 En Lorito, `cierres.html` y `depositos.html` tienen un botón "Extraer datos
 con IA" que lee la foto (del cierre o del comprobante de depósito) con un
@@ -332,6 +419,31 @@ el código de Lorito). Acá quedó **desconectado a propósito** en los dos
    `depositos.html`, según cuál de los dos querás activar (son independientes
    — `depositos.html` manda `tipo:'deposito'` en el payload para que el
    extractor sepa qué formato de respuesta devolver).
+
+### Mermas de cerveza (`mermas.html`) — código listo, falta el despliegue manual
+
+A diferencia de Cierres/Depósitos, acá el extractor **sí está escrito y
+conectado** en el código (`Code-mermas-extractor.gs` + botón "Extraer peso
+con IA" siempre visible en `mermas.html`) — pero Apps Script no tiene API
+para desplegarse solo, así que el último paso (crear el proyecto y pegar la
+URL) lo tenés que hacer una vez a mano:
+
+1. https://script.google.com/ → Proyecto nuevo (independiente, no
+   necesita Sheet propio).
+2. Pegá **todo** el contenido de `Code-mermas-extractor.gs`.
+3. ⚙️ Configuración del proyecto → Propiedades del script → Agregar
+   propiedad: clave `ANTHROPIC_API_KEY`, valor tu API key de Anthropic
+   (console.anthropic.com/settings/keys).
+4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquiera**
+5. Copiá la URL `/exec` resultante y pegala en `mermas.html`, constante
+   `EXTRACTOR_URL` (arriba del todo en el `<script>` — hoy está vacía).
+
+Mientras `EXTRACTOR_URL` esté vacío, el botón sigue visible pero avisa que
+falta este paso en vez de fallar en silencio. Cada foto extraída es una
+llamada a la API de Anthropic (se cobra por uso, ver anthropic.com/pricing)
+— no hay llamadas automáticas, solo al apretar el botón.
 
 ## Login / control de accesos
 

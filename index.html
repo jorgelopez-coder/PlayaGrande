@@ -156,6 +156,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .volcerv-kpi { font-family:var(--font-m); font-size:24px; font-weight:600; color:var(--text); }
 .volcerv-kpi-sub { font-size:11px; color:var(--subtle); margin-bottom:10px; }
 .volcerv-warn { font-size:10.5px; color:var(--amber); margin-bottom:8px; }
+.volcerv-merma { font-size:11px; color:var(--muted); margin-bottom:8px; display:flex; flex-wrap:wrap; gap:5px; align-items:baseline; }
+.volcerv-merma-label { font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:9.5px; color:var(--subtle); }
+.volcerv-merma-val { font-family:var(--font-m); font-weight:600; color:var(--red); }
+.volcerv-merma-pct { font-family:var(--font-m); color:var(--red); }
 .volcerv-hist-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--border); }
 .volcerv-hist-row:last-child { border-bottom:none; }
 .volcerv-hist-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; padding:8px 0 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); cursor:pointer; font-family:var(--font-b); }
@@ -258,6 +262,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <a href="mantenimiento.html" class="mod-tile" data-mod="mantenimiento">
         <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Mantenimiento</div><div class="mod-tile-area">Reportar y dar seguimiento a incidencias</div></div>
+      </a>
+      <a href="mermas.html" class="mod-tile" data-mod="mermas">
+        <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8"/><path d="M9 2v7.5L4.5 18a2 2 0 001.8 3h11.4a2 2 0 001.8-3L15 9.5V2"/><line x1="7" y1="14" x2="17" y2="14"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Mermas de Cerveza</div><div class="mod-tile-area">Captura por peso · historial · gráfico</div></div>
       </a>
       <div class="mod-tile disabled">
         <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg></div>
@@ -405,7 +413,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <div class="no-alerts"><span class="spinner"></span></div>
     </div>
     <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      Solo cuenta cerveza de barril (no embotellada): categoría "DRAFT", o categoría de cervezas sin la palabra "botella" en el nombre. Las onzas se sacan del nombre de cada producto.
+      Solo cuenta cerveza de barril (no embotellada): categoría "DRAFT", o categoría de cervezas sin la palabra "botella" en el nombre. Las onzas se sacan del nombre de cada producto. La merma se captura por peso (gramos) en <a href="mermas.html" style="color:var(--muted);">Mermas de Cerveza</a> — el % sobre el total vendido convierte ese peso a onzas con una densidad estándar de cerveza (~1.005 g/mL), es una aproximación.
     </div>
   </div>
 
@@ -506,6 +514,17 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         </div>
         <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
       </a>
+
+      <a href="mermas.html" class="quick-action" data-mod="mermas">
+        <div class="qa-icon ic-amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8"/><path d="M9 2v7.5L4.5 18a2 2 0 001.8 3h11.4a2 2 0 001.8-3L15 9.5V2"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+        </div>
+        <div class="qa-text">
+          <div class="qa-name">Registrar merma de cerveza</div>
+          <div class="qa-sub">Pesada del barril · foto con extracción por IA</div>
+        </div>
+        <div class="qa-arrow"><svg viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4"/></svg></div>
+      </a>
       </div>
   </div>
 
@@ -544,6 +563,16 @@ const SQUARE_KIOSKOS = {
     ventasTab: 'Ventas_Por_Producto'
   }
 };
+
+// Mismo Web App que mantenimiento.html/mermas.html (Code-mantenimiento-backend.gs,
+// Sheet "Operaciones - Kioskos", pestaña "Mermas") — se lee acá para agregar
+// el peso de la merma del día y su % sobre el total vendido, junto al
+// volumen de cerveza de barril (ver cargarVolumenCervezaPorKiosko más abajo).
+const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
+// Densidad aproximada de la cerveza (g/mL) para convertir el peso de la
+// merma (capturada en gramos en mermas.html) a onzas y poder compararla
+// contra las onzas vendidas — es una aproximación, no una medición exacta.
+const DENSIDAD_CERVEZA_G_ML = 1.005;
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -1116,6 +1145,31 @@ function extraerOnzas(nombre) {
 
 const ML_POR_ONZA = 29.5735;
 
+// Mermas (Sheet "Operaciones - Kioskos", pestaña "Mermas" — ver mermas.html)
+// agrupadas por kiosko y fecha, sumando el "Peso Neto Merma (g)" de todas
+// las pesadas de ese día. Independiente de SQUARE_KIOSKOS: la captura de
+// mermas aplica a cualquier kiosko, pero acá solo se cruza contra los que
+// tienen Square propio porque son los únicos con "onzas vendidas" para
+// calcular el %.
+async function obtenerMermasPorKiosko() {
+  try {
+    const resp = await fetch(MERMAS_URL + '?modulo=mermas', { cache: 'no-store' });
+    const data = await resp.json();
+    const porKiosko = {};
+    (data.registros || []).forEach(r => {
+      const kiosko = r['Kiosko'];
+      const fecha = String(r['Fecha'] || '').slice(0, 10);
+      if (!kiosko || !fecha) return;
+      const neto = Number(r['Peso Neto Merma (g)']) || 0;
+      (porKiosko[kiosko] = porKiosko[kiosko] || {});
+      porKiosko[kiosko][fecha] = (porKiosko[kiosko][fecha] || 0) + neto;
+    });
+    return porKiosko;
+  } catch (e) {
+    return {};
+  }
+}
+
 async function cargarVolumenCervezaPorKiosko() {
   const cont = document.getElementById('volumen-cerveza-body');
   if (!cont) return;
@@ -1124,13 +1178,14 @@ async function cargarVolumenCervezaPorKiosko() {
     cont.innerHTML = '<div class="no-alerts">No hay kioskos con Square propio conectado todavía.</div>';
     return;
   }
+  const mermasPorKiosko = await obtenerMermasPorKiosko();
   const resultados = await Promise.all(
-    entradas.map(([nombre, cfg]) => obtenerVolumenCervezaKiosko(nombre, cfg))
+    entradas.map(([nombre, cfg]) => obtenerVolumenCervezaKiosko(nombre, cfg, mermasPorKiosko[nombre] || {}))
   );
   cont.innerHTML = resultados.map(fmtVolumenCervezaCard).join('');
 }
 
-async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg) {
+async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg, mermasPorFecha) {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
     const resp = await fetch(url, { cache: 'no-store' });
@@ -1157,10 +1212,25 @@ async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg) {
       porDia[fecha] = (porDia[fecha] || 0) + onzasUnit * cantidad;
     });
 
-    const historico = Object.entries(porDia).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-    const hoy = porDia[hoyISO] || 0;
+    // Se combinan las fechas con ventas y las fechas con merma registrada,
+    // para que un día con merma pero sin ventas (ej. kiosko cerrado) también
+    // aparezca en el histórico.
+    const fechas = new Set([...Object.keys(porDia), ...Object.keys(mermasPorFecha || {})]);
+    const historico = [...fechas].sort((a, b) => (a < b ? 1 : -1)).map(fecha => {
+      const oz = porDia[fecha] || 0;
+      const mermaG = (mermasPorFecha && mermasPorFecha[fecha]) || 0;
+      const mermaOz = mermaG / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+      const pct = (oz + mermaOz) > 0 ? (mermaOz / (oz + mermaOz)) * 100 : null;
+      return { fecha, oz, mermaG, mermaOz, pct };
+    });
 
-    return { nombreKiosko, ok: true, hoy, historico, sinOnzas };
+    const hoyEntry = historico.find(h => h.fecha === hoyISO) || { oz: 0, mermaG: 0, mermaOz: 0, pct: null };
+
+    return {
+      nombreKiosko, ok: true,
+      hoy: hoyEntry.oz, mermaHoyG: hoyEntry.mermaG, mermaHoyPct: hoyEntry.pct,
+      historico, sinOnzas
+    };
   } catch (e) {
     return { nombreKiosko, ok: false };
   }
@@ -1174,11 +1244,19 @@ function fmtVolumenCervezaCard(r) {
     </div>`;
   }
   const fmtOz = n => n.toLocaleString('es-CR', { maximumFractionDigits: 1 });
+  const fmtG = n => Math.round(n).toLocaleString('es-CR');
   const litrosHoy = r.hoy * ML_POR_ONZA / 1000;
-  const filasHist = r.historico.slice(0, 14).map(([fecha, oz]) => `
+  const mermaHtml = (r.mermaHoyG > 0)
+    ? `<div class="volcerv-merma">
+        <span class="volcerv-merma-label">Merma hoy</span>
+        <span class="volcerv-merma-val">${fmtG(r.mermaHoyG)} g</span>
+        ${r.mermaHoyPct != null ? `<span class="volcerv-merma-pct">≈ ${r.mermaHoyPct.toFixed(1)}% del total vendido</span>` : ''}
+      </div>`
+    : '';
+  const filasHist = r.historico.slice(0, 14).map(h => `
     <div class="volcerv-hist-row">
-      <span>${fecha}</span>
-      <span>${fmtOz(oz)} oz</span>
+      <span>${h.fecha}</span>
+      <span>${fmtOz(h.oz)} oz${h.mermaG > 0 ? ` · merma ${fmtG(h.mermaG)} g${h.pct != null ? ` (${h.pct.toFixed(1)}%)` : ''}` : ''}</span>
     </div>`).join('');
   const histId = 'hist-' + r.nombreKiosko.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
@@ -1186,6 +1264,7 @@ function fmtVolumenCervezaCard(r) {
     <div class="volcerv-nombre">${r.nombreKiosko}</div>
     <div class="volcerv-kpi">${fmtOz(r.hoy)} oz</div>
     <div class="volcerv-kpi-sub">≈ ${fmtOz(litrosHoy)} L vendidos hoy</div>
+    ${mermaHtml}
     ${r.sinOnzas ? `<div class="volcerv-warn">⚠ ${r.sinOnzas} línea(s) de barril sin onzas identificables en el nombre — no se sumaron.</div>` : ''}
     <button type="button" class="volcerv-hist-toggle" data-target="${histId}" onclick="toggleVolcervHist('${histId}')">
       <span>Histórico por día</span>
