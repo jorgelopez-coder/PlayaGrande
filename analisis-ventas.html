@@ -310,6 +310,16 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
     </div>
 
     <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .3rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <p class="card-title" style="margin-bottom:0;">Descuentos en el tiempo</p>
+        <div class="chk-wrap" id="desc-chart-legend"></div>
+      </div>
+      <div style="padding:.25rem 1.25rem 1.1rem;" id="desc-chart-wrap">
+        <div class="no-alerts"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
       <div style="padding:1.1rem 1.25rem .5rem;">
         <p class="card-title" style="margin-bottom:0;">Descuentos por kiosko</p>
       </div>
@@ -1010,6 +1020,83 @@ function renderAnalisisProducto() {
   }).join('');
 }
 
+// ── GRÁFICO LINEAL: descuentos por día, una línea por kiosko (SVG a mano,
+// sin librerías externas — mismo criterio del resto del dashboard). ──
+function renderDescuentosChart(filas, kioskosUsar) {
+  const cont = document.getElementById('desc-chart-wrap');
+  const legendCont = document.getElementById('desc-chart-legend');
+  if (!cont) return;
+
+  if (!filas.length || !kioskosUsar.length) {
+    cont.innerHTML = '<div class="no-alerts">Sin datos de descuentos para graficar en el rango filtrado.</div>';
+    if (legendCont) legendCont.innerHTML = '';
+    return;
+  }
+
+  const fechas = Array.from(new Set(filas.map(r => r.fecha))).sort();
+  const porKioskoFecha = {};
+  kioskosUsar.forEach(k => { porKioskoFecha[k] = {}; });
+  filas.forEach(r => {
+    if (!porKioskoFecha[r.kiosko]) porKioskoFecha[r.kiosko] = {};
+    porKioskoFecha[r.kiosko][r.fecha] = (porKioskoFecha[r.kiosko][r.fecha] || 0) + r.descuento;
+  });
+
+  const series = kioskosUsar.map((k, i) => ({
+    nombre: k,
+    color: colorKiosko(i),
+    puntos: fechas.map(f => porKioskoFecha[k][f] || 0)
+  }));
+
+  let maxVal = 0;
+  series.forEach(s => s.puntos.forEach(v => { if (v > maxVal) maxVal = v; }));
+  if (maxVal <= 0) maxVal = 1;
+
+  const W = 900, H = 260, mL = 62, mR = 16, mT = 16, mB = 34;
+  const pW = W - mL - mR, pH = H - mT - mB;
+  const n = fechas.length;
+  const xAt = i => n <= 1 ? mL + pW / 2 : mL + (i / (n - 1)) * pW;
+  const yAt = v => mT + pH - (v / maxVal) * pH;
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(p => {
+    const val = maxVal * p;
+    const y = yAt(val);
+    return `<line x1="${mL}" y1="${y.toFixed(1)}" x2="${W - mR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${mL - 8}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9.5" font-family="var(--font-m)" fill="var(--muted)">${fmtCRC(val)}</text>`;
+  }).join('');
+
+  const fmtFechaCorta = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}`; };
+  const maxLabels = Math.min(7, n);
+  const labelIdx = [];
+  if (n <= maxLabels) { for (let i = 0; i < n; i++) labelIdx.push(i); }
+  else { for (let j = 0; j < maxLabels; j++) labelIdx.push(Math.round(j * (n - 1) / (maxLabels - 1))); }
+  const xLabels = labelIdx.map(i =>
+    `<text x="${xAt(i).toFixed(1)}" y="${H - mB + 16}" text-anchor="middle" font-size="9.5" font-family="var(--font-m)" fill="var(--muted)">${fmtFechaCorta(fechas[i])}</text>`
+  ).join('');
+
+  const lineasSvg = series.map(s => {
+    const pts = s.puntos.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    const circles = s.puntos.map((v, i) =>
+      `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="2.5" fill="${s.color}"><title>${s.nombre} · ${fechas[i]} · ${fmtCRC(v)}</title></circle>`
+    ).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"/>${circles}`;
+  }).join('');
+
+  cont.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    ${gridLines}
+    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${H - mB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${mL}" y1="${H - mB}" x2="${W - mR}" y2="${H - mB}" stroke="var(--border)" stroke-width="1"/>
+    ${lineasSvg}
+    ${xLabels}
+  </svg>`;
+
+  if (legendCont) {
+    legendCont.innerHTML = series.map(s => {
+      const total = s.puntos.reduce((a, b) => a + b, 0);
+      return `<span class="chk-pill" style="cursor:default;"><span class="compare-dot" style="background:${s.color};"></span>${s.nombre} <span style="color:var(--muted);font-family:var(--font-m);margin-left:2px;">${fmtCRC(total)}</span></span>`;
+    }).join('');
+  }
+}
+
 // ── DESCUENTOS (mismos kioskos/filtros que "Análisis por producto" — solo
 // kioskos con Square propio traen detalle de descuento por línea, columna
 // "Descuento" de Ventas_Por_Producto). Aplica rango de fechas, kioskos y
@@ -1041,6 +1128,8 @@ function renderDescuentos() {
     if (Array.isArray(rows)) filas = filas.concat(rows.map(r => ({ ...r, kiosko: k })));
   });
   filas = filas.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
+
+  renderDescuentosChart(filas, kioskosUsar);
 
   if (!filas.length) {
     kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
