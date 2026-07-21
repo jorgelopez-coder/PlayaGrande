@@ -88,6 +88,26 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 .cuadre-total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid var(--green-lt);font-size:15px;font-weight:700}
 .cuadre-total .val{font-family:var(--font-m)}
 .diff-ok{color:var(--green)}.diff-warn{color:var(--red)}.diff-minor{color:var(--amber)}
+.cuadre-card.warn{background:var(--red-bg);border-color:var(--red-lt)}
+.cuadre-card.warn .cuadre-row+.cuadre-row{border-top-color:var(--red-lt)}
+.cuadre-card.warn .cuadre-total{border-top-color:var(--red-lt)}
+
+.cuadre-compare{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:10px;margin-bottom:1rem}
+.cuadre-compare-col{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center}
+.cuadre-compare-col.declarado{border-color:var(--green-lt)}
+.cc-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.cc-value{font-family:var(--font-m);font-size:21px;font-weight:700;color:var(--text)}
+.cc-sub{font-size:11px;color:var(--subtle);margin-top:4px}
+.cuadre-compare-vs{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--subtle)}
+.cuadre-breakdown-item{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;font-size:13px}
+.cuadre-breakdown-item+.cuadre-breakdown-item{border-top:1px solid var(--border)}
+.cuadre-breakdown-item .cb-label{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.cuadre-breakdown-item .val{font-family:var(--font-m);font-weight:600;color:var(--text)}
+.cuadre-detail{margin-top:.5rem}
+.cuadre-detail summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none}
+.cuadre-detail summary::-webkit-details-marker{display:none}
+.cuadre-detail summary::before{content:'▸ ';color:var(--subtle)}
+.cuadre-detail[open] summary::before{content:'▾ '}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 .btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
@@ -174,6 +194,8 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
   .resumen-grid{grid-template-columns:1fr}
   .efectivo-cols{grid-template-columns:1fr}
   .paso-nav-item{font-size:11px;padding:8px 4px}
+  .cuadre-compare{grid-template-columns:1fr}
+  .cuadre-compare-vs{padding:2px 0}
 }
 </style>
 </head>
@@ -358,16 +380,38 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 
     <div class="card">
       <p class="card-title">Cuadre General</p>
+
+      <div class="cuadre-compare">
+        <div class="cuadre-compare-col">
+          <p class="cc-label">Ventas Square</p>
+          <p class="cc-value" id="cg-square">₡0</p>
+          <p class="cc-sub">Ventas Netas del sistema</p>
+        </div>
+        <div class="cuadre-compare-vs">VS</div>
+        <div class="cuadre-compare-col declarado">
+          <p class="cc-label">Total declarado</p>
+          <p class="cc-value" id="cg-declarado">₡0</p>
+          <p class="cc-sub">Datáfono + Efectivo + SINPE</p>
+        </div>
+      </div>
+
       <div class="cuadre-card">
-        <div class="cuadre-row"><label>Total contado en caja (₡ + USD≈₡)</label><span class="val" id="cg-contado">₡0</span></div>
-        <div class="cuadre-row"><label>Fondo de caja inicial</label><span class="val" id="cg-fondo">₡0</span></div>
-        <div class="cuadre-row"><label>Efectivo de ventas (contado − fondo)</label><span class="val" id="cg-efectivo">₡0</span></div>
-        <div class="cuadre-row"><label>Base de ventas (tarjeta, datáfono)</label><span class="val" id="cg-base">₡0</span></div>
-        <div class="cuadre-row"><label>Ventas por SINPE</label><span class="val" id="cg-sinpe">₡0</span></div>
-        <div class="cuadre-row"><label>Total declarado (Base + Efectivo + SINPE)</label><span class="val" id="cg-declarado">₡0</span></div>
-        <div class="cuadre-row"><label>Ventas Netas Square</label><span class="val" id="cg-square">₡0</span></div>
+        <div class="cuadre-breakdown-item"><span class="cb-label">💳 Datáfono (tarjeta)</span><span class="val" id="cg-base">₡0</span></div>
+        <div class="cuadre-breakdown-item"><span class="cb-label">💵 Efectivo declarado</span><span class="val" id="cg-efectivo">₡0</span></div>
+        <div class="cuadre-breakdown-item"><span class="cb-label">📱 SINPE</span><span class="val" id="cg-sinpe">₡0</span></div>
+
+        <details class="cuadre-detail">
+          <summary>Ver detalle del efectivo contado</summary>
+          <div style="margin-top:.5rem">
+            <div class="cuadre-breakdown-item"><span class="cb-label">Total contado en caja (₡ + USD≈₡)</span><span class="val" id="cg-contado">₡0</span></div>
+            <div class="cuadre-breakdown-item"><span class="cb-label">Fondo de caja inicial</span><span class="val" id="cg-fondo">₡0</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="cuadre-card" id="cg-resultado-card" style="margin-top:1rem">
         <div class="cuadre-total">
-          <span>Diferencia (Declarado − Square)</span>
+          <span>Resultado (Declarado − Square)</span>
           <span class="val" id="cg-diff">₡0</span>
         </div>
         <div id="cg-badge" style="margin-top:10px"></div>
@@ -766,13 +810,17 @@ function actualizarCuadreGeneral() {
   diffEl.className = 'val ' + (cuadra ? 'diff-ok' : 'diff-warn');
 
   const badge = document.getElementById('cg-badge');
-  if (!base && !sinpe && !totalContado && !squareResumenActual) {
+  const sinDatos = !base && !sinpe && !totalContado && !squareResumenActual;
+  if (sinDatos) {
     badge.innerHTML = '';
   } else {
     badge.innerHTML = cuadra
       ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
       : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(diff))} (tolerancia ±₡500)</div>`;
   }
+
+  const resultadoCard = document.getElementById('cg-resultado-card');
+  if (resultadoCard) resultadoCard.classList.toggle('warn', !sinDatos && !cuadra);
 }
 
 // ── VENTAS SQUARE (Resumen_Cierre_Diario) ─────────────────────────
