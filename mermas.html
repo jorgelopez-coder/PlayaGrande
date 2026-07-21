@@ -332,6 +332,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </p>
     <div id="an-comparativo"><div class="empty-state">Cargando…</div></div>
   </div>
+
+  <div class="card">
+    <p class="card-title">Control de registro diario</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
+      Verifica que cada kiosko tenga una merma registrada todos los días del rango seleccionado —
+      el 100% de las fechas debería tener registro, aunque sea 0 g. No se exige registro de días
+      futuros al día de hoy.
+    </p>
+    <div id="an-control"><div class="empty-state">Cargando…</div></div>
+  </div>
 </div><!-- /tab-analisis -->
 
 
@@ -936,6 +946,7 @@ async function cargarAnalisis() {
   document.getElementById('an-acumulado-sub').textContent = '';
   document.getElementById('chart-an-pct-vendido').innerHTML = '<div class="chart-empty">Cargando…</div>';
   document.getElementById('an-comparativo').innerHTML = '<div class="empty-state">Cargando…</div>';
+  document.getElementById('an-control').innerHTML = '<div class="empty-state">Cargando…</div>';
   await fetchMermasData();
   await cargarVentasAnalisis(true);
   renderAnalisis();
@@ -1060,6 +1071,78 @@ function renderAnalisis() {
       </div>`;
     }).join('');
   }
+
+  renderControlDias(desde, hasta);
+}
+
+// ── CONTROL DE REGISTRO DIARIO (Análisis) ─────────────────────────
+// Genera todas las fechas del rango seleccionado (desde → hasta, sin pasar
+// del día de hoy) y, por kiosko, marca cuáles no tienen ningún registro en
+// Mermas — el objetivo es 100% de cobertura, incluso si la merma fue 0 g
+// (en ese caso igual debería existir la fila).
+function generarRangoFechas(desde, hasta) {
+  if (!desde || !hasta || desde > hasta) return [];
+  const out = [];
+  let d = new Date(desde + 'T00:00:00');
+  const fin = new Date(hasta + 'T00:00:00');
+  while (d <= fin) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+function renderControlDias(desde, hasta) {
+  const cont = document.getElementById('an-control');
+  if (!desde || !hasta) {
+    cont.innerHTML = '<div class="empty-state">Seleccioná un rango de fechas.</div>';
+    return;
+  }
+
+  const hastaEfectiva = hasta > hoy() ? hoy() : hasta; // no exigir registro de días futuros
+  const fechasRango = generarRangoFechas(desde, hastaEfectiva);
+  const kioskosSel = anKioskosSeleccionados.size === 0 ? KIOSKOS : [...anKioskosSeleccionados];
+
+  if (!fechasRango.length || !kioskosSel.length) {
+    cont.innerHTML = '<div class="empty-state">Sin rango de fechas o kioskos válidos para revisar.</div>';
+    return;
+  }
+
+  // Set de "kiosko|fecha" con registro — se usa TODO mermasData (sin
+  // filtrar por rango) para no perder registros por límites de fecha.
+  const registrados = new Set(mermasData.map(r => r.kiosko + '|' + r.fecha));
+
+  const filas = kioskosSel.map(k => ({
+    kiosko: k,
+    esperados: fechasRango.length,
+    faltantes: fechasRango.filter(f => !registrados.has(k + '|' + f))
+  }));
+
+  const totalFaltantes = filas.reduce((s, f) => s + f.faltantes.length, 0);
+
+  if (!totalFaltantes) {
+    cont.innerHTML = `<div class="empty-state" style="color:var(--green)">✓ 100% de cobertura — todos los kioskos seleccionados tienen registro en cada uno de los ${fechasRango.length} día${fechasRango.length === 1 ? '' : 's'} del rango.</div>`;
+    return;
+  }
+
+  cont.innerHTML = filas.map(f => {
+    const ok = f.faltantes.length === 0;
+    const pctCobertura = f.esperados ? ((f.esperados - f.faltantes.length) / f.esperados * 100) : 100;
+    const MAX_CHIPS = 40;
+    const chips = f.faltantes.slice(0, MAX_CHIPS)
+      .map(fecha => `<span class="chip-btn" style="cursor:default;border-color:var(--red-lt);color:var(--red);background:var(--red-bg)">${fecha}</span>`)
+      .join('');
+    const masTxt = f.faltantes.length > MAX_CHIPS
+      ? `<span style="font-size:12px;color:var(--muted);align-self:center">+${f.faltantes.length - MAX_CHIPS} más</span>` : '';
+    return `<div class="config-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="config-nombre" style="flex:none">${f.kiosko}</span>
+        <span style="font-size:12px;font-weight:600;color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✓ 100% registrado' : '⚠ ' + f.faltantes.length + ' día' + (f.faltantes.length === 1 ? '' : 's') + ' sin registro'}</span>
+        <span style="font-size:11px;color:var(--subtle);margin-left:auto">${pctCobertura.toFixed(0)}% de cobertura (${f.esperados} día${f.esperados === 1 ? '' : 's'} esperados)</span>
+      </div>
+      ${f.faltantes.length ? `<div class="chip-row" style="margin-bottom:0">${chips}${masTxt}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ── TOOLTIP DE GRÁFICOS (click/tap sobre un punto o barra) ───────
