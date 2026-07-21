@@ -394,16 +394,18 @@ async function guardarConfigKiosko(kiosko, inputId) {
   const valor = Number(document.getElementById(inputId).value);
   if (!valor && valor !== 0) { showToast('Ingresá un peso válido', 'error'); return; }
   try {
-    await fetchConTimeout(MERMAS_URL, {
+    const resp = await fetchConTimeout(MERMAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ accion: 'merma_config_guardar', kiosko, pesoContenedor: valor })
     });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
     showToast('Peso de contenedor guardado ✓');
     await cargarConfig();
     if (document.getElementById('merma-kiosko').value === kiosko) alCambiarKioskoMerma();
   } catch(e) {
-    showToast('Sin conexión — no se pudo guardar', 'error');
+    showToast('No se pudo guardar — ' + (e.message === 'Tiempo de espera agotado' ? 'la conexión tardó demasiado' : e.message), 'error');
   }
 }
 
