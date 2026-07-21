@@ -97,8 +97,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .multiselect-item:hover{background:var(--surface)}
 .multiselect-item input{width:auto;flex-shrink:0;cursor:pointer;accent-color:var(--green)}
 .multiselect-divider{height:1px;background:var(--border);margin:4px 2px}
-.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
+.chart-wrap{position:relative;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
 .chart-empty{text-align:center;padding:2rem 1rem;color:var(--subtle);font-size:13px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:.75rem}
+.chart-legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);font-weight:500}
+.chart-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chart-tooltip{position:absolute;z-index:40;background:var(--text);color:#fff;font-size:11.5px;line-height:1.5;border-radius:8px;padding:8px 11px;box-shadow:0 6px 18px rgba(0,0,0,.2);pointer-events:none;white-space:nowrap;display:none;transform:translate(-50%,-100%);margin-top:-8px}
+.chart-tooltip-fecha{font-weight:700;margin-bottom:2px;font-family:var(--font-m);font-size:10.5px;color:#d0eedd}
+.chart-tooltip-row{opacity:.95}
 .hist-table-wrap{overflow-x:auto}
 .hist-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .hist-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
@@ -298,6 +304,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div id="chart-an-acumulado"><div class="chart-empty">Cargando…</div></div>
   </div>
 
+  <div class="chart-wrap">
+    <p class="card-title" style="margin-bottom:.75rem">% de merma sobre el volumen vendido (diario)</p>
+    <div id="chart-an-pct-vendido"><div class="chart-empty">Cargando…</div></div>
+  </div>
+
   <div class="card">
     <p class="card-title">Comparativo por kiosko</p>
     <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
@@ -359,6 +370,18 @@ const SQUARE_KIOSKOS = {
 // criterio que DENSIDAD_CERVEZA_G_ML en index.html) — es una aproximación.
 const DENSIDAD_CERVEZA_G_ML = 1.005;
 const ML_POR_ONZA = 29.5735;
+
+// Paleta fija para que cada kiosko tenga siempre el mismo color entre
+// gráficos y entre recargas (se asigna por posición en KIOSKOS, no por
+// orden alfabético ni por selección de filtro).
+const PALETA_KIOSKOS = ['#1a7a4a','#185fa5','#c87820','#c84a20','#6a3a9a','#0e8a8a','#a0522d','#4a4a8a'];
+function colorKiosko(kiosko) {
+  const idx = KIOSKOS.indexOf(kiosko);
+  return PALETA_KIOSKOS[(idx >= 0 ? idx : 0) % PALETA_KIOSKOS.length];
+}
+function escapeAttr(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 function esCervezaBarril(categoria, nombre) {
   const cat = (categoria || '').toUpperCase();
@@ -861,6 +884,7 @@ async function cargarAnalisis() {
   document.getElementById('an-kpis').innerHTML = '<div class="empty-state">Cargando…</div>';
   document.getElementById('chart-an-diario').innerHTML = '<div class="chart-empty">Cargando…</div>';
   document.getElementById('chart-an-acumulado').innerHTML = '<div class="chart-empty">Cargando…</div>';
+  document.getElementById('chart-an-pct-vendido').innerHTML = '<div class="chart-empty">Cargando…</div>';
   document.getElementById('an-comparativo').innerHTML = '<div class="empty-state">Cargando…</div>';
   await fetchMermasData();
   await cargarVentasAnalisis(true);
@@ -918,18 +942,52 @@ function renderAnalisis() {
     </div>
   `;
 
-  // ── Chart evolución diaria ──
-  const porFecha = {};
-  lista.forEach(r => { porFecha[r.fecha] = (porFecha[r.fecha] || 0) + r.pesoNeto; });
-  const puntosDiario = Object.entries(porFecha)
+  // ── Chart evolución diaria — una línea por kiosko (sin sumar entre ellos) ──
+  const kioskosEnLista = [...new Set(lista.map(r => r.kiosko))]
+    .sort((a, b) => KIOSKOS.indexOf(a) - KIOSKOS.indexOf(b));
+  const seriesDiario = kioskosEnLista.map(kiosko => {
+    const porFechaK = {};
+    lista.filter(r => r.kiosko === kiosko).forEach(r => { porFechaK[r.fecha] = (porFechaK[r.fecha] || 0) + r.pesoNeto; });
+    const puntos = Object.entries(porFechaK).map(([fecha, valor]) => ({ fecha, valor })).sort((a,b) => a.fecha.localeCompare(b.fecha));
+    return { nombre: kiosko, color: colorKiosko(kiosko), unidad: ' g', puntos };
+  });
+  renderMultiLineChart('chart-an-diario', seriesDiario);
+
+  // ── Chart volumen acumulado (barras) — total de la selección, corrido día a día ──
+  const porFechaTotal = {};
+  lista.forEach(r => { porFechaTotal[r.fecha] = (porFechaTotal[r.fecha] || 0) + r.pesoNeto; });
+  const puntosDiarioTotal = Object.entries(porFechaTotal)
     .map(([fecha, valor]) => ({ fecha, valor }))
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
-  renderLineChart('chart-an-diario', puntosDiario);
-
-  // ── Chart volumen acumulado ──
   let acumulado = 0;
-  const puntosAcum = puntosDiario.map(p => { acumulado += p.valor; return { fecha: p.fecha, valor: acumulado }; });
-  renderLineChart('chart-an-acumulado', puntosAcum);
+  const puntosAcum = puntosDiarioTotal.map(p => { acumulado += p.valor; return { fecha: p.fecha, valor: acumulado }; });
+  renderBarChart('chart-an-acumulado', puntosAcum, { color: '#1a7a4a', unidad: ' g' });
+
+  // ── Chart % de merma sobre el volumen vendido — una línea por kiosko con
+  // Square conectado (solo se puede calcular ahí, donde hay onzas vendidas) ──
+  if (!kioskosConSquare.length) {
+    document.getElementById('chart-an-pct-vendido').innerHTML =
+      '<div class="chart-empty">Sin kioskos con Square conectado en la selección — no se puede calcular el % sobre lo vendido.</div>';
+  } else {
+    const seriesPct = kioskosConSquare.map(kiosko => {
+      const mermaPorFechaK = {};
+      lista.filter(r => r.kiosko === kiosko).forEach(r => { mermaPorFechaK[r.fecha] = (mermaPorFechaK[r.fecha] || 0) + r.pesoNeto; });
+      const ventas = anVentasCache[kiosko] || {};
+      const fechasK = new Set([...Object.keys(mermaPorFechaK), ...Object.keys(ventas)]);
+      const puntos = [...fechasK]
+        .filter(f => (!desde || f >= desde) && (!hasta || f <= hasta))
+        .sort()
+        .map(fecha => {
+          const oz = ventas[fecha] || 0;
+          const mermaOz = (mermaPorFechaK[fecha] || 0) / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+          const pct = (oz + mermaOz) > 0 ? (mermaOz / (oz + mermaOz)) * 100 : null;
+          return pct != null ? { fecha, valor: pct } : null;
+        })
+        .filter(Boolean);
+      return { nombre: kiosko, color: colorKiosko(kiosko), unidad: '%', fmt: v => v.toFixed(1), puntos };
+    });
+    renderMultiLineChart('chart-an-pct-vendido', seriesPct, { emptyMsg: 'Sin datos suficientes de venta o merma en el rango seleccionado.' });
+  }
 
   // ── Comparativo por kiosko (barras horizontales) ──
   const maxKiosko = rankingKiosko.length ? rankingKiosko[0][1] : 1;
@@ -953,6 +1011,141 @@ function renderAnalisis() {
       </div>`;
     }).join('');
   }
+}
+
+// ── TOOLTIP DE GRÁFICOS (click/tap sobre un punto o barra) ───────
+// Cada punto/barra lleva data-fecha y data-info (líneas separadas por
+// "||"); al hacer click se arma un tooltip flotando dentro del .chart-wrap
+// más cercano. Un click fuera de un punto lo cierra.
+function mostrarTooltipChart(ev) {
+  ev.stopPropagation();
+  const el = ev.currentTarget;
+  const fecha = el.dataset.fecha || '';
+  const info = (el.dataset.info || '').split('||').filter(Boolean);
+  const wrap = el.closest('.chart-wrap');
+  if (!wrap) return;
+  let tip = wrap.querySelector('.chart-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'chart-tooltip';
+    wrap.appendChild(tip);
+  }
+  tip.innerHTML = `<div class="chart-tooltip-fecha">${fecha}</div>` + info.map(l => `<div class="chart-tooltip-row">${l}</div>`).join('');
+  const wrapRect = wrap.getBoundingClientRect();
+  const pt = ev.clientX !== undefined ? ev : (ev.touches && ev.touches[0]) || { clientX: wrapRect.left + wrapRect.width/2, clientY: wrapRect.top };
+  let left = pt.clientX - wrapRect.left;
+  left = Math.max(50, Math.min(wrapRect.width - 50, left));
+  tip.style.left = left + 'px';
+  tip.style.top = (pt.clientY - wrapRect.top) + 'px';
+  tip.style.display = 'block';
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.chart-pt')) {
+    document.querySelectorAll('.chart-tooltip').forEach(t => t.style.display = 'none');
+  }
+});
+
+// ── GRÁFICO MULTILÍNEA (una línea por serie/kiosko, con puntos clicables) ──
+function construirEjeXFechas(series, maxPuntos = 60) {
+  const set = new Set();
+  series.forEach(s => s.puntos.forEach(p => set.add(p.fecha)));
+  return [...set].sort().slice(-maxPuntos);
+}
+
+function renderMultiLineChart(containerId, seriesInput, opts = {}) {
+  const cont = document.getElementById(containerId);
+  const series = (seriesInput || []).filter(s => s.puntos.length);
+  if (!series.length) {
+    cont.innerHTML = `<div class="chart-empty">${opts.emptyMsg || 'Sin datos suficientes para el gráfico todavía.'}</div>`;
+    return;
+  }
+  const fechas = construirEjeXFechas(series, 60);
+  const n = fechas.length;
+  const W = 700, H = 240, padL = 46, padR = 16, padT = 16, padB = 28;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const maxVal = Math.max(1, ...series.flatMap(s => s.puntos.map(p => p.valor))) * 1.15;
+  const x = i => padL + (n === 1 ? innerW/2 : (innerW * i / (n - 1)));
+  const y = v => padT + innerH - (v / maxVal * innerH);
+
+  const yVals = [0, maxVal/2, maxVal];
+  const yLabels = yVals.map(v => `
+    <text x="${padL-8}" y="${y(v)+4}" font-size="10" text-anchor="end" fill="#5a8a6a">${Math.round(v).toLocaleString('es-CR')}</text>
+    <line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="#c8ddd0" stroke-width="1"/>`).join('');
+
+  const idxLabels = n === 1 ? [0] : [0, Math.floor((n-1)/2), n-1];
+  const xLabels = [...new Set(idxLabels)].map(i => `
+    <text x="${x(i)}" y="${H-8}" font-size="10" text-anchor="middle" fill="#5a8a6a">${fechas[i].slice(5)}</text>`).join('');
+
+  let lineas = '', puntos = '';
+  series.forEach(s => {
+    const unidad = s.unidad || '';
+    const fmt = s.fmt || (v => Math.round(v).toLocaleString('es-CR'));
+    const pts = s.puntos
+      .map(p => ({ ...p, idx: fechas.indexOf(p.fecha) }))
+      .filter(p => p.idx >= 0)
+      .sort((a,b) => a.idx - b.idx);
+    if (pts.length > 1) {
+      const path = pts.map(p => `${x(p.idx)},${y(p.valor)}`).join(' ');
+      lineas += `<polyline points="${path}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+    }
+    pts.forEach(p => {
+      const info = escapeAttr(`${s.nombre}: ${fmt(p.valor)}${unidad}`);
+      puntos += `<circle class="chart-pt" cx="${x(p.idx)}" cy="${y(p.valor)}" r="3.5" fill="${s.color}" stroke="#fff" stroke-width="1" data-fecha="${p.fecha}" data-info="${info}" onclick="mostrarTooltipChart(event)" style="cursor:pointer"/>`;
+    });
+  });
+
+  const leyenda = series.map(s => `<span class="chart-legend-item"><span class="chart-legend-dot" style="background:${s.color}"></span>${s.nombre}</span>`).join('');
+
+  cont.innerHTML = `
+    ${series.length > 1 ? `<div class="chart-legend">${leyenda}</div>` : ''}
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+      ${yLabels}
+      ${lineas}
+      ${puntos}
+      ${xLabels}
+    </svg>`;
+}
+
+// ── GRÁFICO DE BARRAS (una serie, con barras clicables) ───────────
+function renderBarChart(containerId, points, opts = {}) {
+  const cont = document.getElementById(containerId);
+  if (!points || !points.length) {
+    cont.innerHTML = `<div class="chart-empty">${opts.emptyMsg || 'Sin datos suficientes para el gráfico todavía.'}</div>`;
+    return;
+  }
+  const color = opts.color || '#1a7a4a';
+  const unidad = opts.unidad || '';
+  const fmt = opts.fmt || (v => Math.round(v).toLocaleString('es-CR'));
+  const W = 700, H = 220, padL = 46, padR = 16, padT = 16, padB = 28;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const maxVal = Math.max(...points.map(p => p.valor), 1) * 1.15;
+  const n = points.length;
+  const gap = n > 30 ? 1 : 3;
+  const slot = innerW / n;
+  const barW = Math.max(1.5, slot - gap);
+  const x = i => padL + slot * i + gap/2;
+  const y = v => padT + innerH - (v / maxVal * innerH);
+  const h = v => Math.max(0, v / maxVal * innerH);
+
+  const yVals = [0, maxVal/2, maxVal];
+  const yLabels = yVals.map(v => `
+    <text x="${padL-8}" y="${y(v)+4}" font-size="10" text-anchor="end" fill="#5a8a6a">${Math.round(v).toLocaleString('es-CR')}</text>
+    <line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="#c8ddd0" stroke-width="1"/>`).join('');
+
+  const idxLabels = n === 1 ? [0] : [0, Math.floor((n-1)/2), n-1];
+  const xLabels = [...new Set(idxLabels)].map(i => `
+    <text x="${x(i)+barW/2}" y="${H-8}" font-size="10" text-anchor="middle" fill="#5a8a6a">${points[i].fecha.slice(5)}</text>`).join('');
+
+  const barras = points.map((p,i) => {
+    const info = escapeAttr(`${fmt(p.valor)}${unidad}`);
+    return `<rect class="chart-pt" x="${x(i)}" y="${y(p.valor)}" width="${barW}" height="${h(p.valor)}" rx="2" fill="${color}" data-fecha="${p.fecha}" data-info="${info}" onclick="mostrarTooltipChart(event)" style="cursor:pointer"/>`;
+  }).join('');
+
+  cont.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    ${yLabels}
+    ${barras}
+    ${xLabels}
+  </svg>`;
 }
 
 // ── GRÁFICO LINEAL (SVG inline, sin librerías externas) ──────────
