@@ -397,12 +397,11 @@ function alCambiarKiosko() {
   cargarEncargados();
 }
 
-// ── ENCARGADOS DESDE RRHH (filtrados por kiosko) ──────────────────
+// ── ENCARGADOS DESDE RRHH (todos los activos, sin filtrar por kiosko) ──
 async function cargarEncargados() {
   const sel = document.getElementById('mant-encargado');
   const errBox = document.getElementById('enc-error');
   const errMsg = document.getElementById('enc-error-msg');
-  const kiosko = document.getElementById('mant-kiosko').value;
   sel.innerHTML = '<option value="" disabled selected>Cargando…</option>';
   errBox.style.display = 'none';
   try {
@@ -412,13 +411,12 @@ async function cargarEncargados() {
     if (!data.ok) throw new Error(data.error || 'Sin datos');
     const activos = (data.registros || []).filter(p =>
       (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
-      && (!kiosko || !p['Kiosko'] || p['Kiosko'] === kiosko)
     ).map(p => p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim())
      .filter(Boolean)
      .sort((a, b) => a.localeCompare(b));
     sel.innerHTML = '<option value="" disabled selected>Seleccioná un encargado…</option>'
       + activos.map(n => `<option>${n}</option>`).join('');
-    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos para este kiosko</option>';
+    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos</option>';
     sel.onchange = () => { encargadoActual = sel.value; };
   } catch(e) {
     sel.innerHTML = '<option value="" disabled selected>Error al cargar</option>';

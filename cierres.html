@@ -703,12 +703,11 @@ function showToast(msg, type='success') {
 // ── TIPO DE CAMBIO ────────────────────────────────────────────────
 function getTC() { return parseFloat(document.getElementById('f-tc')?.value) || 0; }
 
-// ── ENCARGADOS DESDE RRHH (filtrados por kiosko) ─────────────────
+// ── ENCARGADOS DESDE RRHH (todos los activos, sin filtrar por kiosko) ──
 async function cargarEncargados() {
   const sel = document.getElementById('f-encargado');
   const errBox = document.getElementById('enc-error');
   const errMsg = document.getElementById('enc-error-msg');
-  const kiosko = document.getElementById('f-kiosko').value;
   sel.innerHTML = '<option value="" disabled selected>Cargando…</option>';
   errBox.style.display = 'none';
   if (!APPS_SCRIPT_RRHH || APPS_SCRIPT_RRHH.startsWith('TODO_')) {
@@ -723,11 +722,10 @@ async function cargarEncargados() {
     personalData = data.registros || [];
     const activos = personalData.filter(p =>
       (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
-      && (!kiosko || !p['Kiosko'] || p['Kiosko'] === kiosko)
     ).map(p => p['Nombre completo']).filter(Boolean).sort((a, b) => a.localeCompare(b));
     sel.innerHTML = '<option value="" disabled selected>Seleccioná un encargado…</option>'
       + activos.map(n => `<option>${n}</option>`).join('');
-    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos para este kiosko</option>';
+    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos</option>';
   } catch(e) {
     sel.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
     errMsg.textContent = 'No se pudo conectar con RRHH (' + e.message + ').';
