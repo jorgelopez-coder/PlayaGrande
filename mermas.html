@@ -88,6 +88,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 /* Historial */
 .hist-filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.multiselect{position:relative}
+.multiselect-btn{display:flex;align-items:center;gap:10px;justify-content:space-between;width:200px;font-size:13px;font-family:var(--font-b);color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;transition:border-color .15s}
+.multiselect-btn:hover{border-color:var(--border-h)}
+.multiselect-btn svg{width:11px;height:11px;flex-shrink:0;color:var(--muted)}
+.multiselect-panel{position:absolute;top:calc(100% + 4px);left:0;background:var(--card);border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:6px;z-index:30;min-width:210px;max-height:260px;overflow-y:auto}
+.multiselect-item{display:flex;align-items:center;gap:9px;font-size:13px;padding:7px 8px;border-radius:6px;cursor:pointer;user-select:none}
+.multiselect-item:hover{background:var(--surface)}
+.multiselect-item input{width:auto;flex-shrink:0;cursor:pointer;accent-color:var(--green)}
+.multiselect-divider{height:1px;background:var(--border);margin:4px 2px}
 .chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
 .chart-empty{text-align:center;padding:2rem 1rem;color:var(--subtle);font-size:13px}
 .hist-table-wrap{overflow-x:auto}
@@ -204,7 +213,19 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <!-- ── TAB HISTORIAL ── -->
 <div class="page" id="tab-historial">
   <div class="hist-filtros">
-    <select id="hist-kiosko" style="width:180px" onchange="renderHistorial()"><option value="">Todos los kioskos</option></select>
+    <div class="multiselect" id="hist-kiosko-ms">
+      <button type="button" class="multiselect-btn" onclick="toggleKioskoDropdown()">
+        <span id="hist-kiosko-label">Todos los kioskos</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="multiselect-panel" id="hist-kiosko-panel" style="display:none">
+        <label class="multiselect-item">
+          <input type="checkbox" id="hist-kiosko-all" checked onchange="toggleTodosKioskos(this)"/> Todos los kioskos
+        </label>
+        <div class="multiselect-divider"></div>
+        <div id="hist-kiosko-items"></div>
+      </div>
+    </div>
     <button class="btn-sm" onclick="cargarHistorial()" style="margin-left:auto">↻ Actualizar</button>
   </div>
 
@@ -337,8 +358,48 @@ function poblarKioskos() {
     alCambiarKioskoMerma();
   }
 
-  const selHist = document.getElementById('hist-kiosko');
-  selHist.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  histKioskosSeleccionados = new Set();
+  document.getElementById('hist-kiosko-items').innerHTML = KIOSKOS.map(k => {
+    const id = 'hist-chk-' + k.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+    return `<label class="multiselect-item"><input type="checkbox" id="${id}" value="${k}" checked onchange="alCambiarKioskoHist()"/> ${k}</label>`;
+  }).join('');
+  document.getElementById('hist-kiosko-all').checked = true;
+  actualizarLabelKioskoHist();
+}
+
+// ── FILTRO MULTI-KIOSKO (Historial) ──────────────────────────────
+let histKioskosSeleccionados = new Set(); // vacío = todos los kioskos
+
+function toggleKioskoDropdown() {
+  const panel = document.getElementById('hist-kiosko-panel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', (e) => {
+  const ms = document.getElementById('hist-kiosko-ms');
+  const panel = document.getElementById('hist-kiosko-panel');
+  if (ms && panel && !ms.contains(e.target)) panel.style.display = 'none';
+});
+
+function toggleTodosKioskos(cb) {
+  document.querySelectorAll('#hist-kiosko-items input[type=checkbox]').forEach(i => i.checked = cb.checked);
+  alCambiarKioskoHist();
+}
+
+function alCambiarKioskoHist() {
+  const checks = [...document.querySelectorAll('#hist-kiosko-items input[type=checkbox]')];
+  const marcados = checks.filter(c => c.checked).map(c => c.value);
+  const todoMarcado = marcados.length === checks.length;
+  document.getElementById('hist-kiosko-all').checked = todoMarcado;
+  histKioskosSeleccionados = (todoMarcado || marcados.length === 0) ? new Set() : new Set(marcados);
+  actualizarLabelKioskoHist();
+  renderHistorial();
+}
+
+function actualizarLabelKioskoHist() {
+  const label = document.getElementById('hist-kiosko-label');
+  if (histKioskosSeleccionados.size === 0) label.textContent = 'Todos los kioskos';
+  else if (histKioskosSeleccionados.size === 1) label.textContent = [...histKioskosSeleccionados][0];
+  else label.textContent = histKioskosSeleccionados.size + ' kioskos';
 }
 
 function alCambiarKioskoMerma() {
@@ -575,8 +636,7 @@ async function cargarHistorial() {
 }
 
 function renderHistorial() {
-  const kioskoFiltro = document.getElementById('hist-kiosko').value;
-  let lista = mermasData.filter(r => !kioskoFiltro || r.kiosko === kioskoFiltro);
+  let lista = mermasData.filter(r => histKioskosSeleccionados.size === 0 || histKioskosSeleccionados.has(r.kiosko));
   lista = [...lista].sort((a,b) => b.fecha.localeCompare(a.fecha) || Number(b.id) - Number(a.id));
 
   document.getElementById('hist-count').textContent = lista.length + ' pesada' + (lista.length === 1 ? '' : 's') + ' registrada' + (lista.length === 1 ? '' : 's');
