@@ -116,6 +116,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .config-input{width:140px;flex-shrink:0}
 .config-save{flex-shrink:0}
 
+/* Análisis */
+.an-date-input{width:140px;flex-shrink:0}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1rem}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem}
+.kpi-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.kpi-val{font-family:var(--font-m);font-size:21px;font-weight:700;color:var(--text)}
+.kpi-sub{font-size:11px;color:var(--subtle);margin-top:4px}
+.hbar-row{display:flex;align-items:center;gap:10px;padding:.55rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.hbar-row:last-child{border-bottom:none}
+.hbar-label{width:110px;flex-shrink:0;font-size:12.5px;font-weight:600}
+.hbar-track{flex:1;min-width:80px;height:9px;background:var(--surface);border-radius:6px;overflow:hidden}
+.hbar-fill{height:100%;background:var(--green);border-radius:6px;transition:width .3s}
+.hbar-val{font-size:12px;color:var(--text);white-space:nowrap;flex-shrink:0}
+.hbar-sub{color:var(--muted);font-weight:400}
+
 @media(max-width:600px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row{grid-template-columns:1fr}
@@ -139,6 +154,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('nueva',this)">Nueva merma</button>
   <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
+  <button class="tab-btn" onclick="showTab('analisis',this)">Análisis</button>
   <button class="tab-btn" onclick="showTab('config',this)">Configuración</button>
 </div>
 
@@ -246,6 +262,54 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div><!-- /tab-historial -->
 
 
+<!-- ── TAB ANÁLISIS ── -->
+<div class="page" id="tab-analisis">
+  <div class="hist-filtros">
+    <input type="date" id="an-desde" class="an-date-input" onchange="renderAnalisis()"/>
+    <span style="color:var(--subtle);font-size:12px">a</span>
+    <input type="date" id="an-hasta" class="an-date-input" onchange="renderAnalisis()"/>
+    <div class="multiselect" id="an-kiosko-ms">
+      <button type="button" class="multiselect-btn" onclick="toggleKioskoDropdownAn()">
+        <span id="an-kiosko-label">Todos los kioskos</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="multiselect-panel" id="an-kiosko-panel" style="display:none">
+        <label class="multiselect-item">
+          <input type="checkbox" id="an-kiosko-all" checked onchange="toggleTodosKioskosAn(this)"/> Todos los kioskos
+        </label>
+        <div class="multiselect-divider"></div>
+        <div id="an-kiosko-items"></div>
+      </div>
+    </div>
+    <button class="btn-sm" onclick="cargarAnalisis()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+
+  <div class="kpi-grid" id="an-kpis">
+    <div class="empty-state">Cargando…</div>
+  </div>
+
+  <div class="chart-wrap">
+    <p class="card-title" style="margin-bottom:.75rem">Evolución diaria de la merma neta (g)</p>
+    <div id="chart-an-diario"><div class="chart-empty">Cargando…</div></div>
+  </div>
+
+  <div class="chart-wrap">
+    <p class="card-title" style="margin-bottom:.75rem">Volumen acumulado de mermas (g)</p>
+    <div id="chart-an-acumulado"><div class="chart-empty">Cargando…</div></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Comparativo por kiosko</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
+      Suma de merma neta en el rango de fechas seleccionado. El % sobre lo vendido solo se calcula
+      para kioskos con Square propio conectado (mismo criterio que
+      <a href="index.html" style="color:var(--green);font-weight:600;text-decoration:none">Cerveza de barril vendida</a> en el inicio).
+    </p>
+    <div id="an-comparativo"><div class="empty-state">Cargando…</div></div>
+  </div>
+</div><!-- /tab-analisis -->
+
+
 <!-- ── TAB CONFIGURACIÓN ── -->
 <div class="page" id="tab-config">
   <div class="card">
@@ -282,9 +346,30 @@ const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauR
 // de ese archivo). Mientras esté vacío, el botón avisa que falta configurar.
 const EXTRACTOR_URL = 'https://script.google.com/macros/s/AKfycbyYwRDE6Y8vW79x1ad-i2hWFXRq9jP0jkPmiWwRf8gmRNp8KD5_CacpjC69Xys_ocp1HQ/exec';
 
-// Densidad estándar de cerveza para convertir peso ↔ volumen en index.html
-// (no se usa en esta página, queda documentado acá porque es el mismo
-// criterio que MERMA_DENSIDAD_G_ML en index.html).
+// Mismas hojas "Square - <kiosko>" de index.html (ver SQUARE_KIOSKOS ahí) —
+// se usan acá solo para la pestaña Análisis, para sacar onzas de cerveza de
+// barril vendidas y poder calcular el % de merma sobre lo vendido. Si se
+// agrega un kiosko con Square propio, replicar la entrada acá y en
+// index.html.
+const SQUARE_KIOSKOS = {
+  'Playa Grande': { sheetId: '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA', ventasTab: 'Ventas_Por_Producto' },
+  'Tamarindo': { sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ', ventasTab: 'Ventas_Por_Producto' }
+};
+// Densidad estándar de cerveza para convertir peso (g) ↔ volumen (mismo
+// criterio que DENSIDAD_CERVEZA_G_ML en index.html) — es una aproximación.
+const DENSIDAD_CERVEZA_G_ML = 1.005;
+const ML_POR_ONZA = 29.5735;
+
+function esCervezaBarril(categoria, nombre) {
+  const cat = (categoria || '').toUpperCase();
+  const nom = (nombre || '').toUpperCase();
+  if (nom.includes('BOTELLA')) return false;
+  return cat === 'DRAFT' || cat.includes('CERVEZA');
+}
+function extraerOnzas(nombre) {
+  const m = (nombre || '').match(/(\d+(?:[.,]\d+)?)\s*(?:onz|oz)\b/i);
+  return m ? parseFloat(m[1].replace(',', '.')) : null;
+}
 
 let fotoBase64 = null;
 let mermaConfigCache = {}; // { kiosko: pesoContenedorGramos }
@@ -313,10 +398,11 @@ function showTab(tab, el) {
   document.getElementById('tab-' + tab).classList.add('active');
   el.classList.add('active');
   if (tab === 'historial') cargarHistorial();
+  if (tab === 'analisis') cargarAnalisis();
   if (tab === 'config') cargarConfig();
 }
 function irAConfig() {
-  showTab('config', document.querySelectorAll('.tab-btn')[2]);
+  showTab('config', document.querySelectorAll('.tab-btn')[3]);
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
@@ -365,6 +451,14 @@ function poblarKioskos() {
   }).join('');
   document.getElementById('hist-kiosko-all').checked = true;
   actualizarLabelKioskoHist();
+
+  anKioskosSeleccionados = new Set();
+  document.getElementById('an-kiosko-items').innerHTML = KIOSKOS.map(k => {
+    const id = 'an-chk-' + k.replace(/[^a-z0-9]/gi,'-').toLowerCase();
+    return `<label class="multiselect-item"><input type="checkbox" id="${id}" value="${k}" checked onchange="alCambiarKioskoAn()"/> ${k}</label>`;
+  }).join('');
+  document.getElementById('an-kiosko-all').checked = true;
+  actualizarLabelKioskoAn();
 }
 
 // ── FILTRO MULTI-KIOSKO (Historial) ──────────────────────────────
@@ -378,6 +472,9 @@ document.addEventListener('click', (e) => {
   const ms = document.getElementById('hist-kiosko-ms');
   const panel = document.getElementById('hist-kiosko-panel');
   if (ms && panel && !ms.contains(e.target)) panel.style.display = 'none';
+  const msAn = document.getElementById('an-kiosko-ms');
+  const panelAn = document.getElementById('an-kiosko-panel');
+  if (msAn && panelAn && !msAn.contains(e.target)) panelAn.style.display = 'none';
 });
 
 function toggleTodosKioskos(cb) {
@@ -400,6 +497,36 @@ function actualizarLabelKioskoHist() {
   if (histKioskosSeleccionados.size === 0) label.textContent = 'Todos los kioskos';
   else if (histKioskosSeleccionados.size === 1) label.textContent = [...histKioskosSeleccionados][0];
   else label.textContent = histKioskosSeleccionados.size + ' kioskos';
+}
+
+// ── FILTRO MULTI-KIOSKO (Análisis) — mismo patrón que Historial ──
+let anKioskosSeleccionados = new Set(); // vacío = todos los kioskos
+
+function toggleKioskoDropdownAn() {
+  const panel = document.getElementById('an-kiosko-panel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function toggleTodosKioskosAn(cb) {
+  document.querySelectorAll('#an-kiosko-items input[type=checkbox]').forEach(i => i.checked = cb.checked);
+  alCambiarKioskoAn();
+}
+
+function alCambiarKioskoAn() {
+  const checks = [...document.querySelectorAll('#an-kiosko-items input[type=checkbox]')];
+  const marcados = checks.filter(c => c.checked).map(c => c.value);
+  const todoMarcado = marcados.length === checks.length;
+  document.getElementById('an-kiosko-all').checked = todoMarcado;
+  anKioskosSeleccionados = (todoMarcado || marcados.length === 0) ? new Set() : new Set(marcados);
+  actualizarLabelKioskoAn();
+  renderAnalisis();
+}
+
+function actualizarLabelKioskoAn() {
+  const label = document.getElementById('an-kiosko-label');
+  if (anKioskosSeleccionados.size === 0) label.textContent = 'Todos los kioskos';
+  else if (anKioskosSeleccionados.size === 1) label.textContent = [...anKioskosSeleccionados][0];
+  else label.textContent = anKioskosSeleccionados.size + ' kioskos';
 }
 
 function alCambiarKioskoMerma() {
@@ -611,9 +738,9 @@ function limpiarMerma() {
 }
 
 // ── HISTORIAL ──────────────────────────────────────────────────────
-async function cargarHistorial() {
-  document.getElementById('hist-body').innerHTML = '<tr><td colspan="7"><div class="empty-state">Cargando…</div></td></tr>';
-  document.getElementById('chart-mermas').innerHTML = '<div class="chart-empty">Cargando…</div>';
+// fetchMermasData() trae y normaliza los registros crudos de la hoja
+// Mermas — la usan tanto Historial como Análisis para no duplicar el fetch.
+async function fetchMermasData() {
   try {
     const resp = await fetchConTimeout(MERMAS_URL + '?modulo=mermas');
     const data = await resp.json();
@@ -628,8 +755,19 @@ async function cargarHistorial() {
       fotoUrl: r['Foto URL'] || '',
       registradoPor: r['Registrado por'] || ''
     })).filter(r => r.fecha && r.kiosko);
-    renderHistorial();
+    return true;
   } catch(e) {
+    return false;
+  }
+}
+
+async function cargarHistorial() {
+  document.getElementById('hist-body').innerHTML = '<tr><td colspan="7"><div class="empty-state">Cargando…</div></td></tr>';
+  document.getElementById('chart-mermas').innerHTML = '<div class="chart-empty">Cargando…</div>';
+  const ok = await fetchMermasData();
+  if (ok) {
+    renderHistorial();
+  } else {
     document.getElementById('hist-body').innerHTML = '<tr><td colspan="7"><div class="empty-state">No se pudo cargar el historial. Revisá la conexión.</div></td></tr>';
     document.getElementById('chart-mermas').innerHTML = '<div class="chart-empty">Sin datos.</div>';
   }
@@ -666,6 +804,155 @@ function renderHistorial() {
     .slice(-60);
 
   renderLineChart('chart-mermas', puntos);
+}
+
+// ── ANÁLISIS ──────────────────────────────────────────────────────
+// anVentasCache = { kiosko: { fecha: onzasVendidas } } — solo para los
+// kioskos con Square propio en SQUARE_KIOSKOS, para poder cruzar merma (g)
+// contra onzas de cerveza de barril vendidas. Se carga una vez por sesión;
+// "↻ Actualizar" fuerza un refresco.
+let anVentasCache = {};
+let anVentasCargadas = false;
+
+async function fetchVentasBarrilKiosko(cfg) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+    const resp = await fetchConTimeout(url, {}, 20000);
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+    const porDia = {};
+    filas.forEach(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      if (!fecha) return;
+      const producto = (c[4] && c[4].v) || '';
+      const categoria = (c[5] && c[5].v) || '';
+      const cantidad = Number((c[6] && c[6].v) || 0);
+      if (!esCervezaBarril(categoria, producto)) return;
+      const onzasUnit = extraerOnzas(producto);
+      if (onzasUnit == null) return;
+      porDia[fecha] = (porDia[fecha] || 0) + onzasUnit * cantidad;
+    });
+    return porDia;
+  } catch(e) {
+    return null;
+  }
+}
+
+async function cargarVentasAnalisis(forzar = false) {
+  if (anVentasCargadas && !forzar) return;
+  const entradas = Object.entries(SQUARE_KIOSKOS);
+  const resultados = await Promise.all(entradas.map(([, cfg]) => fetchVentasBarrilKiosko(cfg)));
+  entradas.forEach(([nombre], i) => { if (resultados[i]) anVentasCache[nombre] = resultados[i]; });
+  anVentasCargadas = true;
+}
+
+function onzasVendidasEnRango(kiosko, desde, hasta) {
+  const ventas = anVentasCache[kiosko] || {};
+  let total = 0;
+  Object.entries(ventas).forEach(([fecha, oz]) => {
+    if ((!desde || fecha >= desde) && (!hasta || fecha <= hasta)) total += oz;
+  });
+  return total;
+}
+
+async function cargarAnalisis() {
+  document.getElementById('an-kpis').innerHTML = '<div class="empty-state">Cargando…</div>';
+  document.getElementById('chart-an-diario').innerHTML = '<div class="chart-empty">Cargando…</div>';
+  document.getElementById('chart-an-acumulado').innerHTML = '<div class="chart-empty">Cargando…</div>';
+  document.getElementById('an-comparativo').innerHTML = '<div class="empty-state">Cargando…</div>';
+  await fetchMermasData();
+  await cargarVentasAnalisis(true);
+  renderAnalisis();
+}
+
+function renderAnalisis() {
+  const desde = document.getElementById('an-desde').value;
+  const hasta = document.getElementById('an-hasta').value;
+
+  const lista = mermasData.filter(r =>
+    (anKioskosSeleccionados.size === 0 || anKioskosSeleccionados.has(r.kiosko)) &&
+    (!desde || r.fecha >= desde) &&
+    (!hasta || r.fecha <= hasta)
+  );
+
+  // ── KPIs ──
+  const totalG = lista.reduce((s, r) => s + r.pesoNeto, 0);
+  const diasConDatos = new Set(lista.map(r => r.fecha));
+  const promedioDiario = diasConDatos.size ? totalG / diasConDatos.size : 0;
+
+  const porKioskoTotal = {};
+  lista.forEach(r => { porKioskoTotal[r.kiosko] = (porKioskoTotal[r.kiosko] || 0) + r.pesoNeto; });
+  const rankingKiosko = Object.entries(porKioskoTotal).sort((a, b) => b[1] - a[1]);
+  const kioskoTop = rankingKiosko[0];
+
+  const kioskosConSquare = Object.keys(SQUARE_KIOSKOS).filter(k => anKioskosSeleccionados.size === 0 || anKioskosSeleccionados.has(k));
+  let onzasVendidasTotal = 0, mermaOzTotal = 0;
+  kioskosConSquare.forEach(k => {
+    onzasVendidasTotal += onzasVendidasEnRango(k, desde, hasta);
+    mermaOzTotal += (porKioskoTotal[k] || 0) / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+  });
+  const pctVsVendido = (onzasVendidasTotal + mermaOzTotal) > 0 ? (mermaOzTotal / (onzasVendidasTotal + mermaOzTotal)) * 100 : null;
+
+  document.getElementById('an-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Merma total del período</div>
+      <div class="kpi-val">${totalG.toLocaleString('es-CR')} g</div>
+      <div class="kpi-sub">${(totalG/1000).toLocaleString('es-CR',{maximumFractionDigits:1})} kg</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Promedio diario</div>
+      <div class="kpi-val">${Math.round(promedioDiario).toLocaleString('es-CR')} g</div>
+      <div class="kpi-sub">${diasConDatos.size} día${diasConDatos.size === 1 ? '' : 's'} con registro</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Kiosko con más merma</div>
+      <div class="kpi-val" style="font-size:16px">${kioskoTop ? kioskoTop[0] : '—'}</div>
+      <div class="kpi-sub">${kioskoTop ? kioskoTop[1].toLocaleString('es-CR') + ' g' : 'Sin datos en el rango'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">% merma vs. onzas vendidas</div>
+      <div class="kpi-val">${pctVsVendido != null ? pctVsVendido.toFixed(1) + '%' : '—'}</div>
+      <div class="kpi-sub">${kioskosConSquare.length ? 'Cerveza de barril · ' + kioskosConSquare.join(', ') : 'Sin kiosko con Square conectado en la selección'}</div>
+    </div>
+  `;
+
+  // ── Chart evolución diaria ──
+  const porFecha = {};
+  lista.forEach(r => { porFecha[r.fecha] = (porFecha[r.fecha] || 0) + r.pesoNeto; });
+  const puntosDiario = Object.entries(porFecha)
+    .map(([fecha, valor]) => ({ fecha, valor }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  renderLineChart('chart-an-diario', puntosDiario);
+
+  // ── Chart volumen acumulado ──
+  let acumulado = 0;
+  const puntosAcum = puntosDiario.map(p => { acumulado += p.valor; return { fecha: p.fecha, valor: acumulado }; });
+  renderLineChart('chart-an-acumulado', puntosAcum);
+
+  // ── Comparativo por kiosko (barras horizontales) ──
+  const maxKiosko = rankingKiosko.length ? rankingKiosko[0][1] : 1;
+  if (!rankingKiosko.length) {
+    document.getElementById('an-comparativo').innerHTML = '<div class="empty-state">Sin mermas registradas en el rango seleccionado.</div>';
+  } else {
+    document.getElementById('an-comparativo').innerHTML = rankingKiosko.map(([kiosko, valor]) => {
+      const pctBarra = maxKiosko > 0 ? (valor / maxKiosko * 100) : 0;
+      const pctTotal = totalG > 0 ? (valor / totalG * 100) : 0;
+      let pctVendidoTxt = '';
+      if (SQUARE_KIOSKOS[kiosko]) {
+        const ozK = onzasVendidasEnRango(kiosko, desde, hasta);
+        const mermaOzK = valor / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+        const pctK = (ozK + mermaOzK) > 0 ? (mermaOzK / (ozK + mermaOzK) * 100) : null;
+        pctVendidoTxt = pctK != null ? ` · ${pctK.toFixed(1)}% de lo vendido` : '';
+      }
+      return `<div class="hbar-row">
+        <span class="hbar-label">${kiosko}</span>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${pctBarra}%"></div></div>
+        <span class="hbar-val">${valor.toLocaleString('es-CR')} g <span class="hbar-sub">(${pctTotal.toFixed(1)}%${pctVendidoTxt})</span></span>
+      </div>`;
+    }).join('');
+  }
 }
 
 // ── GRÁFICO LINEAL (SVG inline, sin librerías externas) ──────────
@@ -706,11 +993,18 @@ function renderLineChart(containerId, points) {
 
 // ── UTILS ─────────────────────────────────────────────────────────
 function hoy() { return new Date().toISOString().slice(0,10); }
+function haceNDias(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0,10);
+}
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.getElementById('date-chip').textContent =
   new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('merma-fecha').value = hoy();
+document.getElementById('an-desde').value = haceNDias(30);
+document.getElementById('an-hasta').value = hoy();
 cargarKioskos().then(cargarMermaConfigCache);
 </script>
 </body>
