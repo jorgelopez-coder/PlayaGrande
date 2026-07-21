@@ -124,11 +124,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 /* Análisis */
 .an-date-input{width:140px;flex-shrink:0}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+.chip-btn{font-size:12px;padding:6px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-weight:500;transition:all .15s;font-family:var(--font-b)}
+.chip-btn:hover{border-color:var(--border-h);color:var(--text)}
+.chip-btn.active{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:600}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1rem}
 .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem}
 .kpi-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .kpi-val{font-family:var(--font-m);font-size:21px;font-weight:700;color:var(--text)}
 .kpi-sub{font-size:11px;color:var(--subtle);margin-top:4px}
+.valor-grande{font-family:var(--font-m);font-size:34px;font-weight:700;color:var(--green)}
+.valor-grande-sub{font-size:12px;color:var(--muted);margin-top:4px}
 .hbar-row{display:flex;align-items:center;gap:10px;padding:.55rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .hbar-row:last-child{border-bottom:none}
 .hbar-label{width:110px;flex-shrink:0;font-size:12.5px;font-weight:600}
@@ -270,10 +276,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ── TAB ANÁLISIS ── -->
 <div class="page" id="tab-analisis">
+  <div class="chip-row" id="an-atajos">
+    <button type="button" class="chip-btn" data-atajo="hoy" onclick="aplicarAtajoFecha('hoy')">Hoy</button>
+    <button type="button" class="chip-btn" data-atajo="ayer" onclick="aplicarAtajoFecha('ayer')">Ayer</button>
+    <button type="button" class="chip-btn" data-atajo="semana" onclick="aplicarAtajoFecha('semana')">Esta semana</button>
+    <button type="button" class="chip-btn" data-atajo="mes" onclick="aplicarAtajoFecha('mes')">Este mes</button>
+    <button type="button" class="chip-btn" data-atajo="anio" onclick="aplicarAtajoFecha('anio')">Este año</button>
+  </div>
   <div class="hist-filtros">
-    <input type="date" id="an-desde" class="an-date-input" onchange="renderAnalisis()"/>
+    <input type="date" id="an-desde" class="an-date-input" onchange="limpiarAtajoActivo();renderAnalisis()"/>
     <span style="color:var(--subtle);font-size:12px">a</span>
-    <input type="date" id="an-hasta" class="an-date-input" onchange="renderAnalisis()"/>
+    <input type="date" id="an-hasta" class="an-date-input" onchange="limpiarAtajoActivo();renderAnalisis()"/>
     <div class="multiselect" id="an-kiosko-ms">
       <button type="button" class="multiselect-btn" onclick="toggleKioskoDropdownAn()">
         <span id="an-kiosko-label">Todos los kioskos</span>
@@ -299,9 +312,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div id="chart-an-diario"><div class="chart-empty">Cargando…</div></div>
   </div>
 
-  <div class="chart-wrap">
-    <p class="card-title" style="margin-bottom:.75rem">Volumen acumulado de mermas (g)</p>
-    <div id="chart-an-acumulado"><div class="chart-empty">Cargando…</div></div>
+  <div class="card">
+    <p class="card-title">Volumen acumulado de mermas</p>
+    <div class="valor-grande" id="an-acumulado-valor">Cargando…</div>
+    <div class="valor-grande-sub" id="an-acumulado-sub"></div>
   </div>
 
   <div class="chart-wrap">
@@ -370,6 +384,9 @@ const SQUARE_KIOSKOS = {
 // criterio que DENSIDAD_CERVEZA_G_ML en index.html) — es una aproximación.
 const DENSIDAD_CERVEZA_G_ML = 1.005;
 const ML_POR_ONZA = 29.5735;
+// Cada sifón (barril) trae 20 L de cerveza — se usa para dar una
+// equivalencia intuitiva de la merma total, además de gramos/kg.
+const LITROS_POR_SIFON = 20;
 
 // Paleta fija para que cada kiosko tenga siempre el mismo color entre
 // gráficos y entre recargas (se asigna por posición en KIOSKOS, no por
@@ -871,6 +888,38 @@ async function cargarVentasAnalisis(forzar = false) {
   anVentasCargadas = true;
 }
 
+// ── ATAJOS DE FECHA (Análisis) ───────────────────────────────────
+function marcarAtajoActivo(tipo) {
+  document.querySelectorAll('#an-atajos .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.atajo === tipo));
+}
+function limpiarAtajoActivo() {
+  document.querySelectorAll('#an-atajos .chip-btn').forEach(b => b.classList.remove('active'));
+}
+function aplicarAtajoFecha(tipo) {
+  const ahora = new Date();
+  let desde = new Date(ahora), hasta = new Date(ahora);
+  if (tipo === 'ayer') {
+    desde.setDate(desde.getDate() - 1);
+    hasta.setDate(hasta.getDate() - 1);
+  } else if (tipo === 'semana') {
+    const dow = desde.getDay(); // 0=domingo … 6=sábado
+    const diff = (dow === 0 ? -6 : 1) - dow; // retrocede al lunes de esta semana
+    desde.setDate(desde.getDate() + diff);
+  } else if (tipo === 'mes') {
+    desde = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  } else if (tipo === 'anio') {
+    desde = new Date(ahora.getFullYear(), 0, 1);
+  }
+  // 'hoy' deja desde = hasta = hoy tal cual
+  document.getElementById('an-desde').value = desde.toISOString().slice(0,10);
+  document.getElementById('an-hasta').value = hasta.toISOString().slice(0,10);
+  marcarAtajoActivo(tipo);
+  // Si ya hay datos cargados, solo se re-filtra en el cliente (rápido). Si es
+  // la primera vez que se entra a la pestaña, se hace el fetch completo.
+  if (mermasData.length || anVentasCargadas) renderAnalisis();
+  else cargarAnalisis();
+}
+
 function onzasVendidasEnRango(kiosko, desde, hasta) {
   const ventas = anVentasCache[kiosko] || {};
   let total = 0;
@@ -883,7 +932,8 @@ function onzasVendidasEnRango(kiosko, desde, hasta) {
 async function cargarAnalisis() {
   document.getElementById('an-kpis').innerHTML = '<div class="empty-state">Cargando…</div>';
   document.getElementById('chart-an-diario').innerHTML = '<div class="chart-empty">Cargando…</div>';
-  document.getElementById('chart-an-acumulado').innerHTML = '<div class="chart-empty">Cargando…</div>';
+  document.getElementById('an-acumulado-valor').textContent = 'Cargando…';
+  document.getElementById('an-acumulado-sub').textContent = '';
   document.getElementById('chart-an-pct-vendido').innerHTML = '<div class="chart-empty">Cargando…</div>';
   document.getElementById('an-comparativo').innerHTML = '<div class="empty-state">Cargando…</div>';
   await fetchMermasData();
@@ -919,11 +969,14 @@ function renderAnalisis() {
   });
   const pctVsVendido = (onzasVendidasTotal + mermaOzTotal) > 0 ? (mermaOzTotal / (onzasVendidasTotal + mermaOzTotal)) * 100 : null;
 
+  const litrosTotal = totalG / DENSIDAD_CERVEZA_G_ML / 1000;
+  const sifonesTotal = litrosTotal / LITROS_POR_SIFON;
+
   document.getElementById('an-kpis').innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">Merma total del período</div>
       <div class="kpi-val">${totalG.toLocaleString('es-CR')} g</div>
-      <div class="kpi-sub">${(totalG/1000).toLocaleString('es-CR',{maximumFractionDigits:1})} kg</div>
+      <div class="kpi-sub">${(totalG/1000).toLocaleString('es-CR',{maximumFractionDigits:1})} kg · ≈ ${sifonesTotal.toLocaleString('es-CR',{maximumFractionDigits:2})} sifón${sifonesTotal === 1 ? '' : 'es'} (20 L c/u)</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Promedio diario</div>
@@ -953,15 +1006,11 @@ function renderAnalisis() {
   });
   renderMultiLineChart('chart-an-diario', seriesDiario);
 
-  // ── Chart volumen acumulado (barras) — total de la selección, corrido día a día ──
-  const porFechaTotal = {};
-  lista.forEach(r => { porFechaTotal[r.fecha] = (porFechaTotal[r.fecha] || 0) + r.pesoNeto; });
-  const puntosDiarioTotal = Object.entries(porFechaTotal)
-    .map(([fecha, valor]) => ({ fecha, valor }))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
-  let acumulado = 0;
-  const puntosAcum = puntosDiarioTotal.map(p => { acumulado += p.valor; return { fecha: p.fecha, valor: acumulado }; });
-  renderBarChart('chart-an-acumulado', puntosAcum, { color: '#1a7a4a', unidad: ' g' });
+  // ── Volumen acumulado — total de la selección en el rango, como valor único ──
+  document.getElementById('an-acumulado-valor').textContent = totalG.toLocaleString('es-CR') + ' g';
+  document.getElementById('an-acumulado-sub').textContent = diasConDatos.size
+    ? `${(totalG/1000).toLocaleString('es-CR',{maximumFractionDigits:1})} kg · ${diasConDatos.size} día${diasConDatos.size === 1 ? '' : 's'} con registro en el rango seleccionado`
+    : 'Sin registros en el rango seleccionado';
 
   // ── Chart % de merma sobre el volumen vendido — una línea por kiosko con
   // Square conectado (solo se puede calcular ahí, donde hay onzas vendidas) ──
