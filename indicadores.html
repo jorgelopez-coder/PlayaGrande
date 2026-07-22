@@ -111,9 +111,11 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 .kpi-detail-row .kd-name{color:var(--text);font-weight:500}
 .kpi-detail-row .kd-val{font-family:var(--font-m);color:var(--muted);white-space:nowrap;text-align:right}
 
-/* ── GRÁFICO DE PASTEL (media página) ── */
-.chart-wrap-half{max-width:420px;height:260px;margin:0 auto}
-#pie-card{max-width:520px;margin-left:auto;margin-right:auto}
+/* ── GRÁFICO DE PASTEL + RRHH (dos columnas de media página) ── */
+.two-col-half{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;align-items:start}
+.two-col-half .card{margin-bottom:0}
+.chart-wrap-half{max-width:360px;height:250px;margin:0 auto}
+@media(max-width:700px){.two-col-half{grid-template-columns:1fr}}
 
 /* ── METAS Y OBJETIVOS ── */
 .metas-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
@@ -204,13 +206,23 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
     <div class="empty-state"><span class="spinner"></span></div>
   </div>
 
-  <div class="card" id="pie-card">
-    <p class="card-title">Ventas totales del período — kioskos con Square propio</p>
-    <div class="chart-wrap chart-wrap-half">
-      <canvas id="chart-ventas-pie"></canvas>
-      <div class="chart-empty" id="chart-ventas-pie-empty" style="display:none"></div>
+  <div class="two-col-half">
+    <div class="card" id="pie-card">
+      <p class="card-title">Ventas totales del período — kioskos con Square propio</p>
+      <div class="chart-wrap chart-wrap-half">
+        <canvas id="chart-ventas-pie"></canvas>
+        <div class="chart-empty" id="chart-ventas-pie-empty" style="display:none"></div>
+      </div>
+      <p class="footnote">Distribución de las ventas totales del período entre los kioskos con Square propio.</p>
     </div>
-    <p class="footnote">Distribución de las ventas totales del período entre los kioskos con Square propio.</p>
+
+    <div class="card" id="rrhh-card">
+      <p class="card-title">RRHH — plantilla y vacaciones</p>
+      <div class="kpi-grid" id="rrhh-kpi-body" style="margin-bottom:0">
+        <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+      <p class="footnote">Empleados activos y balance de vacaciones (saldo del expediente menos días aprobados tomados, o cálculo por antigüedad si no hay saldo manual cargado). Es un estado actual, no depende del rango de fechas.</p>
+    </div>
   </div>
 
   <div class="card">
@@ -220,6 +232,15 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
       <div class="chart-empty" id="chart-ventas-linea-empty" style="display:none"></div>
     </div>
     <p class="footnote">Una línea sólida por kiosko con Square propio; línea punteada del mismo color = meta de ventas configurada para ese kiosko.</p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Onzas de cerveza de barril vendidas — evolución diaria</p>
+    <div class="chart-wrap">
+      <canvas id="chart-onzas-linea"></canvas>
+      <div class="chart-empty" id="chart-onzas-linea-empty" style="display:none"></div>
+    </div>
+    <p class="footnote">Onzas de cerveza de barril vendidas por día, por kiosko con Square propio (mismo criterio de detección de "cerveza de barril" que el % de merma).</p>
   </div>
 
   <div class="card">
@@ -269,6 +290,18 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 
   <div class="kpi-grid" id="kpi-kiosko">
     <div class="empty-state"><span class="spinner"></span></div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Top 10 productos — <span id="kiosko-top10-lbl"></span></p>
+    <div class="hist-table-wrap">
+      <table class="hist-table">
+        <thead>
+          <tr><th>#</th><th>Producto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Total vendido</th></tr>
+        </thead>
+        <tbody id="kiosko-top10-body"><tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="card">
@@ -374,6 +407,7 @@ function guardarMetas() {
     renderComparativo(indicadoresCache);
     try {
       renderLineaVentas(indicadoresCache);
+      renderLineaOnzas(indicadoresCache);
       renderLineaMerma(indicadoresCache);
     } catch(e) {
       console.error('Error al renderizar los gráficos de línea:', e);
@@ -476,6 +510,7 @@ async function obtenerVentasOnzasRango(cfg, desde, hasta) {
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}')+1));
     const filas = json.table.rows || [];
     const porDia = {}; // { fecha: {ventas, onzas} }
+    const productos = {}; // { nombreProducto: {cantidad, total} }
     let sinOnzas = 0;
     filas.forEach(fila => {
       const c = fila.c || [];
@@ -492,12 +527,17 @@ async function obtenerVentasOnzasRango(cfg, desde, hasta) {
         const oz = extraerOnzas(producto);
         if (oz == null) sinOnzas++; else porDia[f].onzas += oz * cantidad;
       }
+      if (producto) {
+        if (!productos[producto]) productos[producto] = { cantidad:0, total:0 };
+        productos[producto].cantidad += cantidad;
+        productos[producto].total += totalLinea;
+      }
     });
     const totalVentas = Object.values(porDia).reduce((s,d)=>s+d.ventas,0);
     const totalOnzas = Object.values(porDia).reduce((s,d)=>s+d.onzas,0);
-    return { ok:true, porDia, totalVentas, totalOnzas, sinOnzas };
+    return { ok:true, porDia, productos, totalVentas, totalOnzas, sinOnzas };
   } catch(e) {
-    return { ok:false, porDia:{}, totalVentas:0, totalOnzas:0, sinOnzas:0 };
+    return { ok:false, porDia:{}, productos:{}, totalVentas:0, totalOnzas:0, sinOnzas:0 };
   }
 }
 
@@ -574,6 +614,83 @@ function efectivoPendienteKiosko(cierresRaw, depositosRaw, kiosko) {
   return { crc, usd, nFechas };
 }
 
+// ── FUENTE 4: RRHH — empleados activos y balance de vacaciones (mismo
+// backend/módulos que rrhh-personal.html y rrhh-control-vacaciones.html;
+// es un estado actual del expediente, no depende del rango de fechas) ──
+async function obtenerPersonalYVacaciones() {
+  try {
+    const [rP, rV] = await Promise.all([
+      fetch(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json()),
+      fetch(APPS_SCRIPT_RRHH + '?modulo=vacaciones').then(r => r.json())
+    ]);
+    return { personal: rP.ok ? (rP.registros || []) : [], vacaciones: rV.ok ? (rV.registros || []) : [] };
+  } catch(e) { return { personal: [], vacaciones: [] }; }
+}
+function parsearFechaIngresoRrhh(valor) {
+  if (!valor) return null;
+  const str = String(valor).trim().substring(0, 10);
+  const p = str.split('-');
+  if (p.length < 3) return null;
+  const anio = parseInt(p[0]), mes = parseInt(p[1]) - 1, dia = parseInt(p[2]);
+  if (isNaN(anio) || isNaN(mes) || isNaN(dia)) return null;
+  return new Date(anio, mes, dia);
+}
+// Mismo cálculo que rrhh-personal.html/rrhh-control-vacaciones.html: usa el
+// saldo manual del expediente (si es válido) menos los días ya aprobados y
+// tomados; si no hay saldo manual, calcula por antigüedad desde el ingreso
+// (1 día por mes completo + 1 día extra si ya pasaron más de 20 días del mes).
+function calcularSaldoVacacionesRrhh(p, vacaciones) {
+  const saldoRaw = p['Saldo vacaciones'];
+  const saldoNum = parseFloat(saldoRaw);
+  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
+  const nombre = p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim();
+  const diasTomados = (vacaciones||[]).filter(s => {
+    const colab = (s['Colaborador']||'').toString().trim();
+    const estado = (s['Estado']||'').toString().trim();
+    return colab.toLowerCase() === nombre.toLowerCase() && estado.toLowerCase() === 'aprobado';
+  }).reduce((acc,s) => {
+    const d = parseFloat(s['Días'] || s['DÍAS'] || 0);
+    return acc + (isNaN(d) ? 0 : d);
+  }, 0);
+
+  if (saldoSheet > 0) return Math.max(0, saldoSheet - diasTomados);
+
+  const dIng = parsearFechaIngresoRrhh(p['Fecha ingreso']);
+  if (!dIng) return 0;
+  const hoyD = new Date();
+  let anios = hoyD.getFullYear() - dIng.getFullYear();
+  let meses = hoyD.getMonth() - dIng.getMonth();
+  let dias = hoyD.getDate() - dIng.getDate();
+  if (dias < 0) meses--;
+  if (meses < 0) { anios--; meses += 12; }
+  const mesesCompletos = Math.max(0, anios * 12 + meses);
+  let diasEnMesActual;
+  if (dias >= 0) diasEnMesActual = dias;
+  else { const diasEnMesAnterior = new Date(hoyD.getFullYear(), hoyD.getMonth(), 0).getDate(); diasEnMesActual = diasEnMesAnterior + dias; }
+  const extra = diasEnMesActual > 20 ? 1 : 0;
+  return Math.max(0, mesesCompletos + extra - diasTomados);
+}
+function renderRrhhKpis(personal, vacaciones) {
+  const cont = document.getElementById('rrhh-kpi-body');
+  if (!personal || !personal.length) {
+    cont.innerHTML = '<div class="empty-state">No se pudo cargar la información de RRHH.</div>';
+    return;
+  }
+  const activos = personal.filter(p => (p['Estado']||'ACTIVO').toUpperCase() === 'ACTIVO');
+  const balanceTotal = activos.reduce((s,p) => s + calcularSaldoVacacionesRrhh(p, vacaciones), 0);
+  cont.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Empleados activos</div>
+      <div class="kpi-val">${activos.length}</div>
+      <div class="kpi-sub">${personal.length} en el expediente total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Balance de vacaciones</div>
+      <div class="kpi-val" style="color:var(--purple)">${balanceTotal.toLocaleString('es-CR',{maximumFractionDigits:1})} días</div>
+      <div class="kpi-sub">Suma de saldos, empleados activos</div>
+    </div>`;
+}
+
 // ── CÁLCULO GENERAL: arma un objeto por kiosko con todos los indicadores
 // para el rango de fechas activo ──
 let mermasRawCache = [];
@@ -616,7 +733,7 @@ async function calcularIndicadores() {
       kiosko, tieneSquare: !!sq, squareOk: sq ? sq.ok : false,
       ventasTotal, onzasTotal, mermaTotalG, mermaPct, tipsTotal, tipsVentasPct,
       efPendCrc: efPend.crc, efPendUsd: efPend.usd, efPendFechas: efPend.nFechas,
-      porDia: sq ? sq.porDia : {}, mermaPorDia, tipsPorDia
+      porDia: sq ? sq.porDia : {}, mermaPorDia, tipsPorDia, productos: sq ? sq.productos : {}
     };
   });
   return resultado;
@@ -706,7 +823,8 @@ function renderKpisGenerales(datos) {
     <div class="kpi-card">
       <div class="kpi-label">Efectivo pendiente de depositar</div>
       <div class="kpi-val" style="color:var(--amber)">${fmtCRC(efPendTotal)}</div>
-      <div class="kpi-sub">${efPendTotalUsd>0 ? fmtUSD(efPendTotalUsd)+' adicional · ' : ''}Saldo acumulado a hoy, todos los kioskos</div>
+      ${efPendTotalUsd>0 ? `<div class="kpi-val" style="color:var(--amber);margin-top:2px">${fmtUSD(efPendTotalUsd)}</div>` : ''}
+      <div class="kpi-sub">Saldo acumulado a hoy, todos los kioskos</div>
       <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-efectivo" onclick="toggleKpiDetail('efectivo')">Ver por kiosko ▾</button>
       <div class="kpi-detail-body" id="kpi-detail-efectivo">${kpiDetailEfectivoHtml(datos)}</div>
     </div>
@@ -803,7 +921,7 @@ function renderComparativo(datos) {
 }
 
 // ── RENDER: GRÁFICOS DE LÍNEA (ventas por período + evolución % merma) ──
-let chartVentasLinea = null, chartMermaLinea = null;
+let chartVentasLinea = null, chartMermaLinea = null, chartOnzasLinea = null;
 
 function fechasOrdenadasEnRango(datos) {
   const set = new Set();
@@ -866,6 +984,45 @@ function renderLineaVentas(datos) {
       plugins: { legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } } },
       scales: {
         y: { ticks: { callback: v => '₡' + Number(v).toLocaleString('es-CR') } },
+        x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderLineaOnzas(datos) {
+  const idBase = 'chart-onzas-linea';
+  if (typeof Chart === 'undefined') {
+    mostrarChartVacio(idBase, 'No se pudo cargar la librería de gráficos (Chart.js). Revisá la conexión a internet y recargá la página.');
+    return;
+  }
+  const kioskosSquare = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && datos[k].squareOk);
+  const fechas = fechasOrdenadasEnRango(datos).filter(f => kioskosSquare.some(k => datos[k].porDia[f]));
+  if (chartOnzasLinea) { chartOnzasLinea.destroy(); chartOnzasLinea = null; }
+  if (!kioskosSquare.length || !fechas.length) {
+    mostrarChartVacio(idBase, 'Sin ventas de cerveza de barril registradas en el período para los kioskos con Square propio.');
+    return;
+  }
+  ocultarChartVacio(idBase);
+
+  const datasets = kioskosSquare.map((k, i) => {
+    const color = colorFor(i);
+    const d = datos[k];
+    return {
+      label: k,
+      data: fechas.map(f => d.porDia[f] ? d.porDia[f].onzas : null),
+      borderColor: color, backgroundColor: color, tension: .25, spanGaps: true, pointRadius: 2, borderWidth: 2
+    };
+  });
+
+  chartOnzasLinea = new Chart(document.getElementById(idBase), {
+    type: 'line',
+    data: { labels: fechas, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } } },
+      scales: {
+        y: { ticks: { callback: v => fmtOz(Number(v)) + ' oz' } },
         x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } }
       }
     }
@@ -946,7 +1103,35 @@ function renderKioskoTab() {
     ? 'Ventas y onzas de barril desde Square propio · merma desde el registro por peso · tips desde los cierres de caja.'
     : 'Este kiosko no tiene Square propio conectado: ventas, onzas y % de merma no son calculables. Se muestran merma (peso) y tips igual.';
 
+  renderKioskoTop10(d, kiosko);
   renderKioskoDiario(d, kiosko);
+}
+
+function renderKioskoTop10(d, kiosko) {
+  document.getElementById('kiosko-top10-lbl').textContent = kiosko;
+  const body = document.getElementById('kiosko-top10-body');
+  if (!d.tieneSquare) {
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Este kiosko no tiene Square propio conectado.</div></td></tr>';
+    return;
+  }
+  if (!d.squareOk) {
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Sin conexión a Square para este kiosko.</div></td></tr>';
+    return;
+  }
+  const lista = Object.entries(d.productos || {})
+    .map(([nombre, v]) => ({ nombre, cantidad: v.cantidad, total: v.total }))
+    .sort((a,b) => b.total - a.total)
+    .slice(0, 10);
+  if (!lista.length) {
+    body.innerHTML = '<tr><td colspan="4"><div class="empty">Sin ventas registradas en el período seleccionado.</div></td></tr>';
+    return;
+  }
+  body.innerHTML = lista.map((p, i) => `<tr>
+    <td class="num">${i+1}</td>
+    <td>${p.nombre}</td>
+    <td class="num">${p.cantidad.toLocaleString('es-CR')}</td>
+    <td class="num">${fmtCRC(p.total)}</td>
+  </tr>`).join('');
 }
 
 function renderKioskoDiario(d, kiosko) {
@@ -984,7 +1169,13 @@ async function cargarTodo() {
   document.getElementById('kpi-generales').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
   document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>';
   document.getElementById('kpi-kiosko').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  document.getElementById('kiosko-top10-body').innerHTML = '<tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
   document.getElementById('kiosko-diario-body').innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
+  document.getElementById('rrhh-kpi-body').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+
+  // El fetch de RRHH (empleados/vacaciones) no depende del rango de fechas,
+  // así que arranca en paralelo con el resto para no atrasar la carga.
+  const rrhhPromise = obtenerPersonalYVacaciones();
 
   try {
     indicadoresCache = await calcularIndicadores();
@@ -1000,12 +1191,22 @@ async function cargarTodo() {
   try {
     renderPieVentas(indicadoresCache);
     renderLineaVentas(indicadoresCache);
+    renderLineaOnzas(indicadoresCache);
     renderLineaMerma(indicadoresCache);
   } catch(e) {
     console.error('Error al renderizar los gráficos de línea:', e);
     mostrarChartVacio('chart-ventas-pie', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
     mostrarChartVacio('chart-ventas-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
+    mostrarChartVacio('chart-onzas-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
     mostrarChartVacio('chart-merma-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
+  }
+
+  try {
+    const rrhh = await rrhhPromise;
+    renderRrhhKpis(rrhh.personal, rrhh.vacaciones);
+  } catch(e) {
+    console.error('Error al cargar RRHH:', e);
+    document.getElementById('rrhh-kpi-body').innerHTML = '<div class="empty-state">No se pudo cargar la información de RRHH.</div>';
   }
 }
 
