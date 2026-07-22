@@ -100,6 +100,76 @@ const ENCABEZADOS_ROLES = [
   'ID', 'Nombre', 'PIN', 'Color', 'Modulos', 'Kioskos', 'Activo', 'Registrado'
 ];
 
+// ── PLANILLA (planilla.html) ──────────────────────────────────────
+// Feriados de pago obligatorio (Art. 148 CT) — tabla editable en vez de
+// hardcodeada: las fechas cambian cada año (Semana Santa es movible, la Ley
+// 8442 traslada algunos feriados a lunes), así que vive en el Sheet.
+const HOJA_FERIADOS = 'Feriados';
+const ENCABEZADOS_FERIADOS = ['Fecha', 'Nombre', 'Activo', 'Registrado'];
+
+// Una fila por Periodo + Kiosko + Colaborador (upsert — ver guardarIncidencia).
+const HOJA_INCIDENCIAS = 'Incidencias';
+const ENCABEZADOS_INCIDENCIAS = [
+  'ID', 'Periodo', 'Fecha inicio', 'Fecha fin', 'Kiosko', 'Colaborador',
+  'Horas regulares',
+  'Horas extra 50%', 'Comentario extra 50%',
+  'Horas extra 100%', 'Comentario extra 100%',
+  'Feriados trabajados',
+  'Incapacidad CCSS fecha inicio', 'Incapacidad CCSS fecha fin', 'Comentario incapacidad CCSS',
+  'Incapacidad INS fecha inicio', 'Incapacidad INS fecha fin', 'Comentario incapacidad INS',
+  'Incapacidad interna fecha inicio', 'Incapacidad interna fecha fin', 'Incapacidad interna %', 'Comentario incapacidad interna',
+  'Subsidio monto por día', 'Subsidio días', 'Subsidio tipo', 'Comentario subsidio',
+  'Días no trabajados', 'Comentario días no trabajados',
+  'Deducción adelanto salario', 'Comentario adelanto',
+  'Deducción compras aprobadas', 'Comentario compras',
+  'Deducción otras', 'Comentario otras',
+  'Deducción embargo salarial', 'Comentario embargo',
+  'Deducción pensión alimenticia', 'Comentario pensión',
+  'Registrado', 'Actualizado'
+];
+
+// Cabecera de cada corrida de planilla guardada (una por Periodo + Kiosko).
+const HOJA_PLANILLAS = 'Planillas';
+const ENCABEZADOS_PLANILLAS = [
+  'ID', 'Periodo', 'Fecha inicio', 'Fecha fin', 'Kiosko', 'Fecha cálculo',
+  'Calculado por', 'Total ingresos', 'Total deducciones', 'Total neto', 'Colaboradores'
+];
+
+// Detalle por colaborador de cada corrida (mismo patrón maestro/detalle que
+// TomaInventario/TomaInventarioDetalle en Inventario - Kioskos).
+const HOJA_PLANILLAS_DETALLE = 'PlanillasDetalle';
+const ENCABEZADOS_PLANILLAS_DETALLE = [
+  'ID Planilla', 'Colaborador', 'Puesto', 'Salario mensual', 'Salario diario', 'Salario por hora',
+  'Horas regulares monto', 'Horas extra 50% monto', 'Horas extra 100% monto', 'Feriados monto',
+  'Incapacidad CCSS monto', 'Incapacidad INS monto', 'Incapacidad interna monto', 'Vacaciones monto',
+  'Subsidio monto', 'Días no trabajados monto', 'Total ingresos',
+  'CCSS obrera monto', 'Adelanto salario', 'Compras aprobadas', 'Otras deducciones',
+  'Embargo salarial', 'Pensión alimenticia', 'Total deducciones', 'Neto a pagar'
+];
+
+// Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
+// deducción de ley automática, no aparece en la lista de deducciones
+// manuales porque no se ingresa a mano.
+const PORCENTAJE_CCSS_OBRERA = 0.1067;
+
+// Feriados de pago obligatorio de Costa Rica para 2026 — punto de partida
+// EDITABLE desde la pestaña "Feriados" de planilla.html (solo siembra la
+// hoja si está vacía, ver sembrarFeriados()). Semana Santa y los traslados a
+// lunes de la Ley 8442 (11 abril/25 julio/15 agosto si caen martes,
+// miércoles o jueves) pueden variar — verificalos contra el decreto oficial
+// del año antes de calcular planilla con ellos.
+const FERIADOS_2026_POR_DEFECTO = [
+  { fecha: '2026-01-01', nombre: 'Año Nuevo' },
+  { fecha: '2026-04-02', nombre: 'Jueves Santo' },
+  { fecha: '2026-04-03', nombre: 'Viernes Santo' },
+  { fecha: '2026-04-11', nombre: 'Día de Juan Santamaría' },
+  { fecha: '2026-05-01', nombre: 'Día del Trabajo' },
+  { fecha: '2026-07-25', nombre: 'Anexión del Partido de Nicoya' },
+  { fecha: '2026-08-15', nombre: 'Día de la Madre' },
+  { fecha: '2026-09-15', nombre: 'Independencia' },
+  { fecha: '2026-12-25', nombre: 'Navidad' }
+];
+
 // Carpeta de Drive donde se guarda una copia del PDF al cerrar una semana de
 // horarios. Pegá acá el ID de una carpeta tuya (ver instrucciones arriba) —
 // mientras esté vacío, "Cerrar horario" va a fallar al generar el PDF.
@@ -125,8 +195,30 @@ function configurarHojas() {
   prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES);
   prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS);
   prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
+  prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
+  prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS);
+  prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
+  prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
   sembrarConfiguracion();
   sembrarRoles();
+  sembrarFeriados();
+}
+
+// Crea la pestaña "Feriados" y, si está recién creada (sin filas todavía),
+// la siembra con los feriados de pago obligatorio de Costa Rica para 2026
+// (FERIADOS_2026_POR_DEFECTO) como punto de partida editable. Si ya tiene
+// filas (el usuario ya la editó desde planilla.html), no la vuelve a tocar.
+function sembrarFeriados() {
+  const hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
+  if (hoja.getLastRow() > 1) return;
+  FERIADOS_2026_POR_DEFECTO.forEach(function (f) {
+    agregarFilaPorEncabezado(hoja, ENCABEZADOS_FERIADOS, {
+      'Fecha': f.fecha,
+      'Nombre': f.nombre,
+      'Activo': 'Sí',
+      'Registrado': new Date().toISOString()
+    });
+  });
 }
 
 // Crea la pestaña "Configuracion" y, si está recién creada (sin filas de
@@ -204,6 +296,17 @@ function prepararHoja(nombre, encabezados) {
   // "Horario Lun".."Horario Dom" guardan "HH:MM-HH:MM" (o vacío/"Cerrado"),
   // no una hora de reloj real — forzar texto para que Sheets no autoconvierta.
   COLUMNAS_TEXTO_POR_HOJA[HOJA_CONFIGURACION] = ENCABEZADOS_HORARIO_KIOSKO;
+  // Fechas de Planilla, mismo motivo: son strings "yyyy-MM-dd" comparados
+  // como texto (calcularPlanilla los reparsea con parseFechaISO), no fechas
+  // de reloj — evitar que Sheets las autoconvierta a Date.
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_FERIADOS] = ['Fecha'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_INCIDENCIAS] = [
+    'Fecha inicio', 'Fecha fin',
+    'Incapacidad CCSS fecha inicio', 'Incapacidad CCSS fecha fin',
+    'Incapacidad INS fecha inicio', 'Incapacidad INS fecha fin',
+    'Incapacidad interna fecha inicio', 'Incapacidad interna fecha fin'
+  ];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_PLANILLAS] = ['Fecha inicio', 'Fecha fin'];
   (COLUMNAS_TEXTO_POR_HOJA[nombre] || []).forEach(function (col) {
     const idx = encabezados.indexOf(col) + 1;
     if (idx > 0) hoja.getRange(2, idx, Math.max(hoja.getMaxRows() - 1, 1), 1).setNumberFormat('@');
@@ -238,6 +341,18 @@ function doGet(e) {
       case 'liquidaciones':   hoja = prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES); break;
       case 'horarios':        hoja = prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS); break;
       case 'horarios_estado': hoja = prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO); break;
+      case 'feriados':          hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS); break;
+      case 'incidencias':       hoja = prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS); break;
+      case 'planillas':         hoja = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS); break;
+      case 'planillas_detalle': hoja = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE); break;
+      case 'planilla_calcular':
+        // Preview sin guardar — misma función de cálculo que usa
+        // planilla_guardar en doPost, para que el preview y el snapshot
+        // guardado nunca se desincronicen.
+        return jsonOut({
+          ok: true,
+          resultado: calcularPlanilla(e.parameter.periodo, e.parameter.fecha_inicio, e.parameter.fecha_fin, e.parameter.kiosko)
+        });
       case 'acciones':        return jsonOut({ ok: true, registros: [] });
       case 'kioskos':
         hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
@@ -319,6 +434,10 @@ function doPost(e) {
       case 'kiosko_estado':         result = cambiarEstadoKiosko(payload); break;
       case 'rol_guardar':           result = guardarRol(payload); break;
       case 'rol_estado':            result = cambiarEstadoRol(payload); break;
+      case 'feriado_guardar':       result = guardarFeriado(payload); break;
+      case 'feriado_estado':        result = cambiarEstadoFeriado(payload); break;
+      case 'incidencia_guardar':    result = guardarIncidencia(payload); break;
+      case 'planilla_guardar':      result = guardarPlanilla(payload); break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -895,4 +1014,414 @@ function cambiarEstadoRol(p) {
   const colActivo = colPorEncabezado(hoja, 'Activo');
   hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
   return { fila: fila };
+}
+
+// ── PLANILLA (planilla.html) ──────────────────────────────────────────
+
+// Crea un feriado nuevo o edita uno existente (identificado por su fecha
+// original, por si la fecha cambia como parte de la edición). Mismo patrón
+// que guardarKiosko.
+function guardarFeriado(p) {
+  const fecha = String(p.fecha || '').trim();
+  if (!fecha) throw new Error('Falta la fecha del feriado.');
+  if (!p.nombre) throw new Error('Falta el nombre del feriado.');
+
+  const hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
+  const original = String(p.fecha_original || '').trim();
+  const filaExistente = original ? filaPorColumna(hoja, ENCABEZADOS_FERIADOS, 'Fecha', original) : -1;
+
+  if (fecha !== original) {
+    const enUso = filasComoObjetos(hoja).some(function (r) {
+      return valorComoTexto(r['Fecha']).trim() === fecha;
+    });
+    if (enUso) throw new Error('Ya existe un feriado con esa fecha.');
+  }
+
+  const valores = {
+    'Fecha': fecha,
+    'Nombre': p.nombre,
+    'Activo': p.activo || 'Sí',
+    'Registrado': p.registrado_en || new Date().toISOString()
+  };
+
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_FERIADOS, valores);
+    return { fila: filaExistente, fecha: fecha };
+  }
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_FERIADOS, valores);
+  return { fila: fila, fecha: fecha };
+}
+
+// Activa/desactiva un feriado sin abrir el formulario completo (un feriado
+// inactivo deja de contarse en calcularPlanilla, pero no se borra).
+function cambiarEstadoFeriado(p) {
+  if (!p.fecha) throw new Error('Falta la fecha del feriado.');
+  const hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_FERIADOS, 'Fecha', p.fecha);
+  if (fila === -1) throw new Error('No se encontró ese feriado.');
+  const colActivo = colPorEncabezado(hoja, 'Activo');
+  hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
+  return { fila: fila };
+}
+
+// Busca la fila (1-indexada) de una incidencia por Periodo + Kiosko +
+// Colaborador combinados — a diferencia de filaPorColumna (una sola
+// columna), acá la clave de upsert son 3 columnas a la vez.
+function filaIncidencia(hoja, periodo, kiosko, colaborador) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return -1;
+  const nCols = hoja.getLastColumn();
+  const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const colPeriodo = encabezados.indexOf('Periodo');
+  const colKiosko = encabezados.indexOf('Kiosko');
+  const colColab = encabezados.indexOf('Colaborador');
+  const datos = hoja.getRange(2, 1, nFilas, nCols).getValues();
+  const buscadoPeriodo = String(periodo).trim();
+  const buscadoKiosko = String(kiosko).trim().toLowerCase();
+  const buscadoColab = String(colaborador).trim().toLowerCase();
+  for (let i = 0; i < datos.length; i++) {
+    if (valorComoTexto(datos[i][colPeriodo]).trim() === buscadoPeriodo
+        && String(datos[i][colKiosko]).trim().toLowerCase() === buscadoKiosko
+        && String(datos[i][colColab]).trim().toLowerCase() === buscadoColab) {
+      return i + 2;
+    }
+  }
+  return -1;
+}
+
+// Guarda (crea o reemplaza) la incidencia de un colaborador para un
+// Periodo + Kiosko. planilla.html manda siempre el objeto completo — un
+// campo que no aplica ese periodo simplemente se manda en 0/vacío.
+function guardarIncidencia(p) {
+  if (!p.periodo) throw new Error('Falta el periodo.');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.colaborador) throw new Error('Falta el colaborador.');
+
+  const hoja = prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS);
+  const filaExistente = filaIncidencia(hoja, p.periodo, p.kiosko, p.colaborador);
+  const ahora = new Date().toISOString();
+  const pctInterna = (p.incap_interna_porcentaje === '' || p.incap_interna_porcentaje === undefined || p.incap_interna_porcentaje === null)
+    ? 100 : Number(p.incap_interna_porcentaje);
+
+  const valores = {
+    'ID': p.id || Date.now(),
+    'Periodo': p.periodo,
+    'Fecha inicio': p.fecha_inicio || '',
+    'Fecha fin': p.fecha_fin || '',
+    'Kiosko': p.kiosko,
+    'Colaborador': p.colaborador,
+    'Horas regulares': Number(p.horas_regulares) || 0,
+    'Horas extra 50%': Number(p.extra_50) || 0,
+    'Comentario extra 50%': p.comentario_extra_50 || '',
+    'Horas extra 100%': Number(p.extra_100) || 0,
+    'Comentario extra 100%': p.comentario_extra_100 || '',
+    'Feriados trabajados': JSON.stringify(p.feriados_trabajados || []),
+    'Incapacidad CCSS fecha inicio': p.incap_ccss_inicio || '',
+    'Incapacidad CCSS fecha fin': p.incap_ccss_fin || '',
+    'Comentario incapacidad CCSS': p.comentario_incap_ccss || '',
+    'Incapacidad INS fecha inicio': p.incap_ins_inicio || '',
+    'Incapacidad INS fecha fin': p.incap_ins_fin || '',
+    'Comentario incapacidad INS': p.comentario_incap_ins || '',
+    'Incapacidad interna fecha inicio': p.incap_interna_inicio || '',
+    'Incapacidad interna fecha fin': p.incap_interna_fin || '',
+    'Incapacidad interna %': pctInterna,
+    'Comentario incapacidad interna': p.comentario_incap_interna || '',
+    'Subsidio monto por día': Number(p.subsidio_monto) || 0,
+    'Subsidio días': Number(p.subsidio_dias) || 0,
+    'Subsidio tipo': p.subsidio_tipo || '',
+    'Comentario subsidio': p.comentario_subsidio || '',
+    'Días no trabajados': Number(p.dias_no_trabajados) || 0,
+    'Comentario días no trabajados': p.comentario_dias_no_trabajados || '',
+    'Deducción adelanto salario': Number(p.ded_adelanto) || 0,
+    'Comentario adelanto': p.comentario_adelanto || '',
+    'Deducción compras aprobadas': Number(p.ded_compras) || 0,
+    'Comentario compras': p.comentario_compras || '',
+    'Deducción otras': Number(p.ded_otras) || 0,
+    'Comentario otras': p.comentario_otras || '',
+    'Deducción embargo salarial': Number(p.ded_embargo) || 0,
+    'Comentario embargo': p.comentario_embargo || '',
+    'Deducción pensión alimenticia': Number(p.ded_pension) || 0,
+    'Comentario pensión': p.comentario_pension || '',
+    'Registrado': ahora,
+    'Actualizado': ahora
+  };
+
+  if (filaExistente !== -1) {
+    // Conservar el ID y la fecha de "Registrado" originales — solo
+    // "Actualizado" cambia en una edición.
+    const nCols = Math.max(hoja.getLastColumn(), ENCABEZADOS_INCIDENCIAS.length);
+    const encabezadosReales = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+    const filaActual = hoja.getRange(filaExistente, 1, 1, nCols).getValues()[0];
+    const idxId = encabezadosReales.indexOf('ID');
+    const idxReg = encabezadosReales.indexOf('Registrado');
+    if (idxId !== -1) valores['ID'] = filaActual[idxId];
+    if (idxReg !== -1) valores['Registrado'] = filaActual[idxReg];
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_INCIDENCIAS, valores);
+    return { fila: filaExistente };
+  }
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_INCIDENCIAS, valores);
+  return { fila: fila };
+}
+
+// ── CÁLCULO DE PLANILLA (Código de Trabajo CR) ────────────────────────
+
+// Convierte "yyyy-MM-dd" a Date a medianoche local, evitando los líos de
+// zona horaria de `new Date('yyyy-MM-dd')` (que la interpreta en UTC).
+function parseFechaISO(s) {
+  if (!s) return null;
+  const partes = String(s).split('-');
+  if (partes.length !== 3) return null;
+  const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Días de intersección (inclusive en ambos extremos) entre los rangos
+// [aIni,aFin] y [bIni,bFin]. Devuelve 0 si no hay traslape o falta alguna fecha.
+function diasInterseccion(aIni, aFin, bIni, bFin) {
+  if (!aIni || !aFin || !bIni || !bFin) return 0;
+  const ini = aIni > bIni ? aIni : bIni;
+  const fin = aFin < bFin ? aFin : bFin;
+  if (fin < ini) return 0;
+  return Math.round((fin - ini) / 86400000) + 1;
+}
+
+// Calcula la planilla de un Kiosko para un Periodo (quincena) dado, a partir
+// de Personal (salario/estado), Incidencias (Periodo+Kiosko), Vacaciones
+// (solicitudes Aprobada) y Feriados (activos). NO guarda nada — la usan
+// tanto el preview (doGet ?modulo=planilla_calcular) como planilla_guardar,
+// para que nunca queden desincronizados.
+//
+// Nota legal: cálculo preliminar según el Código de Trabajo de Costa Rica
+// (jornada ordinaria Art. 136, horas extra Art. 139, feriados Art. 148,
+// vacaciones Art. 153) y la Ley 9756 (incapacidad CCSS). Los montos deben
+// ser revisados por contabilidad antes del pago — no incluye Impuesto de
+// Renta ni convenios colectivos particulares.
+function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
+  if (!periodo) throw new Error('Falta el periodo.');
+  if (!fechaInicioStr || !fechaFinStr) throw new Error('Faltan las fechas del periodo.');
+  if (!kiosko) throw new Error('Falta el kiosko.');
+
+  const fechaInicio = parseFechaISO(fechaInicioStr);
+  const fechaFin = parseFechaISO(fechaFinStr);
+  if (!fechaInicio || !fechaFin) throw new Error('Fechas de periodo inválidas.');
+
+  // Comparación case-insensitive: "Personal" no siempre tiene el mismo case
+  // que la pestaña Configuracion (ej. "PLAYA GRANDE" vs "Playa Grande") —
+  // mismo problema ya resuelto en horarios.html (buildFromPersonal).
+  const kioskoBuscado = String(kiosko).trim().toLowerCase();
+  const mismoKiosko = function (valor) { return String(valor || '').trim().toLowerCase() === kioskoBuscado; };
+
+  const personal = filasComoObjetos(prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL))
+    .filter(function (p) { return mismoKiosko(p['Kiosko']) && (p['Estado'] || '').toUpperCase() === 'ACTIVO'; });
+
+  const incidencias = filasComoObjetos(prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS))
+    .filter(function (i) { return String(i['Periodo']) === String(periodo) && mismoKiosko(i['Kiosko']); });
+
+  const vacacionesAprobadas = filasComoObjetos(prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES))
+    .filter(function (v) { return (v['Estado'] || '').toLowerCase() === 'aprobada'; });
+
+  const feriadosEnPeriodo = filasComoObjetos(prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS))
+    .filter(function (f) {
+      if (String(f['Activo'] || 'Sí').trim().toLowerCase() === 'no') return false;
+      const d = parseFechaISO(valorComoTexto(f['Fecha']));
+      return d && d >= fechaInicio && d <= fechaFin;
+    });
+
+  const detalle = personal.map(function (persona) {
+    const nombre = persona['Nombre completo'];
+    const salario = Number(persona['Salario']) || 0;
+    const salarioDiario = salario / 30;
+    const salarioHora = salarioDiario / 8;
+    const inc = incidencias.find(function (i) { return (i['Colaborador'] || '') === nombre; }) || {};
+
+    const horasRegularesMonto = (Number(inc['Horas regulares']) || 0) * salarioHora;
+    const extra50Monto = (Number(inc['Horas extra 50%']) || 0) * salarioHora * 1.5;
+    const extra100Monto = (Number(inc['Horas extra 100%']) || 0) * salarioHora * 2;
+
+    // Feriados: cada feriado activo del periodo paga un día completo de
+    // salario (se trabaje o no, Art. 148 CT); si además está marcado como
+    // trabajado en la incidencia, paga un día extra más (doble).
+    let feriadosTrabajados = [];
+    try { feriadosTrabajados = JSON.parse(inc['Feriados trabajados'] || '[]'); } catch (err) { feriadosTrabajados = []; }
+    const feriadosMonto = feriadosEnPeriodo.reduce(function (acc, f) {
+      const fechaFeriado = valorComoTexto(f['Fecha']);
+      const trabajado = feriadosTrabajados.indexOf(fechaFeriado) !== -1;
+      return acc + salarioDiario * (trabajado ? 2 : 1);
+    }, 0);
+
+    // Incapacidad CCSS: 50% a cargo del patrono solo en los primeros 3 días
+    // calendario desde la fecha de inicio REAL de la incapacidad (aunque
+    // haya empezado antes de este periodo), y solo la porción de esos 3
+    // días que cae dentro de este periodo. Del día 4 en adelante: ₡0 (lo
+    // paga la CCSS directo, no pasa por planilla).
+    let incapCCSSMonto = 0;
+    const ccssIni = parseFechaISO(inc['Incapacidad CCSS fecha inicio']);
+    if (ccssIni) {
+      const primerosTresFin = new Date(ccssIni.getFullYear(), ccssIni.getMonth(), ccssIni.getDate() + 2);
+      const diasPagados = diasInterseccion(ccssIni, primerosTresFin, fechaInicio, fechaFin);
+      incapCCSSMonto = diasPagados * salarioDiario * 0.5;
+    }
+
+    // Incapacidad INS (riesgo de trabajo): el INS cubre 100% desde el día 1,
+    // así que el patrono no paga nada — se registra solo para historial.
+    const incapINSMonto = 0;
+
+    // Incapacidad interna: política propia de la empresa (no respaldada por
+    // CCSS/INS), % editable por incidencia — default 100%.
+    let incapInternaMonto = 0;
+    const internaIni = parseFechaISO(inc['Incapacidad interna fecha inicio']);
+    const internaFin = parseFechaISO(inc['Incapacidad interna fecha fin']);
+    if (internaIni && internaFin) {
+      const dias = diasInterseccion(internaIni, internaFin, fechaInicio, fechaFin);
+      const pct = (inc['Incapacidad interna %'] === '' || inc['Incapacidad interna %'] === undefined) ? 100 : Number(inc['Incapacidad interna %']);
+      incapInternaMonto = dias * salarioDiario * (pct / 100);
+    }
+
+    // Vacaciones: automático desde "Vacaciones" (Estado=Aprobada) — no se
+    // ingresa a mano en Incidencias.
+    const vacacionesDias = vacacionesAprobadas
+      .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
+      .reduce(function (acc, v) {
+        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), parseFechaISO(v['Fecha fin']), fechaInicio, fechaFin);
+      }, 0);
+    const vacacionesMonto = vacacionesDias * salarioDiario;
+
+    // Subsidio de alimentación/transporte — no forma parte de la base de
+    // cotización de CCSS (se resta antes de calcular la cuota obrera).
+    const subsidioMonto = (Number(inc['Subsidio monto por día']) || 0) * (Number(inc['Subsidio días']) || 0);
+
+    // Días no trabajados — resta del ingreso de la quincena.
+    const diasNoTrabajadosMonto = (Number(inc['Días no trabajados']) || 0) * salarioDiario;
+
+    const totalIngresos = horasRegularesMonto + extra50Monto + extra100Monto + feriadosMonto
+      + incapCCSSMonto + incapINSMonto + incapInternaMonto + vacacionesMonto + subsidioMonto
+      - diasNoTrabajadosMonto;
+
+    const baseCCSS = Math.max(totalIngresos - subsidioMonto, 0);
+    const ccssObreraMonto = baseCCSS * PORCENTAJE_CCSS_OBRERA;
+    const adelanto = Number(inc['Deducción adelanto salario']) || 0;
+    const compras  = Number(inc['Deducción compras aprobadas']) || 0;
+    const otras    = Number(inc['Deducción otras']) || 0;
+    const embargo  = Number(inc['Deducción embargo salarial']) || 0;
+    const pension  = Number(inc['Deducción pensión alimenticia']) || 0;
+    const totalDeducciones = ccssObreraMonto + adelanto + compras + otras + embargo + pension;
+    const neto = totalIngresos - totalDeducciones;
+
+    return {
+      colaborador: nombre, puesto: persona['Puesto'] || '',
+      salario: salario, salarioDiario: salarioDiario, salarioHora: salarioHora,
+      horasRegularesMonto: horasRegularesMonto, extra50Monto: extra50Monto, extra100Monto: extra100Monto,
+      feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
+      incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
+      subsidioMonto: subsidioMonto, diasNoTrabajadosMonto: diasNoTrabajadosMonto, totalIngresos: totalIngresos,
+      ccssObreraMonto: ccssObreraMonto, adelanto: adelanto, compras: compras, otras: otras,
+      embargo: embargo, pension: pension, totalDeducciones: totalDeducciones, neto: neto
+    };
+  });
+
+  const totales = detalle.reduce(function (acc, d) {
+    acc.totalIngresos += d.totalIngresos;
+    acc.totalDeducciones += d.totalDeducciones;
+    acc.totalNeto += d.neto;
+    return acc;
+  }, { totalIngresos: 0, totalDeducciones: 0, totalNeto: 0 });
+
+  return {
+    periodo: periodo, fecha_inicio: fechaInicioStr, fecha_fin: fechaFinStr, kiosko: kiosko,
+    colaboradores: detalle, totales: totales,
+    feriados_en_periodo: feriadosEnPeriodo.map(function (f) { return { fecha: valorComoTexto(f['Fecha']), nombre: f['Nombre'] }; })
+  };
+}
+
+// Borra las filas donde TODAS las columnas indicadas en `criterios` (objeto
+// {NombreColumna: valor}) coinciden — a diferencia de eliminarFilasPorColumna
+// (un solo criterio), acá hace falta Periodo + Kiosko a la vez para no
+// borrar los otros kioskos del mismo periodo al reemplazar una planilla.
+function eliminarFilasPorCriterios(hoja, criterios) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return;
+  const nCols = hoja.getLastColumn();
+  const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const datos = hoja.getRange(2, 1, nFilas, nCols).getValues();
+  const claves = Object.keys(criterios);
+  for (let i = datos.length - 1; i >= 0; i--) {
+    const coincide = claves.every(function (clave) {
+      const idx = encabezados.indexOf(clave);
+      return idx !== -1 && valorComoTexto(datos[i][idx]).trim().toLowerCase() === String(criterios[clave]).trim().toLowerCase();
+    });
+    if (coincide) hoja.deleteRow(i + 2);
+  }
+}
+
+// Calcula y guarda un snapshot permanente de la planilla (cabecera en
+// "Planillas" + una fila por colaborador en "PlanillasDetalle"). Si ya
+// existía una corrida guardada para este mismo Periodo + Kiosko, la
+// reemplaza entera — mismo criterio que "Guardar semana" en Horarios.
+function guardarPlanilla(p) {
+  if (!p.periodo) throw new Error('Falta el periodo.');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.fecha_inicio || !p.fecha_fin) throw new Error('Faltan las fechas del periodo.');
+
+  const resultado = calcularPlanilla(p.periodo, p.fecha_inicio, p.fecha_fin, p.kiosko);
+
+  const hojaPlanillas = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
+  const hojaDetalle = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
+
+  const existentes = filasComoObjetos(hojaPlanillas).filter(function (r) {
+    return String(r['Periodo']) === String(p.periodo)
+      && String(r['Kiosko'] || '').trim().toLowerCase() === String(p.kiosko).trim().toLowerCase();
+  });
+  existentes.forEach(function (r) {
+    eliminarFilasPorColumna(hojaDetalle, ENCABEZADOS_PLANILLAS_DETALLE, 'ID Planilla', r['ID']);
+  });
+  eliminarFilasPorCriterios(hojaPlanillas, { 'Periodo': p.periodo, 'Kiosko': p.kiosko });
+
+  const id = 'plan_' + Date.now();
+  const ahora = new Date().toISOString();
+
+  agregarFilaPorEncabezado(hojaPlanillas, ENCABEZADOS_PLANILLAS, {
+    'ID': id,
+    'Periodo': p.periodo,
+    'Fecha inicio': p.fecha_inicio,
+    'Fecha fin': p.fecha_fin,
+    'Kiosko': p.kiosko,
+    'Fecha cálculo': ahora,
+    'Calculado por': p.calculado_por || '',
+    'Total ingresos': resultado.totales.totalIngresos,
+    'Total deducciones': resultado.totales.totalDeducciones,
+    'Total neto': resultado.totales.totalNeto,
+    'Colaboradores': resultado.colaboradores.length
+  });
+
+  resultado.colaboradores.forEach(function (c) {
+    agregarFilaPorEncabezado(hojaDetalle, ENCABEZADOS_PLANILLAS_DETALLE, {
+      'ID Planilla': id,
+      'Colaborador': c.colaborador,
+      'Puesto': c.puesto,
+      'Salario mensual': c.salario,
+      'Salario diario': c.salarioDiario,
+      'Salario por hora': c.salarioHora,
+      'Horas regulares monto': c.horasRegularesMonto,
+      'Horas extra 50% monto': c.extra50Monto,
+      'Horas extra 100% monto': c.extra100Monto,
+      'Feriados monto': c.feriadosMonto,
+      'Incapacidad CCSS monto': c.incapCCSSMonto,
+      'Incapacidad INS monto': c.incapINSMonto,
+      'Incapacidad interna monto': c.incapInternaMonto,
+      'Vacaciones monto': c.vacacionesMonto,
+      'Subsidio monto': c.subsidioMonto,
+      'Días no trabajados monto': c.diasNoTrabajadosMonto,
+      'Total ingresos': c.totalIngresos,
+      'CCSS obrera monto': c.ccssObreraMonto,
+      'Adelanto salario': c.adelanto,
+      'Compras aprobadas': c.compras,
+      'Otras deducciones': c.otras,
+      'Embargo salarial': c.embargo,
+      'Pensión alimenticia': c.pension,
+      'Total deducciones': c.totalDeducciones,
+      'Neto a pagar': c.neto
+    });
+  });
+
+  return { id: id, colaboradores: resultado.colaboradores.length, total_neto: resultado.totales.totalNeto };
 }

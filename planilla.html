@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Planilla · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:22}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.kiosko-bar{display:flex;align-items:center;gap:10px;padding:.65rem 2rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:21;flex-wrap:wrap}
+.kiosko-bar label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.kiosko-bar select{background:var(--card)}
+.periodo-bar{display:flex;align-items:center;gap:10px;padding:.55rem 2rem;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:104px;z-index:21;flex-wrap:wrap}
+.periodo-bar label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.periodo-bar select{max-width:150px}
+.periodo-chip{font-size:12px;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:20px;padding:4px 12px;font-weight:600;white-space:nowrap}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:150px;z-index:20;overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:1000px;margin:0 auto;padding:1.5rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+select,input[type=text],input[type=date],input[type=number]{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 10px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+select:focus,input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px}
+.field input,.field select{width:100%}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.hint{font-size:11px;color:var(--subtle);margin-top:4px}
+
+/* Layout lista + panel */
+.layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+.lista-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.lista-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.lista-head-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.badge-count{font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green);border-radius:20px;padding:2px 8px}
+.colab-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.colab-item:last-child{border-bottom:none}
+.colab-item:hover{background:var(--surface)}
+.colab-item.selected{background:var(--green-bg);border-left:3px solid var(--green)}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:12px;font-weight:700;flex-shrink:0;background:var(--green-bg);color:var(--green)}
+.ci-info{flex:1;min-width:0}
+.ci-nombre{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-sub{font-size:11px;color:var(--muted)}
+.ci-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.ci-dot.ok{background:var(--green)}
+.empty-lista{padding:2.5rem 1rem;text-align:center;color:var(--subtle);font-size:13px}
+.panel-placeholder{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:3rem;text-align:center;color:var(--subtle)}
+.panel{display:none}.panel.visible{display:block}
+
+.info-box{background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text)}
+.info-box b{color:var(--blue)}
+
+.check-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.check-row:last-child{border-bottom:none}
+.check-row input{width:auto;accent-color:var(--green);cursor:pointer}
+
+.btn-primary{width:100%;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:12px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
+.btn-secondary:hover{border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500}
+.btn-sm:hover{border-color:var(--border-h)}
+
+/* Tabla de cálculo */
+.calc-tabla{width:100%;border-collapse:collapse;font-size:13px}
+.calc-tabla th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--border)}
+.calc-tabla td{padding:10px 10px 10px 0;border-bottom:1px solid var(--border);vertical-align:top}
+.calc-tabla tr.calc-row{cursor:pointer}
+.calc-tabla tr.calc-row:hover{background:var(--surface)}
+.calc-tabla tr.calc-detalle td{background:var(--surface);padding:12px 14px}
+.calc-tabla .monto{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.subtit{font-size:11px;color:var(--muted);margin-top:2px}
+.detalle-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:12.5px}
+.detalle-grid b{display:block;margin-bottom:6px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.detalle-grid div div{display:flex;justify-content:space-between;padding:3px 0}
+.total-row{display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:10px;padding:14px 18px;margin-top:12px}
+.total-label{font-size:13px;font-weight:600;color:var(--green)}
+.total-valor{font-family:var(--font-d);font-size:24px;font-weight:700;color:var(--green);letter-spacing:-.02em}
+.nota-legal{font-size:11px;color:var(--muted);background:var(--surface);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.6}
+
+/* Historial */
+.hist-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+.hist-item:last-child{border-bottom:none}
+.hist-item:hover{background:var(--surface)}
+.hist-main{flex:1;min-width:0}
+.hist-periodo{font-size:14px;font-weight:600}
+.hist-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.hist-neto{font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--green);text-align:right}
+.hist-detalle{display:none;padding:0 16px 16px}
+.hist-detalle.visible{display:block}
+
+/* Feriados */
+.config-row{display:flex;align-items:center;gap:12px;padding:.85rem 0;border-bottom:1px solid var(--border)}
+.config-row:last-child{border-bottom:none}
+.config-fecha{font-family:var(--font-m);font-size:13px;color:var(--muted);width:100px;flex-shrink:0}
+.config-nombre{flex:1;font-size:13.5px;font-weight:600}
+.config-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+.config-badge.si{background:var(--green-bg);color:var(--green)}
+.config-badge.no{background:var(--red-bg);color:var(--red)}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:2.5rem 1rem;color:var(--subtle);font-size:13px}
+
+@media(max-width:740px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .kiosko-bar,.periodo-bar,.tabs{padding-left:1rem;padding-right:1rem}
+  .layout{grid-template-columns:1fr}
+  .field-row,.field-row3{grid-template-columns:1fr}
+  .detalle-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="rrhh-acciones.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      RRHH
+    </a>
+    <span class="page-title">💰 Planilla</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="kiosko-bar">
+  <label for="pl-kiosko">🏖️ Kiosko</label>
+  <select id="pl-kiosko" onchange="alCambiarSelector()"></select>
+</div>
+
+<div class="periodo-bar">
+  <label>Quincena</label>
+  <select id="pl-anio" onchange="alCambiarSelector()"></select>
+  <select id="pl-mes" onchange="alCambiarSelector()"></select>
+  <select id="pl-quincena" onchange="alCambiarSelector()">
+    <option value="1">Del 1 al 15</option>
+    <option value="2">Del 16 al fin de mes</option>
+  </select>
+  <span class="periodo-chip" id="periodo-chip">—</span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('incidencias',this)">Incidencias</button>
+  <button class="tab-btn" onclick="showTab('calcular',this)">Calcular planilla</button>
+  <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
+  <button class="tab-btn" onclick="showTab('feriados',this)">Feriados</button>
+</div>
+
+<main>
+
+<!-- ── TAB INCIDENCIAS ── -->
+<div class="page active" id="tab-incidencias">
+  <div class="layout">
+    <div class="lista-card">
+      <div class="lista-head">
+        <span class="lista-head-title">Colaboradores activos</span>
+        <span class="badge-count" id="inc-badge-count">—</span>
+      </div>
+      <div id="inc-lista-items"><div class="empty-lista"><span class="spinner"></span></div></div>
+    </div>
+    <div>
+      <div class="panel-placeholder" id="inc-placeholder">
+        <p>Seleccioná un colaborador<br>para registrar sus incidencias de la quincena</p>
+      </div>
+      <div class="panel" id="inc-panel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB CALCULAR PLANILLA ── -->
+<div class="page" id="tab-calcular">
+  <div class="card">
+    <p class="card-title">Calcular planilla de la quincena</p>
+    <p class="hint" style="margin-bottom:12px">Kiosko y quincena según la barra de arriba. El cálculo relee las incidencias, vacaciones aprobadas y feriados activos cada vez — no guarda nada hasta que apretés "Guardar planilla".</p>
+    <button class="btn-secondary" onclick="calcularPlanillaPreview()" id="btn-calcular">Calcular</button>
+  </div>
+  <div id="calc-resultado"></div>
+</div>
+
+<!-- ── TAB HISTORIAL ── -->
+<div class="page" id="tab-historial">
+  <div class="lista-card" id="hist-lista">
+    <div class="lista-head">
+      <span class="lista-head-title">Planillas guardadas</span>
+      <span class="badge-count" id="hist-badge-count">—</span>
+    </div>
+    <div id="hist-items"><div class="empty-lista"><span class="spinner"></span></div></div>
+  </div>
+</div>
+
+<!-- ── TAB FERIADOS ── -->
+<div class="page" id="tab-feriados">
+  <div class="card">
+    <p class="card-title" id="fer-form-title">Agregar feriado</p>
+    <input type="hidden" id="fer-original">
+    <div class="field-row">
+      <div class="field"><label>Fecha</label><input type="date" id="fer-fecha"></div>
+      <div class="field"><label>Nombre</label><input type="text" id="fer-nombre" placeholder="ej. Día de Juan Santamaría"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn-secondary" onclick="guardarFeriadoForm()" id="btn-fer-guardar" style="flex:1">Guardar feriado</button>
+      <button class="btn-secondary" onclick="cancelarEdicionFeriado()" id="btn-fer-cancelar" style="display:none">Cancelar</button>
+    </div>
+  </div>
+  <div class="card">
+    <p class="card-title">Feriados de pago obligatorio</p>
+    <p class="hint" style="margin-bottom:10px">Editá esta lista cada año — las fechas de Semana Santa y algunos traslados de la Ley 8442 cambian. Un feriado inactivo deja de contarse en el cálculo de planilla.</p>
+    <div id="fer-items"><div class="empty-lista"><span class="spinner"></span></div></div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('planilla')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs) — este
+// módulo agrega las hojas Feriados/Incidencias/Planillas/PlanillasDetalle a
+// ese mismo backend (ver README).
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+
+const hoy = new Date();
+const pad = n => String(n).padStart(2,'0');
+const fmt = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+function postBackend(payload) {
+  return fetchConTimeout(APPS_SCRIPT_URL, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) })
+    .then(r => r.json());
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3800);
+}
+function iniciales(n) { return (n||'').split(' ').slice(0,2).map(p => p[0]||'').join('').toUpperCase(); }
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'incidencias') cargarIncidenciasTab();
+  if (tab === 'historial') cargarHistorial();
+  if (tab === 'feriados') cargarFeriados();
+}
+
+// ── KIOSKOS ───────────────────────────────────────────────────────
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+async function cargarKioskos() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  } catch(e) { /* usa el respaldo de arriba */ }
+  const sel = document.getElementById('pl-kiosko');
+  sel.innerHTML = KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  const guardado = localStorage.getItem('kiosko_actual_planilla');
+  if (guardado && KIOSKOS.includes(guardado)) sel.value = guardado;
+}
+
+// ── PERIODO (quincena) ────────────────────────────────────────────
+function poblarSelectoresPeriodo() {
+  const anioActual = hoy.getFullYear();
+  const selAnio = document.getElementById('pl-anio');
+  selAnio.innerHTML = [anioActual-1, anioActual, anioActual+1].map(a => `<option value="${a}">${a}</option>`).join('');
+  selAnio.value = anioActual;
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('pl-mes').innerHTML = meses.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+  document.getElementById('pl-mes').value = hoy.getMonth() + 1;
+  document.getElementById('pl-quincena').value = hoy.getDate() <= 15 ? '1' : '2';
+}
+function rangoPeriodoActual() {
+  const anio = Number(document.getElementById('pl-anio').value);
+  const mes = Number(document.getElementById('pl-mes').value);
+  const quincena = Number(document.getElementById('pl-quincena').value);
+  const ini = quincena === 1 ? 1 : 16;
+  const fin = quincena === 1 ? 15 : new Date(anio, mes, 0).getDate();
+  const fechaInicio = `${anio}-${pad(mes)}-${pad(ini)}`;
+  const fechaFin = `${anio}-${pad(mes)}-${pad(fin)}`;
+  const periodo = `${anio}-${pad(mes)}-Q${quincena}`;
+  return { anio, mes, quincena, fechaInicio, fechaFin, periodo };
+}
+function fechaBonita(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('es-CR', { day:'numeric', month:'short' });
+}
+// "Personal" no siempre tiene el mismo case que la pestaña Configuracion
+// (ej. "PLAYA GRANDE" vs "Playa Grande") — mismo problema ya resuelto en
+// horarios.html (buildFromPersonal). Comparar siempre así, nunca con ===.
+function mismoKiosko(a, b) { return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase(); }
+function actualizarChipPeriodo() {
+  const r = rangoPeriodoActual();
+  document.getElementById('periodo-chip').textContent = `${fechaBonita(r.fechaInicio)} — ${fechaBonita(r.fechaFin)}`;
+  return r;
+}
+// Días de intersección (inclusive) entre [aIni,aFin] y [bIni,bFin], recibidos
+// como strings "yyyy-MM-dd" — mismo criterio que diasInterseccion() en el
+// backend, usado acá solo para mostrar info (el cálculo real vive en Apps Script).
+function interseccionDias(aIni, aFin, bIni, bFin) {
+  if (!aIni || !aFin) return 0;
+  const ai = new Date(aIni+'T00:00:00'), af = new Date(aFin+'T00:00:00');
+  const bi = new Date(bIni+'T00:00:00'), bf = new Date(bFin+'T00:00:00');
+  const ini = ai > bi ? ai : bi, fin = af < bf ? af : bf;
+  if (fin < ini) return 0;
+  return Math.round((fin - ini) / 86400000) + 1;
+}
+
+function alCambiarSelector() {
+  localStorage.setItem('kiosko_actual_planilla', document.getElementById('pl-kiosko').value);
+  actualizarChipPeriodo();
+  const tabActivo = document.querySelector('.page.active').id.replace('tab-','');
+  if (tabActivo === 'incidencias') cargarIncidenciasTab();
+  if (tabActivo === 'calcular') document.getElementById('calc-resultado').innerHTML = '';
+  if (tabActivo === 'historial') cargarHistorial();
+}
+
+// ══════════════════════════ INCIDENCIAS ══════════════════════════
+let PERSONAL_CACHE = [];
+let INCIDENCIAS_CACHE = [];
+let VACACIONES_CACHE = [];
+let FERIADOS_CACHE = [];
+let colaboradorSeleccionado = null;
+
+async function cargarIncidenciasTab() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  document.getElementById('inc-lista-items').innerHTML = '<div class="empty-lista"><span class="spinner"></span></div>';
+  try {
+    const [rPersonal, rVac, rFer, rInc] = await Promise.all([
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=incidencias')
+    ]);
+    const [dPersonal, dVac, dFer, dInc] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json(), rInc.json()]);
+    PERSONAL_CACHE = (dPersonal.ok ? dPersonal.registros : [])
+      .filter(p => mismoKiosko(p['Kiosko'], kiosko) && (p['Estado']||'').toUpperCase() === 'ACTIVO');
+    VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
+    FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
+    INCIDENCIAS_CACHE = dInc.ok ? dInc.registros : [];
+    renderListaColaboradores();
+  } catch (err) {
+    document.getElementById('inc-lista-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
+  }
+}
+
+function renderListaColaboradores() {
+  const r = rangoPeriodoActual();
+  document.getElementById('inc-badge-count').textContent = PERSONAL_CACHE.length;
+  const cont = document.getElementById('inc-lista-items');
+  if (!PERSONAL_CACHE.length) {
+    cont.innerHTML = '<div class="empty-lista">No hay colaboradores activos<br>en este kiosko.</div>';
+    return;
+  }
+  cont.innerHTML = PERSONAL_CACHE.map((p, i) => {
+    const tieneIncidencia = INCIDENCIAS_CACHE.some(inc =>
+      String(inc['Periodo']) === r.periodo && mismoKiosko(inc['Kiosko'], document.getElementById('pl-kiosko').value)
+      && (inc['Colaborador']||'') === p['Nombre completo']);
+    return `<div class="colab-item" id="ci-${i}" onclick="seleccionarColaborador(${i})">
+      <div class="avatar">${iniciales(p['Nombre completo'])}</div>
+      <div class="ci-info">
+        <div class="ci-nombre">${p['Nombre completo']}</div>
+        <div class="ci-sub">${p['Puesto']||'—'}</div>
+      </div>
+      <span class="ci-dot ${tieneIncidencia?'ok':''}" title="${tieneIncidencia?'Incidencia registrada':'Sin incidencia esta quincena'}"></span>
+    </div>`;
+  }).join('');
+}
+
+function seleccionarColaborador(idx) {
+  document.querySelectorAll('.colab-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('ci-' + idx).classList.add('selected');
+  colaboradorSeleccionado = PERSONAL_CACHE[idx];
+  renderPanelIncidencia();
+}
+
+function renderPanelIncidencia() {
+  const p = colaboradorSeleccionado;
+  const r = rangoPeriodoActual();
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const nombre = p['Nombre completo'];
+
+  const existente = INCIDENCIAS_CACHE.find(inc =>
+    String(inc['Periodo']) === r.periodo && mismoKiosko(inc['Kiosko'], kiosko) && (inc['Colaborador']||'') === nombre) || {};
+  let feriadosTrabajados = [];
+  try { feriadosTrabajados = JSON.parse(existente['Feriados trabajados'] || '[]'); } catch(e) { feriadosTrabajados = []; }
+
+  const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
+    if (String(f['Activo']||'Sí').trim().toLowerCase() === 'no') return false;
+    const fecha = String(f['Fecha']);
+    return fecha >= r.fechaInicio && fecha <= r.fechaFin;
+  });
+
+  const vacacionesDias = VACACIONES_CACHE
+    .filter(v => (v['Colaborador']||'') === nombre && (v['Estado']||'').toLowerCase() === 'aprobada')
+    .reduce((acc, v) => acc + interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin), 0);
+
+  document.getElementById('inc-placeholder').style.display = 'none';
+  const panel = document.getElementById('inc-panel');
+  panel.className = 'panel visible';
+  panel.innerHTML = `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar" style="width:44px;height:44px;font-size:15px">${iniciales(nombre)}</div>
+        <div>
+          <div style="font-family:var(--font-d);font-size:16px;font-weight:700">${nombre}</div>
+          <div class="hint">${p['Puesto']||'—'} · Salario mensual: ${fmt(p['Salario'])}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Horas</p>
+      <div class="field-row3">
+        <div class="field"><label>Horas regulares</label><input type="number" id="f-horas-reg" min="0" step="0.5" value="${existente['Horas regulares']||0}"></div>
+        <div class="field"><label>Horas extra 50%</label><input type="number" id="f-extra50" min="0" step="0.5" value="${existente['Horas extra 50%']||0}"></div>
+        <div class="field"><label>Horas extra 100%</label><input type="number" id="f-extra100" min="0" step="0.5" value="${existente['Horas extra 100%']||0}"></div>
+      </div>
+      <div class="field-row" style="margin-top:6px">
+        <div class="field"><label>Comentario extra 50%</label><input type="text" id="f-com-extra50" value="${existente['Comentario extra 50%']||''}"></div>
+        <div class="field"><label>Comentario extra 100%</label><input type="text" id="f-com-extra100" value="${existente['Comentario extra 100%']||''}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Feriados de esta quincena</p>
+      ${feriadosDelPeriodo.length ? feriadosDelPeriodo.map(f => `
+        <div class="check-row">
+          <input type="checkbox" class="chk-feriado" data-fecha="${f['Fecha']}" ${feriadosTrabajados.includes(String(f['Fecha']))?'checked':''}>
+          <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si ${nombre.split(' ')[0]} lo trabajó — se paga doble)</span></span>
+        </div>`).join('') : '<p class="hint">No hay feriados activos en esta quincena.</p>'}
+    </div>
+
+    <div class="card">
+      <p class="card-title">Incapacidades</p>
+      <p class="hint" style="margin-bottom:8px">CCSS: primeros 3 días desde la fecha de inicio real al 50% a cargo del patrono; el resto lo paga la CCSS directo. INS: siempre ₡0 a cargo del patrono, se registra solo para control.</p>
+      <div class="field-row">
+        <div class="field"><label>Incapacidad CCSS — inicio real</label><input type="date" id="f-ccss-ini" value="${existente['Incapacidad CCSS fecha inicio']||''}"></div>
+        <div class="field"><label>Incapacidad CCSS — fin</label><input type="date" id="f-ccss-fin" value="${existente['Incapacidad CCSS fecha fin']||''}"></div>
+      </div>
+      <div class="field"><label>Comentario incapacidad CCSS</label><input type="text" id="f-com-ccss" value="${existente['Comentario incapacidad CCSS']||''}"></div>
+      <div class="field-row" style="margin-top:10px">
+        <div class="field"><label>Incapacidad INS — inicio</label><input type="date" id="f-ins-ini" value="${existente['Incapacidad INS fecha inicio']||''}"></div>
+        <div class="field"><label>Incapacidad INS — fin</label><input type="date" id="f-ins-fin" value="${existente['Incapacidad INS fecha fin']||''}"></div>
+      </div>
+      <div class="field"><label>Comentario incapacidad INS</label><input type="text" id="f-com-ins" value="${existente['Comentario incapacidad INS']||''}"></div>
+      <div class="field-row3" style="margin-top:10px">
+        <div class="field"><label>Incapacidad interna — inicio</label><input type="date" id="f-int-ini" value="${existente['Incapacidad interna fecha inicio']||''}"></div>
+        <div class="field"><label>Incapacidad interna — fin</label><input type="date" id="f-int-fin" value="${existente['Incapacidad interna fecha fin']||''}"></div>
+        <div class="field"><label>% a pagar</label><input type="number" id="f-int-pct" min="0" max="100" value="${existente['Incapacidad interna %']===undefined||existente['Incapacidad interna %']===''?100:existente['Incapacidad interna %']}"></div>
+      </div>
+      <div class="field"><label>Comentario incapacidad interna</label><input type="text" id="f-com-int" value="${existente['Comentario incapacidad interna']||''}"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Vacaciones · subsidio · días no trabajados</p>
+      <div class="info-box" style="margin-bottom:12px">
+        <b>Vacaciones automáticas:</b> ${vacacionesDias} día${vacacionesDias!==1?'s':''} aprobado${vacacionesDias!==1?'s':''} dentro de esta quincena (desde Solicitud de Vacaciones) — no se ingresa a mano acá, se suma sola al calcular la planilla.
+      </div>
+      <div class="field-row3">
+        <div class="field"><label>Subsidio ₡/día</label><input type="number" id="f-sub-monto" min="0" step="100" value="${existente['Subsidio monto por día']||0}"></div>
+        <div class="field"><label>Días de subsidio</label><input type="number" id="f-sub-dias" min="0" step="1" value="${existente['Subsidio días']||0}"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="f-sub-tipo">
+            <option value="" ${!existente['Subsidio tipo']?'selected':''}>—</option>
+            <option value="Alimentación" ${existente['Subsidio tipo']==='Alimentación'?'selected':''}>Alimentación</option>
+            <option value="Transporte" ${existente['Subsidio tipo']==='Transporte'?'selected':''}>Transporte</option>
+            <option value="Ambos" ${existente['Subsidio tipo']==='Ambos'?'selected':''}>Ambos</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Comentario subsidio</label><input type="text" id="f-com-sub" value="${existente['Comentario subsidio']||''}"></div>
+      <div class="field-row" style="margin-top:10px">
+        <div class="field"><label>Días no trabajados</label><input type="number" id="f-dias-no-trab" min="0" step="1" value="${existente['Días no trabajados']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-dias-no-trab" value="${existente['Comentario días no trabajados']||''}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Deducciones</p>
+      <div class="field-row">
+        <div class="field"><label>Adelanto de salario ₡</label><input type="number" id="f-ded-adelanto" min="0" step="100" value="${existente['Deducción adelanto salario']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-adelanto" value="${existente['Comentario adelanto']||''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Compras aprobadas ₡</label><input type="number" id="f-ded-compras" min="0" step="100" value="${existente['Deducción compras aprobadas']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-compras" value="${existente['Comentario compras']||''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Otras deducciones ₡</label><input type="number" id="f-ded-otras" min="0" step="100" value="${existente['Deducción otras']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-otras" value="${existente['Comentario otras']||''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Embargo salarial ₡</label><input type="number" id="f-ded-embargo" min="0" step="100" value="${existente['Deducción embargo salarial']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-embargo" value="${existente['Comentario embargo']||''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Pensión alimenticia ₡</label><input type="number" id="f-ded-pension" min="0" step="100" value="${existente['Deducción pensión alimenticia']||0}"></div>
+        <div class="field"><label>Comentario</label><input type="text" id="f-com-pension" value="${existente['Comentario pensión']||''}"></div>
+      </div>
+      <p class="hint" style="margin-top:6px">La cuota obrera de CCSS (10.67%) se calcula sola al generar la planilla — no hace falta ingresarla acá.</p>
+    </div>
+
+    <button class="btn-primary" id="btn-guardar-incidencia" onclick="guardarIncidenciaActual()">Guardar incidencia</button>
+  `;
+}
+
+async function guardarIncidenciaActual() {
+  if (!colaboradorSeleccionado) return;
+  const r = rangoPeriodoActual();
+  const val = id => document.getElementById(id).value;
+  const feriadosMarcados = Array.from(document.querySelectorAll('.chk-feriado:checked')).map(el => el.dataset.fecha);
+
+  const payload = {
+    modulo: 'incidencia_guardar',
+    periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
+    kiosko: document.getElementById('pl-kiosko').value,
+    colaborador: colaboradorSeleccionado['Nombre completo'],
+    horas_regulares: val('f-horas-reg'), extra_50: val('f-extra50'), comentario_extra_50: val('f-com-extra50'),
+    extra_100: val('f-extra100'), comentario_extra_100: val('f-com-extra100'),
+    feriados_trabajados: feriadosMarcados,
+    incap_ccss_inicio: val('f-ccss-ini'), incap_ccss_fin: val('f-ccss-fin'), comentario_incap_ccss: val('f-com-ccss'),
+    incap_ins_inicio: val('f-ins-ini'), incap_ins_fin: val('f-ins-fin'), comentario_incap_ins: val('f-com-ins'),
+    incap_interna_inicio: val('f-int-ini'), incap_interna_fin: val('f-int-fin'),
+    incap_interna_porcentaje: val('f-int-pct'), comentario_incap_interna: val('f-com-int'),
+    subsidio_monto: val('f-sub-monto'), subsidio_dias: val('f-sub-dias'), subsidio_tipo: val('f-sub-tipo'), comentario_subsidio: val('f-com-sub'),
+    dias_no_trabajados: val('f-dias-no-trab'), comentario_dias_no_trabajados: val('f-com-dias-no-trab'),
+    ded_adelanto: val('f-ded-adelanto'), comentario_adelanto: val('f-com-adelanto'),
+    ded_compras: val('f-ded-compras'), comentario_compras: val('f-com-compras'),
+    ded_otras: val('f-ded-otras'), comentario_otras: val('f-com-otras'),
+    ded_embargo: val('f-ded-embargo'), comentario_embargo: val('f-com-embargo'),
+    ded_pension: val('f-ded-pension'), comentario_pension: val('f-com-pension')
+  };
+
+  const btn = document.getElementById('btn-guardar-incidencia');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const result = await postBackend(payload);
+    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
+    showToast(`Incidencia de ${colaboradorSeleccionado['Nombre completo']} guardada`, 'success');
+    await cargarIncidenciasTab();
+  } catch (err) {
+    showToast('Error al guardar: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar incidencia';
+  }
+}
+
+// ══════════════════════════ CALCULAR PLANILLA ══════════════════════════
+async function calcularPlanillaPreview() {
+  const r = rangoPeriodoActual();
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const btn = document.getElementById('btn-calcular');
+  btn.disabled = true; btn.textContent = 'Calculando…';
+  document.getElementById('calc-resultado').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  try {
+    const url = `${APPS_SCRIPT_URL}?modulo=planilla_calcular&periodo=${encodeURIComponent(r.periodo)}&fecha_inicio=${r.fechaInicio}&fecha_fin=${r.fechaFin}&kiosko=${encodeURIComponent(kiosko)}`;
+    const resp = await fetchConTimeout(url);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error del servidor');
+    renderTablaCalculo(data.resultado);
+  } catch (err) {
+    document.getElementById('calc-resultado').innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Calcular';
+  }
+}
+
+function renderTablaCalculo(resultado) {
+  window._calcResultado = resultado;
+  const cont = document.getElementById('calc-resultado');
+  if (!resultado.colaboradores.length) {
+    cont.innerHTML = '<div class="card"><div class="empty-state">No hay colaboradores activos en este kiosko.</div></div>';
+    return;
+  }
+  const filasFeriados = resultado.feriados_en_periodo.length
+    ? `<p class="hint">Feriados en esta quincena: ${resultado.feriados_en_periodo.map(f => `${fechaBonita(f.fecha)} (${f.nombre})`).join(', ')}</p>`
+    : '<p class="hint">No hay feriados activos en esta quincena.</p>';
+
+  const filas = resultado.colaboradores.map((c, i) => `
+    <tr class="calc-row" onclick="toggleDetalle(${i})">
+      <td>${c.colaborador}<div class="subtit">${c.puesto||''}</div></td>
+      <td class="monto">${fmt(c.totalIngresos)}</td>
+      <td class="monto">${fmt(c.totalDeducciones)}</td>
+      <td class="monto" style="font-weight:700;color:var(--green)">${fmt(c.neto)}</td>
+    </tr>
+    <tr class="calc-detalle" id="det-${i}" style="display:none">
+      <td colspan="4"><div class="detalle-grid">
+        <div><b>Ingresos</b>
+          <div><span>Horas regulares</span><span>${fmt(c.horasRegularesMonto)}</span></div>
+          <div><span>Horas extra 50%</span><span>${fmt(c.extra50Monto)}</span></div>
+          <div><span>Horas extra 100%</span><span>${fmt(c.extra100Monto)}</span></div>
+          <div><span>Feriados</span><span>${fmt(c.feriadosMonto)}</span></div>
+          <div><span>Incapacidad CCSS</span><span>${fmt(c.incapCCSSMonto)}</span></div>
+          <div><span>Incapacidad INS</span><span>${fmt(c.incapINSMonto)}</span></div>
+          <div><span>Incapacidad interna</span><span>${fmt(c.incapInternaMonto)}</span></div>
+          <div><span>Vacaciones (${c.vacacionesDias} días)</span><span>${fmt(c.vacacionesMonto)}</span></div>
+          <div><span>Subsidio</span><span>${fmt(c.subsidioMonto)}</span></div>
+          <div><span>Días no trabajados</span><span>−${fmt(c.diasNoTrabajadosMonto)}</span></div>
+        </div>
+        <div><b>Deducciones</b>
+          <div><span>CCSS obrera (10.67%)</span><span>${fmt(c.ccssObreraMonto)}</span></div>
+          <div><span>Adelanto salario</span><span>${fmt(c.adelanto)}</span></div>
+          <div><span>Compras aprobadas</span><span>${fmt(c.compras)}</span></div>
+          <div><span>Otras</span><span>${fmt(c.otras)}</span></div>
+          <div><span>Embargo salarial</span><span>${fmt(c.embargo)}</span></div>
+          <div><span>Pensión alimenticia</span><span>${fmt(c.pension)}</span></div>
+        </div>
+      </div></td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="card">
+      <p class="card-title">Desglose por colaborador <span class="hint">(click en una fila para ver el detalle)</span></p>
+      ${filasFeriados}
+      <table class="calc-tabla">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div class="total-row">
+        <span class="total-label">Total neto del kiosko</span>
+        <span class="total-valor">${fmt(resultado.totales.totalNeto)}</span>
+      </div>
+      <div class="nota-legal">
+        ⚖️ <strong>Nota legal:</strong> Cálculo preliminar según el Código de Trabajo de Costa Rica (jornada Art. 136, horas extra Art. 139, feriados Art. 148, vacaciones Art. 153) y la Ley 9756 (incapacidad CCSS). Incluye la cuota obrera de CCSS (10.67%) pero no el Impuesto de Renta ni convenios colectivos particulares — revisá los montos con contabilidad antes de pagar.
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">Guardar esta planilla</p>
+      <div class="field"><label>Calculado por</label><input type="text" id="calc-por" placeholder="Tu nombre"></div>
+      <button class="btn-primary" id="btn-guardar-planilla" onclick="guardarPlanillaActual()">Guardar planilla · ${resultado.colaboradores.length} colaborador${resultado.colaboradores.length!==1?'es':''}</button>
+      <p class="hint" style="margin-top:8px">Si ya existía una planilla guardada para este kiosko y esta quincena, se reemplaza por este cálculo.</p>
+    </div>
+  `;
+}
+
+function toggleDetalle(i) {
+  const fila = document.getElementById('det-' + i);
+  fila.style.display = fila.style.display === 'none' ? '' : 'none';
+}
+
+async function guardarPlanillaActual() {
+  const r = rangoPeriodoActual();
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const calculadoPor = document.getElementById('calc-por').value.trim();
+  if (!calculadoPor) { showToast('Ingresá quién calculó la planilla.', 'error'); return; }
+
+  const btn = document.getElementById('btn-guardar-planilla');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const result = await postBackend({
+      modulo: 'planilla_guardar', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
+      kiosko: kiosko, calculado_por: calculadoPor
+    });
+    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
+    showToast(`Planilla de ${kiosko} guardada — neto total ${fmt(result.result.total_neto)}`, 'success');
+  } catch (err) {
+    showToast('Error al guardar: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar planilla';
+  }
+}
+
+// ══════════════════════════ HISTORIAL ══════════════════════════
+async function cargarHistorial() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  document.getElementById('hist-items').innerHTML = '<div class="empty-lista"><span class="spinner"></span></div>';
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas');
+    const data = await resp.json();
+    const registros = (data.ok ? data.registros : [])
+      .filter(r => mismoKiosko(r['Kiosko'], kiosko))
+      .sort((a,b) => String(b['Fecha cálculo']).localeCompare(String(a['Fecha cálculo'])));
+    document.getElementById('hist-badge-count').textContent = registros.length;
+    window._historial = registros;
+    if (!registros.length) {
+      document.getElementById('hist-items').innerHTML = '<div class="empty-lista">No hay planillas guardadas<br>para este kiosko todavía.</div>';
+      return;
+    }
+    document.getElementById('hist-items').innerHTML = registros.map((r, i) => `
+      <div class="hist-item" onclick="verDetallePlanilla(${i})">
+        <div class="hist-main">
+          <div class="hist-periodo">${r['Periodo']}</div>
+          <div class="hist-sub">${fechaBonita(r['Fecha inicio'])} — ${fechaBonita(r['Fecha fin'])} · ${r['Colaboradores']} colaboradores · calculado por ${r['Calculado por']||'—'}</div>
+        </div>
+        <div class="hist-neto">${fmt(r['Total neto'])}</div>
+      </div>
+      <div class="hist-detalle" id="hist-det-${i}"></div>
+    `).join('');
+  } catch (err) {
+    document.getElementById('hist-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
+  }
+}
+
+async function verDetallePlanilla(i) {
+  const cont = document.getElementById('hist-det-' + i);
+  const visible = cont.classList.contains('visible');
+  document.querySelectorAll('.hist-detalle').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.hist-detalle').forEach(el => el.innerHTML = '');
+  if (visible) return;
+
+  const r = window._historial[i];
+  cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  cont.classList.add('visible');
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
+    const data = await resp.json();
+    const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(r['ID']));
+    if (!detalle.length) { cont.innerHTML = '<div class="empty-state">Sin detalle guardado.</div>'; return; }
+    cont.innerHTML = `<table class="calc-tabla">
+      <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
+      <tbody>${detalle.map(d => `
+        <tr><td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}</div></td>
+        <td class="monto">${fmt(d['Total ingresos'])}</td>
+        <td class="monto">${fmt(d['Total deducciones'])}</td>
+        <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td></tr>
+      `).join('')}</tbody>
+    </table>`;
+  } catch (err) {
+    cont.innerHTML = '<div class="empty-state">Error al cargar el detalle.</div>';
+  }
+}
+
+// ══════════════════════════ FERIADOS ══════════════════════════
+async function cargarFeriados() {
+  document.getElementById('fer-items').innerHTML = '<div class="empty-lista"><span class="spinner"></span></div>';
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados');
+    const data = await resp.json();
+    const registros = (data.ok ? data.registros : []).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
+    window._feriados = registros;
+    if (!registros.length) {
+      document.getElementById('fer-items').innerHTML = '<div class="empty-lista">No hay feriados registrados todavía.</div>';
+      return;
+    }
+    document.getElementById('fer-items').innerHTML = registros.map((f, i) => {
+      const activo = String(f['Activo']||'Sí').trim().toLowerCase() !== 'no';
+      return `<div class="config-row">
+        <span class="config-fecha">${f['Fecha']}</span>
+        <span class="config-nombre">${f['Nombre']}</span>
+        <span class="config-badge ${activo?'si':'no'}">${activo?'Activo':'Inactivo'}</span>
+        <button class="btn-sm" onclick="editarFeriado(${i})">Editar</button>
+        <button class="btn-sm" onclick="toggleFeriadoActivo(${i})">${activo?'Desactivar':'Activar'}</button>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    document.getElementById('fer-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
+  }
+}
+
+function editarFeriado(i) {
+  const f = window._feriados[i];
+  document.getElementById('fer-original').value = f['Fecha'];
+  document.getElementById('fer-fecha').value = f['Fecha'];
+  document.getElementById('fer-nombre').value = f['Nombre'];
+  document.getElementById('fer-form-title').textContent = 'Editar feriado';
+  document.getElementById('btn-fer-cancelar').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicionFeriado() {
+  document.getElementById('fer-original').value = '';
+  document.getElementById('fer-fecha').value = '';
+  document.getElementById('fer-nombre').value = '';
+  document.getElementById('fer-form-title').textContent = 'Agregar feriado';
+  document.getElementById('btn-fer-cancelar').style.display = 'none';
+}
+
+async function guardarFeriadoForm() {
+  const fecha = document.getElementById('fer-fecha').value;
+  const nombre = document.getElementById('fer-nombre').value.trim();
+  if (!fecha || !nombre) { showToast('Completá la fecha y el nombre del feriado.', 'error'); return; }
+  const btn = document.getElementById('btn-fer-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const result = await postBackend({
+      modulo: 'feriado_guardar', fecha: fecha, nombre: nombre,
+      fecha_original: document.getElementById('fer-original').value
+    });
+    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
+    showToast('Feriado guardado', 'success');
+    cancelarEdicionFeriado();
+    await cargarFeriados();
+  } catch (err) {
+    showToast('Error al guardar: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar feriado';
+  }
+}
+
+async function toggleFeriadoActivo(i) {
+  const f = window._feriados[i];
+  const activo = String(f['Activo']||'Sí').trim().toLowerCase() !== 'no';
+  try {
+    const result = await postBackend({ modulo: 'feriado_estado', fecha: f['Fecha'], activo: activo ? 'No' : 'Sí' });
+    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
+    await cargarFeriados();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// ── INICIO ────────────────────────────────────────────────────────
+poblarSelectoresPeriodo();
+actualizarChipPeriodo();
+cargarKioskos().then(() => cargarIncidenciasTab());
+</script>
+</body>
+</html>

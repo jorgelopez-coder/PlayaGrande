@@ -33,8 +33,8 @@ Tercer módulo: **RRHH completo**, adaptado 1:1 de la lógica de
 Ecosistema Lorito, con el campo **Kiosko** agregado en Personal y Horarios
 (Lorito es un solo punto de venta y no lo necesita):
 
-- `rrhh-acciones.html` — hub con las 9 pantallas del módulo (link principal
-  desde `index.html`).
+- `rrhh-acciones.html` — hub con las pantallas del módulo, incluyendo
+  Planilla (link principal desde `index.html`).
 - `rrhh-personal.html` — expedientes digitales del equipo (datos personales,
   laborales, bancarios, documentos, amonestaciones), con búsqueda y filtro
   por kiosko/departamento/estado. Botón **"✎ Editar"** en cada expediente:
@@ -214,6 +214,52 @@ desde el editor) — sin eso, el consumo por venta solo se aplica al apretar
 tiles activos: **Inventario** (`inventario.html`) y **Recetas**
 (`recetas.html`).
 
+Módulo de **Planilla**, `planilla.html` — captura de incidencias
+quincenales por colaborador/kiosko y cálculo de la planilla (ingresos y
+deducciones) según la legislación laboral de Costa Rica, reutilizando
+Personal (salario, estado, kiosko) y Vacaciones (solicitudes aprobadas) del
+mismo Sheet de RRHH. Selector de **Kiosko + Quincena** arriba de las 4
+pestañas (mismo patrón que `depositos.html`):
+
+- **Incidencias**: lista de colaboradores ACTIVOS del kiosko (layout
+  lista+panel, igual que `rrhh-liquidaciones.html`); por colaborador se
+  registran horas regulares/extra 50%/extra 100% (con comentario), feriados
+  trabajados (checklist de los feriados activos de esa quincena), fechas de
+  incapacidad CCSS/INS/interna, subsidio de alimentación/transporte, días no
+  trabajados y las 5 deducciones manuales (adelanto, compras aprobadas,
+  otras, embargo salarial, pensión alimenticia). Las vacaciones **no** se
+  ingresan acá — se calculan solas desde "Vacaciones" (solicitudes con
+  Estado=Aprobada que caen dentro de la quincena).
+- **Calcular planilla**: preview del cálculo completo por colaborador
+  (desglose expandible) + total del kiosko, con nota legal, sin guardar nada
+  hasta apretar "Guardar planilla" (reemplaza la corrida anterior de esa
+  misma quincena+kiosko si ya existía).
+- **Historial**: planillas guardadas por kiosko, con detalle por
+  colaborador de cada corrida.
+- **Feriados**: tabla editable de feriados de pago obligatorio (fecha +
+  nombre + activo/inactivo) — a propósito no está hardcodeada en el código,
+  porque las fechas cambian cada año (Semana Santa es movible, la Ley 8442
+  traslada algunos feriados a lunes).
+
+Reglas de cálculo (nota legal visible en la pestaña "Calcular planilla"):
+salario diario = salario mensual / 30, hora = diario / 8 (Art. 136 CT); hora
+extra 50%/100% (Art. 139 CT); feriado paga un día completo siempre y otro
+día más si se marcó trabajado (Art. 148 CT); incapacidad CCSS al 50% a cargo
+del patrono solo en los primeros 3 días de cada incapacidad (Ley 9756, el
+resto lo paga la CCSS directo); incapacidad INS siempre en ₡0 a cargo del
+patrono (el INS paga 100% desde el día 1); incapacidad interna a discreción
+de la empresa (% editable por incidencia); vacaciones automáticas (Art. 153
+CT); cuota obrera de CCSS (10.67%) deducida automáticamente sobre el total
+de ingresos menos el subsidio. Toda la lógica vive una sola vez en
+`calcularPlanilla()` (`Code-rrhh-kioskos-backend.gs`), reutilizada tanto por
+el preview como por el guardado, para que nunca queden desincronizados.
+
+Backend: mismo Web App de RRHH (`Code-rrhh-kioskos-backend.gs`), extendido
+con 4 pestañas nuevas — Feriados, Incidencias (una fila por
+Periodo+Kiosko+Colaborador, upsert), Planillas y PlanillasDetalle (maestro/
+detalle de cada corrida guardada, mismo patrón que TomaInventario/
+TomaInventarioDetalle en Inventario).
+
 El resto de módulos (reportes consolidados) quedan como "Próximamente" en
 `index.html`, a construir después.
 
@@ -248,6 +294,8 @@ Archivos:
   `rrhh-terminacion.html`, `rrhh-cambio-salario.html`,
   `rrhh-liquidaciones.html`, `horarios.html`, `horarios-historial.html` —
   módulo de RRHH completo (ver detalle arriba).
+- `planilla.html` — módulo de planilla: incidencias quincenales, cálculo,
+  historial y feriados (ver detalle arriba).
 - `inventario.html` — catálogo de productos, toma de inventario física por
   kiosko (con cierre bloqueado por PIN admin) e historial/stock en vivo —
   ver detalle arriba.
@@ -261,9 +309,11 @@ Archivos:
   `depositos.html`).
 - `Code-rrhh-kioskos-backend.gs` — backend completo de RRHH (Personal,
   Vacaciones, Amonestaciones, Terminaciones, CambiosSalario, Liquidaciones,
-  Horarios, HorariosEstado, Configuracion) — alimenta las 12 pantallas de
-  arriba, el dropdown de "Encargado" en cierres.html y la lista de kioskos
-  de `configuracion.html` + selects del resto del sistema.
+  Horarios, HorariosEstado, Configuracion, Roles, Feriados, Incidencias,
+  Planillas, PlanillasDetalle) — alimenta las 13 pantallas de arriba
+  (incluyendo `planilla.html`), el dropdown de "Encargado" en cierres.html y
+  la lista de kioskos de `configuracion.html` + selects del resto del
+  sistema.
 - `Code-mantenimiento-backend.gs` — backend del Sheet "Operaciones -
   Kioskos": reportes de mantenimiento (hoja "Reportes", alimenta
   `mantenimiento.html`) y mermas de cerveza (hojas "Mermas"/"MermasConfig",
@@ -329,17 +379,25 @@ guardar el cierre sin adjuntar ninguna.
    (URL)**) y crea las pestañas nuevas: Vacaciones, Amonestaciones,
    Terminaciones, CambiosSalario, Liquidaciones, Horarios, HorariosEstado,
    Configuracion (esta última sembrada automáticamente con los 4 kioskos
-   originales, ver "Kioskos activos" más abajo) y **Roles** (sembrada con un
+   originales, ver "Kioskos activos" más abajo), **Roles** (sembrada con un
    único rol Administrador, PIN `admin`, ver "Login / control de accesos"
-   más abajo). Si ya habías corrido `configurarHojas()` antes de sumar la
-   foto de cédula o el módulo de Accesos, volvé a correrla una vez más: solo
-   agrega lo que falte, sin tocar lo que ya tenías.
+   más abajo) y **Feriados, Incidencias, Planillas, PlanillasDetalle**
+   (módulo de Planilla — "Feriados" se siembra automáticamente con los
+   feriados de pago obligatorio de Costa Rica para 2026 como punto de
+   partida editable desde la pestaña "Feriados" de `planilla.html`;
+   verificalos contra el decreto oficial del año antes de calcular planilla
+   con ellos, porque Semana Santa y algunos traslados de la Ley 8442
+   cambian cada año). Si ya habías corrido `configurarHojas()` antes de
+   sumar la foto de cédula, el módulo de Accesos o el de Planilla, volvé a
+   correrla una vez más: solo agrega lo que falte, sin tocar lo que ya
+   tenías.
 4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
    (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
    falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
    implementación → Tipo: Aplicación web, Ejecutar como Yo, Acceso:
    Cualquiera, y pegá la URL resultante en `APPS_SCRIPT_RRHH`/
-   `APPS_SCRIPT_URL` de `cierres.html` y las 12 pantallas de RRHH.
+   `APPS_SCRIPT_URL` de `cierres.html` y las 13 pantallas de RRHH
+   (incluyendo `planilla.html`).
 5. Para que **Horarios** pueda cerrar la semana en PDF, creá una carpeta en
    Drive (ej. **"Horarios - Kioskos"**), copiá su ID (de la URL de la
    carpeta) y pegalo en `Code-rrhh-kioskos-backend.gs`, constante
@@ -496,6 +554,7 @@ hardcodeado como respaldo si no hay conexión):
 - `mantenimiento.html`
 - `inventario.html`
 - `recetas.html`
+- `planilla.html`
 
 Backend (`Code-rrhh-kioskos-backend.gs`): `configurarHojas()` crea la
 pestaña "Configuracion" y, si está vacía, la siembra con los 4 kioskos
