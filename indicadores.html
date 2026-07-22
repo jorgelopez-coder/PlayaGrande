@@ -49,11 +49,13 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 .periodo-dates{display:flex;align-items:center;gap:8px;margin-left:auto}
 .periodo-dates input[type=date]{font-size:13px;width:150px}
 .periodo-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
-input[type=date],select{
+input[type=date],input[type=text],select{
   background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:8px 11px;
   outline:none;appearance:none;transition:border-color .15s
 }
+input[type=text]{width:100%}
+input[type=text]::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;cursor:pointer}
 input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
 .btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
@@ -94,9 +96,23 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 .hbar-row{display:flex;align-items:center;gap:10px;padding:.55rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .hbar-row:last-child{border-bottom:none}
 .hbar-label{width:120px;flex-shrink:0;font-size:12.5px;font-weight:600}
-.hbar-track{flex:1;min-width:80px;height:9px;background:var(--surface);border-radius:6px;overflow:hidden}
+.hbar-track{flex:1;min-width:80px;height:9px;background:var(--surface);border-radius:6px;overflow:visible;position:relative}
 .hbar-fill{height:100%;background:var(--green);border-radius:6px;transition:width .3s}
-.hbar-val{font-size:12px;color:var(--text);white-space:nowrap;flex-shrink:0;font-family:var(--font-m)}
+.hbar-meta-mark{position:absolute;top:-3px;bottom:-3px;width:0;border-left:2px dashed var(--purple)}
+.hbar-val{font-size:12px;color:var(--text);white-space:nowrap;flex-shrink:0;font-family:var(--font-m);text-align:right}
+.hbar-meta-sub{font-size:10px;margin-top:2px;font-weight:600;font-family:var(--font-b)}
+
+/* ── METAS Y OBJETIVOS ── */
+.metas-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.metas-toggle{font-size:12px;color:var(--muted);font-weight:500}
+.metas-body{margin-top:1rem}
+.metas-ventas-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1rem}
+.meta-field-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.meta-status{font-size:11px;color:var(--green);margin-left:10px;font-weight:500}
+
+/* ── GRÁFICOS DE LÍNEA ── */
+.chart-wrap{position:relative;height:280px}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--subtle);font-size:13px;text-align:center;padding:1rem}
 
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -154,13 +170,49 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 <!-- ══════════════ TAB COMPARATIVO ══════════════ -->
 <div class="page active" id="tab-comparativo">
 
+  <div class="card" id="metas-card">
+    <div class="metas-head" onclick="toggleMetasCard()">
+      <p class="card-title" style="margin-bottom:0">🎯 Metas y objetivos</p>
+      <span class="metas-toggle" id="metas-toggle-icon">▾ Configurar</span>
+    </div>
+    <div class="metas-body" id="metas-body" style="display:none">
+      <p class="card-sub">Definí una meta de ventas por kiosko para el período seleccionado y una meta máxima de % de merma. Se usan para marcar los objetivos en los gráficos de abajo y se guardan en este navegador.</p>
+      <div class="metas-ventas-grid" id="metas-ventas-grid"></div>
+      <div style="max-width:280px;margin-bottom:1rem">
+        <div class="meta-field-label">Meta de % de merma (máximo aceptable)</div>
+        <input type="text" inputmode="decimal" id="meta-merma-input" placeholder="Ej: 5"/>
+      </div>
+      <button class="btn-sm" onclick="guardarMetas()">Guardar metas ✓</button>
+      <span class="meta-status" id="metas-status"></span>
+    </div>
+  </div>
+
   <div class="kpi-grid" id="kpi-generales">
     <div class="empty-state"><span class="spinner"></span></div>
   </div>
 
   <div class="card">
-    <p class="card-title">Ventas del período — kioskos con Square propio</p>
+    <p class="card-title">Ventas totales del período — kioskos con Square propio</p>
     <div id="hbar-ventas"><div class="empty-state"><span class="spinner"></span></div></div>
+    <p class="footnote">La línea punteada morada marca la meta de ventas configurada para ese kiosko (si existe).</p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Ventas por período — evolución diaria</p>
+    <div class="chart-wrap">
+      <canvas id="chart-ventas-linea"></canvas>
+      <div class="chart-empty" id="chart-ventas-linea-empty" style="display:none"></div>
+    </div>
+    <p class="footnote">Una línea sólida por kiosko con Square propio; línea punteada del mismo color = meta de ventas configurada para ese kiosko.</p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">% de merma — evolución en el tiempo</p>
+    <div class="chart-wrap">
+      <canvas id="chart-merma-linea"></canvas>
+      <div class="chart-empty" id="chart-merma-linea-empty" style="display:none"></div>
+    </div>
+    <p class="footnote">% de merma diario (peso convertido a onzas equivalentes sobre lo vendido) por kiosko con Square propio. Línea punteada gris = meta máxima configurada.</p>
   </div>
 
   <div class="card">
@@ -215,6 +267,7 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Mismas URLs /exec usadas en el resto del ecosistema (ver README.md).
@@ -247,6 +300,61 @@ const DENOMS_BILLETES_CRC = [50000,20000,10000,5000,2000,1000];
 const DENOMS_MONEDAS_CRC  = [500,100,50,25,10,5];
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+// ── METAS Y OBJETIVOS (config local del navegador, sin backend nuevo) ──
+// Meta de ventas por kiosko (para el período seleccionado) + meta máxima de
+// % de merma, compartida por todos. Se guardan en localStorage y se aplican
+// como marcas/líneas en los gráficos de abajo.
+const METAS_KEY = 'indicadores_metas_v1';
+let metas = { ventas: {}, mermaPct: null };
+const CHART_COLORS = ['#1a7a4a', '#185fa5', '#6a3a9a', '#c87820', '#c84a20', '#0891b2', '#a21caf'];
+const colorFor = i => CHART_COLORS[i % CHART_COLORS.length];
+
+function cargarMetasStorage() {
+  try { metas = JSON.parse(localStorage.getItem(METAS_KEY) || '{}'); } catch(e) { metas = {}; }
+  if (!metas.ventas || typeof metas.ventas !== 'object') metas.ventas = {};
+  if (typeof metas.mermaPct !== 'number') metas.mermaPct = null;
+}
+
+function construirMetasForm() {
+  const grid = document.getElementById('metas-ventas-grid');
+  grid.innerHTML = KIOSKOS.map(k => `
+    <div class="kpi-card">
+      <div class="meta-field-label">Meta de ventas — ${k}</div>
+      <input type="text" inputmode="numeric" class="meta-ventas-input" data-kiosko="${k}"
+        value="${metas.ventas[k] != null ? metas.ventas[k] : ''}" placeholder="Ej: 500000"/>
+    </div>`).join('');
+  document.getElementById('meta-merma-input').value = metas.mermaPct != null ? metas.mermaPct : '';
+}
+
+function toggleMetasCard() {
+  const body = document.getElementById('metas-body');
+  const icon = document.getElementById('metas-toggle-icon');
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  icon.textContent = abierto ? '▾ Configurar' : '▴ Ocultar';
+}
+
+function guardarMetas() {
+  const nuevaVentas = {};
+  document.querySelectorAll('.meta-ventas-input').forEach(inp => {
+    const val = parseFloat((inp.value || '').replace(/[^\d.-]/g, ''));
+    if (!isNaN(val) && val > 0) nuevaVentas[inp.dataset.kiosko] = val;
+  });
+  const mermaVal = parseFloat(document.getElementById('meta-merma-input').value);
+  metas = { ventas: nuevaVentas, mermaPct: isNaN(mermaVal) ? null : mermaVal };
+  localStorage.setItem(METAS_KEY, JSON.stringify(metas));
+  const status = document.getElementById('metas-status');
+  status.textContent = 'Guardado ✓';
+  setTimeout(() => { status.textContent = ''; }, 2500);
+  if (indicadoresCache && Object.keys(indicadoresCache).length) {
+    renderKpisGenerales(indicadoresCache);
+    renderHbarVentas(indicadoresCache);
+    renderComparativo(indicadoresCache);
+    renderLineaVentas(indicadoresCache);
+    renderLineaMerma(indicadoresCache);
+  }
+}
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -301,6 +409,7 @@ async function cargarKioskos() {
   Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!KIOSKOS.includes(n)) KIOSKOS.push(n); });
   const sel = document.getElementById('kiosko-select');
   sel.innerHTML = KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  construirMetasForm();
 }
 
 // ── FUENTE 1: VENTAS + ONZAS DE CERVEZA DE BARRIL (Square propio,
@@ -479,16 +588,31 @@ function renderKpisGenerales(datos) {
   const tipsTotal = kioskosSquare.reduce((s,d)=>s+(d.tipsTotal||0),0);
   const tipsVentasPromedio = ventasTotales > 0 ? (tipsTotal/ventasTotales)*100 : null;
 
+  // % de merma ponderado global (onzas de todos los kioskos con Square vs. merma en onzas equivalentes)
+  const totalOnzasVendidas = kioskosSquare.reduce((s,d)=>s+(d.onzasTotal||0),0);
+  const totalMermaOz = mermaTotalG / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+  const mermaPctGeneral = (totalOnzasVendidas + totalMermaOz) > 0 ? (totalMermaOz/(totalOnzasVendidas+totalMermaOz))*100 : null;
+
+  // Metas configuradas (ver sección "Metas y objetivos")
+  const metaVentasTotal = Object.values(metas.ventas).reduce((s,v)=>s+(v||0),0);
+  const cumplVentasPct = metaVentasTotal > 0 ? (ventasTotales/metaVentasTotal*100) : null;
+  const cumplVentasColor = cumplVentasPct==null ? '' : cumplVentasPct>=100 ? 'var(--green)' : cumplVentasPct>=70 ? 'var(--amber)' : 'var(--red)';
+  const mermaMetaHtml = (metas.mermaPct!=null && mermaPctGeneral!=null)
+    ? (mermaPctGeneral<=metas.mermaPct
+        ? ` · <span style="color:var(--green)">dentro de la meta (≤${metas.mermaPct}%)</span>`
+        : ` · <span style="color:var(--red)">sobre la meta (${metas.mermaPct}%)</span>`)
+    : '';
+
   cont.innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">Ventas totales (Square)</div>
       <div class="kpi-val">${fmtCRC(ventasTotales)}</div>
-      <div class="kpi-sub">${kioskosSquare.length} kiosko${kioskosSquare.length===1?'':'s'} con Square propio</div>
+      <div class="kpi-sub">${kioskosSquare.length} kiosko${kioskosSquare.length===1?'':'s'} con Square propio${metaVentasTotal>0 ? ` · <span style="color:${cumplVentasColor};font-weight:600">${cumplVentasPct.toFixed(0)}% de la meta</span> (${fmtCRC(metaVentasTotal)})` : ''}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Merma total</div>
       <div class="kpi-val" style="color:var(--red)">${fmtG(mermaTotalG)} g</div>
-      <div class="kpi-sub">Todos los kioskos, período seleccionado</div>
+      <div class="kpi-sub">${mermaPctGeneral!=null ? '≈ '+mermaPctGeneral.toFixed(1)+'% de lo vendido' : 'Sin datos suficientes'}${mermaMetaHtml}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Efectivo pendiente de depositar</div>
@@ -509,13 +633,23 @@ function renderHbarVentas(datos) {
     cont.innerHTML = '<div class="empty-state">Sin ventas registradas en el período para los kioskos con Square propio.</div>';
     return;
   }
-  const max = Math.max(...kioskosSquare.map(d => d.ventasTotal));
-  cont.innerHTML = kioskosSquare.sort((a,b)=>b.ventasTotal-a.ventasTotal).map(d => `
+  const metasVals = kioskosSquare.map(d => metas.ventas[d.kiosko]).filter(v => v != null);
+  const max = Math.max(...kioskosSquare.map(d => d.ventasTotal), ...metasVals);
+  cont.innerHTML = kioskosSquare.sort((a,b)=>b.ventasTotal-a.ventasTotal).map(d => {
+    const meta = metas.ventas[d.kiosko];
+    const metaPct = meta != null ? Math.min(100, (meta/max*100)) : null;
+    const cumplPct = meta ? (d.ventasTotal/meta*100) : null;
+    const cumplColor = cumplPct==null ? '' : cumplPct>=100 ? 'var(--green)' : cumplPct>=70 ? 'var(--amber)' : 'var(--red)';
+    return `
     <div class="hbar-row">
       <div class="hbar-label">${d.kiosko}</div>
-      <div class="hbar-track"><div class="hbar-fill" style="width:${max>0?(d.ventasTotal/max*100):0}%"></div></div>
-      <div class="hbar-val">${fmtCRC(d.ventasTotal)}</div>
-    </div>`).join('');
+      <div class="hbar-track">
+        <div class="hbar-fill" style="width:${max>0?(d.ventasTotal/max*100):0}%"></div>
+        ${metaPct!=null ? `<div class="hbar-meta-mark" style="left:${metaPct}%" title="Meta: ${fmtCRC(meta)}"></div>` : ''}
+      </div>
+      <div class="hbar-val">${fmtCRC(d.ventasTotal)}${cumplPct!=null ? `<div class="hbar-meta-sub" style="color:${cumplColor}">${cumplPct.toFixed(0)}% de meta (${fmtCRC(meta)})</div>` : ''}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderComparativo(datos) {
@@ -530,8 +664,13 @@ function renderComparativo(datos) {
         ? '<span class="compare-dash">Sin conexión</span>'
         : `<div class="compare-val">${fmtCRC(d.ventasTotal)}</div><div class="compare-sub">${fmtOz(d.onzasTotal)} oz de barril</div>`;
 
+    const mermaMetaHtml = (metas.mermaPct!=null && d.mermaPct!=null)
+      ? (d.mermaPct<=metas.mermaPct
+          ? ` <span style="color:var(--green)">✓ meta ${metas.mermaPct}%</span>`
+          : ` <span style="color:var(--red)">⚠ meta ${metas.mermaPct}%</span>`)
+      : '';
     const mermaHtml = d.mermaTotalG > 0
-      ? `<div class="compare-val" style="color:var(--red)">${fmtG(d.mermaTotalG)} g</div><div class="compare-sub">${d.mermaPct!=null ? d.mermaPct.toFixed(1)+'%' : 'N/D'}</div>`
+      ? `<div class="compare-val" style="color:var(--red)">${fmtG(d.mermaTotalG)} g</div><div class="compare-sub">${d.mermaPct!=null ? d.mermaPct.toFixed(1)+'%' : 'N/D'}${mermaMetaHtml}</div>`
       : (d.squareOk ? '<span class="compare-dash">Sin merma registrada</span>' : '<span class="compare-dash">N/D</span>');
 
     const efHtml = d.efPendFechas > 0
@@ -550,6 +689,114 @@ function renderComparativo(datos) {
       <td>${tipsHtml}</td>
     </tr>`;
   }).join('');
+}
+
+// ── RENDER: GRÁFICOS DE LÍNEA (ventas por período + evolución % merma) ──
+let chartVentasLinea = null, chartMermaLinea = null;
+
+function fechasOrdenadasEnRango(datos) {
+  const set = new Set();
+  Object.values(datos).forEach(d => {
+    Object.keys(d.porDia||{}).forEach(f => set.add(f));
+    Object.keys(d.mermaPorDia||{}).forEach(f => set.add(f));
+  });
+  return [...set].sort();
+}
+
+function mostrarChartVacio(idBase, mensaje) {
+  document.getElementById(idBase).style.display = 'none';
+  const empty = document.getElementById(idBase + '-empty');
+  empty.textContent = mensaje;
+  empty.style.display = 'flex';
+}
+function ocultarChartVacio(idBase) {
+  document.getElementById(idBase).style.display = 'block';
+  document.getElementById(idBase + '-empty').style.display = 'none';
+}
+
+function renderLineaVentas(datos) {
+  const idBase = 'chart-ventas-linea';
+  const kioskosSquare = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && datos[k].squareOk);
+  const fechas = fechasOrdenadasEnRango(datos).filter(f => kioskosSquare.some(k => datos[k].porDia[f]));
+  if (chartVentasLinea) { chartVentasLinea.destroy(); chartVentasLinea = null; }
+  if (!kioskosSquare.length || !fechas.length) {
+    mostrarChartVacio(idBase, 'Sin ventas registradas en el período para los kioskos con Square propio.');
+    return;
+  }
+  ocultarChartVacio(idBase);
+
+  const datasets = [];
+  kioskosSquare.forEach((k, i) => {
+    const color = colorFor(i);
+    const d = datos[k];
+    datasets.push({
+      label: k,
+      data: fechas.map(f => d.porDia[f] ? d.porDia[f].ventas : null),
+      borderColor: color, backgroundColor: color, tension: .25, spanGaps: true, pointRadius: 2, borderWidth: 2
+    });
+    const meta = metas.ventas[k];
+    if (meta != null) {
+      datasets.push({
+        label: `Meta ${k}`, data: fechas.map(() => meta),
+        borderColor: color, borderDash: [6,4], borderWidth: 1.5, pointRadius: 0, fill: false
+      });
+    }
+  });
+
+  chartVentasLinea = new Chart(document.getElementById(idBase), {
+    type: 'line',
+    data: { labels: fechas, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } } },
+      scales: {
+        y: { ticks: { callback: v => '₡' + Number(v).toLocaleString('es-CR') } },
+        x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderLineaMerma(datos) {
+  const idBase = 'chart-merma-linea';
+  const kioskosSquare = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && datos[k].squareOk);
+  const fechas = fechasOrdenadasEnRango(datos);
+  if (chartMermaLinea) { chartMermaLinea.destroy(); chartMermaLinea = null; }
+  if (!kioskosSquare.length || !fechas.length) {
+    mostrarChartVacio(idBase, 'Sin datos suficientes de merma/ventas en el período para calcular el %.');
+    return;
+  }
+  ocultarChartVacio(idBase);
+
+  const datasets = [];
+  kioskosSquare.forEach((k, i) => {
+    const color = colorFor(i);
+    const d = datos[k];
+    const serie = fechas.map(f => {
+      const onzas = (d.porDia[f] && d.porDia[f].onzas) || 0;
+      const mermaG = d.mermaPorDia[f] || 0;
+      if (!mermaG && !onzas) return null;
+      const mermaOz = mermaG / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+      return (onzas + mermaOz) > 0 ? (mermaOz/(onzas+mermaOz))*100 : null;
+    });
+    datasets.push({ label: k, data: serie, borderColor: color, backgroundColor: color, tension: .25, spanGaps: true, pointRadius: 2, borderWidth: 2 });
+  });
+  if (metas.mermaPct != null) {
+    datasets.push({ label: 'Meta máx. % merma', data: fechas.map(() => metas.mermaPct), borderColor: '#5a5a5a', borderDash: [6,4], borderWidth: 1.5, pointRadius: 0, fill: false });
+  }
+
+  chartMermaLinea = new Chart(document.getElementById(idBase), {
+    type: 'line',
+    data: { labels: fechas, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } } },
+      scales: {
+        y: { ticks: { callback: v => v + '%' } },
+        x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } }
+      }
+    }
+  });
 }
 
 // ── RENDER: PESTAÑA "POR KIOSKO" ──
@@ -626,6 +873,8 @@ async function cargarTodo() {
     renderKpisGenerales(indicadoresCache);
     renderHbarVentas(indicadoresCache);
     renderComparativo(indicadoresCache);
+    renderLineaVentas(indicadoresCache);
+    renderLineaMerma(indicadoresCache);
     renderKioskoTab();
   } catch(e) {
     document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty">No se pudo cargar el comparativo. Revisá la conexión.</div></td></tr>';
@@ -634,6 +883,7 @@ async function cargarTodo() {
 
 // ── INIT ──────────────────────────────────────────────────────────
 (async function init() {
+  cargarMetasStorage();
   await cargarKioskos();
   aplicarAtajoFecha('semana'); // dispara cargarTodo()
 })();
