@@ -214,51 +214,89 @@ desde el editor) — sin eso, el consumo por venta solo se aplica al apretar
 tiles activos: **Inventario** (`inventario.html`) y **Recetas**
 (`recetas.html`).
 
-Módulo de **Planilla**, `planilla.html` — captura de incidencias
-quincenales por colaborador/kiosko y cálculo de la planilla (ingresos y
-deducciones) según la legislación laboral de Costa Rica, reutilizando
-Personal (salario, estado, kiosko) y Vacaciones (solicitudes aprobadas) del
-mismo Sheet de RRHH. Selector de **Kiosko + Quincena** arriba de las 4
-pestañas (mismo patrón que `depositos.html`):
+Módulo de **Planilla**, `planilla.html` — cálculo de planilla quincenal por
+kiosko según la legislación laboral de Costa Rica, reutilizando Personal
+(salario, estado, kiosko) y Vacaciones (solicitudes aprobadas) del mismo
+Sheet de RRHH. Selector de **Kiosko + Quincena** arriba de las 3 pestañas
+(mismo patrón que `depositos.html`): **Planilla** (el wizard, ver abajo),
+**Historial** y **Feriados** (tabla editable de feriados de pago
+obligatorio, fecha+nombre+activo/inactivo — a propósito no está hardcodeada
+en el código porque las fechas cambian cada año: Semana Santa es movible, la
+Ley 8442 traslada algunos feriados a lunes).
 
-- **Incidencias**: lista de colaboradores ACTIVOS del kiosko (layout
-  lista+panel, igual que `rrhh-liquidaciones.html`); por colaborador se
-  registran horas regulares/extra 50%/extra 100% (con comentario), feriados
-  trabajados (checklist de los feriados activos de esa quincena), fechas de
-  incapacidad CCSS/INS/interna, subsidio de alimentación/transporte, días no
-  trabajados y las 5 deducciones manuales (adelanto, compras aprobadas,
-  otras, embargo salarial, pensión alimenticia). Las vacaciones **no** se
-  ingresan acá — se calculan solas desde "Vacaciones" (solicitudes con
-  Estado=Aprobada que caen dentro de la quincena).
-- **Calcular planilla**: preview del cálculo completo por colaborador
-  (desglose expandible) + total del kiosko, con nota legal, sin guardar nada
-  hasta apretar "Guardar planilla" (reemplaza la corrida anterior de esa
-  misma quincena+kiosko si ya existía).
-- **Historial**: planillas guardadas por kiosko, con detalle por
-  colaborador de cada corrida.
-- **Feriados**: tabla editable de feriados de pago obligatorio (fecha +
-  nombre + activo/inactivo) — a propósito no está hardcodeada en el código,
-  porque las fechas cambian cada año (Semana Santa es movible, la Ley 8442
-  traslada algunos feriados a lunes).
+La pestaña **Planilla** es un wizard de 5 pasos (pensado para no tener que
+abrir el panel completo de cada colaborador uno por uno cuando el kiosko
+tiene muchos empleados — todo se edita en tablas, con default ya cargado):
 
-Reglas de cálculo (nota legal visible en la pestaña "Calcular planilla"):
-salario diario = salario mensual / 30, hora = diario / 8 (Art. 136 CT); hora
-extra 50%/100% (Art. 139 CT); feriado paga un día completo siempre y otro
-día más si se marcó trabajado (Art. 148 CT); incapacidad CCSS al 50% a cargo
-del patrono solo en los primeros 3 días de cada incapacidad (Ley 9756, el
-resto lo paga la CCSS directo); incapacidad INS siempre en ₡0 a cargo del
-patrono (el INS paga 100% desde el día 1); incapacidad interna a discreción
-de la empresa (% editable por incidencia); vacaciones automáticas (Art. 153
-CT); cuota obrera de CCSS (10.67%) deducida automáticamente sobre el total
-de ingresos menos el subsidio. Toda la lógica vive una sola vez en
-`calcularPlanilla()` (`Code-rrhh-kioskos-backend.gs`), reutilizada tanto por
-el preview como por el guardado, para que nunca queden desincronizados.
+1. **Verificar colaboradores activos**: checklist de los ACTIVOS del kiosko
+   (todos tildados por default) + botón para agregar a alguien extra, ya sea
+   buscándolo en Personal completo (otro kiosko o rotativo, reusa su
+   salario) o escribiendo datos nuevos a mano (nombre+puesto+salario, para
+   ayuda de una sola quincena). "Continuar" sincroniza Incidencias para ese
+   Periodo+Kiosko con el set confirmado (crea con default `Horas
+   regulares=120` a quien falte, borra a quien se desmarcó) — es idempotente,
+   así que reabrir el wizard más adelante no resetea lo ya cargado.
+2. **Ingresos**: tabla (horas regulares/extra 50%/extra 100%) con "Detalle"
+   expandible por fila para feriados trabajados, incapacidades CCSS/INS/
+   interna, vacaciones (info automática + link a `rrhh-vacaciones.html` para
+   pedir una si hace falta), subsidio de alimentación/transporte (en su
+   propia card, separado de vacaciones) y otros días no trabajados
+   (ausencias sin incapacidad ni vacación — esas ya suman días solas, ver
+   más abajo).
+3. **Deducciones**: tabla con la base de CCSS automática + un campo para
+   ajustarla a mano si hace falta, más las 5 deducciones manuales (adelanto,
+   compras aprobadas, otras, embargo salarial, pensión alimenticia).
+4. **Cálculo**: preview del cálculo completo (desglose expandible + total
+   del kiosko + nota legal). "Cerrar cálculo y enviar a aprobación" guarda
+   el snapshot con Estado="Pendiente de aprobación" y ofrece un botón de
+   WhatsApp (sin número fijo, el usuario elige el contacto) avisando que
+   está lista para revisión.
+5. **Revisión final**: detalle de solo lectura + checklist de verificación
+   (4 ítems) que hay que completar para habilitar "Aprobar planilla"
+   (Estado="Aprobada"). Al aprobar: genera PDF (jsPDF + html2canvas, mismo
+   patrón que el cierre de semana de `horarios.html`) y Excel/CSV
+   descargables, archiva el PDF en Drive, y ofrece un botón de WhatsApp con
+   el kiosko, el periodo y el total a pagar.
+
+La pestaña **Historial** lista las planillas por Estado (Pendiente de
+aprobación/Aprobada) — click en una no aprobada retoma el wizard en el paso
+que corresponda; en una aprobada muestra el detalle y el link al PDF
+archivado.
+
+Reglas de cálculo (nota legal visible en el Paso 4): salario diario =
+salario mensual / 30, hora = diario / 8 (Art. 136 CT); hora extra 50%/100%
+(Art. 139 CT); feriado paga un día completo siempre y otro día más si se
+marcó trabajado (Art. 148 CT); incapacidad CCSS al 50% a cargo del patrono
+solo en los primeros 3 días de cada incapacidad (Ley 9756, el resto lo paga
+la CCSS directo); incapacidad INS siempre en ₡0 a cargo del patrono (el INS
+paga 100% desde el día 1); incapacidad interna a discreción de la empresa (%
+editable); vacaciones automáticas (Art. 153 CT) desde solicitudes con
+Estado="Aprobado" (mismo valor que escribe `rrhh-control-vacaciones.html`).
+**Cada día de incapacidad (de cualquier tipo) y cada día de vacaciones
+dentro de la quincena suma 1 "día no trabajado"** además de su pago
+específico — sin esto, "Horas regulares" (pensado como el total de la
+quincena) pagaría esos días completos encima del pago de la
+incapacidad/vacación. La base de CCSS (cuota obrera 10.67%, deducción
+automática) excluye el subsidio y los 3 montos de incapacidad, y admite un
+ajuste manual por colaborador que tiene prioridad sobre la automática. Toda
+la lógica vive una sola vez en `calcularPlanilla()`
+(`Code-rrhh-kioskos-backend.gs`), reutilizada por el preview, el "enviar a
+aprobación" y el snapshot guardado, para que nunca queden desincronizados —
+la fuente de "quiénes participan" es Incidencias (lo que confirmó el Paso 1
+del wizard), no Personal filtrado por kiosko.
 
 Backend: mismo Web App de RRHH (`Code-rrhh-kioskos-backend.gs`), extendido
 con 4 pestañas nuevas — Feriados, Incidencias (una fila por
-Periodo+Kiosko+Colaborador, upsert), Planillas y PlanillasDetalle (maestro/
+Periodo+Kiosko+Colaborador, upsert; columnas `Es manual`/`Salario manual`/
+`Puesto manual` para colaboradores extra sin fila en Personal y `CCSS base
+ajustada` para el override del Paso 3), Planillas (con `Estado`, `Checklist
+aprobación`, `Aprobado por`, `PDF URL`, etc.) y PlanillasDetalle (maestro/
 detalle de cada corrida guardada, mismo patrón que TomaInventario/
-TomaInventarioDetalle en Inventario).
+TomaInventarioDetalle en Inventario). El PDF aprobado se archiva en la
+carpeta de Drive fija `FOLDER_ID_PLANILLAS` (vacía por default — pegá un ID
+de carpeta tuya ahí y volvé a Implementar → Nueva versión; mientras esté
+vacío, "Aprobar planilla" avisa en vez de fallar en silencio, y se puede
+seguir aprobando/descargando sin archivar).
 
 El resto de módulos (reportes consolidados) quedan como "Próximamente" en
 `index.html`, a construir después.
@@ -294,8 +332,9 @@ Archivos:
   `rrhh-terminacion.html`, `rrhh-cambio-salario.html`,
   `rrhh-liquidaciones.html`, `horarios.html`, `horarios-historial.html` —
   módulo de RRHH completo (ver detalle arriba).
-- `planilla.html` — módulo de planilla: incidencias quincenales, cálculo,
-  historial y feriados (ver detalle arriba).
+- `planilla.html` — módulo de planilla: wizard de 5 pasos por kiosko/
+  quincena (colaboradores, ingresos, deducciones, cálculo, revisión final y
+  aprobación), historial y feriados (ver detalle arriba).
 - `inventario.html` — catálogo de productos, toma de inventario física por
   kiosko (con cierre bloqueado por PIN admin) e historial/stock en vivo —
   ver detalle arriba.
@@ -405,7 +444,14 @@ guardar el cierre sin adjuntar ninguna.
    implementaciones → Editar → Nueva versión. Sin este paso, "Cerrar
    horario" en `horarios.html` va a fallar al generar el PDF (podés seguir
    usando Horarios sin cerrar semanas mientras tanto).
-6. `rrhh-nuevo-ingreso.html` incluye un espacio para tomar/subir la foto de
+6. Para que el Paso 5 de `planilla.html` (Revisión final) pueda archivar el
+   PDF de cada planilla aprobada, creá una carpeta en Drive (ej. **"Planillas
+   - Kioskos"**), copiá su ID y pegalo en `Code-rrhh-kioskos-backend.gs`,
+   constante `FOLDER_ID_PLANILLAS` — después volvé a Implementar → Gestionar
+   implementaciones → Editar → Nueva versión. Sin este paso, "Aprobar
+   planilla" avisa que falta configurarlo pero igual aprueba y deja
+   descargar el PDF/Excel — solo el archivado en Drive queda pendiente.
+7. `rrhh-nuevo-ingreso.html` incluye un espacio para tomar/subir la foto de
    la cédula del colaborador (opcional) y se guarda en la carpeta de Drive
    fija `FOLDER_ID_CEDULAS` (ya viene con un ID real cargado en
    `Code-rrhh-kioskos-backend.gs`, no hace falta configurarlo — si en algún
@@ -415,7 +461,7 @@ guardar el cierre sin adjuntar ninguna.
    **"Foto Cédula (URL)"** de "Personal", visible desde el expediente en
    `rrhh-personal.html` ("Ver foto ↗"). `rrhh.html` (alta rápida) no tiene
    este campo todavía.
-7. Cargá el personal desde `rrhh-nuevo-ingreso.html` (ficha completa, con
+8. Cargá el personal desde `rrhh-nuevo-ingreso.html` (ficha completa, con
    foto de cédula) o `rrhh.html` (alta rápida, campos básicos) — ambos
    escriben en la misma pestaña "Personal". El campo `Kiosko` es opcional:
    si un colaborador trabaja fijo en un solo kiosko, completalo para que

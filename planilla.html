@@ -6,6 +6,8 @@
 <title>Planilla · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -16,6 +18,7 @@
   --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
   --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
   --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --purple:#6a3a9a;--purple-bg:#f3eefb;
   --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
 }
 body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
@@ -40,7 +43,7 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
 .tab-btn:hover:not(.active){color:var(--text)}
 
-main{max-width:1000px;margin:0 auto;padding:1.5rem 2rem 5rem}
+main{max-width:1080px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .page{display:none}.page.active{display:block}
 
 select,input[type=text],input[type=date],input[type=number]{
@@ -59,44 +62,70 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .field input,.field select{width:100%}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.hint{font-size:11px;color:var(--subtle);margin-top:4px}
-
-/* Layout lista + panel */
-.layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
-.lista-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.lista-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.lista-head-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-.badge-count{font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green);border-radius:20px;padding:2px 8px}
-.colab-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
-.colab-item:last-child{border-bottom:none}
-.colab-item:hover{background:var(--surface)}
-.colab-item.selected{background:var(--green-bg);border-left:3px solid var(--green)}
-.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:12px;font-weight:700;flex-shrink:0;background:var(--green-bg);color:var(--green)}
-.ci-info{flex:1;min-width:0}
-.ci-nombre{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ci-sub{font-size:11px;color:var(--muted)}
-.ci-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0}
-.ci-dot.ok{background:var(--green)}
-.empty-lista{padding:2.5rem 1rem;text-align:center;color:var(--subtle);font-size:13px}
-.panel-placeholder{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:3rem;text-align:center;color:var(--subtle)}
-.panel{display:none}.panel.visible{display:block}
+.hint{font-size:11px;color:var(--subtle)}
 
 .info-box{background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text)}
 .info-box b{color:var(--blue)}
+.info-box a{color:var(--blue);font-weight:600;text-decoration:none}
+.info-box a:hover{text-decoration:underline}
 
-.check-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
-.check-row:last-child{border-bottom:none}
-.check-row input{width:auto;accent-color:var(--green);cursor:pointer}
-
-.btn-primary{width:100%;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:12px;cursor:pointer;transition:opacity .15s}
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:12px 20px;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
 .btn-secondary{padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
 .btn-secondary:hover{border-color:var(--border-h)}
 .btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500}
 .btn-sm:hover{border-color:var(--border-h)}
+.btn-wa{background:#25D366;color:#fff;border:none;border-radius:9px;font-family:var(--font-b);font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:opacity .15s}
+.btn-wa:hover{opacity:.9}
+.btn-wa svg{width:15px;height:15px}
+.wizard-actions{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap}
 
-/* Tabla de cálculo */
+/* Indicador de pasos del wizard */
+.wizard-steps{display:flex;align-items:center;margin-bottom:1.25rem;gap:0}
+.wstep{display:flex;align-items:center;gap:8px;cursor:default;flex:1}
+.wstep.clickable{cursor:pointer}
+.wstep-num{width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-d)}
+.wstep.done .wstep-num{background:var(--green);border-color:var(--green);color:#fff}
+.wstep.active .wstep-num{background:var(--card);border-color:var(--green);color:var(--green);box-shadow:0 0 0 3px var(--green-bg)}
+.wstep-label{font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.wstep.active .wstep-label,.wstep.done .wstep-label{color:var(--text)}
+.wstep-sep{flex:1;height:1px;background:var(--border);margin:0 6px}
+.wstep-sep.done{background:var(--green)}
+@media(max-width:740px){.wstep-label{display:none}}
+
+/* Tabla del wizard (Pasos 1-3) */
+.tabla-wizard{width:100%;border-collapse:collapse;font-size:13px}
+.tabla-wizard th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 8px 8px 0;border-bottom:1px solid var(--border)}
+.tabla-wizard td{padding:8px 8px 8px 0;border-bottom:1px solid var(--border);vertical-align:middle}
+.tabla-wizard tr:last-child>td{border-bottom:none}
+.tabla-wizard input[type=number]{width:80px;padding:6px 8px}
+.tabla-wizard input[type=text]{width:100%;padding:6px 8px}
+.col-check{width:30px}
+.col-check input{width:auto;accent-color:var(--green);cursor:pointer}
+.tag-manual{font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:var(--amber-bg);color:var(--amber);border-radius:5px;padding:1px 5px;margin-left:5px}
+.detalle-toggle{background:none;border:1px solid var(--border);border-radius:7px;font-size:11px;padding:5px 9px;cursor:pointer;color:var(--muted);white-space:nowrap}
+.detalle-toggle:hover{border-color:var(--border-h);color:var(--text)}
+.fila-detalle td{background:var(--surface);padding:14px}
+
+/* Subcards dentro del detalle expandido de cada fila */
+.subcard{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:10px}
+.subcard:last-child{margin-bottom:0}
+.subcard-title{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.check-row{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.check-row:last-child{border-bottom:none}
+.check-row input{width:auto;accent-color:var(--green);cursor:pointer}
+
+/* Extra colaborador (Paso 1) */
+.extra-toggle{display:flex;gap:6px;margin-bottom:10px}
+.extra-toggle button{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer}
+.extra-toggle button.active{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.extra-resultados{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:6px}
+.extra-resultado-item{padding:8px 10px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--border)}
+.extra-resultado-item:last-child{border-bottom:none}
+.extra-resultado-item:hover{background:var(--surface)}
+
+/* Tabla de cálculo (Paso 4 / Historial) */
 .calc-tabla{width:100%;border-collapse:collapse;font-size:13px}
 .calc-tabla th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--border)}
 .calc-tabla td{padding:10px 10px 10px 0;border-bottom:1px solid var(--border);vertical-align:top}
@@ -113,16 +142,30 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .total-valor{font-family:var(--font-d);font-size:24px;font-weight:700;color:var(--green);letter-spacing:-.02em}
 .nota-legal{font-size:11px;color:var(--muted);background:var(--surface);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.6}
 
+/* Checklist Paso 5 */
+.checklist-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.checklist-item:last-child{border-bottom:none}
+.checklist-item input{width:auto;margin-top:2px;accent-color:var(--green);cursor:pointer}
+
 /* Historial */
 .hist-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer}
 .hist-item:last-child{border-bottom:none}
 .hist-item:hover{background:var(--surface)}
 .hist-main{flex:1;min-width:0}
-.hist-periodo{font-size:14px;font-weight:600}
+.hist-periodo{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
 .hist-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
 .hist-neto{font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--green);text-align:right}
 .hist-detalle{display:none;padding:0 16px 16px}
 .hist-detalle.visible{display:block}
+.estado-badge{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.estado-badge.pendiente{background:var(--amber-bg);color:var(--amber)}
+.estado-badge.aprobada{background:var(--green-bg);color:var(--green)}
+.estado-badge.captura{background:var(--blue-bg);color:var(--blue)}
+.lista-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.lista-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.lista-head-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.badge-count{font-size:11px;font-weight:600;background:var(--green-bg);color:var(--green);border-radius:20px;padding:2px 8px}
+.empty-lista{padding:2.5rem 1rem;text-align:center;color:var(--subtle);font-size:13px}
 
 /* Feriados */
 .config-row{display:flex;align-items:center;gap:12px;padding:.85rem 0;border-bottom:1px solid var(--border)}
@@ -132,6 +175,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .config-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
 .config-badge.si{background:var(--green-bg);color:var(--green)}
 .config-badge.no{background:var(--red-bg);color:var(--red)}
+
+/* CTA de apertura de periodo */
+.cta-abrir{background:var(--card);border:1px dashed var(--border-h);border-radius:var(--radius);padding:2.5rem;text-align:center}
+.cta-abrir p{color:var(--muted);margin-bottom:14px;font-size:13px}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -145,9 +192,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 @media(max-width:740px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .kiosko-bar,.periodo-bar,.tabs{padding-left:1rem;padding-right:1rem}
-  .layout{grid-template-columns:1fr}
   .field-row,.field-row3{grid-template-columns:1fr}
   .detalle-grid{grid-template-columns:1fr}
+  .tabla-wizard{display:block;overflow-x:auto;white-space:nowrap}
 }
 </style>
 </head>
@@ -181,48 +228,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('incidencias',this)">Incidencias</button>
-  <button class="tab-btn" onclick="showTab('calcular',this)">Calcular planilla</button>
+  <button class="tab-btn active" onclick="showTab('planilla',this)">Planilla</button>
   <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
   <button class="tab-btn" onclick="showTab('feriados',this)">Feriados</button>
 </div>
 
 <main>
 
-<!-- ── TAB INCIDENCIAS ── -->
-<div class="page active" id="tab-incidencias">
-  <div class="layout">
-    <div class="lista-card">
-      <div class="lista-head">
-        <span class="lista-head-title">Colaboradores activos</span>
-        <span class="badge-count" id="inc-badge-count">—</span>
-      </div>
-      <div id="inc-lista-items"><div class="empty-lista"><span class="spinner"></span></div></div>
-    </div>
-    <div>
-      <div class="panel-placeholder" id="inc-placeholder">
-        <p>Seleccioná un colaborador<br>para registrar sus incidencias de la quincena</p>
-      </div>
-      <div class="panel" id="inc-panel"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── TAB CALCULAR PLANILLA ── -->
-<div class="page" id="tab-calcular">
-  <div class="card">
-    <p class="card-title">Calcular planilla de la quincena</p>
-    <p class="hint" style="margin-bottom:12px">Kiosko y quincena según la barra de arriba. El cálculo relee las incidencias, vacaciones aprobadas y feriados activos cada vez — no guarda nada hasta que apretés "Guardar planilla".</p>
-    <button class="btn-secondary" onclick="calcularPlanillaPreview()" id="btn-calcular">Calcular</button>
-  </div>
-  <div id="calc-resultado"></div>
+<!-- ── TAB PLANILLA (wizard) ── -->
+<div class="page active" id="tab-planilla">
+  <div id="planilla-contenido"><div class="empty-state"><span class="spinner"></span></div></div>
 </div>
 
 <!-- ── TAB HISTORIAL ── -->
 <div class="page" id="tab-historial">
   <div class="lista-card" id="hist-lista">
     <div class="lista-head">
-      <span class="lista-head-title">Planillas guardadas</span>
+      <span class="lista-head-title">Planillas de este kiosko</span>
       <span class="badge-count" id="hist-badge-count">—</span>
     </div>
     <div id="hist-items"><div class="empty-lista"><span class="spinner"></span></div></div>
@@ -245,7 +267,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="card">
     <p class="card-title">Feriados de pago obligatorio</p>
-    <p class="hint" style="margin-bottom:10px">Editá esta lista cada año — las fechas de Semana Santa y algunos traslados de la Ley 8442 cambian. Un feriado inactivo deja de contarse en el cálculo de planilla.</p>
+    <p class="hint" style="display:block;margin-bottom:10px">Editá esta lista cada año — las fechas de Semana Santa y algunos traslados de la Ley 8442 cambian. Un feriado inactivo deja de contarse en el cálculo de planilla.</p>
     <div id="fer-items"><div class="empty-lista"><span class="spinner"></span></div></div>
   </div>
 </div>
@@ -273,10 +295,9 @@ function kioskosPermitidos(lista) {
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
 
-// Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs) — este
-// módulo agrega las hojas Feriados/Incidencias/Planillas/PlanillasDetalle a
-// ese mismo backend (ver README).
+// Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs).
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const PORCENTAJE_CCSS_OBRERA = 0.1067; // debe coincidir con el backend
 
 const hoy = new Date();
 const pad = n => String(n).padStart(2,'0');
@@ -306,6 +327,8 @@ function showToast(msg, type='success') {
   setTimeout(() => t.classList.remove('show'), 3800);
 }
 function iniciales(n) { return (n||'').split(' ').slice(0,2).map(p => p[0]||'').join('').toUpperCase(); }
+function abrirWhatsApp(texto) { window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank'); }
+function numOr(v, d) { return (v===''||v===undefined||v===null) ? d : Number(v); }
 
 // ── TABS ──────────────────────────────────────────────────────────
 function showTab(tab, el) {
@@ -313,7 +336,7 @@ function showTab(tab, el) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   el.classList.add('active');
-  if (tab === 'incidencias') cargarIncidenciasTab();
+  if (tab === 'planilla') cargarTabPlanilla();
   if (tab === 'historial') cargarHistorial();
   if (tab === 'feriados') cargarFeriados();
 }
@@ -331,6 +354,7 @@ async function cargarKioskos() {
   const guardado = localStorage.getItem('kiosko_actual_planilla');
   if (guardado && KIOSKOS.includes(guardado)) sel.value = guardado;
 }
+function mismoKiosko(a, b) { return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase(); }
 
 // ── PERIODO (quincena) ────────────────────────────────────────────
 function poblarSelectoresPeriodo() {
@@ -358,18 +382,13 @@ function fechaBonita(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('es-CR', { day:'numeric', month:'short' });
 }
-// "Personal" no siempre tiene el mismo case que la pestaña Configuracion
-// (ej. "PLAYA GRANDE" vs "Playa Grande") — mismo problema ya resuelto en
-// horarios.html (buildFromPersonal). Comparar siempre así, nunca con ===.
-function mismoKiosko(a, b) { return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase(); }
 function actualizarChipPeriodo() {
   const r = rangoPeriodoActual();
   document.getElementById('periodo-chip').textContent = `${fechaBonita(r.fechaInicio)} — ${fechaBonita(r.fechaFin)}`;
   return r;
 }
-// Días de intersección (inclusive) entre [aIni,aFin] y [bIni,bFin], recibidos
-// como strings "yyyy-MM-dd" — mismo criterio que diasInterseccion() en el
-// backend, usado acá solo para mostrar info (el cálculo real vive en Apps Script).
+// Días de intersección (inclusive) entre [aIni,aFin] y [bIni,bFin], strings
+// "yyyy-MM-dd" — mismo criterio que diasInterseccion() en el backend.
 function interseccionDias(aIni, aFin, bIni, bFin) {
   if (!aIni || !aFin) return 0;
   const ai = new Date(aIni+'T00:00:00'), af = new Date(aFin+'T00:00:00');
@@ -383,281 +402,690 @@ function alCambiarSelector() {
   localStorage.setItem('kiosko_actual_planilla', document.getElementById('pl-kiosko').value);
   actualizarChipPeriodo();
   const tabActivo = document.querySelector('.page.active').id.replace('tab-','');
-  if (tabActivo === 'incidencias') cargarIncidenciasTab();
-  if (tabActivo === 'calcular') document.getElementById('calc-resultado').innerHTML = '';
+  if (tabActivo === 'planilla') cargarTabPlanilla();
   if (tabActivo === 'historial') cargarHistorial();
 }
 
-// ══════════════════════════ INCIDENCIAS ══════════════════════════
-let PERSONAL_CACHE = [];
-let INCIDENCIAS_CACHE = [];
+// ══════════════════════════ DATOS COMPARTIDOS ══════════════════════════
+let TODOS_PERSONAL = [];
 let VACACIONES_CACHE = [];
 let FERIADOS_CACHE = [];
-let colaboradorSeleccionado = null;
 
-async function cargarIncidenciasTab() {
-  const kiosko = document.getElementById('pl-kiosko').value;
-  document.getElementById('inc-lista-items').innerHTML = '<div class="empty-lista"><span class="spinner"></span></div>';
-  try {
-    const [rPersonal, rVac, rFer, rInc] = await Promise.all([
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=incidencias')
-    ]);
-    const [dPersonal, dVac, dFer, dInc] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json(), rInc.json()]);
-    PERSONAL_CACHE = (dPersonal.ok ? dPersonal.registros : [])
-      .filter(p => mismoKiosko(p['Kiosko'], kiosko) && (p['Estado']||'').toUpperCase() === 'ACTIVO');
-    VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
-    FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
-    INCIDENCIAS_CACHE = dInc.ok ? dInc.registros : [];
-    renderListaColaboradores();
-  } catch (err) {
-    document.getElementById('inc-lista-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
-  }
+async function cargarDatosCompartidos() {
+  const [rPersonal, rVac, rFer] = await Promise.all([
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados')
+  ]);
+  const [dPersonal, dVac, dFer] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json()]);
+  TODOS_PERSONAL = dPersonal.ok ? dPersonal.registros : [];
+  VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
+  FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
 }
 
-function renderListaColaboradores() {
-  const r = rangoPeriodoActual();
-  document.getElementById('inc-badge-count').textContent = PERSONAL_CACHE.length;
-  const cont = document.getElementById('inc-lista-items');
-  if (!PERSONAL_CACHE.length) {
-    cont.innerHTML = '<div class="empty-lista">No hay colaboradores activos<br>en este kiosko.</div>';
-    return;
-  }
-  cont.innerHTML = PERSONAL_CACHE.map((p, i) => {
-    const tieneIncidencia = INCIDENCIAS_CACHE.some(inc =>
-      String(inc['Periodo']) === r.periodo && mismoKiosko(inc['Kiosko'], document.getElementById('pl-kiosko').value)
-      && (inc['Colaborador']||'') === p['Nombre completo']);
-    return `<div class="colab-item" id="ci-${i}" onclick="seleccionarColaborador(${i})">
-      <div class="avatar">${iniciales(p['Nombre completo'])}</div>
-      <div class="ci-info">
-        <div class="ci-nombre">${p['Nombre completo']}</div>
-        <div class="ci-sub">${p['Puesto']||'—'}</div>
-      </div>
-      <span class="ci-dot ${tieneIncidencia?'ok':''}" title="${tieneIncidencia?'Incidencia registrada':'Sin incidencia esta quincena'}"></span>
-    </div>`;
-  }).join('');
-}
-
-function seleccionarColaborador(idx) {
-  document.querySelectorAll('.colab-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById('ci-' + idx).classList.add('selected');
-  colaboradorSeleccionado = PERSONAL_CACHE[idx];
-  renderPanelIncidencia();
-}
-
-function renderPanelIncidencia() {
-  const p = colaboradorSeleccionado;
-  const r = rangoPeriodoActual();
-  const kiosko = document.getElementById('pl-kiosko').value;
-  const nombre = p['Nombre completo'];
-
-  const existente = INCIDENCIAS_CACHE.find(inc =>
-    String(inc['Periodo']) === r.periodo && mismoKiosko(inc['Kiosko'], kiosko) && (inc['Colaborador']||'') === nombre) || {};
+// Convierte una fila de la hoja "Incidencias" al shape que usa el wizard en memoria.
+function incidenciaAParticipante(inc) {
+  const esManual = String(inc['Es manual']||'').trim().toLowerCase().indexOf('s') === 0;
+  const persona = esManual ? null : TODOS_PERSONAL.find(p => (p['Nombre completo']||'').trim().toLowerCase() === (inc['Colaborador']||'').trim().toLowerCase());
   let feriadosTrabajados = [];
-  try { feriadosTrabajados = JSON.parse(existente['Feriados trabajados'] || '[]'); } catch(e) { feriadosTrabajados = []; }
+  try { feriadosTrabajados = JSON.parse(inc['Feriados trabajados']||'[]'); } catch(e) {}
+  return {
+    nombre: inc['Colaborador'], esManual: esManual,
+    puesto: esManual ? (inc['Puesto manual']||'') : (persona ? persona['Puesto']||'' : ''),
+    salario: esManual ? (Number(inc['Salario manual'])||0) : (persona ? Number(persona['Salario'])||0 : 0),
+    horasRegulares: numOr(inc['Horas regulares'], 120),
+    extra50: numOr(inc['Horas extra 50%'], 0), comentarioExtra50: inc['Comentario extra 50%']||'',
+    extra100: numOr(inc['Horas extra 100%'], 0), comentarioExtra100: inc['Comentario extra 100%']||'',
+    feriadosTrabajados: feriadosTrabajados,
+    incapCcssIni: inc['Incapacidad CCSS fecha inicio']||'', incapCcssFin: inc['Incapacidad CCSS fecha fin']||'',
+    comentarioIncapCcss: inc['Comentario incapacidad CCSS']||'',
+    incapInsIni: inc['Incapacidad INS fecha inicio']||'', incapInsFin: inc['Incapacidad INS fecha fin']||'',
+    comentarioIncapIns: inc['Comentario incapacidad INS']||'',
+    incapInternaIni: inc['Incapacidad interna fecha inicio']||'', incapInternaFin: inc['Incapacidad interna fecha fin']||'',
+    incapInternaPct: (inc['Incapacidad interna %']===''||inc['Incapacidad interna %']===undefined) ? 100 : Number(inc['Incapacidad interna %']),
+    comentarioIncapInterna: inc['Comentario incapacidad interna']||'',
+    subsidioMonto: numOr(inc['Subsidio monto por día'],0), subsidioDias: numOr(inc['Subsidio días'],0),
+    subsidioTipo: inc['Subsidio tipo']||'', comentarioSubsidio: inc['Comentario subsidio']||'',
+    diasNoTrabajados: numOr(inc['Días no trabajados'],0), comentarioDiasNoTrabajados: inc['Comentario días no trabajados']||'',
+    dedAdelanto: numOr(inc['Deducción adelanto salario'],0), comentarioAdelanto: inc['Comentario adelanto']||'',
+    dedCompras: numOr(inc['Deducción compras aprobadas'],0), comentarioCompras: inc['Comentario compras']||'',
+    dedOtras: numOr(inc['Deducción otras'],0), comentarioOtras: inc['Comentario otras']||'',
+    dedEmbargo: numOr(inc['Deducción embargo salarial'],0), comentarioEmbargo: inc['Comentario embargo']||'',
+    dedPension: numOr(inc['Deducción pensión alimenticia'],0), comentarioPension: inc['Comentario pensión']||'',
+    ccssBaseAjustada: (inc['CCSS base ajustada']===undefined) ? '' : inc['CCSS base ajustada']
+  };
+}
+// Arma el payload de guardarIncidencia() a partir de un participante en memoria.
+function participanteAPayload(r, kiosko, part) {
+  return {
+    periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, kiosko: kiosko,
+    colaborador: part.nombre,
+    horas_regulares: part.horasRegulares, extra_50: part.extra50, comentario_extra_50: part.comentarioExtra50,
+    extra_100: part.extra100, comentario_extra_100: part.comentarioExtra100,
+    feriados_trabajados: part.feriadosTrabajados,
+    incap_ccss_inicio: part.incapCcssIni, incap_ccss_fin: part.incapCcssFin, comentario_incap_ccss: part.comentarioIncapCcss,
+    incap_ins_inicio: part.incapInsIni, incap_ins_fin: part.incapInsFin, comentario_incap_ins: part.comentarioIncapIns,
+    incap_interna_inicio: part.incapInternaIni, incap_interna_fin: part.incapInternaFin,
+    incap_interna_porcentaje: part.incapInternaPct, comentario_incap_interna: part.comentarioIncapInterna,
+    subsidio_monto: part.subsidioMonto, subsidio_dias: part.subsidioDias, subsidio_tipo: part.subsidioTipo, comentario_subsidio: part.comentarioSubsidio,
+    dias_no_trabajados: part.diasNoTrabajados, comentario_dias_no_trabajados: part.comentarioDiasNoTrabajados,
+    ded_adelanto: part.dedAdelanto, comentario_adelanto: part.comentarioAdelanto,
+    ded_compras: part.dedCompras, comentario_compras: part.comentarioCompras,
+    ded_otras: part.dedOtras, comentario_otras: part.comentarioOtras,
+    ded_embargo: part.dedEmbargo, comentario_embargo: part.comentarioEmbargo,
+    ded_pension: part.dedPension, comentario_pension: part.comentarioPension,
+    es_manual: part.esManual ? 'Sí' : 'No',
+    salario_manual: part.esManual ? part.salario : '',
+    puesto_manual: part.esManual ? part.puesto : '',
+    ccss_base_ajustada: part.ccssBaseAjustada
+  };
+}
+// Réplica en el cliente de calcularPlanilla() (Code-rrhh-kioskos-backend.gs)
+// para dar feedback instantáneo en los Pasos 2-3 sin ida y vuelta al
+// servidor — el cálculo autoritativo (el que se guarda) siempre corre en el
+// backend (Paso 4, planilla_calcular / planilla_enviar_revision).
+function calcularClientePreview(part) {
+  const r = rangoPeriodoActual();
+  const salarioDiario = part.salario / 30;
+  const salarioHora = salarioDiario / 8;
+
+  const horasRegularesMonto = numOr(part.horasRegulares,0) * salarioHora;
+  const extra50Monto = numOr(part.extra50,0) * salarioHora * 1.5;
+  const extra100Monto = numOr(part.extra100,0) * salarioHora * 2;
 
   const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
-    if (String(f['Activo']||'Sí').trim().toLowerCase() === 'no') return false;
+    if (String(f['Activo']||'Sí').trim().toLowerCase()==='no') return false;
+    const fecha = String(f['Fecha']);
+    return fecha >= r.fechaInicio && fecha <= r.fechaFin;
+  });
+  const feriadosMonto = feriadosDelPeriodo.reduce((acc,f) => {
+    const trabajado = part.feriadosTrabajados.indexOf(String(f['Fecha'])) !== -1;
+    return acc + salarioDiario * (trabajado?2:1);
+  }, 0);
+
+  let incapCCSSMonto=0, diasCCSS=0;
+  if (part.incapCcssIni) {
+    const fin = part.incapCcssFin || part.incapCcssIni;
+    diasCCSS = interseccionDias(part.incapCcssIni, fin, r.fechaInicio, r.fechaFin);
+    const iniD = new Date(part.incapCcssIni+'T00:00:00');
+    const tresDiasFin = new Date(iniD.getFullYear(), iniD.getMonth(), iniD.getDate()+2);
+    const finD = new Date(fin+'T00:00:00');
+    const tope = tresDiasFin < finD ? tresDiasFin : finD;
+    const topeStr = `${tope.getFullYear()}-${pad(tope.getMonth()+1)}-${pad(tope.getDate())}`;
+    const diasPagados = interseccionDias(part.incapCcssIni, topeStr, r.fechaInicio, r.fechaFin);
+    incapCCSSMonto = diasPagados * salarioDiario * 0.5;
+  }
+
+  let diasINS=0;
+  if (part.incapInsIni) diasINS = interseccionDias(part.incapInsIni, part.incapInsFin||part.incapInsIni, r.fechaInicio, r.fechaFin);
+  const incapINSMonto = 0;
+
+  let incapInternaMonto=0, diasInterna=0;
+  if (part.incapInternaIni && part.incapInternaFin) {
+    diasInterna = interseccionDias(part.incapInternaIni, part.incapInternaFin, r.fechaInicio, r.fechaFin);
+    incapInternaMonto = diasInterna * salarioDiario * (numOr(part.incapInternaPct,100)/100);
+  }
+
+  const vacacionesDias = VACACIONES_CACHE
+    .filter(v => (v['Colaborador']||'')===part.nombre && (v['Estado']||'').toLowerCase()==='aprobado')
+    .reduce((acc,v) => acc + interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin), 0);
+  const vacacionesMonto = vacacionesDias * salarioDiario;
+
+  const subsidioMonto = numOr(part.subsidioMonto,0) * numOr(part.subsidioDias,0);
+
+  const diasNoTrabajadosAuto = diasCCSS + diasINS + diasInterna + vacacionesDias;
+  const diasNoTrabajadosManual = numOr(part.diasNoTrabajados,0);
+  const diasNoTrabajadosTotal = diasNoTrabajadosAuto + diasNoTrabajadosManual;
+  const diasNoTrabajadosMonto = diasNoTrabajadosTotal * salarioDiario;
+
+  const totalIngresos = horasRegularesMonto+extra50Monto+extra100Monto+feriadosMonto+incapCCSSMonto+incapINSMonto+incapInternaMonto+vacacionesMonto+subsidioMonto - diasNoTrabajadosMonto;
+
+  const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto, 0);
+  const usaAjustada = !(part.ccssBaseAjustada===''||part.ccssBaseAjustada===undefined||part.ccssBaseAjustada===null);
+  const baseCCSSFinal = usaAjustada ? Math.max(numOr(part.ccssBaseAjustada,0),0) : baseCCSSAuto;
+  const ccssObreraMonto = baseCCSSFinal * PORCENTAJE_CCSS_OBRERA;
+
+  const totalDeducciones = ccssObreraMonto + numOr(part.dedAdelanto,0)+numOr(part.dedCompras,0)+numOr(part.dedOtras,0)+numOr(part.dedEmbargo,0)+numOr(part.dedPension,0);
+  const neto = totalIngresos - totalDeducciones;
+
+  return { salarioDiario, salarioHora, horasRegularesMonto, extra50Monto, extra100Monto, feriadosMonto,
+    incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, subsidioMonto,
+    diasNoTrabajadosAuto, diasNoTrabajadosManual, diasNoTrabajadosTotal, diasNoTrabajadosMonto,
+    totalIngresos, baseCCSSAuto, baseCCSSFinal, ccssObreraMonto, totalDeducciones, neto };
+}
+
+// ══════════════════════════ TAB PLANILLA (entrada + wizard) ══════════════════════════
+let PLANILLA_ACTUAL = null;   // fila de "Planillas" para el periodo+kiosko actual, o null
+let WIZARD_PASO = 1;
+let WIZARD_MAX_PASO = 1;
+let WIZARD_PARTICIPANTES = [];
+let WIZARD_CHECKLIST_ITEMS = [
+  'Revisé que las horas y montos de cada colaborador sean correctos.',
+  'Verifiqué que las fechas de incapacidades y vacaciones sean correctas.',
+  'Confirmé el cálculo de CCSS y las demás deducciones de cada colaborador.',
+  'Tengo el visto bueno para proceder con el pago de esta planilla.'
+];
+let WIZARD_CHECKLIST_MARCADOS = [];
+let WIZARD_CALCULO_PREVIEW = null;
+
+async function cargarTabPlanilla() {
+  const cont = document.getElementById('planilla-contenido');
+  cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+
+  try {
+    if (!TODOS_PERSONAL.length) await cargarDatosCompartidos();
+
+    const [rPlanillas, rIncidencias] = await Promise.all([
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=incidencias')
+    ]);
+    const [dPlanillas, dIncidencias] = await Promise.all([rPlanillas.json(), rIncidencias.json()]);
+
+    const planillaFila = (dPlanillas.ok ? dPlanillas.registros : [])
+      .find(row => String(row['Periodo']) === r.periodo && mismoKiosko(row['Kiosko'], kiosko));
+    const incidenciasDelPeriodo = (dIncidencias.ok ? dIncidencias.registros : [])
+      .filter(row => String(row['Periodo']) === r.periodo && mismoKiosko(row['Kiosko'], kiosko));
+
+    PLANILLA_ACTUAL = planillaFila || null;
+
+    if (PLANILLA_ACTUAL && PLANILLA_ACTUAL['Estado'] === 'Aprobada') {
+      renderPlanillaAprobada(PLANILLA_ACTUAL);
+    } else if (PLANILLA_ACTUAL && PLANILLA_ACTUAL['Estado'] === 'Pendiente de aprobación') {
+      WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
+      WIZARD_MAX_PASO = 5; WIZARD_PASO = 5;
+      renderWizard();
+    } else if (incidenciasDelPeriodo.length) {
+      WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
+      WIZARD_MAX_PASO = 3; WIZARD_PASO = 2;
+      renderWizard();
+    } else {
+      renderCTAAbrirPeriodo(kiosko);
+    }
+  } catch (err) {
+    cont.innerHTML = `<div class="empty-state">No se pudo conectar con Google Sheets.</div>`;
+  }
+}
+
+function renderCTAAbrirPeriodo(kiosko) {
+  document.getElementById('planilla-contenido').innerHTML = `
+    <div class="cta-abrir">
+      <p>Todavía no hay una planilla abierta para <b>${kiosko}</b> en esta quincena.</p>
+      <button class="btn-primary" onclick="iniciarWizardNuevo()">+ Abrir nuevo periodo de planilla</button>
+    </div>
+  `;
+}
+
+function iniciarWizardNuevo() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const candidatos = TODOS_PERSONAL.filter(p => mismoKiosko(p['Kiosko'], kiosko) && (p['Estado']||'').toUpperCase()==='ACTIVO');
+  WIZARD_PARTICIPANTES = candidatos.map(p => ({
+    nombre: p['Nombre completo'], puesto: p['Puesto']||'', salario: Number(p['Salario'])||0, esManual: false,
+    incluido: true,
+    horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
+    feriadosTrabajados: [],
+    incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
+    incapInsIni: '', incapInsFin: '', comentarioIncapIns: '',
+    incapInternaIni: '', incapInternaFin: '', incapInternaPct: 100, comentarioIncapInterna: '',
+    subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    diasNoTrabajados: 0, comentarioDiasNoTrabajados: '',
+    dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
+    dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '',
+    dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
+  }));
+  WIZARD_MAX_PASO = 1; WIZARD_PASO = 1;
+  renderWizard();
+}
+
+// ── INDICADOR DE PASOS ────────────────────────────────────────────
+const WIZARD_ETIQUETAS = ['Colaboradores', 'Ingresos', 'Deducciones', 'Cálculo', 'Revisión final'];
+function renderWizardSteps() {
+  return `<div class="wizard-steps">${WIZARD_ETIQUETAS.map((label, i) => {
+    const n = i + 1;
+    const estado = n === WIZARD_PASO ? 'active' : (n < WIZARD_PASO ? 'done' : '');
+    const clickable = n <= WIZARD_MAX_PASO ? 'clickable' : '';
+    return `${i>0 ? `<div class="wstep-sep ${n<=WIZARD_MAX_PASO?'done':''}"></div>` : ''}
+      <div class="wstep ${estado} ${clickable}" ${clickable?`onclick="irAPaso(${n})"`:''}>
+        <span class="wstep-num">${n < WIZARD_PASO ? '✓' : n}</span>
+        <span class="wstep-label">${label}</span>
+      </div>`;
+  }).join('')}</div>`;
+}
+function irAPaso(n) {
+  if (n > WIZARD_MAX_PASO) return;
+  WIZARD_PASO = n;
+  renderWizard();
+}
+function renderWizard() {
+  const cont = document.getElementById('planilla-contenido');
+  cont.innerHTML = renderWizardSteps() + '<div id="wizard-paso"></div>';
+  if (WIZARD_PASO === 1) renderPaso1();
+  if (WIZARD_PASO === 2) renderPaso2();
+  if (WIZARD_PASO === 3) renderPaso3();
+  if (WIZARD_PASO === 4) renderPaso4();
+  if (WIZARD_PASO === 5) renderPaso5();
+}
+
+// ── PASO 1: VERIFICAR COLABORADORES ACTIVOS ──────────────────────
+let EXTRA_MODO = 'buscar';
+function renderPaso1() {
+  const filas = WIZARD_PARTICIPANTES.map((p, i) => `
+    <tr>
+      <td class="col-check"><input type="checkbox" ${p.incluido!==false?'checked':''} onchange="WIZARD_PARTICIPANTES[${i}].incluido=this.checked"></td>
+      <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}</td>
+      <td>${p.puesto||'—'}</td>
+      <td class="monto">${fmt(p.salario)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('wizard-paso').innerHTML = `
+    <div class="card">
+      <p class="card-title">Verificar colaboradores activos</p>
+      <p class="hint" style="display:block;margin-bottom:10px">Desmarcá a quien no trabajó esta quincena, o agregá a alguien extra con el botón de abajo.</p>
+      <table class="tabla-wizard">
+        <thead><tr><th></th><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Salario</th></tr></thead>
+        <tbody>${filas || '<tr><td colspan="4" class="hint" style="padding:1rem 0">No hay colaboradores activos en este kiosko.</td></tr>'}</tbody>
+      </table>
+      <button class="btn-secondary" style="margin-top:12px" onclick="toggleFormExtra()">+ Agregar colaborador extra</button>
+      <div id="form-extra" style="display:none;margin-top:12px"></div>
+    </div>
+    <div class="wizard-actions">
+      <span></span>
+      <button class="btn-primary" onclick="confirmarPaso1YContinuar()">Continuar →</button>
+    </div>
+  `;
+}
+function toggleFormExtra() {
+  const cont = document.getElementById('form-extra');
+  const abrir = cont.style.display === 'none';
+  cont.style.display = abrir ? 'block' : 'none';
+  if (abrir) renderFormExtra();
+}
+function renderFormExtra() {
+  document.getElementById('form-extra').innerHTML = `
+    <div class="subcard">
+      <div class="extra-toggle">
+        <button class="${EXTRA_MODO==='buscar'?'active':''}" onclick="setExtraModo('buscar')">Buscar existente</button>
+        <button class="${EXTRA_MODO==='manual'?'active':''}" onclick="setExtraModo('manual')">Datos nuevos</button>
+      </div>
+      <div id="extra-cuerpo"></div>
+    </div>
+  `;
+  renderExtraCuerpo();
+}
+function setExtraModo(modo) { EXTRA_MODO = modo; renderFormExtra(); }
+function renderExtraCuerpo() {
+  const cont = document.getElementById('extra-cuerpo');
+  if (EXTRA_MODO === 'buscar') {
+    cont.innerHTML = `
+      <input type="text" placeholder="Buscar por nombre…" oninput="buscarExtraExistente(this.value)">
+      <div class="extra-resultados" id="extra-resultados"></div>
+    `;
+  } else {
+    cont.innerHTML = `
+      <div class="field"><label>Nombre completo</label><input type="text" id="extra-nombre"></div>
+      <div class="field-row">
+        <div class="field"><label>Puesto</label><input type="text" id="extra-puesto"></div>
+        <div class="field"><label>Salario mensual (₡)</label><input type="number" id="extra-salario" min="0" step="500"></div>
+      </div>
+      <button class="btn-secondary" onclick="agregarExtraManual()">Agregar</button>
+    `;
+  }
+}
+function buscarExtraExistente(texto) {
+  const cont = document.getElementById('extra-resultados');
+  const yaIncluidos = WIZARD_PARTICIPANTES.map(p => p.nombre.toLowerCase());
+  const buscado = texto.trim().toLowerCase();
+  if (buscado.length < 2) { cont.innerHTML = ''; return; }
+  const resultados = TODOS_PERSONAL
+    .filter(p => (p['Nombre completo']||'').toLowerCase().includes(buscado) && yaIncluidos.indexOf((p['Nombre completo']||'').toLowerCase()) === -1)
+    .slice(0, 15);
+  cont.innerHTML = resultados.length
+    ? resultados.map(p => `<div class="extra-resultado-item" onclick="agregarExtraExistente(${JSON.stringify(p['Nombre completo']).replace(/"/g,'&quot;')})">
+        ${p['Nombre completo']} <span class="hint">— ${p['Puesto']||'—'} · ${p['Kiosko']||'rotativo'} · ${fmt(p['Salario'])}</span>
+      </div>`).join('')
+    : '<div class="extra-resultado-item hint">Sin resultados.</div>';
+}
+function agregarExtraExistente(nombre) {
+  const persona = TODOS_PERSONAL.find(p => p['Nombre completo'] === nombre);
+  if (!persona) return;
+  WIZARD_PARTICIPANTES.push({
+    nombre: persona['Nombre completo'], puesto: persona['Puesto']||'', salario: Number(persona['Salario'])||0, esManual: false,
+    incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
+    feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
+    incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
+    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
+    dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
+  });
+  showToast(`${persona['Nombre completo']} agregado`, 'success');
+  renderPaso1();
+}
+function agregarExtraManual() {
+  const nombre = document.getElementById('extra-nombre').value.trim();
+  const puesto = document.getElementById('extra-puesto').value.trim();
+  const salario = Number(document.getElementById('extra-salario').value) || 0;
+  if (!nombre || !salario) { showToast('Ingresá al menos nombre y salario.', 'error'); return; }
+  WIZARD_PARTICIPANTES.push({
+    nombre, puesto, salario, esManual: true,
+    incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
+    feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
+    incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
+    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
+    dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
+  });
+  showToast(`${nombre} agregado`, 'success');
+  renderPaso1();
+}
+
+async function confirmarPaso1YContinuar() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  const confirmados = WIZARD_PARTICIPANTES.filter(p => p.incluido !== false);
+  if (!confirmados.length) { showToast('Confirmá al menos un colaborador.', 'error'); return; }
+
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    await postBackend({
+      modulo: 'planilla_abrir_periodo', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
+      kiosko: kiosko,
+      colaboradores: confirmados.map(p => ({ nombre: p.nombre, puesto: p.puesto, salario: p.salario, es_manual: p.esManual }))
+    }).then(res => { if (res.ok === false) throw new Error(res.error || 'Error del servidor'); });
+
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=incidencias');
+    const data = await resp.json();
+    const incidenciasDelPeriodo = (data.ok ? data.registros : [])
+      .filter(row => String(row['Periodo']) === r.periodo && mismoKiosko(row['Kiosko'], kiosko));
+    WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
+    WIZARD_PASO = 2; WIZARD_MAX_PASO = Math.max(WIZARD_MAX_PASO, 2);
+    renderWizard();
+  } catch (err) {
+    showToast('Error al abrir el periodo: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Continuar →';
+  }
+}
+
+// ── PASO 2: INGRESOS ──────────────────────────────────────────────
+let PASO2_EXPANDIDO = -1;
+function renderPaso2() {
+  const r = rangoPeriodoActual();
+  const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
+    if (String(f['Activo']||'Sí').trim().toLowerCase()==='no') return false;
     const fecha = String(f['Fecha']);
     return fecha >= r.fechaInicio && fecha <= r.fechaFin;
   });
 
-  const vacacionesDias = VACACIONES_CACHE
-    .filter(v => (v['Colaborador']||'') === nombre && (v['Estado']||'').toLowerCase() === 'aprobada')
-    .reduce((acc, v) => acc + interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin), 0);
+  const filas = WIZARD_PARTICIPANTES.map((p, i) => {
+    const prev = calcularClientePreview(p);
+    const detalleAbierto = PASO2_EXPANDIDO === i;
+    return `
+    <tr>
+      <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}</td>
+      <td><input type="number" min="0" step="0.5" value="${p.horasRegulares}" oninput="actualizarCampoSilencioso(${i},'horasRegulares',this.value)"></td>
+      <td><input type="number" min="0" step="0.5" value="${p.extra50}" oninput="actualizarCampoSilencioso(${i},'extra50',this.value)"></td>
+      <td><input type="number" min="0" step="0.5" value="${p.extra100}" oninput="actualizarCampoSilencioso(${i},'extra100',this.value)"></td>
+      <td class="hint">${prev.diasNoTrabajadosAuto>0?`${prev.diasNoTrabajadosAuto} día(s) auto`:'—'}</td>
+      <td><button class="detalle-toggle" onclick="togglePaso2Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
+    </tr>
+    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="6">${detalleAbierto?renderDetallePaso2(i, feriadosDelPeriodo):''}</td></tr>
+    `;
+  }).join('');
 
-  document.getElementById('inc-placeholder').style.display = 'none';
-  const panel = document.getElementById('inc-panel');
-  panel.className = 'panel visible';
-  panel.innerHTML = `
+  document.getElementById('wizard-paso').innerHTML = `
     <div class="card">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="avatar" style="width:44px;height:44px;font-size:15px">${iniciales(nombre)}</div>
-        <div>
-          <div style="font-family:var(--font-d);font-size:16px;font-weight:700">${nombre}</div>
-          <div class="hint">${p['Puesto']||'—'} · Salario mensual: ${fmt(p['Salario'])}</div>
-        </div>
+      <p class="card-title">Ingresos — horas de la quincena</p>
+      <p class="hint" style="display:block;margin-bottom:10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. Usá "Detalle" para feriados, incapacidades, vacaciones y subsidio.</p>
+      <table class="tabla-wizard">
+        <thead><tr><th>Colaborador</th><th>Horas reg.</th><th>Extra 50%</th><th>Extra 100%</th><th>Días no trab.</th><th></th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="wizard-actions">
+      <button class="btn-secondary" onclick="irAPaso(1)">← Atrás</button>
+      <button class="btn-primary" onclick="guardarPaso2YContinuar()">Guardar y continuar →</button>
+    </div>
+  `;
+}
+// Campos numéricos del participante — todo lo demás (comentarios, fechas,
+// tipo de subsidio) se guarda tal cual como texto. Sin esta lista,
+// Number(valor)||0 aplicado a un comentario o una fecha lo convertiría en 0.
+const CAMPOS_NUMERICOS_WIZARD = ['horasRegulares','extra50','extra100','subsidioMonto','subsidioDias','diasNoTrabajados','incapInternaPct','dedAdelanto','dedCompras','dedOtras','dedEmbargo','dedPension'];
+function setCampoParticipante(i, campo, valor) {
+  WIZARD_PARTICIPANTES[i][campo] = CAMPOS_NUMERICOS_WIZARD.indexOf(campo) !== -1 ? (Number(valor) || 0) : valor;
+}
+// Para comentarios/texto libre: nunca re-renderiza. Estos campos no afectan
+// ningún valor calculado que se muestre en otro lado de la fila, así que
+// reconstruir la tabla en cada tecla solo lograría perder el foco del input
+// sin ganar nada a cambio.
+function actualizarCampoSilencioso(i, campo, valor) {
+  setCampoParticipante(i, campo, valor);
+}
+function actualizarCampoPaso2(i, campo, valor) {
+  setCampoParticipante(i, campo, valor);
+  if (PASO2_EXPANDIDO === i) renderPaso2(); // refresca el preview de días auto sin perder el foco de otras filas
+}
+function togglePaso2Detalle(i) {
+  PASO2_EXPANDIDO = PASO2_EXPANDIDO === i ? -1 : i;
+  renderPaso2();
+}
+function renderDetallePaso2(i, feriadosDelPeriodo) {
+  const p = WIZARD_PARTICIPANTES[i];
+  return `
+    <div class="subcard">
+      <div class="subcard-title">Comentarios de horas extra</div>
+      <div class="field-row">
+        <div class="field"><label>Comentario extra 50%</label><input type="text" value="${p.comentarioExtra50}" oninput="actualizarCampoSilencioso(${i},'comentarioExtra50',this.value)"></div>
+        <div class="field"><label>Comentario extra 100%</label><input type="text" value="${p.comentarioExtra100}" oninput="actualizarCampoSilencioso(${i},'comentarioExtra100',this.value)"></div>
       </div>
     </div>
-
-    <div class="card">
-      <p class="card-title">Horas</p>
-      <div class="field-row3">
-        <div class="field"><label>Horas regulares</label><input type="number" id="f-horas-reg" min="0" step="0.5" value="${existente['Horas regulares']||0}"></div>
-        <div class="field"><label>Horas extra 50%</label><input type="number" id="f-extra50" min="0" step="0.5" value="${existente['Horas extra 50%']||0}"></div>
-        <div class="field"><label>Horas extra 100%</label><input type="number" id="f-extra100" min="0" step="0.5" value="${existente['Horas extra 100%']||0}"></div>
-      </div>
-      <div class="field-row" style="margin-top:6px">
-        <div class="field"><label>Comentario extra 50%</label><input type="text" id="f-com-extra50" value="${existente['Comentario extra 50%']||''}"></div>
-        <div class="field"><label>Comentario extra 100%</label><input type="text" id="f-com-extra100" value="${existente['Comentario extra 100%']||''}"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <p class="card-title">Feriados de esta quincena</p>
+    <div class="subcard">
+      <div class="subcard-title">Feriados de esta quincena</div>
       ${feriadosDelPeriodo.length ? feriadosDelPeriodo.map(f => `
         <div class="check-row">
-          <input type="checkbox" class="chk-feriado" data-fecha="${f['Fecha']}" ${feriadosTrabajados.includes(String(f['Fecha']))?'checked':''}>
-          <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si ${nombre.split(' ')[0]} lo trabajó — se paga doble)</span></span>
+          <input type="checkbox" ${p.feriadosTrabajados.indexOf(String(f['Fecha']))!==-1?'checked':''} onchange="toggleFeriadoTrabajado(${i}, '${f['Fecha']}', this.checked)">
+          <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si lo trabajó — se paga doble)</span></span>
         </div>`).join('') : '<p class="hint">No hay feriados activos en esta quincena.</p>'}
     </div>
-
-    <div class="card">
-      <p class="card-title">Incapacidades</p>
-      <p class="hint" style="margin-bottom:8px">CCSS: primeros 3 días desde la fecha de inicio real al 50% a cargo del patrono; el resto lo paga la CCSS directo. INS: siempre ₡0 a cargo del patrono, se registra solo para control.</p>
+    <div class="subcard">
+      <div class="subcard-title">Incapacidades</div>
+      <p class="hint" style="display:block;margin-bottom:8px">CCSS: primeros 3 días al 50% a cargo del patrono. INS: ₡0 (lo paga el INS). Ambas restan días no trabajados automáticamente.</p>
       <div class="field-row">
-        <div class="field"><label>Incapacidad CCSS — inicio real</label><input type="date" id="f-ccss-ini" value="${existente['Incapacidad CCSS fecha inicio']||''}"></div>
-        <div class="field"><label>Incapacidad CCSS — fin</label><input type="date" id="f-ccss-fin" value="${existente['Incapacidad CCSS fecha fin']||''}"></div>
+        <div class="field"><label>CCSS — inicio real</label><input type="date" value="${p.incapCcssIni}" onchange="actualizarCampoPaso2(${i},'incapCcssIni',this.value)"></div>
+        <div class="field"><label>CCSS — fin</label><input type="date" value="${p.incapCcssFin}" onchange="actualizarCampoPaso2(${i},'incapCcssFin',this.value)"></div>
       </div>
-      <div class="field"><label>Comentario incapacidad CCSS</label><input type="text" id="f-com-ccss" value="${existente['Comentario incapacidad CCSS']||''}"></div>
-      <div class="field-row" style="margin-top:10px">
-        <div class="field"><label>Incapacidad INS — inicio</label><input type="date" id="f-ins-ini" value="${existente['Incapacidad INS fecha inicio']||''}"></div>
-        <div class="field"><label>Incapacidad INS — fin</label><input type="date" id="f-ins-fin" value="${existente['Incapacidad INS fecha fin']||''}"></div>
+      <div class="field"><label>Comentario CCSS</label><input type="text" value="${p.comentarioIncapCcss}" oninput="actualizarCampoSilencioso(${i},'comentarioIncapCcss',this.value)"></div>
+      <div class="field-row" style="margin-top:8px">
+        <div class="field"><label>INS — inicio</label><input type="date" value="${p.incapInsIni}" onchange="actualizarCampoPaso2(${i},'incapInsIni',this.value)"></div>
+        <div class="field"><label>INS — fin</label><input type="date" value="${p.incapInsFin}" onchange="actualizarCampoPaso2(${i},'incapInsFin',this.value)"></div>
       </div>
-      <div class="field"><label>Comentario incapacidad INS</label><input type="text" id="f-com-ins" value="${existente['Comentario incapacidad INS']||''}"></div>
-      <div class="field-row3" style="margin-top:10px">
-        <div class="field"><label>Incapacidad interna — inicio</label><input type="date" id="f-int-ini" value="${existente['Incapacidad interna fecha inicio']||''}"></div>
-        <div class="field"><label>Incapacidad interna — fin</label><input type="date" id="f-int-fin" value="${existente['Incapacidad interna fecha fin']||''}"></div>
-        <div class="field"><label>% a pagar</label><input type="number" id="f-int-pct" min="0" max="100" value="${existente['Incapacidad interna %']===undefined||existente['Incapacidad interna %']===''?100:existente['Incapacidad interna %']}"></div>
+      <div class="field"><label>Comentario INS</label><input type="text" value="${p.comentarioIncapIns}" oninput="actualizarCampoSilencioso(${i},'comentarioIncapIns',this.value)"></div>
+      <div class="field-row3" style="margin-top:8px">
+        <div class="field"><label>Interna — inicio</label><input type="date" value="${p.incapInternaIni}" onchange="actualizarCampoPaso2(${i},'incapInternaIni',this.value)"></div>
+        <div class="field"><label>Interna — fin</label><input type="date" value="${p.incapInternaFin}" onchange="actualizarCampoPaso2(${i},'incapInternaFin',this.value)"></div>
+        <div class="field"><label>% a pagar</label><input type="number" min="0" max="100" value="${p.incapInternaPct}" oninput="actualizarCampoSilencioso(${i},'incapInternaPct',this.value)"></div>
       </div>
-      <div class="field"><label>Comentario incapacidad interna</label><input type="text" id="f-com-int" value="${existente['Comentario incapacidad interna']||''}"></div>
+      <div class="field"><label>Comentario interna</label><input type="text" value="${p.comentarioIncapInterna}" oninput="actualizarCampoSilencioso(${i},'comentarioIncapInterna',this.value)"></div>
     </div>
-
-    <div class="card">
-      <p class="card-title">Vacaciones · subsidio · días no trabajados</p>
-      <div class="info-box" style="margin-bottom:12px">
-        <b>Vacaciones automáticas:</b> ${vacacionesDias} día${vacacionesDias!==1?'s':''} aprobado${vacacionesDias!==1?'s':''} dentro de esta quincena (desde Solicitud de Vacaciones) — no se ingresa a mano acá, se suma sola al calcular la planilla.
-      </div>
+    <div class="subcard">
+      <div class="subcard-title">Vacaciones</div>
+      <div class="info-box">Se calculan solas desde las solicitudes aprobadas — no se ingresan acá. <a href="rrhh-vacaciones.html" target="_blank">Pedir vacaciones para ${p.nombre.split(' ')[0]} →</a></div>
+    </div>
+    <div class="subcard">
+      <div class="subcard-title">Subsidio de alimentación/transporte</div>
       <div class="field-row3">
-        <div class="field"><label>Subsidio ₡/día</label><input type="number" id="f-sub-monto" min="0" step="100" value="${existente['Subsidio monto por día']||0}"></div>
-        <div class="field"><label>Días de subsidio</label><input type="number" id="f-sub-dias" min="0" step="1" value="${existente['Subsidio días']||0}"></div>
+        <div class="field"><label>₡/día</label><input type="number" min="0" step="100" value="${p.subsidioMonto}" oninput="actualizarCampoSilencioso(${i},'subsidioMonto',this.value)"></div>
+        <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.subsidioDias}" oninput="actualizarCampoSilencioso(${i},'subsidioDias',this.value)"></div>
         <div class="field"><label>Tipo</label>
-          <select id="f-sub-tipo">
-            <option value="" ${!existente['Subsidio tipo']?'selected':''}>—</option>
-            <option value="Alimentación" ${existente['Subsidio tipo']==='Alimentación'?'selected':''}>Alimentación</option>
-            <option value="Transporte" ${existente['Subsidio tipo']==='Transporte'?'selected':''}>Transporte</option>
-            <option value="Ambos" ${existente['Subsidio tipo']==='Ambos'?'selected':''}>Ambos</option>
+          <select onchange="actualizarCampoSilencioso(${i},'subsidioTipo',this.value)">
+            <option value="" ${!p.subsidioTipo?'selected':''}>—</option>
+            <option value="Alimentación" ${p.subsidioTipo==='Alimentación'?'selected':''}>Alimentación</option>
+            <option value="Transporte" ${p.subsidioTipo==='Transporte'?'selected':''}>Transporte</option>
+            <option value="Ambos" ${p.subsidioTipo==='Ambos'?'selected':''}>Ambos</option>
           </select>
         </div>
       </div>
-      <div class="field"><label>Comentario subsidio</label><input type="text" id="f-com-sub" value="${existente['Comentario subsidio']||''}"></div>
-      <div class="field-row" style="margin-top:10px">
-        <div class="field"><label>Días no trabajados</label><input type="number" id="f-dias-no-trab" min="0" step="1" value="${existente['Días no trabajados']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-dias-no-trab" value="${existente['Comentario días no trabajados']||''}"></div>
+      <div class="field"><label>Comentario subsidio</label><input type="text" value="${p.comentarioSubsidio}" oninput="actualizarCampoSilencioso(${i},'comentarioSubsidio',this.value)"></div>
+    </div>
+    <div class="subcard">
+      <div class="subcard-title">Otros días no trabajados</div>
+      <p class="hint" style="display:block;margin-bottom:8px">Solo ausencias sin incapacidad ni vacación (ej. inasistencia injustificada) — incapacidad y vacaciones ya suman días automáticamente, no los repitas acá.</p>
+      <div class="field-row">
+        <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.diasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'diasNoTrabajados',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioDiasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'comentarioDiasNoTrabajados',this.value)"></div>
       </div>
     </div>
-
-    <div class="card">
-      <p class="card-title">Deducciones</p>
-      <div class="field-row">
-        <div class="field"><label>Adelanto de salario ₡</label><input type="number" id="f-ded-adelanto" min="0" step="100" value="${existente['Deducción adelanto salario']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-adelanto" value="${existente['Comentario adelanto']||''}"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Compras aprobadas ₡</label><input type="number" id="f-ded-compras" min="0" step="100" value="${existente['Deducción compras aprobadas']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-compras" value="${existente['Comentario compras']||''}"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Otras deducciones ₡</label><input type="number" id="f-ded-otras" min="0" step="100" value="${existente['Deducción otras']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-otras" value="${existente['Comentario otras']||''}"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Embargo salarial ₡</label><input type="number" id="f-ded-embargo" min="0" step="100" value="${existente['Deducción embargo salarial']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-embargo" value="${existente['Comentario embargo']||''}"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Pensión alimenticia ₡</label><input type="number" id="f-ded-pension" min="0" step="100" value="${existente['Deducción pensión alimenticia']||0}"></div>
-        <div class="field"><label>Comentario</label><input type="text" id="f-com-pension" value="${existente['Comentario pensión']||''}"></div>
-      </div>
-      <p class="hint" style="margin-top:6px">La cuota obrera de CCSS (10.67%) se calcula sola al generar la planilla — no hace falta ingresarla acá.</p>
-    </div>
-
-    <button class="btn-primary" id="btn-guardar-incidencia" onclick="guardarIncidenciaActual()">Guardar incidencia</button>
   `;
 }
+function toggleFeriadoTrabajado(i, fecha, marcado) {
+  const p = WIZARD_PARTICIPANTES[i];
+  const idx = p.feriadosTrabajados.indexOf(fecha);
+  if (marcado && idx === -1) p.feriadosTrabajados.push(fecha);
+  if (!marcado && idx !== -1) p.feriadosTrabajados.splice(idx, 1);
+}
 
-async function guardarIncidenciaActual() {
-  if (!colaboradorSeleccionado) return;
+async function guardarPaso2YContinuar() {
+  await guardarLoteYAvanzar(3, event.target);
+}
+
+// ── PASO 3: DEDUCCIONES ───────────────────────────────────────────
+let PASO3_EXPANDIDO = -1;
+function renderPaso3() {
+  const filas = WIZARD_PARTICIPANTES.map((p, i) => {
+    const prev = calcularClientePreview(p);
+    const detalleAbierto = PASO3_EXPANDIDO === i;
+    return `
+    <tr>
+      <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}</td>
+      <td class="monto">${fmt(prev.baseCCSSAuto)}</td>
+      <td><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso3(${i},'ccssBaseAjustada',this.value)"></td>
+      <td class="monto">${fmt(prev.ccssObreraMonto)}</td>
+      <td><input type="number" min="0" step="100" value="${p.dedAdelanto}" oninput="actualizarCampoSilencioso(${i},'dedAdelanto',this.value)"></td>
+      <td><input type="number" min="0" step="100" value="${p.dedCompras}" oninput="actualizarCampoSilencioso(${i},'dedCompras',this.value)"></td>
+      <td><button class="detalle-toggle" onclick="togglePaso3Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
+    </tr>
+    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="7">${detalleAbierto?renderDetallePaso3(i, prev):''}</td></tr>
+    `;
+  }).join('');
+
+  document.getElementById('wizard-paso').innerHTML = `
+    <div class="card">
+      <p class="card-title">Deducciones</p>
+      <p class="hint" style="display:block;margin-bottom:10px">La base de CCSS ya excluye subsidio e incapacidades. Dejá "Base CCSS ajustada" vacío para usar el cálculo automático, o escribí un monto para forzarlo.</p>
+      <table class="tabla-wizard">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS auto</th><th>Base ajustada</th><th style="text-align:right">CCSS (10.67%)</th><th>Adelanto</th><th>Compras</th><th></th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="wizard-actions">
+      <button class="btn-secondary" onclick="irAPaso(2)">← Atrás</button>
+      <button class="btn-primary" onclick="guardarPaso3YContinuar()">Guardar y continuar →</button>
+    </div>
+  `;
+}
+function actualizarCampoPaso3(i, campo, valor) {
+  setCampoParticipante(i, campo, valor);
+  renderPaso3();
+}
+function togglePaso3Detalle(i) { PASO3_EXPANDIDO = PASO3_EXPANDIDO === i ? -1 : i; renderPaso3(); }
+function renderDetallePaso3(i, prev) {
+  const p = WIZARD_PARTICIPANTES[i];
+  return `
+    <div class="subcard">
+      <div class="subcard-title">Cómo se arma la base de CCSS</div>
+      <div style="font-size:12.5px">
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Total ingresos</span><span>${fmt(prev.totalIngresos)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Subsidio</span><span>${fmt(prev.subsidioMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Incapacidad CCSS/INS/interna</span><span>${fmt(prev.incapCCSSMonto+prev.incapINSMonto+prev.incapInternaMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);font-weight:600"><span>= Base CCSS automática</span><span>${fmt(prev.baseCCSSAuto)}</span></div>
+      </div>
+    </div>
+    <div class="subcard">
+      <div class="subcard-title">Comentarios de adelanto y compras</div>
+      <div class="field-row">
+        <div class="field"><label>Comentario adelanto</label><input type="text" value="${p.comentarioAdelanto}" oninput="actualizarCampoSilencioso(${i},'comentarioAdelanto',this.value)"></div>
+        <div class="field"><label>Comentario compras</label><input type="text" value="${p.comentarioCompras}" oninput="actualizarCampoSilencioso(${i},'comentarioCompras',this.value)"></div>
+      </div>
+    </div>
+    <div class="subcard">
+      <div class="subcard-title">Otras deducciones</div>
+      <div class="field-row">
+        <div class="field"><label>Otras deducciones ₡</label><input type="number" min="0" step="100" value="${p.dedOtras}" oninput="actualizarCampoSilencioso(${i},'dedOtras',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioOtras}" oninput="actualizarCampoSilencioso(${i},'comentarioOtras',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Embargo salarial ₡</label><input type="number" min="0" step="100" value="${p.dedEmbargo}" oninput="actualizarCampoSilencioso(${i},'dedEmbargo',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioEmbargo}" oninput="actualizarCampoSilencioso(${i},'comentarioEmbargo',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Pensión alimenticia ₡</label><input type="number" min="0" step="100" value="${p.dedPension}" oninput="actualizarCampoSilencioso(${i},'dedPension',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioPension}" oninput="actualizarCampoSilencioso(${i},'comentarioPension',this.value)"></div>
+      </div>
+    </div>
+  `;
+}
+async function guardarPaso3YContinuar() { await guardarLoteYAvanzar(4, event.target); }
+
+async function guardarLoteYAvanzar(siguientePaso, btn) {
+  const kiosko = document.getElementById('pl-kiosko').value;
   const r = rangoPeriodoActual();
-  const val = id => document.getElementById(id).value;
-  const feriadosMarcados = Array.from(document.querySelectorAll('.chk-feriado:checked')).map(el => el.dataset.fecha);
-
-  const payload = {
-    modulo: 'incidencia_guardar',
-    periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
-    kiosko: document.getElementById('pl-kiosko').value,
-    colaborador: colaboradorSeleccionado['Nombre completo'],
-    horas_regulares: val('f-horas-reg'), extra_50: val('f-extra50'), comentario_extra_50: val('f-com-extra50'),
-    extra_100: val('f-extra100'), comentario_extra_100: val('f-com-extra100'),
-    feriados_trabajados: feriadosMarcados,
-    incap_ccss_inicio: val('f-ccss-ini'), incap_ccss_fin: val('f-ccss-fin'), comentario_incap_ccss: val('f-com-ccss'),
-    incap_ins_inicio: val('f-ins-ini'), incap_ins_fin: val('f-ins-fin'), comentario_incap_ins: val('f-com-ins'),
-    incap_interna_inicio: val('f-int-ini'), incap_interna_fin: val('f-int-fin'),
-    incap_interna_porcentaje: val('f-int-pct'), comentario_incap_interna: val('f-com-int'),
-    subsidio_monto: val('f-sub-monto'), subsidio_dias: val('f-sub-dias'), subsidio_tipo: val('f-sub-tipo'), comentario_subsidio: val('f-com-sub'),
-    dias_no_trabajados: val('f-dias-no-trab'), comentario_dias_no_trabajados: val('f-com-dias-no-trab'),
-    ded_adelanto: val('f-ded-adelanto'), comentario_adelanto: val('f-com-adelanto'),
-    ded_compras: val('f-ded-compras'), comentario_compras: val('f-com-compras'),
-    ded_otras: val('f-ded-otras'), comentario_otras: val('f-com-otras'),
-    ded_embargo: val('f-ded-embargo'), comentario_embargo: val('f-com-embargo'),
-    ded_pension: val('f-ded-pension'), comentario_pension: val('f-com-pension')
-  };
-
-  const btn = document.getElementById('btn-guardar-incidencia');
-  btn.disabled = true; btn.textContent = 'Guardando…';
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
   try {
-    const result = await postBackend(payload);
-    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
-    showToast(`Incidencia de ${colaboradorSeleccionado['Nombre completo']} guardada`, 'success');
-    await cargarIncidenciasTab();
+    const res = await postBackend({
+      modulo: 'incidencias_guardar_lote',
+      incidencias: WIZARD_PARTICIPANTES.map(p => participanteAPayload(r, kiosko, p))
+    });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    WIZARD_PASO = siguientePaso;
+    WIZARD_MAX_PASO = Math.max(WIZARD_MAX_PASO, siguientePaso);
+    renderWizard();
   } catch (err) {
     showToast('Error al guardar: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Guardar incidencia';
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar y continuar →'; }
   }
 }
 
-// ══════════════════════════ CALCULAR PLANILLA ══════════════════════════
-async function calcularPlanillaPreview() {
-  const r = rangoPeriodoActual();
+// ── PASO 4: CÁLCULO ───────────────────────────────────────────────
+async function renderPaso4() {
+  document.getElementById('wizard-paso').innerHTML = '<div class="card"><div class="empty-state"><span class="spinner"></span></div></div>';
   const kiosko = document.getElementById('pl-kiosko').value;
-  const btn = document.getElementById('btn-calcular');
-  btn.disabled = true; btn.textContent = 'Calculando…';
-  document.getElementById('calc-resultado').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  const r = rangoPeriodoActual();
   try {
     const url = `${APPS_SCRIPT_URL}?modulo=planilla_calcular&periodo=${encodeURIComponent(r.periodo)}&fecha_inicio=${r.fechaInicio}&fecha_fin=${r.fechaFin}&kiosko=${encodeURIComponent(kiosko)}`;
     const resp = await fetchConTimeout(url);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error del servidor');
-    renderTablaCalculo(data.resultado);
+    WIZARD_CALCULO_PREVIEW = data.resultado;
+    document.getElementById('wizard-paso').innerHTML = renderTablaCalculo(data.resultado) + `
+      <div class="card">
+        <p class="card-title">Cerrar cálculo</p>
+        <div class="field"><label>Calculado por</label><input type="text" id="calc-por"></div>
+        <div class="wizard-actions">
+          <button class="btn-secondary" onclick="irAPaso(3)">← Atrás</button>
+          <button class="btn-primary" id="btn-enviar-revision" onclick="cerrarYEnviarRevision()">Cerrar cálculo y enviar a aprobación</button>
+        </div>
+        <div id="wa-revision" style="margin-top:12px"></div>
+      </div>
+    `;
   } catch (err) {
-    document.getElementById('calc-resultado').innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
-  } finally {
-    btn.disabled = false; btn.textContent = 'Calcular';
+    document.getElementById('wizard-paso').innerHTML = `<div class="card"><div class="empty-state">Error: ${err.message}</div></div>`;
   }
 }
-
 function renderTablaCalculo(resultado) {
-  window._calcResultado = resultado;
-  const cont = document.getElementById('calc-resultado');
-  if (!resultado.colaboradores.length) {
-    cont.innerHTML = '<div class="card"><div class="empty-state">No hay colaboradores activos en este kiosko.</div></div>';
-    return;
-  }
+  if (!resultado.colaboradores.length) return '<div class="card"><div class="empty-state">No hay colaboradores en esta planilla.</div></div>';
   const filasFeriados = resultado.feriados_en_periodo.length
-    ? `<p class="hint">Feriados en esta quincena: ${resultado.feriados_en_periodo.map(f => `${fechaBonita(f.fecha)} (${f.nombre})`).join(', ')}</p>`
-    : '<p class="hint">No hay feriados activos en esta quincena.</p>';
-
+    ? `<p class="hint" style="display:block">Feriados en esta quincena: ${resultado.feriados_en_periodo.map(f => `${fechaBonita(f.fecha)} (${f.nombre})`).join(', ')}</p>`
+    : '<p class="hint" style="display:block">No hay feriados activos en esta quincena.</p>';
   const filas = resultado.colaboradores.map((c, i) => `
-    <tr class="calc-row" onclick="toggleDetalle(${i})">
+    <tr class="calc-row" onclick="toggleDetalleCalculo(${i})">
       <td>${c.colaborador}<div class="subtit">${c.puesto||''}</div></td>
       <td class="monto">${fmt(c.totalIngresos)}</td>
       <td class="monto">${fmt(c.totalDeducciones)}</td>
       <td class="monto" style="font-weight:700;color:var(--green)">${fmt(c.neto)}</td>
     </tr>
-    <tr class="calc-detalle" id="det-${i}" style="display:none">
+    <tr class="calc-detalle" id="det-calc-${i}" style="display:none">
       <td colspan="4"><div class="detalle-grid">
         <div><b>Ingresos</b>
           <div><span>Horas regulares</span><span>${fmt(c.horasRegularesMonto)}</span></div>
@@ -669,9 +1097,10 @@ function renderTablaCalculo(resultado) {
           <div><span>Incapacidad interna</span><span>${fmt(c.incapInternaMonto)}</span></div>
           <div><span>Vacaciones (${c.vacacionesDias} días)</span><span>${fmt(c.vacacionesMonto)}</span></div>
           <div><span>Subsidio</span><span>${fmt(c.subsidioMonto)}</span></div>
-          <div><span>Días no trabajados</span><span>−${fmt(c.diasNoTrabajadosMonto)}</span></div>
+          <div><span>Días no trabajados (${c.diasNoTrabajadosTotal})</span><span>−${fmt(c.diasNoTrabajadosMonto)}</span></div>
         </div>
         <div><b>Deducciones</b>
+          <div><span>Base CCSS${c.usaCCSSAjustada?' (ajustada)':''}</span><span>${fmt(c.baseCCSSFinal)}</span></div>
           <div><span>CCSS obrera (10.67%)</span><span>${fmt(c.ccssObreraMonto)}</span></div>
           <div><span>Adelanto salario</span><span>${fmt(c.adelanto)}</span></div>
           <div><span>Compras aprobadas</span><span>${fmt(c.compras)}</span></div>
@@ -682,8 +1111,7 @@ function renderTablaCalculo(resultado) {
       </div></td>
     </tr>
   `).join('');
-
-  cont.innerHTML = `
+  return `
     <div class="card">
       <p class="card-title">Desglose por colaborador <span class="hint">(click en una fila para ver el detalle)</span></p>
       ${filasFeriados}
@@ -691,48 +1119,227 @@ function renderTablaCalculo(resultado) {
         <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
-      <div class="total-row">
-        <span class="total-label">Total neto del kiosko</span>
-        <span class="total-valor">${fmt(resultado.totales.totalNeto)}</span>
-      </div>
-      <div class="nota-legal">
-        ⚖️ <strong>Nota legal:</strong> Cálculo preliminar según el Código de Trabajo de Costa Rica (jornada Art. 136, horas extra Art. 139, feriados Art. 148, vacaciones Art. 153) y la Ley 9756 (incapacidad CCSS). Incluye la cuota obrera de CCSS (10.67%) pero no el Impuesto de Renta ni convenios colectivos particulares — revisá los montos con contabilidad antes de pagar.
-      </div>
-    </div>
-    <div class="card">
-      <p class="card-title">Guardar esta planilla</p>
-      <div class="field"><label>Calculado por</label><input type="text" id="calc-por" placeholder="Tu nombre"></div>
-      <button class="btn-primary" id="btn-guardar-planilla" onclick="guardarPlanillaActual()">Guardar planilla · ${resultado.colaboradores.length} colaborador${resultado.colaboradores.length!==1?'es':''}</button>
-      <p class="hint" style="margin-top:8px">Si ya existía una planilla guardada para este kiosko y esta quincena, se reemplaza por este cálculo.</p>
+      <div class="total-row"><span class="total-label">Total neto del kiosko</span><span class="total-valor">${fmt(resultado.totales.totalNeto)}</span></div>
+      <div class="nota-legal">⚖️ <strong>Nota legal:</strong> Cálculo preliminar según el Código de Trabajo de Costa Rica (jornada Art. 136, horas extra Art. 139, feriados Art. 148, vacaciones Art. 153) y la Ley 9756 (incapacidad CCSS). Incluye la cuota obrera de CCSS (10.67%) pero no el Impuesto de Renta ni convenios colectivos particulares — revisá los montos con contabilidad antes de pagar.</div>
     </div>
   `;
 }
-
-function toggleDetalle(i) {
-  const fila = document.getElementById('det-' + i);
+function toggleDetalleCalculo(i) {
+  const fila = document.getElementById('det-calc-' + i);
   fila.style.display = fila.style.display === 'none' ? '' : 'none';
 }
-
-async function guardarPlanillaActual() {
-  const r = rangoPeriodoActual();
+async function cerrarYEnviarRevision() {
   const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
   const calculadoPor = document.getElementById('calc-por').value.trim();
   if (!calculadoPor) { showToast('Ingresá quién calculó la planilla.', 'error'); return; }
-
-  const btn = document.getElementById('btn-guardar-planilla');
-  btn.disabled = true; btn.textContent = 'Guardando…';
+  const btn = document.getElementById('btn-enviar-revision');
+  btn.disabled = true; btn.textContent = 'Enviando…';
   try {
-    const result = await postBackend({
-      modulo: 'planilla_guardar', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
+    const res = await postBackend({
+      modulo: 'planilla_enviar_revision', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
       kiosko: kiosko, calculado_por: calculadoPor
     });
-    if (result.ok === false) throw new Error(result.error || 'Error del servidor');
-    showToast(`Planilla de ${kiosko} guardada — neto total ${fmt(result.result.total_neto)}`, 'success');
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    PLANILLA_ACTUAL = { 'ID': res.result.id, Estado: 'Pendiente de aprobación' };
+    showToast('Planilla cerrada y enviada a aprobación', 'success');
+    const total = WIZARD_CALCULO_PREVIEW ? WIZARD_CALCULO_PREVIEW.totales.totalNeto : res.result.total_neto;
+    document.getElementById('wa-revision').innerHTML = `
+      <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(`La planilla de ${kiosko} — ${r.periodo} está lista para tu revisión. Total neto: ${fmt(total)}.`)})'>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg>
+        Avisar por WhatsApp
+      </button>
+      <button class="btn-primary" style="margin-left:10px" onclick="irAPaso(5)">Continuar a revisión final →</button>
+    `;
+    WIZARD_MAX_PASO = 5;
   } catch (err) {
-    showToast('Error al guardar: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Guardar planilla';
+    showToast('Error: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Cerrar cálculo y enviar a aprobación';
   }
+}
+
+// ── PASO 5: REVISIÓN FINAL ────────────────────────────────────────
+async function renderPaso5() {
+  document.getElementById('wizard-paso').innerHTML = '<div class="card"><div class="empty-state"><span class="spinner"></span></div></div>';
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
+    const data = await resp.json();
+    const id = PLANILLA_ACTUAL ? PLANILLA_ACTUAL['ID'] : null;
+    const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(id));
+    const totalNeto = detalle.reduce((acc,d) => acc + (Number(d['Neto a pagar'])||0), 0);
+    WIZARD_CALCULO_PREVIEW = { colaboradores: detalle.map(d => ({
+      colaborador: d['Colaborador'], puesto: d['Puesto'], totalIngresos: Number(d['Total ingresos'])||0,
+      totalDeducciones: Number(d['Total deducciones'])||0, neto: Number(d['Neto a pagar'])||0
+    })), totales: { totalNeto } };
+
+    document.getElementById('wizard-paso').innerHTML = `
+      <div class="card">
+        <p class="card-title">Detalle final</p>
+        <table class="calc-tabla">
+          <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
+          <tbody>${detalle.map(d => `<tr><td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}</div></td>
+            <td class="monto">${fmt(d['Total ingresos'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td>
+            <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td></tr>`).join('')}</tbody>
+        </table>
+        <div class="total-row"><span class="total-label">Total neto del kiosko</span><span class="total-valor">${fmt(totalNeto)}</span></div>
+      </div>
+      <div class="card">
+        <p class="card-title">Checklist de verificación</p>
+        ${WIZARD_CHECKLIST_ITEMS.map((item, i) => `
+          <label class="checklist-item">
+            <input type="checkbox" onchange="toggleChecklistItem(${i}, this.checked)">
+            <span>${item}</span>
+          </label>
+        `).join('')}
+      </div>
+      <div class="wizard-actions">
+        <button class="btn-secondary" onclick="irAPaso(4)">← Atrás</button>
+        <button class="btn-primary" id="btn-aprobar" disabled onclick="aprobarPlanillaFinal()">Aprobar planilla</button>
+      </div>
+      <div id="post-aprobacion"></div>
+    `;
+    WIZARD_CHECKLIST_MARCADOS = WIZARD_CHECKLIST_ITEMS.map(() => false);
+  } catch (err) {
+    document.getElementById('wizard-paso').innerHTML = `<div class="card"><div class="empty-state">Error: ${err.message}</div></div>`;
+  }
+}
+function toggleChecklistItem(i, marcado) {
+  WIZARD_CHECKLIST_MARCADOS[i] = marcado;
+  document.getElementById('btn-aprobar').disabled = WIZARD_CHECKLIST_MARCADOS.some(v => !v);
+}
+async function aprobarPlanillaFinal() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  const aprobadoPor = prompt('¿Quién aprueba esta planilla?');
+  if (!aprobadoPor) return;
+  const btn = document.getElementById('btn-aprobar');
+  btn.disabled = true; btn.textContent = 'Aprobando…';
+  try {
+    const res = await postBackend({
+      modulo: 'planilla_aprobar', id: PLANILLA_ACTUAL['ID'],
+      checklist: WIZARD_CHECKLIST_ITEMS, aprobado_por: aprobadoPor
+    });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    showToast('Planilla aprobada', 'success');
+
+    const total = WIZARD_CALCULO_PREVIEW.totales.totalNeto;
+    const pdfBase64 = await generarPDFPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
+    const csvUrl = generarCSVPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
+
+    let driveMsg = '';
+    try {
+      const archResp = await postBackend({ modulo: 'planilla_guardar_archivo', id: PLANILLA_ACTUAL['ID'], pdf_base64: pdfBase64, kiosko, periodo: r.periodo });
+      if (archResp.ok === false) throw new Error(archResp.error);
+      driveMsg = `<p class="hint" style="display:block;margin-top:6px">PDF archivado en Drive: <a href="${archResp.result.url}" target="_blank">ver archivo ↗</a></p>`;
+    } catch (e) {
+      driveMsg = `<p class="hint" style="display:block;margin-top:6px">No se pudo archivar en Drive (${e.message}). Podés descargar el PDF igual.</p>`;
+    }
+
+    document.getElementById('post-aprobacion').innerHTML = `
+      <div class="card">
+        <p class="card-title">Planilla aprobada ✓</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick='descargarPDF(${JSON.stringify(pdfBase64)}, ${JSON.stringify('Planilla_'+kiosko+'_'+r.periodo+'.pdf')})'>Descargar PDF</button>
+          <a class="btn-secondary" href="${csvUrl}" download="Planilla_${kiosko}_${r.periodo}.csv" style="text-decoration:none;display:inline-block">Descargar Excel/CSV</a>
+          <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(`La planilla de ${kiosko} — ${r.periodo} está lista. Total a pagar: ${fmt(total)}.`)})'>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg>
+            Notificar por WhatsApp
+          </button>
+        </div>
+        ${driveMsg}
+      </div>
+    `;
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Aprobar planilla';
+  }
+}
+
+// ── EXPORT: PDF (jsPDF + html2canvas, mismo patrón que horarios.html) ──
+async function generarPDFPlanilla(kiosko, periodo, resultado) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:absolute;left:-9999px;top:0;width:750px;background:#fff;padding:24px;font-family:Arial,sans-serif;color:#1c3a28;';
+  holder.innerHTML = `
+    <h2 style="margin:0 0 4px;font-size:20px;">Planilla — ${kiosko}</h2>
+    <p style="margin:0 0 16px;font-size:13px;color:#5a8a6a;">Periodo: ${periodo} · Generado: ${new Date().toLocaleString('es-CR')}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f2ede2;">
+        <th style="text-align:left;padding:6px;border:1px solid #c8ddd0;">Colaborador</th>
+        <th style="text-align:left;padding:6px;border:1px solid #c8ddd0;">Puesto</th>
+        <th style="text-align:right;padding:6px;border:1px solid #c8ddd0;">Ingresos</th>
+        <th style="text-align:right;padding:6px;border:1px solid #c8ddd0;">Deducciones</th>
+        <th style="text-align:right;padding:6px;border:1px solid #c8ddd0;">Neto</th>
+      </tr></thead>
+      <tbody>
+        ${resultado.colaboradores.map(c => `<tr>
+          <td style="padding:6px;border:1px solid #c8ddd0;">${c.colaborador}</td>
+          <td style="padding:6px;border:1px solid #c8ddd0;">${c.puesto||''}</td>
+          <td style="text-align:right;padding:6px;border:1px solid #c8ddd0;">${fmt(c.totalIngresos)}</td>
+          <td style="text-align:right;padding:6px;border:1px solid #c8ddd0;">${fmt(c.totalDeducciones)}</td>
+          <td style="text-align:right;padding:6px;border:1px solid #c8ddd0;font-weight:bold;">${fmt(c.neto)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="background:#eef8f2;font-weight:bold;">
+        <td colspan="4" style="padding:8px;border:1px solid #c8ddd0;">Total neto</td>
+        <td style="text-align:right;padding:8px;border:1px solid #c8ddd0;">${fmt(resultado.totales.totalNeto)}</td>
+      </tr></tfoot>
+    </table>
+  `;
+  document.body.appendChild(holder);
+  const canvas = await html2canvas(holder, { scale: 2, backgroundColor: '#ffffff' });
+  document.body.removeChild(holder);
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  let heightLeft = imgHeight, position = 0;
+  const imgData = canvas.toDataURL('image/png');
+  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+  return pdf.output('datauristring').split(',')[1];
+}
+function descargarPDF(base64, filename) {
+  const link = document.createElement('a');
+  link.href = 'data:application/pdf;base64,' + base64;
+  link.download = filename;
+  link.click();
+}
+
+// ── EXPORT: CSV ────────────────────────────────────────────────────
+function csvEscape(v) {
+  const s = String(v === undefined || v === null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function generarCSVPlanilla(kiosko, periodo, resultado) {
+  const encabezados = ['Colaborador','Puesto','Total ingresos','Total deducciones','Neto a pagar'];
+  const filas = resultado.colaboradores.map(c => [c.colaborador, c.puesto||'', Math.round(c.totalIngresos), Math.round(c.totalDeducciones), Math.round(c.neto)]);
+  const csv = [encabezados].concat(filas).map(fila => fila.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  return URL.createObjectURL(blob);
+}
+
+// ── VISTA DE SOLO LECTURA (planilla ya aprobada) ─────────────────
+function renderPlanillaAprobada(planilla) {
+  document.getElementById('planilla-contenido').innerHTML = `
+    <div class="card">
+      <p class="card-title">Planilla aprobada <span class="estado-badge aprobada" style="margin-left:6px">Aprobada</span></p>
+      <p class="hint" style="display:block">Calculada: ${planilla['Fecha cálculo']||''} · Aprobada por ${planilla['Aprobado por']||'—'} el ${planilla['Fecha aprobación']||''}</p>
+      <div class="total-row" style="margin-top:12px"><span class="total-label">Total neto</span><span class="total-valor">${fmt(planilla['Total neto'])}</span></div>
+      ${planilla['PDF URL'] ? `<p style="margin-top:10px"><a href="${planilla['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
+      <p class="hint" style="display:block;margin-top:10px">Esta planilla ya fue aprobada — para corregirla hay que editar directamente el Sheet o abrir un periodo nuevo.</p>
+    </div>
+  `;
 }
 
 // ══════════════════════════ HISTORIAL ══════════════════════════
@@ -748,29 +1355,47 @@ async function cargarHistorial() {
     document.getElementById('hist-badge-count').textContent = registros.length;
     window._historial = registros;
     if (!registros.length) {
-      document.getElementById('hist-items').innerHTML = '<div class="empty-lista">No hay planillas guardadas<br>para este kiosko todavía.</div>';
+      document.getElementById('hist-items').innerHTML = '<div class="empty-lista">No hay planillas enviadas a revisión o aprobadas<br>para este kiosko todavía.</div>';
       return;
     }
-    document.getElementById('hist-items').innerHTML = registros.map((r, i) => `
-      <div class="hist-item" onclick="verDetallePlanilla(${i})">
+    document.getElementById('hist-items').innerHTML = registros.map((r, i) => {
+      const estado = r['Estado'] || 'Pendiente de aprobación';
+      const clase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
+      return `
+      <div class="hist-item" onclick="clickHistorial(${i})">
         <div class="hist-main">
-          <div class="hist-periodo">${r['Periodo']}</div>
+          <div class="hist-periodo">${r['Periodo']} <span class="estado-badge ${clase}">${estado}</span></div>
           <div class="hist-sub">${fechaBonita(r['Fecha inicio'])} — ${fechaBonita(r['Fecha fin'])} · ${r['Colaboradores']} colaboradores · calculado por ${r['Calculado por']||'—'}</div>
         </div>
         <div class="hist-neto">${fmt(r['Total neto'])}</div>
       </div>
       <div class="hist-detalle" id="hist-det-${i}"></div>
-    `).join('');
+    `;
+    }).join('');
   } catch (err) {
     document.getElementById('hist-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
   }
 }
-
-async function verDetallePlanilla(i) {
+function clickHistorial(i) {
+  const r = window._historial[i];
+  if (r['Estado'] !== 'Aprobada') {
+    // Retoma el wizard: alinea el selector de periodo con esta fila y salta a la pestaña Planilla.
+    const m = String(r['Periodo']).match(/^(\d{4})-(\d{2})-Q(\d)$/);
+    if (m) {
+      document.getElementById('pl-anio').value = m[1];
+      document.getElementById('pl-mes').value = String(Number(m[2]));
+      document.getElementById('pl-quincena').value = m[3];
+      actualizarChipPeriodo();
+    }
+    showTab('planilla', document.querySelectorAll('.tab-btn')[0]);
+    return;
+  }
+  verDetalleHistorial(i);
+}
+async function verDetalleHistorial(i) {
   const cont = document.getElementById('hist-det-' + i);
   const visible = cont.classList.contains('visible');
-  document.querySelectorAll('.hist-detalle').forEach(el => el.classList.remove('visible'));
-  document.querySelectorAll('.hist-detalle').forEach(el => el.innerHTML = '');
+  document.querySelectorAll('.hist-detalle').forEach(el => { el.classList.remove('visible'); el.innerHTML = ''; });
   if (visible) return;
 
   const r = window._historial[i];
@@ -781,15 +1406,15 @@ async function verDetallePlanilla(i) {
     const data = await resp.json();
     const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(r['ID']));
     if (!detalle.length) { cont.innerHTML = '<div class="empty-state">Sin detalle guardado.</div>'; return; }
-    cont.innerHTML = `<table class="calc-tabla">
-      <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
-      <tbody>${detalle.map(d => `
-        <tr><td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}</div></td>
-        <td class="monto">${fmt(d['Total ingresos'])}</td>
-        <td class="monto">${fmt(d['Total deducciones'])}</td>
-        <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td></tr>
-      `).join('')}</tbody>
-    </table>`;
+    cont.innerHTML = `
+      <table class="calc-tabla">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
+        <tbody>${detalle.map(d => `<tr><td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}</div></td>
+          <td class="monto">${fmt(d['Total ingresos'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td>
+          <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td></tr>`).join('')}</tbody>
+      </table>
+      ${r['PDF URL'] ? `<p class="hint" style="display:block;margin-top:10px"><a href="${r['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
+    `;
   } catch (err) {
     cont.innerHTML = '<div class="empty-state">Error al cargar el detalle.</div>';
   }
@@ -821,7 +1446,6 @@ async function cargarFeriados() {
     document.getElementById('fer-items').innerHTML = '<div class="empty-lista">No se pudo conectar con Google Sheets.</div>';
   }
 }
-
 function editarFeriado(i) {
   const f = window._feriados[i];
   document.getElementById('fer-original').value = f['Fecha'];
@@ -831,7 +1455,6 @@ function editarFeriado(i) {
   document.getElementById('btn-fer-cancelar').style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
 function cancelarEdicionFeriado() {
   document.getElementById('fer-original').value = '';
   document.getElementById('fer-fecha').value = '';
@@ -839,7 +1462,6 @@ function cancelarEdicionFeriado() {
   document.getElementById('fer-form-title').textContent = 'Agregar feriado';
   document.getElementById('btn-fer-cancelar').style.display = 'none';
 }
-
 async function guardarFeriadoForm() {
   const fecha = document.getElementById('fer-fecha').value;
   const nombre = document.getElementById('fer-nombre').value.trim();
@@ -847,10 +1469,7 @@ async function guardarFeriadoForm() {
   const btn = document.getElementById('btn-fer-guardar');
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
-    const result = await postBackend({
-      modulo: 'feriado_guardar', fecha: fecha, nombre: nombre,
-      fecha_original: document.getElementById('fer-original').value
-    });
+    const result = await postBackend({ modulo: 'feriado_guardar', fecha, nombre, fecha_original: document.getElementById('fer-original').value });
     if (result.ok === false) throw new Error(result.error || 'Error del servidor');
     showToast('Feriado guardado', 'success');
     cancelarEdicionFeriado();
@@ -861,7 +1480,6 @@ async function guardarFeriadoForm() {
     btn.disabled = false; btn.textContent = 'Guardar feriado';
   }
 }
-
 async function toggleFeriadoActivo(i) {
   const f = window._feriados[i];
   const activo = String(f['Activo']||'Sí').trim().toLowerCase() !== 'no';
@@ -877,7 +1495,7 @@ async function toggleFeriadoActivo(i) {
 // ── INICIO ────────────────────────────────────────────────────────
 poblarSelectoresPeriodo();
 actualizarChipPeriodo();
-cargarKioskos().then(() => cargarIncidenciasTab());
+cargarKioskos().then(() => cargarTabPlanilla());
 </script>
 </body>
 </html>
