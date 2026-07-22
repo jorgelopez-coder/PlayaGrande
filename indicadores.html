@@ -267,7 +267,7 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Mismas URLs /exec usadas en el resto del ecosistema (ver README.md).
@@ -351,8 +351,12 @@ function guardarMetas() {
     renderKpisGenerales(indicadoresCache);
     renderHbarVentas(indicadoresCache);
     renderComparativo(indicadoresCache);
-    renderLineaVentas(indicadoresCache);
-    renderLineaMerma(indicadoresCache);
+    try {
+      renderLineaVentas(indicadoresCache);
+      renderLineaMerma(indicadoresCache);
+    } catch(e) {
+      console.error('Error al renderizar los gráficos de línea:', e);
+    }
   }
 }
 
@@ -716,6 +720,10 @@ function ocultarChartVacio(idBase) {
 
 function renderLineaVentas(datos) {
   const idBase = 'chart-ventas-linea';
+  if (typeof Chart === 'undefined') {
+    mostrarChartVacio(idBase, 'No se pudo cargar la librería de gráficos (Chart.js). Revisá la conexión a internet y recargá la página.');
+    return;
+  }
   const kioskosSquare = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && datos[k].squareOk);
   const fechas = fechasOrdenadasEnRango(datos).filter(f => kioskosSquare.some(k => datos[k].porDia[f]));
   if (chartVentasLinea) { chartVentasLinea.destroy(); chartVentasLinea = null; }
@@ -759,6 +767,10 @@ function renderLineaVentas(datos) {
 
 function renderLineaMerma(datos) {
   const idBase = 'chart-merma-linea';
+  if (typeof Chart === 'undefined') {
+    mostrarChartVacio(idBase, 'No se pudo cargar la librería de gráficos (Chart.js). Revisá la conexión a internet y recargá la página.');
+    return;
+  }
   const kioskosSquare = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && datos[k].squareOk);
   const fechas = fechasOrdenadasEnRango(datos);
   if (chartMermaLinea) { chartMermaLinea.destroy(); chartMermaLinea = null; }
@@ -873,11 +885,20 @@ async function cargarTodo() {
     renderKpisGenerales(indicadoresCache);
     renderHbarVentas(indicadoresCache);
     renderComparativo(indicadoresCache);
-    renderLineaVentas(indicadoresCache);
-    renderLineaMerma(indicadoresCache);
     renderKioskoTab();
   } catch(e) {
     document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty">No se pudo cargar el comparativo. Revisá la conexión.</div></td></tr>';
+  }
+
+  // Los gráficos de línea van en su propio try/catch: si Chart.js no carga o
+  // falla por lo que sea, no debe tumbar el resto del tablero (KPIs, tabla).
+  try {
+    renderLineaVentas(indicadoresCache);
+    renderLineaMerma(indicadoresCache);
+  } catch(e) {
+    console.error('Error al renderizar los gráficos de línea:', e);
+    mostrarChartVacio('chart-ventas-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
+    mostrarChartVacio('chart-merma-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
   }
 }
 
