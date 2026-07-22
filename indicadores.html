@@ -276,6 +276,15 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
   </div>
 
   <div class="card">
+    <p class="card-title">Planilla vs. Ventas — costo de planilla como % de ventas</p>
+    <div class="chart-wrap">
+      <canvas id="chart-planilla-ventas-linea"></canvas>
+      <div class="chart-empty" id="chart-planilla-ventas-linea-empty" style="display:none"></div>
+    </div>
+    <p class="footnote">Una línea por kiosko con Square propio: Total ingresos de cada planilla aprobada (quincenal) ÷ ventas de Square en esas mismas fechas, × 100. Muestra el histórico completo de quincenas con planilla aprobada — no depende del selector de Período de arriba, porque compara cada planilla contra su propia quincena.</p>
+  </div>
+
+  <div class="card">
     <div class="metas-head" onclick="toggleComparativoCard()">
       <p class="card-title" style="margin-bottom:0">Comparativo por kiosko</p>
       <span class="metas-toggle" id="comparativo-toggle-icon">▸ Mostrar</span>
@@ -851,6 +860,117 @@ function renderRrhhDetalle(activos, vacaciones, enLiquidacion) {
   }
 }
 
+// ── FUENTE 5: PLANILLA VS VENTAS (Sheet "Planillas" del backend RRHH +
+// histórico completo de Square por kiosko — es una comparación por quincena
+// contra su propia fecha_inicio/fecha_fin, no depende del selector de
+// Período de arriba, mismo criterio que Efectivo pendiente/RRHH) ──
+async function obtenerPlanillasAprobadas() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=planillas', { cache:'no-store' });
+    const data = await resp.json();
+    const registros = data.ok ? (data.registros || []) : [];
+    return registros.filter(r => String(r['Estado']||'').trim() === 'Aprobada');
+  } catch(e) { return []; }
+}
+// Histórico completo (sin filtro de fechas) de ventas por kiosko con Square
+// propio — reutiliza obtenerVentasOnzasRango() pasando desde/hasta vacíos,
+// ya que enRango() no filtra si ambos vienen vacíos.
+async function obtenerVentasHistoricoTodas() {
+  const entradas = Object.entries(SQUARE_KIOSKOS);
+  const resultados = await Promise.all(entradas.map(([,cfg]) => obtenerVentasOnzasRango(cfg, '', '')));
+  const porKiosko = {};
+  entradas.forEach(([nombre], i) => { porKiosko[nombre] = resultados[i]; });
+  return porKiosko;
+}
+function sumarVentasEnRango(porDia, desde, hasta) {
+  return Object.entries(porDia||{}).reduce((s,[f,v]) => enRango(f,desde,hasta) ? s+(v.ventas||0) : s, 0);
+}
+function labelPeriodoPlanilla(periodo) {
+  const m = String(periodo||'').match(/^(\d{4})-(\d{2})-Q(\d)$/);
+  if (!m) return periodo;
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${meses[Number(m[2])-1]} ${m[1]} Q${m[3]}`;
+}
+// Devuelve { kiosko: { periodo: {periodo, ingresos, ventas, pct} } } — solo
+// para kioskos con Square propio (sin ventas de Square no hay relación que
+// calcular) y respetando los kioskos permitidos por rol.
+async function calcularPlanillaVsVentas() {
+  const [planillas, ventasHistorico] = await Promise.all([
+    obtenerPlanillasAprobadas(),
+    obtenerVentasHistoricoTodas()
+  ]);
+  const porKiosko = {};
+  planillas.forEach(p => {
+    const kiosko = String(p['Kiosko']||'').trim();
+    if (!SQUARE_KIOSKOS[kiosko] || !KIOSKOS.includes(kiosko)) return;
+    const periodo = p['Periodo'];
+    const desde = String(p['Fecha inicio']||'').slice(0,10);
+    const hasta = String(p['Fecha fin']||'').slice(0,10);
+    const ingresos = Number(p['Total ingresos'])||0;
+    const ventasPeriodo = sumarVentasEnRango((ventasHistorico[kiosko]||{}).porDia, desde, hasta);
+    if (!porKiosko[kiosko]) porKiosko[kiosko] = {};
+    porKiosko[kiosko][periodo] = {
+      periodo, ingresos, ventas: ventasPeriodo,
+      pct: ventasPeriodo > 0 ? (ingresos/ventasPeriodo)*100 : null
+    };
+  });
+  return porKiosko;
+}
+
+let chartPlanillaVentasLinea = null;
+function renderLineaPlanillaVentas(datos) {
+  const idBase = 'chart-planilla-ventas-linea';
+  if (typeof Chart === 'undefined') {
+    mostrarChartVacio(idBase, 'No se pudo cargar la librería de gráficos (Chart.js). Revisá la conexión a internet y recargá la página.');
+    return;
+  }
+  const kioskosConDatos = Object.keys(SQUARE_KIOSKOS).filter(k => datos[k] && Object.keys(datos[k]).length);
+  if (chartPlanillaVentasLinea) { chartPlanillaVentasLinea.destroy(); chartPlanillaVentasLinea = null; }
+  if (!kioskosConDatos.length) {
+    mostrarChartVacio(idBase, 'Sin planillas aprobadas todavía para calcular esta relación (se necesita al menos una planilla en estado "Aprobada" de un kiosko con Square propio).');
+    return;
+  }
+  ocultarChartVacio(idBase);
+
+  const periodosSet = new Set();
+  kioskosConDatos.forEach(k => Object.keys(datos[k]).forEach(p => periodosSet.add(p)));
+  const periodos = [...periodosSet].sort(); // "YYYY-MM-QN" ordena bien como texto
+
+  const datasets = kioskosConDatos.map((k, i) => {
+    const color = colorFor(i);
+    return {
+      label: k,
+      data: periodos.map(p => (datos[k][p] ? datos[k][p].pct : null)),
+      borderColor: color, backgroundColor: color, tension: .25, spanGaps: true, pointRadius: 3, borderWidth: 2
+    };
+  });
+
+  chartPlanillaVentasLinea = new Chart(document.getElementById(idBase), {
+    type: 'line',
+    data: { labels: periodos.map(labelPeriodoPlanilla), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const k = ctx.dataset.label, p = periodos[ctx.dataIndex];
+              const d = datos[k] && datos[k][p];
+              if (!d || d.pct == null) return `${k}: N/D`;
+              return `${k}: ${d.pct.toFixed(1)}% (planilla ${fmtCRC(d.ingresos)} / ventas ${fmtCRC(d.ventas)})`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: v => v + '%' } },
+        x: { ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } }
+      }
+    }
+  });
+}
+
 function toggleRrhhDetalle() {
   const body = document.getElementById('rrhh-detalle-wrap');
   const icon = document.getElementById('rrhh-toggle-icon');
@@ -1412,9 +1532,11 @@ async function cargarTodo() {
   document.getElementById('kiosko-diario-body').innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
   document.getElementById('rrhh-kpi-body').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
 
-  // El fetch de RRHH (empleados/vacaciones) no depende del rango de fechas,
-  // así que arranca en paralelo con el resto para no atrasar la carga.
+  // El fetch de RRHH (empleados/vacaciones) y el de Planilla vs Ventas no
+  // dependen del rango de fechas, así que arrancan en paralelo con el resto
+  // para no atrasar la carga.
   const rrhhPromise = obtenerPersonalYVacaciones();
+  const planillaVsVentasPromise = calcularPlanillaVsVentas();
 
   try {
     indicadoresCache = await calcularIndicadores();
@@ -1446,6 +1568,14 @@ async function cargarTodo() {
   } catch(e) {
     console.error('Error al cargar RRHH:', e);
     document.getElementById('rrhh-kpi-body').innerHTML = '<div class="empty-state">No se pudo cargar la información de RRHH.</div>';
+  }
+
+  try {
+    const planillaVsVentas = await planillaVsVentasPromise;
+    renderLineaPlanillaVentas(planillaVsVentas);
+  } catch(e) {
+    console.error('Error al calcular Planilla vs Ventas:', e);
+    mostrarChartVacio('chart-planilla-ventas-linea', 'No se pudo calcular la relación planilla/ventas. Revisá la consola del navegador.');
   }
 }
 
