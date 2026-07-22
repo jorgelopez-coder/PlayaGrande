@@ -217,9 +217,32 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
     </div>
 
     <div class="card" id="rrhh-card">
-      <p class="card-title">RRHH — plantilla y vacaciones</p>
+      <div class="metas-head" onclick="toggleRrhhDetalle()">
+        <p class="card-title" style="margin-bottom:0">RRHH — plantilla y vacaciones</p>
+        <span class="metas-toggle" id="rrhh-toggle-icon">▸ Ver detalle</span>
+      </div>
       <div class="kpi-grid" id="rrhh-kpi-body" style="margin-bottom:0">
         <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+      <div id="rrhh-detalle-wrap" style="display:none;margin-top:1rem">
+        <p class="card-sub" style="margin-bottom:.5rem">Plantilla activa y balance de vacaciones</p>
+        <div class="compare-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr><th>Colaborador</th><th>Kiosko</th><th>Puesto</th><th>Días de vacaciones</th></tr>
+            </thead>
+            <tbody id="rrhh-detalle-plantilla-body"><tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr></tbody>
+          </table>
+        </div>
+        <p class="card-sub" style="margin:1.25rem 0 .5rem">Liquidaciones pendientes de pago</p>
+        <div class="compare-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr><th>Colaborador</th><th>Kiosko</th><th>Puesto</th><th>Fecha ingreso</th></tr>
+            </thead>
+            <tbody id="rrhh-detalle-liquidaciones-body"><tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr></tbody>
+          </table>
+        </div>
       </div>
       <p class="footnote">Empleados activos y balance de vacaciones (saldo del expediente menos días aprobados tomados, o cálculo por antigüedad si no hay saldo manual cargado). Es un estado actual, no depende del rango de fechas.</p>
     </div>
@@ -678,6 +701,7 @@ function renderRrhhKpis(personal, vacaciones) {
   }
   const activos = personal.filter(p => (p['Estado']||'ACTIVO').toUpperCase() === 'ACTIVO');
   const balanceTotal = activos.reduce((s,p) => s + calcularSaldoVacacionesRrhh(p, vacaciones), 0);
+  const enLiquidacion = personal.filter(p => (p['Estado']||'').toUpperCase().includes('LIQUID'));
   cont.innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">Empleados activos</div>
@@ -688,7 +712,56 @@ function renderRrhhKpis(personal, vacaciones) {
       <div class="kpi-label">Balance de vacaciones</div>
       <div class="kpi-val" style="color:var(--purple)">${balanceTotal.toLocaleString('es-CR',{maximumFractionDigits:1})} días</div>
       <div class="kpi-sub">Suma de saldos, empleados activos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Liquidaciones pendientes</div>
+      <div class="kpi-val" style="color:${enLiquidacion.length ? 'var(--red)' : 'var(--text)'}">${enLiquidacion.length}</div>
+      <div class="kpi-sub">${enLiquidacion.length ? 'Pendientes de confirmar pago' : 'Sin pendientes'}</div>
     </div>`;
+
+  renderRrhhDetalle(activos, vacaciones, enLiquidacion);
+}
+
+function renderRrhhDetalle(activos, vacaciones, enLiquidacion) {
+  const nombreDe = p => p['Nombre completo'] || `${p['Nombre']||''} ${p['Apellidos']||''}`.trim() || '—';
+
+  const bodyPlantilla = document.getElementById('rrhh-detalle-plantilla-body');
+  if (bodyPlantilla) {
+    if (!activos.length) {
+      bodyPlantilla.innerHTML = '<tr><td colspan="4"><div class="empty-state">Sin colaboradores activos.</div></td></tr>';
+    } else {
+      const filas = activos.map(p => ({
+        nombre: nombreDe(p), kiosko: p['Kiosko'] || '—', puesto: p['Puesto'] || '—',
+        balance: calcularSaldoVacacionesRrhh(p, vacaciones)
+      })).sort((a,b) => a.nombre.localeCompare(b.nombre));
+      bodyPlantilla.innerHTML = filas.map(f =>
+        `<tr><td>${f.nombre}</td><td>${f.kiosko}</td><td>${f.puesto}</td><td>${f.balance.toLocaleString('es-CR',{maximumFractionDigits:1})}</td></tr>`
+      ).join('');
+    }
+  }
+
+  const bodyLiq = document.getElementById('rrhh-detalle-liquidaciones-body');
+  if (bodyLiq) {
+    if (!enLiquidacion.length) {
+      bodyLiq.innerHTML = '<tr><td colspan="4"><div class="empty-state">No hay liquidaciones pendientes.</div></td></tr>';
+    } else {
+      const filasLiq = enLiquidacion.map(p => ({
+        nombre: nombreDe(p), kiosko: p['Kiosko'] || '—', puesto: p['Puesto'] || '—',
+        ingreso: p['Fecha ingreso'] || '—'
+      })).sort((a,b) => a.nombre.localeCompare(b.nombre));
+      bodyLiq.innerHTML = filasLiq.map(f =>
+        `<tr><td>${f.nombre}</td><td>${f.kiosko}</td><td>${f.puesto}</td><td>${f.ingreso}</td></tr>`
+      ).join('');
+    }
+  }
+}
+
+function toggleRrhhDetalle() {
+  const body = document.getElementById('rrhh-detalle-wrap');
+  const icon = document.getElementById('rrhh-toggle-icon');
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  icon.textContent = abierto ? '▸ Ver detalle' : '▴ Ocultar';
 }
 
 // ── CÁLCULO GENERAL: arma un objeto por kiosko con todos los indicadores
@@ -740,6 +813,14 @@ async function calcularIndicadores() {
 }
 
 // ── DETALLE POR KIOSKO DE CADA KPI (contenido del toggle "Ver por kiosko") ──
+function kpiDetailOnzasHtml(datos) {
+  return KIOSKOS.map(k => {
+    const d = datos[k];
+    if (!d) return '';
+    const val = d.squareOk ? `${fmtOz(d.onzasTotal)} oz` : '<span class="compare-dash">Sin Square propio</span>';
+    return `<div class="kpi-detail-row"><span class="kd-name">${k}</span><span class="kd-val">${val}</span></div>`;
+  }).join('');
+}
 function kpiDetailVentasHtml(datos) {
   return KIOSKOS.map(k => {
     const d = datos[k];
@@ -806,6 +887,13 @@ function renderKpisGenerales(datos) {
     : '';
 
   cont.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Onzas de cerveza vendidas</div>
+      <div class="kpi-val">${fmtOz(totalOnzasVendidas)} oz</div>
+      <div class="kpi-sub">Cerveza de barril, ${kioskosSquare.length} kiosko${kioskosSquare.length===1?'':'s'} con Square propio</div>
+      <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-onzas" onclick="toggleKpiDetail('onzas')">Ver por kiosko ▾</button>
+      <div class="kpi-detail-body" id="kpi-detail-onzas">${kpiDetailOnzasHtml(datos)}</div>
+    </div>
     <div class="kpi-card">
       <div class="kpi-label">Ventas totales (Square)</div>
       <div class="kpi-val">${fmtCRC(ventasTotales)}</div>
