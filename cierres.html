@@ -499,10 +499,16 @@ const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3Bogjtj
 // data.type==='extraerIA' en Code-cierres-kioskos-backend.gs), así que usa
 // la misma URL — no hace falta un despliegue aparte.
 const EXTRACTOR_URL    = SHEETS_URL;
-// URL /exec del Web App de Square_Sync.gs (otro Apps Script, atado al Sheet
-// de Square). Pegá acá la URL una vez que lo despliegues como Aplicación
-// web. Si la dejás vacía, la sección "Ventas SQUARE" se muestra sin datos.
+// URL /exec del Web App de Square_Sync.gs (Codigo-Square-completo-con-Descuentos.gs
+// desplegado específicamente para Playa Grande — su LOCATION_IDS/LOCATION_KIOSKO_MAP
+// solo conocen el location_id de Playa Grande). Por eso SOLO debe usarse cuando
+// el kiosko seleccionado en el formulario es "Playa Grande": ver SQUARE_URL_KIOSKO
+// más abajo y cargarVentasSquare()/actualizarResumenSquare(), que verifican esto
+// antes de llamarla — si no, el botón "Actualizar resumen de cierre" terminaba
+// siempre recalculando el Square de Playa Grande sin importar qué kiosko
+// estuviera seleccionado.
 const SQUARE_URL       = 'https://script.google.com/macros/s/AKfycbwpAYU0WBAL-tabjAsAlhh0eHxPfawXmxLHfyHDHN5KtI_qdZcvcedGqurvDGpem10F/exec';
+const SQUARE_URL_KIOSKO = 'Playa Grande';
 
 // Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
 // Sheet de RRHH (ver cargarKioskos()/configuracion.html). Este arreglo es
@@ -515,10 +521,15 @@ let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 // Para estos, "Ventas SQUARE" se lee directo de la pestaña Resumen_Cierre_Diario
 // vía gviz — SIN pasar por el Apps Script compartido SQUARE_URL, que no tiene
 // su data. Para sumar otro kiosko con Square propio, agregar acá una entrada
-// con el mismo patrón (sheetId de su hoja "Square - <Kiosko>").
+// con el mismo patrón (sheetId de su hoja "Square - <Kiosko>", mismo sheetId
+// que en index.html).
 const SQUARE_KIOSKOS = {
   'Tamarindo': {
     sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
+    resumenTab: 'Resumen_Cierre_Diario'
+  },
+  'Liberia': {
+    sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok',
     resumenTab: 'Resumen_Cierre_Diario'
   }
 };
@@ -892,6 +903,14 @@ async function cargarVentasSquare() {
     return;
   }
 
+  // SQUARE_URL es el Apps Script de Square propio de SQUARE_URL_KIOSKO — solo
+  // aplica cuando ese es el kiosko seleccionado. Para cualquier otro kiosko sin
+  // Square configurado (ni en SQUARE_KIOSKOS ni acá), no se llama a esta URL:
+  // así se evita traer/actualizar el Square de otro kiosko por error.
+  if (kiosko !== SQUARE_URL_KIOSKO) {
+    renderVentasSquare(null, 'Square no configurado todavía para ' + kiosko + '.');
+    return;
+  }
   if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) {
     renderVentasSquare(null, 'Configurá SQUARE_URL primero.');
     return;
@@ -924,6 +943,14 @@ async function actualizarResumenSquare() {
     return;
   }
 
+  // Igual que en cargarVentasSquare(): SQUARE_URL solo es el Square de
+  // SQUARE_URL_KIOSKO. Si el kiosko seleccionado es otro y no tiene su propia
+  // entrada en SQUARE_KIOSKOS, no hay nada que actualizar acá — evita el bug
+  // de recalcular siempre el Square de un kiosko distinto al del cierre.
+  if (kiosko !== SQUARE_URL_KIOSKO) {
+    showToast('Square no configurado para ' + kiosko, 'error');
+    return;
+  }
   if (!SQUARE_URL || SQUARE_URL.startsWith('TODO_')) { showToast('Configurá SQUARE_URL primero', 'error'); return; }
   btn.disabled = true;
   const textoOriginal = btn.textContent;
