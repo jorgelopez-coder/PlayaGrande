@@ -708,7 +708,7 @@ function aplicarRol(sesion) {
 // (ver admin-accesos.html) — usado por cargarKPIs() para que el dashboard
 // comparativo solo muestre los kioskos del rol logueado.
 function kioskosPermitidos(lista) {
-  if (!sesionActual || sesionActual.kioskos === 'todos') return lista;
+  if (!sesionActual || !Array.isArray(sesionActual.kioskos)) return lista;
   return (lista || []).filter(k => sesionActual.kioskos.includes(k));
 }
 
