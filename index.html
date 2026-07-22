@@ -47,6 +47,11 @@ header {
 .sync-btn:hover { border-color:var(--border-h); color:var(--text); }
 .sync-btn svg { width:12px; height:12px; }
 
+/* ── CONTROLES DEL HISTÓRICO DE VENTAS (selects de periodo/día) ─ */
+.hist-select { font-family:var(--font-m); font-size:11px; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px 9px; cursor:pointer; }
+.hist-select:hover { border-color:var(--border-h); color:var(--text); }
+.hist-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
 /* ── MENÚ HORIZONTAL DE MÓDULOS ── */
 .topnav { height:46px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:stretch; gap:2px; background:var(--card); position:sticky; top:60px; z-index:19; }
 .nav-item { position:relative; display:flex; }
@@ -393,6 +398,41 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
+  <!-- Histórico de ventas por kiosko: gráfico para comparar periodos
+       anteriores entre sí, con filtro opcional por día de semana (ej. ver
+       solo los viernes para comparar viernes contra viernes). -->
+  <div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-head" style="flex-wrap:wrap; gap:.6rem;">
+      <span class="section-title"><span class="clip"></span>Histórico de ventas por kiosko</span>
+      <div class="hist-controls">
+        <select id="hist-periodo" class="hist-select" onchange="renderGraficoHistoricoVentas()">
+          <option value="7">Últimos 7 días</option>
+          <option value="14">Últimos 14 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="60">Últimos 60 días</option>
+          <option value="90">Últimos 90 días</option>
+        </select>
+        <select id="hist-dia-semana" class="hist-select" onchange="renderGraficoHistoricoVentas()">
+          <option value="todos" selected>Todos los días</option>
+          <option value="1">Solo lunes</option>
+          <option value="2">Solo martes</option>
+          <option value="3">Solo miércoles</option>
+          <option value="4">Solo jueves</option>
+          <option value="5">Solo viernes</option>
+          <option value="6">Solo sábados</option>
+          <option value="0">Solo domingos</option>
+        </select>
+      </div>
+    </div>
+    <div style="padding:1rem 1.25rem;">
+      <canvas id="hist-ventas-chart" height="90"></canvas>
+      <div id="hist-ventas-vacio" class="no-alerts" style="display:none;">Sin datos de ventas Square para el rango seleccionado.</div>
+    </div>
+    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
+      Solo incluye kioskos con Square propio conectado. Use el filtro de día de semana para comparar, por ejemplo, todos los viernes entre sí a lo largo del periodo elegido.
+    </div>
+  </div>
+
   <!-- Top 10 productos vendidos hoy, por kiosko con Square propio -->
   <div class="grid-2col" style="margin-bottom:1.5rem;">
     <div class="section-card">
@@ -557,6 +597,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
 // Mismas URLs /exec usadas en cierres.html, rrhh.html, configuracion.html y
@@ -602,6 +643,12 @@ const DENSIDAD_CERVEZA_G_ML = 1.005;
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+// ── HISTÓRICO DE VENTAS POR KIOSKO (gráfico comparativo + filtro por día
+// de semana, ver sección "Histórico de ventas por kiosko" más abajo) ──
+let HISTORICO_VENTAS_KIOSKOS = {}; // { 'Playa Grande': {fecha: monto} | null, ... }
+let chartHistoricoVentas = null;
+const PALETA_KIOSKOS = ['#1a7a4a', '#185fa5', '#c87820', '#6a3a9a', '#c84a20', '#2a9d8f'];
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -839,6 +886,10 @@ async function cargarKPIs() {
   // 5. VOLUMEN DE CERVEZA DE BARRIL (onzas) — hoy + histórico por día,
   //    por cada kiosko con Square propio (ver SQUARE_KIOSKOS).
   await cargarVolumenCervezaPorKiosko();
+
+  // 6. HISTÓRICO DE VENTAS POR KIOSKO — gráfico comparativo por periodo +
+  //    filtro por día de semana (ver SQUARE_KIOSKOS).
+  await cargarHistoricoVentasKioskos();
 
   document.getElementById('status-dot').className = 'sdot';
   document.getElementById('status-texto').textContent =
@@ -1300,6 +1351,114 @@ function fmtVolumenCervezaCard(r) {
       ${filasHist || '<div class="no-alerts">Todavía no hay ventas de cerveza de barril.</div>'}
     </div>
   </div>`;
+}
+
+// ── HISTÓRICO DE VENTAS POR KIOSKO — misma pestaña Ventas_Por_Producto que
+// el Top 10 y el volumen de cerveza (ver SQUARE_KIOSKOS), pero sumando el
+// "Total Línea" (columna J) de TODAS las categorías por fecha, igual que
+// obtenerResumenHoySquare. Con esto se arma un gráfico de barras por kiosko
+// y fecha, para comparar visualmente periodos anteriores. El filtro de día
+// de semana permite, por ejemplo, comparar solo los viernes entre sí. ──
+async function obtenerVentasDiariasKiosko(cfg) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const filas = json.table.rows || [];
+    const porDia = {};
+    filas.forEach(fila => {
+      const c = fila.c || [];
+      const fecha = c[0] && (c[0].f || c[0].v);
+      if (!fecha) return;
+      const totalLinea = Number((c[9] && c[9].v) || 0);
+      porDia[fecha] = (porDia[fecha] || 0) + totalLinea;
+    });
+    return porDia;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function cargarHistoricoVentasKioskos() {
+  const entradas = Object.entries(SQUARE_KIOSKOS);
+  if (!entradas.length) return;
+  const resultados = await Promise.all(entradas.map(([, cfg]) => obtenerVentasDiariasKiosko(cfg)));
+  entradas.forEach(([nombre], i) => { HISTORICO_VENTAS_KIOSKOS[nombre] = resultados[i]; });
+  renderGraficoHistoricoVentas();
+}
+
+function renderGraficoHistoricoVentas() {
+  const canvas = document.getElementById('hist-ventas-chart');
+  const vacioEl = document.getElementById('hist-ventas-vacio');
+  const selPeriodo = document.getElementById('hist-periodo');
+  const selDia = document.getElementById('hist-dia-semana');
+  if (!canvas || !selPeriodo || !selDia || typeof Chart === 'undefined') return;
+
+  const periodoDias = Number(selPeriodo.value || 30);
+  const diaSemanaVal = selDia.value;
+  const filtroDia = diaSemanaVal === 'todos' ? null : Number(diaSemanaVal);
+
+  const hoy = new Date();
+  const desde = new Date(hoy);
+  desde.setDate(desde.getDate() - periodoDias + 1);
+  const desdeISO = desde.getFullYear() + '-' + pad(desde.getMonth() + 1) + '-' + pad(desde.getDate());
+
+  const kioskos = Object.keys(SQUARE_KIOSKOS);
+  const fechasSet = new Set();
+  kioskos.forEach(nombre => {
+    const porDia = HISTORICO_VENTAS_KIOSKOS[nombre];
+    if (!porDia) return;
+    Object.keys(porDia).forEach(fecha => {
+      if (fecha < desdeISO) return;
+      if (filtroDia !== null && new Date(fecha + 'T00:00:00').getDay() !== filtroDia) return;
+      fechasSet.add(fecha);
+    });
+  });
+  const fechas = [...fechasSet].sort();
+
+  if (!fechas.length) {
+    canvas.style.display = 'none';
+    vacioEl.style.display = '';
+    if (chartHistoricoVentas) { chartHistoricoVentas.destroy(); chartHistoricoVentas = null; }
+    return;
+  }
+  canvas.style.display = '';
+  vacioEl.style.display = 'none';
+
+  const labels = fechas.map(f => {
+    const d = new Date(f + 'T00:00:00');
+    return d.toLocaleDateString('es-CR', { day: 'numeric', month: 'short' });
+  });
+
+  const datasets = kioskos.map((nombre, i) => {
+    const porDia = HISTORICO_VENTAS_KIOSKOS[nombre] || {};
+    const color = PALETA_KIOSKOS[i % PALETA_KIOSKOS.length];
+    return {
+      label: nombre,
+      data: fechas.map(f => Math.round(porDia[f] || 0)),
+      backgroundColor: color,
+      borderColor: color,
+      borderRadius: 4,
+      maxBarThickness: 28
+    };
+  });
+
+  if (chartHistoricoVentas) chartHistoricoVentas.destroy();
+  chartHistoricoVentas = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '₡' + Number(v).toLocaleString('es-CR') } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtCRC(ctx.raw)}` } }
+      }
+    }
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────
