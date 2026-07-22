@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Accesos · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+
+main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
+
+.intro{margin-bottom:1.5rem}
+.intro h1{font-family:var(--font-d);font-size:20px;font-weight:800}
+.intro p{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;transition:color .15s,border-color .15s;font-family:var(--font-b)}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-text{background:none;border:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px}
+.btn-text:hover{color:var(--text)}
+.btn-danger-text{background:none;border:none;color:var(--red);font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px}
+.btn-danger-text:hover{opacity:.75}
+
+.rol-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+.rol-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
+.rol-card.inactive{opacity:.55}
+.rc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rc-name-wrap{display:flex;align-items:center;gap:9px}
+.rc-swatch{width:14px;height:14px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.08)}
+.rc-name{font-family:var(--font-d);font-size:15px;font-weight:700}
+.rc-badges{display:flex;gap:6px;align-items:center}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px}
+.badge-ok{background:var(--green-bg);color:var(--green)}
+.badge-off{background:var(--red-bg);color:var(--red)}
+.badge-mono{font-family:var(--font-m);background:var(--surface);color:var(--muted)}
+.rc-actions{display:flex;gap:4px;margin-left:auto}
+.rc-detail{display:flex;flex-direction:column;gap:4px;margin-top:.75rem;font-size:12px}
+.rc-detail-item{display:flex;gap:8px;color:var(--muted)}
+.rc-detail-item .v{color:var(--text);font-weight:500}
+.rc-empty{font-size:12px;color:var(--subtle);margin-top:.5rem}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem;display:none}
+.card.open{display:block}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=password],select{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+input[type=color]{-webkit-appearance:none;appearance:none;width:44px;height:38px;padding:3px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
+.color-row{display:flex;align-items:center;gap:10px}
+.color-presets{display:flex;gap:6px}
+.color-preset{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0}
+.color-preset.active{border-color:var(--text)}
+
+.toggle-todos{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:500;cursor:pointer;margin-bottom:.6rem;user-select:none}
+.toggle-todos input{width:auto;cursor:pointer}
+.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface)}
+.check-grid.disabled{opacity:.45;pointer-events:none}
+.check-grid-group{grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);margin-top:6px}
+.check-grid-group:first-child{margin-top:0}
+.check-item{display:flex;align-items:center;gap:7px;font-size:13px;padding:3px 0;cursor:pointer}
+.check-item input{width:auto;cursor:pointer;flex-shrink:0}
+.kiosko-check-list{display:flex;flex-wrap:wrap;gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface)}
+.kiosko-check-list.disabled{opacity:.45;pointer-events:none}
+.kiosko-chip{display:flex;align-items:center;gap:6px;font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 8px;cursor:pointer}
+.kiosko-chip input{width:auto;cursor:pointer}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+.status-bar{position:fixed;bottom:0;left:0;right:0;height:34px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 2rem;font-size:11px;color:var(--muted)}
+
+@media(max-width:600px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 5rem}
+  .field-row,.check-grid{grid-template-columns:1fr}
+  .status-bar{padding:0 1rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Accesos</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="intro">
+    <h1>Roles y accesos</h1>
+    <p>Cada rol es un código de acceso (PIN) que entra por <code>login.html</code>. Definí a qué módulos y a qué kiosko(s) puede ver cada uno — el resto del sistema respeta esto automáticamente: los módulos no permitidos ni siquiera aparecen en el menú, y los selectores de kiosko de cada pantalla se limitan a los kioskos permitidos.</p>
+  </div>
+
+  <div class="section-head">
+    <span class="section-title" id="rol-count">Cargando…</span>
+    <button class="btn-primary" onclick="abrirForm()">+ Agregar rol</button>
+  </div>
+
+  <div class="rol-list" id="rol-list">
+    <div class="empty-state">Cargando roles…</div>
+  </div>
+
+  <div class="card" id="form-card">
+    <p class="card-title" id="form-title">Nuevo rol</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="f-nombre">Nombre <span class="req">*</span></label>
+        <input type="text" id="f-nombre" placeholder="Ej: Encargado Nosara"/>
+      </div>
+      <div class="field">
+        <label for="f-pin">Código de acceso (PIN) <span class="req">*</span></label>
+        <input type="text" id="f-pin" placeholder="Ej: 4821" maxlength="10"/>
+        <p class="field-hint">Es lo que la persona escribe en la pantalla de acceso — puede ser numérico o alfanumérico.</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Color</label>
+      <div class="color-row">
+        <input type="color" id="f-color" value="#1a7a4a"/>
+        <div class="color-presets" id="color-presets"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Estado</label>
+      <select id="f-activo">
+        <option value="Sí">Activo</option>
+        <option value="No">Inactivo</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Módulos permitidos</label>
+      <label class="toggle-todos">
+        <input type="checkbox" id="f-modulos-todos" onchange="toggleTodosModulos()"/> Acceso a todos los módulos (incluye los que se agreguen después)
+      </label>
+      <div class="check-grid" id="check-modulos"></div>
+    </div>
+
+    <div class="field">
+      <label>Kioskos permitidos</label>
+      <label class="toggle-todos">
+        <input type="checkbox" id="f-kioskos-todos" onchange="toggleTodosKioskos()"/> Acceso a todos los kioskos (incluye los que se agreguen después)
+      </label>
+      <div class="kiosko-check-list" id="check-kioskos"></div>
+      <p class="field-hint">Aplica dentro de cada módulo permitido: por ejemplo, si el rol solo ve "Nosara", el selector de kiosko de Cierre de Caja o Mermas va a mostrar solo Nosara.</p>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
+      <button class="btn-primary" id="btn-guardar" onclick="guardarRol()">Guardar rol ✓</button>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<div class="status-bar">
+  <span id="status-msg">v1.0 · Accesos · Ecosistema Kioskos</span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO ────────────────────────────────────────────────
+// Esta misma pantalla administra los roles, así que se protege a sí misma
+// con el mismo mecanismo: sin sesión válida, redirige a login; con sesión
+// pero sin permiso sobre "accesos", redirige a Inicio.
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('accesos')) {
+  alert('Tu usuario no tiene acceso a Accesos.');
+  window.location.href = 'index.html';
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────
+// Misma URL /exec del backend de RRHH que usan cierres.html, rrhh.html,
+// configuracion.html y horarios.html — acá vive la pestaña nueva "Roles".
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+
+// Catálogo de módulos del sistema — mismas claves "data-mod" que index.html.
+// Si se agrega un módulo nuevo al portal, sumarlo acá para que se pueda
+// asignar por rol (y a la lista de index.html con su tile correspondiente).
+const MODULOS = [
+  { grupo: 'Operaciones', clave: 'cierres', nombre: 'Cierre de Caja' },
+  { grupo: 'Operaciones', clave: 'depositos', nombre: 'Depósitos' },
+  { grupo: 'Operaciones', clave: 'control-tips', nombre: 'Control de Tips' },
+  { grupo: 'Operaciones', clave: 'configuracion', nombre: 'Configuración (kioskos)' },
+  { grupo: 'Operaciones', clave: 'mantenimiento', nombre: 'Mantenimiento' },
+  { grupo: 'Operaciones', clave: 'mermas', nombre: 'Mermas de Cerveza' },
+  { grupo: 'Operaciones', clave: 'inventario', nombre: 'Inventario' },
+  { grupo: 'Operaciones', clave: 'recetas', nombre: 'Recetas' },
+  { grupo: 'Operaciones', clave: 'analisis-ventas', nombre: 'Análisis de Ventas' },
+  { grupo: 'Gerencia', clave: 'indicadores', nombre: 'Indicadores de Gerencia' },
+  { grupo: 'RRHH', clave: 'rrhh-acciones', nombre: 'Acciones de personal (menú)' },
+  { grupo: 'RRHH', clave: 'rrhh-personal', nombre: 'Base de Personal' },
+  { grupo: 'RRHH', clave: 'rrhh-nuevo-ingreso', nombre: 'Nuevo ingreso' },
+  { grupo: 'RRHH', clave: 'rrhh-vacaciones', nombre: 'Solicitud de vacaciones' },
+  { grupo: 'RRHH', clave: 'rrhh-control-vacaciones', nombre: 'Control de vacaciones' },
+  { grupo: 'RRHH', clave: 'rrhh-cambio-salario', nombre: 'Cambio de salario' },
+  { grupo: 'RRHH', clave: 'rrhh-amonestaciones', nombre: 'Amonestaciones' },
+  { grupo: 'RRHH', clave: 'rrhh-terminacion', nombre: 'Terminación laboral' },
+  { grupo: 'RRHH', clave: 'rrhh-liquidaciones', nombre: 'Liquidaciones' },
+  { grupo: 'RRHH', clave: 'rrhh', nombre: 'Alta rápida (rrhh.html)' },
+  { grupo: 'Horarios', clave: 'horarios', nombre: 'Horario de trabajo' },
+  { grupo: 'Horarios', clave: 'horarios-historial', nombre: 'Historial de horarios' },
+  { grupo: 'Sistema', clave: 'accesos', nombre: 'Accesos (esta pantalla)' }
+];
+
+const COLOR_PRESETS = ['#1a7a4a', '#185fa5', '#c87820', '#6a3a9a', '#c84a20', '#2a9d8f', '#5a8a6a'];
+
+let roles = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
+let kioskosDisponibles = []; // nombres de kioskos (todos, activos e inactivos, para poder editar roles viejos)
+let editando = null; // ID del rol en edición, o null si es nuevo
+
+// ── CARGA DE KIOSKOS (para armar el check-list) ──────────────────────
+async function cargarKioskosDisponibles() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok) {
+      const registros = data.registros || [];
+      kioskosDisponibles = registros.length
+        ? registros.map(r => r['Kiosko']).filter(Boolean)
+        : (data.kioskos || []);
+    }
+  } catch (e) { /* el check-list de kioskos queda vacío hasta reintentar */ }
+  construirCheckKioskos();
+}
+
+function construirCheckKioskos() {
+  const cont = document.getElementById('check-kioskos');
+  if (!kioskosDisponibles.length) {
+    cont.innerHTML = '<span class="field-hint">No se pudo cargar la lista de kioskos — revisá Configuración.</span>';
+    return;
+  }
+  cont.innerHTML = kioskosDisponibles.map(k => `
+    <label class="kiosko-chip">
+      <input type="checkbox" class="chk-kiosko" value="${k}"/> ${k}
+    </label>`).join('');
+}
+
+function construirCheckModulos() {
+  const cont = document.getElementById('check-modulos');
+  let grupoActual = '';
+  let html = '';
+  MODULOS.forEach(m => {
+    if (m.grupo !== grupoActual) {
+      grupoActual = m.grupo;
+      html += `<div class="check-grid-group">${grupoActual}</div>`;
+    }
+    html += `
+      <label class="check-item">
+        <input type="checkbox" class="chk-modulo" value="${m.clave}"/> ${m.nombre}
+      </label>`;
+  });
+  cont.innerHTML = html;
+}
+
+function toggleTodosModulos() {
+  const todos = document.getElementById('f-modulos-todos').checked;
+  document.getElementById('check-modulos').classList.toggle('disabled', todos);
+}
+function toggleTodosKioskos() {
+  const todos = document.getElementById('f-kioskos-todos').checked;
+  document.getElementById('check-kioskos').classList.toggle('disabled', todos);
+}
+
+// ── CARGA DE ROLES ────────────────────────────────────────────────
+async function cargarRoles() {
+  const lista = document.getElementById('rol-list');
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=roles');
+    if (!resp.ok) throw new Error('Error ' + resp.status);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Sin datos');
+    roles = data.registros || [];
+    renderLista();
+  } catch (e) {
+    lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
+      + '<a href="javascript:void(0)" onclick="cargarRoles()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
+    document.getElementById('rol-count').textContent = 'Sin conexión';
+  }
+}
+
+function nombreModulo(clave) {
+  const m = MODULOS.find(x => x.clave === clave);
+  return m ? m.nombre : clave;
+}
+
+function renderLista() {
+  const lista = document.getElementById('rol-list');
+  document.getElementById('rol-count').textContent =
+    roles.length + ' rol' + (roles.length === 1 ? '' : 'es') + ' registrado' + (roles.length === 1 ? '' : 's');
+
+  if (!roles.length) {
+    lista.innerHTML = '<div class="empty-state">Todavía no hay roles — agregá el primero con el botón de arriba.</div>';
+    return;
+  }
+
+  lista.innerHTML = roles.map(r => {
+    const id = r['ID'] || '';
+    const nombre = r['Nombre'] || '';
+    const pin = r['PIN'] || '';
+    const color = r['Color'] || '#1a7a4a';
+    const activo = String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    const modulosStr = String(r['Modulos'] || 'todos').trim();
+    const kioskosStr = String(r['Kioskos'] || 'todos').trim();
+
+    const modulosTxt = modulosStr === 'todos'
+      ? 'Todos los módulos'
+      : (modulosStr ? modulosStr.split(',').map(nombreModulo).join(', ') : 'Ninguno');
+    const kioskosTxt = kioskosStr === 'todos' ? 'Todos los kioskos' : (kioskosStr || 'Ninguno');
+
+    return `
+    <div class="rol-card ${activo ? '' : 'inactive'}">
+      <div class="rc-head">
+        <div class="rc-name-wrap">
+          <span class="rc-swatch" style="background:${color}"></span>
+          <span class="rc-name">${nombre}</span>
+          <span class="badge badge-mono">PIN ${pin}</span>
+        </div>
+        <div class="rc-badges">
+          <span class="badge ${activo ? 'badge-ok' : 'badge-off'}">${activo ? 'Activo' : 'Inactivo'}</span>
+        </div>
+        <div class="rc-actions">
+          <button class="btn-text" onclick='editarRol(${JSON.stringify(id)})'>Editar</button>
+          <button class="${activo ? 'btn-danger-text' : 'btn-text'}" onclick='toggleActivoRol(${JSON.stringify(id)}, ${activo})'>${activo ? 'Desactivar' : 'Activar'}</button>
+        </div>
+      </div>
+      <div class="rc-detail">
+        <div class="rc-detail-item"><span>Módulos:</span><span class="v">${modulosTxt}</span></div>
+        <div class="rc-detail-item"><span>Kioskos:</span><span class="v">${kioskosTxt}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── FORMULARIO (agregar / editar) ────────────────────────────────
+function abrirForm() {
+  editando = null;
+  document.getElementById('form-title').textContent = 'Nuevo rol';
+  document.getElementById('f-nombre').value = '';
+  document.getElementById('f-pin').value = '';
+  document.getElementById('f-color').value = '#1a7a4a';
+  document.getElementById('f-activo').value = 'Sí';
+  document.getElementById('f-modulos-todos').checked = false;
+  document.getElementById('f-kioskos-todos').checked = false;
+  document.querySelectorAll('.chk-modulo').forEach(c => c.checked = false);
+  document.querySelectorAll('.chk-kiosko').forEach(c => c.checked = false);
+  document.getElementById('check-modulos').classList.remove('disabled');
+  document.getElementById('check-kioskos').classList.remove('disabled');
+  marcarColorActivo('#1a7a4a');
+  document.getElementById('form-card').classList.add('open');
+  document.getElementById('f-nombre').focus();
+  window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
+}
+
+function editarRol(id) {
+  const r = roles.find(x => String(x['ID']) === String(id));
+  if (!r) return;
+  editando = id;
+  document.getElementById('form-title').textContent = 'Editar rol';
+  document.getElementById('f-nombre').value = r['Nombre'] || '';
+  document.getElementById('f-pin').value = r['PIN'] || '';
+  const color = r['Color'] || '#1a7a4a';
+  document.getElementById('f-color').value = color;
+  marcarColorActivo(color);
+  document.getElementById('f-activo').value = String(r['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
+
+  const modulosStr = String(r['Modulos'] || 'todos').trim();
+  const esTodosModulos = modulosStr === 'todos' || !modulosStr;
+  document.getElementById('f-modulos-todos').checked = esTodosModulos;
+  document.getElementById('check-modulos').classList.toggle('disabled', esTodosModulos);
+  const modulosSet = esTodosModulos ? [] : modulosStr.split(',').map(s => s.trim());
+  document.querySelectorAll('.chk-modulo').forEach(c => c.checked = modulosSet.includes(c.value));
+
+  const kioskosStr = String(r['Kioskos'] || 'todos').trim();
+  const esTodosKioskos = kioskosStr === 'todos' || !kioskosStr;
+  document.getElementById('f-kioskos-todos').checked = esTodosKioskos;
+  document.getElementById('check-kioskos').classList.toggle('disabled', esTodosKioskos);
+  const kioskosSet = esTodosKioskos ? [] : kioskosStr.split(',').map(s => s.trim());
+  document.querySelectorAll('.chk-kiosko').forEach(c => c.checked = kioskosSet.includes(c.value));
+
+  document.getElementById('form-card').classList.add('open');
+  window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
+}
+
+function cerrarForm() {
+  document.getElementById('form-card').classList.remove('open');
+  editando = null;
+}
+
+function marcarColorActivo(color) {
+  document.querySelectorAll('.color-preset').forEach(p => {
+    p.classList.toggle('active', p.dataset.color.toLowerCase() === color.toLowerCase());
+  });
+}
+
+async function guardarRol() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const pin = document.getElementById('f-pin').value.trim();
+  if (!nombre) { showToast('Falta el nombre del rol', 'error'); return; }
+  if (!pin) { showToast('Falta el código de acceso (PIN)', 'error'); return; }
+
+  const modulosTodos = document.getElementById('f-modulos-todos').checked;
+  const modulos = modulosTodos ? 'todos' : Array.from(document.querySelectorAll('.chk-modulo:checked')).map(c => c.value);
+  const kioskosTodos = document.getElementById('f-kioskos-todos').checked;
+  const kioskosSel = kioskosTodos ? 'todos' : Array.from(document.querySelectorAll('.chk-kiosko:checked')).map(c => c.value);
+
+  if (!modulosTodos && !modulos.length) { showToast('Marcá al menos un módulo (o "Todos")', 'error'); return; }
+  if (!kioskosTodos && !kioskosSel.length) { showToast('Marcá al menos un kiosko (o "Todos")', 'error'); return; }
+
+  const payload = {
+    modulo: 'rol_guardar',
+    id: editando || '',
+    nombre: nombre,
+    pin: pin,
+    color: document.getElementById('f-color').value,
+    activo: document.getElementById('f-activo').value,
+    modulos: modulos,
+    kioskos: kioskosSel,
+    registrado_en: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('btn-guardar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+    showToast('Rol guardado ✓');
+    cerrarForm();
+    await cargarRoles();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar rol ✓';
+  }
+}
+
+async function toggleActivoRol(id, activoActual) {
+  const nuevoEstado = activoActual ? 'No' : 'Sí';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ modulo: 'rol_estado', id: id, activo: nuevoEstado })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+    showToast(nuevoEstado === 'Sí' ? 'Rol activado ✓' : 'Rol desactivado ✓');
+    await cargarRoles();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('color-presets').innerHTML = COLOR_PRESETS.map(c =>
+  `<span class="color-preset" data-color="${c}" style="background:${c}" onclick="document.getElementById('f-color').value='${c}';marcarColorActivo('${c}')"></span>`
+).join('');
+document.getElementById('f-color').addEventListener('input', e => marcarColorActivo(e.target.value));
+construirCheckModulos();
+cargarKioskosDisponibles();
+cargarRoles();
+</script>
+</body>
+</html>

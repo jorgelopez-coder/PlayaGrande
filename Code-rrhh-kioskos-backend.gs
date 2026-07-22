@@ -35,6 +35,7 @@ const HOJA_LIQUIDACIONES   = 'Liquidaciones';
 const HOJA_HORARIOS        = 'Horarios';
 const HOJA_HORARIOS_ESTADO = 'HorariosEstado';
 const HOJA_CONFIGURACION   = 'Configuracion';
+const HOJA_ROLES           = 'Roles';
 
 // Ficha completa de personal (igual que Lorito) + "Kiosko" para saber la
 // ubicación del colaborador (Lorito es un solo punto de venta, no lo tiene).
@@ -89,6 +90,16 @@ const ENCABEZADOS_CONFIGURACION = [
 // pestaña "Configuracion" la primera vez (si ya tiene filas, no se tocan).
 const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
+// Roles de acceso (admin-accesos.html / login.html): quién puede entrar al
+// portal, con qué PIN, a qué módulos y a qué kiosko(s). "Modulos"/"Kioskos"
+// se guardan como texto "todos" o una lista separada por comas (ej.
+// "cierres,depositos,horarios") — nunca vacío para un rol activo: si no se
+// marcó ningún módulo/kiosko, guardar "todos" es más seguro que un rol que
+// no puede ver nada por error de carga.
+const ENCABEZADOS_ROLES = [
+  'ID', 'Nombre', 'PIN', 'Color', 'Modulos', 'Kioskos', 'Activo', 'Registrado'
+];
+
 // Carpeta de Drive donde se guarda una copia del PDF al cerrar una semana de
 // horarios. Pegá acá el ID de una carpeta tuya (ver instrucciones arriba) —
 // mientras esté vacío, "Cerrar horario" va a fallar al generar el PDF.
@@ -115,6 +126,7 @@ function configurarHojas() {
   prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS);
   prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
   sembrarConfiguracion();
+  sembrarRoles();
 }
 
 // Crea la pestaña "Configuracion" y, si está recién creada (sin filas de
@@ -137,6 +149,27 @@ function sembrarConfiguracion() {
     };
     ENCABEZADOS_HORARIO_KIOSKO.forEach(function (h) { valores[h] = ''; });
     agregarFilaPorEncabezado(hoja, ENCABEZADOS_CONFIGURACION, valores);
+  });
+}
+
+// Crea la pestaña "Roles" y, si está recién creada (sin filas de datos
+// todavía), la siembra con un único rol Administrador (PIN "admin", acceso a
+// todos los módulos y todos los kioskos) — mismo PIN que login.html usaba
+// hardcodeado antes de este módulo, así nadie queda afuera del portal la
+// primera vez que se corre configurarHojas(). Si ya tiene filas (alguien ya
+// usó admin-accesos.html), no la vuelve a tocar.
+function sembrarRoles() {
+  const hoja = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
+  if (hoja.getLastRow() > 1) return;
+  agregarFilaPorEncabezado(hoja, ENCABEZADOS_ROLES, {
+    'ID': 'admin',
+    'Nombre': 'Administrador',
+    'PIN': 'admin',
+    'Color': '#1a7a4a',
+    'Modulos': 'todos',
+    'Kioskos': 'todos',
+    'Activo': 'Sí',
+    'Registrado': new Date().toISOString()
   });
 }
 
@@ -213,6 +246,12 @@ function doGet(e) {
         // nombres activos, en orden — eso es lo que consumen los selects
         // de cierres.html/rrhh*.html/horarios.html.
         return jsonOut({ ok: true, registros: filasComoObjetos(hoja), kioskos: obtenerKioskosActivos() });
+      case 'roles':
+        // Trae TODOS los roles (activos e inactivos) — admin-accesos.html
+        // necesita ver los inactivos para poder reactivarlos; login.html
+        // filtra a Activo=Sí del lado del cliente antes de comparar el PIN.
+        hoja = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
+        break;
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
@@ -278,6 +317,8 @@ function doPost(e) {
       case 'reabrir_horario':       result = cambiarEstadoHorarioSemana(payload, 'No'); break;
       case 'kiosko_guardar':        result = guardarKiosko(payload); break;
       case 'kiosko_estado':         result = cambiarEstadoKiosko(payload); break;
+      case 'rol_guardar':           result = guardarRol(payload); break;
+      case 'rol_estado':            result = cambiarEstadoRol(payload); break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -683,7 +724,7 @@ function cambiarEstadoHorarioSemana(p, cerrado) {
   // cierre, así que el PDF viejo queda obsoleto hasta que se vuelva a cerrar.
   let pdfUrl = '';
   if (cerrado === 'Sí' && p.pdf_base64) {
-    pdfUrl = guardarPDFHorarioEnDrive(p.semana_inicio, p.pdf_base64);
+    pdfUrl = guardarPDFHorarioEnDrive(p.semana_inicio, p.pdf_base64, p.kiosko);
   }
 
   const valores = {
@@ -701,10 +742,14 @@ function cambiarEstadoHorarioSemana(p, cerrado) {
 }
 
 // Guarda el PDF (base64) en la carpeta fija de Drive, reemplazando una copia
-// previa de la misma semana si existe (para no acumular versiones viejas).
-function guardarPDFHorarioEnDrive(semanaInicio, base64) {
+// previa de la MISMA semana + kiosko si existe (para no acumular versiones
+// viejas). El nombre incluye el kiosko para poder identificar el archivo
+// correcto a simple vista dentro de la carpeta (antes solo tenía la fecha,
+// lo que mezclaba los PDF de todos los kioskos bajo el mismo nombre).
+function guardarPDFHorarioEnDrive(semanaInicio, base64, kiosko) {
   const folder = DriveApp.getFolderById(FOLDER_ID_HORARIOS);
-  const nombre = 'Horario_' + semanaInicio + '.pdf';
+  const kioskoLimpio = String(kiosko || '').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+  const nombre = 'Horario_' + (kioskoLimpio ? kioskoLimpio + '_' : '') + semanaInicio + '.pdf';
   const existentes = folder.getFilesByName(nombre);
   while (existentes.hasNext()) existentes.next().setTrashed(true);
 
@@ -780,6 +825,73 @@ function cambiarEstadoKiosko(p) {
   const hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
   const fila = filaPorColumna(hoja, ENCABEZADOS_CONFIGURACION, 'Kiosko', p.kiosko);
   if (fila === -1) throw new Error('No se encontró ese kiosko.');
+  const colActivo = colPorEncabezado(hoja, 'Activo');
+  hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
+  return { fila: fila };
+}
+
+// ── ROLES Y ACCESOS (admin-accesos.html / login.html) ────────────────
+
+// Crea un rol nuevo o edita uno existente. Si viene "id" y existe una fila
+// con ese ID, la actualiza entera; si no, crea una fila nueva con un ID
+// generado a partir de la hora (nunca se reutiliza, ni siquiera si el rol se
+// desactiva después). El PIN debe ser único entre los roles ACTIVOS — dos
+// roles inactivos pueden compartir PIN sin problema porque nunca van a poder
+// confundirse en el login (login.html descarta los inactivos).
+function guardarRol(p) {
+  const nombre = String(p.nombre || '').trim();
+  if (!nombre) throw new Error('Falta el nombre del rol.');
+  const pin = String(p.pin || '').trim();
+  if (!pin) throw new Error('Falta el código de acceso (PIN).');
+
+  const hoja = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
+  const id = String(p.id || '').trim();
+  const filaExistente = id ? filaPorColumna(hoja, ENCABEZADOS_ROLES, 'ID', id) : -1;
+  const activo = p.activo === 'No' ? 'No' : 'Sí';
+
+  if (activo === 'Sí') {
+    const chocaPin = filasComoObjetos(hoja).some(function (r) {
+      return String(r['ID']) !== id
+        && String(r['PIN']) === pin
+        && String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    });
+    if (chocaPin) throw new Error('Ya hay otro rol activo con ese mismo código de acceso (PIN).');
+  }
+
+  // "modulos"/"kioskos" llegan como array desde admin-accesos.html (lista de
+  // claves marcadas) o como el string 'todos' si se tildó "Todos los
+  // módulos/kioskos". Un array vacío se guarda como 'todos' también — un rol
+  // sin nada marcado por error no debería quedar sin poder ver nada.
+  const modulos = Array.isArray(p.modulos) ? (p.modulos.length ? p.modulos.join(',') : 'todos') : (p.modulos || 'todos');
+  const kioskosRol = Array.isArray(p.kioskos) ? (p.kioskos.length ? p.kioskos.join(',') : 'todos') : (p.kioskos || 'todos');
+
+  const valores = {
+    'ID': id || ('rol_' + Date.now()),
+    'Nombre': nombre,
+    'PIN': pin,
+    'Color': p.color || '#1a7a4a',
+    'Modulos': modulos,
+    'Kioskos': kioskosRol,
+    'Activo': activo,
+    'Registrado': p.registrado_en || new Date().toISOString()
+  };
+
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_ROLES, valores);
+    return { fila: filaExistente, id: valores['ID'] };
+  }
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_ROLES, valores);
+  return { fila: fila, id: valores['ID'] };
+}
+
+// Activa/desactiva un rol sin abrir el formulario completo (toggle rápido
+// desde admin-accesos.html). Un rol inactivo deja de poder iniciar sesión,
+// pero no se borra ni pierde su configuración de módulos/kioskos.
+function cambiarEstadoRol(p) {
+  if (!p.id) throw new Error('Falta el ID del rol.');
+  const hoja = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_ROLES, 'ID', p.id);
+  if (fila === -1) throw new Error('No se encontró ese rol.');
   const colActivo = colPorEncabezado(hoja, 'Activo');
   hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
   return { fila: fila };

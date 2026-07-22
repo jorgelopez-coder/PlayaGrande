@@ -223,6 +223,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // Misma URL /exec del backend de RRHH que usan cierres.html, rrhh.html,
 // rrhh-nuevo-ingreso.html, rrhh-personal.html y horarios.html — acá vive
 // la pestaña "Configuracion" del Sheet.
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('configuracion')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 
 let kioskos = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
@@ -648,12 +663,6 @@ function showToast(msg, type='success') {
 construirFilasHorario();
 cargarKioskos();
 cargarPersonal();
-
-// Redirige a login si no hay sesión válida (8 horas) — mismo patrón que index.html.
-const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
-if (!sesion || (Date.now() - sesion.ts) >= 8 * 60 * 60 * 1000) {
-  window.location.href = 'login.html';
-}
 </script>
 </body>
 </html>

@@ -301,6 +301,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // Code-rrhh-kioskos-backend.gs / memoria project-rrhh-apps-script-backend):
 // trae la lista de kioskos activos (?modulo=kioskos) y el personal
 // (?modulo=personal) para filtrar "Reportado por" por kiosko.
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('mantenimiento')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 // TODO: reemplazar por la URL /exec del Web App de Code-mantenimiento-backend.gs
 // una vez desplegado (ver instrucciones en el encabezado de ese archivo).
@@ -364,7 +379,7 @@ async function cargarKioskos() {
     const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     const data = await resp.json();
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-      KIOSKOS = data.kioskos;
+      KIOSKOS = kioskosPermitidos(data.kioskos);
     } else if (data.registros && data.registros.length) {
       const activos = data.registros
         .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')

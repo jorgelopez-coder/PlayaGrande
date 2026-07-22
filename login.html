@@ -83,22 +83,54 @@
     <button class="toggle-vis" onclick="toggleVis()" type="button" title="Mostrar código">👁</button>
   </div>
 
-  <button class="btn" onclick="ingresar()">Ingresar</button>
+  <button class="btn" id="btn-ingresar" onclick="ingresar()">Ingresar</button>
   <div class="error" id="error-msg">Código incorrecto. Intentá nuevamente.</div>
 
   <div class="footer">Playa Grande Brew House · Portal interno de kioskos</div>
 </div>
 
 <script>
-// Roles por defecto — para producción, reemplazá el PIN "admin" y sumá un rol
-// por persona/kiosko editando este arreglo (o guardando en localStorage desde
-// una futura pantalla de "Administrar accesos", igual que admin-accesos.html
-// en Ecosistema-Lorito).
-const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos' };
+// Misma URL /exec del backend de RRHH que usan cierres.html, configuracion.html
+// y admin-accesos.html — ahí vive la pestaña "Roles" (nombre, PIN, color,
+// módulos y kioskos permitidos por rol).
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 
-function getRoles() {
-  try { return JSON.parse(localStorage.getItem('portal_roles')||'null') || [ADMIN_DEFAULT]; }
-  catch { return [ADMIN_DEFAULT]; }
+// Rol de respaldo — se usa si todavía no se desplegó el backend con la
+// pestaña "Roles" (ver admin-accesos.html), o si por algún motivo no hay
+// conexión: sin esto, un problema de red dejaría a todo el mundo afuera del
+// portal. En cuanto haya conexión, ROLES se reemplaza por lo que devuelva el
+// backend (incluye siempre un rol "admin"/"admin" sembrado automáticamente
+// la primera vez que se corre configurarHojas()).
+const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos', kioskos:'todos' };
+
+let ROLES = null; // null = todavía cargando
+
+// Convierte "todos" | "a,b,c" (tal cual viene del Sheet) a 'todos' | ['a','b','c'].
+function parseLista(v) {
+  const s = String(v == null ? 'todos' : v).trim();
+  if (!s || s.toLowerCase() === 'todos') return 'todos';
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+async function cargarRoles() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=roles');
+    const data = await resp.json();
+    const registros = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+    const activos = registros.filter(r => String(r['Activo']||'Sí').trim().toLowerCase() !== 'no');
+    ROLES = activos.length ? activos.map(r => ({
+      id: r['ID'], nombre: r['Nombre'], pin: String(r['PIN']||'').trim(),
+      color: r['Color'] || '#1a7a4a',
+      modulos: parseLista(r['Modulos']), kioskos: parseLista(r['Kioskos'])
+    })) : [ADMIN_DEFAULT];
+    // Cache local por si la próxima carga no tiene conexión.
+    localStorage.setItem('portal_roles_cache', JSON.stringify(ROLES));
+  } catch (e) {
+    try { ROLES = JSON.parse(localStorage.getItem('portal_roles_cache')||'null') || [ADMIN_DEFAULT]; }
+    catch { ROLES = [ADMIN_DEFAULT]; }
+  }
+  document.getElementById('pin').disabled = false;
+  document.getElementById('btn-ingresar').disabled = false;
 }
 
 function toggleVis() {
@@ -108,9 +140,8 @@ function toggleVis() {
 
 function ingresar() {
   const pin = document.getElementById('pin').value.trim();
-  if (!pin) return;
-  const roles = getRoles();
-  const rol   = roles.find(r => r.pin === pin);
+  if (!pin || !ROLES) return;
+  const rol = ROLES.find(r => r.pin === pin);
   if (!rol) {
     document.getElementById('error-msg').style.display = 'block';
     document.getElementById('pin').value = '';
@@ -121,6 +152,7 @@ function ingresar() {
     rol_id:   rol.id,
     nombre:   rol.nombre,
     modulos:  rol.modulos,
+    kioskos:  rol.kioskos,
     ts:       Date.now()
   }));
   window.location.href = 'index.html';
@@ -131,6 +163,9 @@ if (sesion && (Date.now() - sesion.ts) < 8 * 60 * 60 * 1000) {
   window.location.href = 'index.html';
 }
 
+document.getElementById('pin').disabled = true;
+document.getElementById('btn-ingresar').disabled = true;
+cargarRoles();
 document.getElementById('pin').focus();
 </script>
 </body>

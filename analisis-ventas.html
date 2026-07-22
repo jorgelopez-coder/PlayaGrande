@@ -470,6 +470,21 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 
 <script>
 // ── CONFIG (mismas URLs/hojas que index.html — ver README) ──
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('analisis-ventas')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_URL    = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 const SQUARE_KIOSKOS = {
@@ -480,6 +495,11 @@ const SQUARE_KIOSKOS = {
   },
   'Tamarindo': {
     sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  },
+  'Liberia': {
+    sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok',
     resumenTab: 'Resumen_Cierre_Diario',
     ventasTab: 'Ventas_Por_Producto'
   }
@@ -522,7 +542,7 @@ async function cargarKioskosLista() {
     } else if (Array.isArray(data.kioskos) && data.kioskos.length) {
       activos = data.kioskos;
     }
-    if (activos.length) KIOSKOS = activos;
+    if (activos.length) KIOSKOS = kioskosPermitidos(activos);
   } catch(e) { /* usa el respaldo hardcodeado */ }
   const lista = KIOSKOS.slice();
   Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!lista.includes(n)) lista.push(n); });

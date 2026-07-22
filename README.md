@@ -253,6 +253,9 @@ Archivos:
   ver detalle arriba.
 - `recetas.html` — recetas de venta y sincronización de consumo automático
   desde Square — ver detalle arriba.
+- `admin-accesos.html` — CRUD de roles de acceso (PIN, color, módulos y
+  kioskos permitidos por rol) — ver detalle en "Login / control de accesos"
+  más abajo.
 - `Code-cierres-kioskos-backend.gs` — backend del Sheet de ventas (hoja
   "Cierres") y de depósitos bancarios (hoja "Depositos", que alimenta
   `depositos.html`).
@@ -326,10 +329,11 @@ guardar el cierre sin adjuntar ninguna.
    (URL)**) y crea las pestañas nuevas: Vacaciones, Amonestaciones,
    Terminaciones, CambiosSalario, Liquidaciones, Horarios, HorariosEstado,
    Configuracion (esta última sembrada automáticamente con los 4 kioskos
-   originales, ver "Kioskos activos" más abajo). Si ya habías corrido
-   `configurarHojas()` antes de sumar la foto de cédula, volvé a correrla
-   una vez más: solo agrega la columna que falte, sin tocar las que ya
-   tenías.
+   originales, ver "Kioskos activos" más abajo) y **Roles** (sembrada con un
+   único rol Administrador, PIN `admin`, ver "Login / control de accesos"
+   más abajo). Si ya habías corrido `configurarHojas()` antes de sumar la
+   foto de cédula o el módulo de Accesos, volvé a correrla una vez más: solo
+   agrega lo que falte, sin tocar lo que ya tenías.
 4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
    (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
    falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
@@ -554,12 +558,48 @@ llamada a la API de Anthropic (se cobra por uso, ver anthropic.com/pricing)
 
 ## Login / control de accesos
 
-`login.html` usa el mismo patrón simple que Lorito: PIN guardado en
-`localStorage` (`portal_roles`), sin backend propio. Por ahora solo existe el
-PIN de administrador por defecto (`admin`/`admin`) — para producción, sumale
-un rol por persona/kiosko editando el arreglo `ADMIN_DEFAULT` en
-`login.html`, o construí más adelante una pantalla de "Administrar accesos"
-como `admin-accesos.html` en Lorito.
+Octavo módulo: **Accesos**, `admin-accesos.html` — a diferencia del patrón
+mínimo original (PIN hardcodeado en `login.html`), los roles ahora viven en
+la pestaña **"Roles"** del mismo Sheet de RRHH (mismo Web App que
+Personal/Configuracion), con CRUD completo desde `admin-accesos.html`:
+
+- **Por rol**: nombre, PIN, color, estado activo/inactivo, **módulos
+  permitidos** (multi-selección sobre el catálogo completo de pantallas del
+  sistema, o "Todos los módulos") y **kioskos permitidos** (multi-selección
+  sobre los kioskos de Configuración, o "Todos los kioskos").
+- `login.html` trae los roles activos desde el backend (`?modulo=roles`) al
+  cargar; si no hay conexión (o todavía no se desplegó la pestaña "Roles"),
+  cae a un caché en `localStorage` y, si tampoco hay caché, al rol
+  administrador por defecto (`admin`/`admin`) — para no dejar a nadie afuera
+  del portal por un problema de red.
+- Al iniciar sesión, `portal_sesion` (en `localStorage`, vigente 8 horas)
+  guarda `modulos` y `kioskos` del rol (cada uno `'todos'` o un arreglo de
+  claves/nombres). **Cada pantalla del sistema (no solo `index.html`)** revisa
+  esto al cargar: sin sesión válida redirige a `login.html`; con sesión pero
+  sin ese módulo permitido redirige a `index.html`; y el selector de kiosko de
+  la pantalla (donde aplica) se filtra a los kioskos permitidos del rol vía la
+  función `kioskosPermitidos()` que cada archivo define localmente. `index.html`
+  además oculta del menú los tiles de los módulos no permitidos y limita su
+  dashboard comparativo a los kioskos permitidos.
+- Los módulos **Configuración** (`configuracion.html`, administra la lista
+  completa de kioskos) y **Acciones de personal** (`rrhh-acciones.html`, es
+  solo un menú de links) quedan protegidos por rol/módulo pero sin filtro de
+  kiosko — no tiene sentido limitarlos a un subconjunto.
+
+Backend (`Code-rrhh-kioskos-backend.gs`, pestaña nueva "Roles",
+`sembrarRoles()`/`doGet ?modulo=roles`/`doPost` acciones `rol_guardar` y
+`rol_estado`): igual que Configuracion, `configurarHojas()` la crea sola y,
+si está vacía, la siembra con un único rol Administrador (PIN `admin`,
+"todos" los módulos y "todos" los kioskos) — **correlo una vez más si ya
+tenías el backend desplegado** (Implementar → Gestionar implementaciones →
+Editar → Nueva versión; la URL `/exec` no cambia, no hace falta tocar ningún
+`.html`). El PIN debe ser único entre los roles **activos** (dos roles
+inactivos pueden compartir PIN sin problema). No hay borrado — un rol que ya
+no se usa se desactiva, igual que los kioskos.
+
+`index.html` agrega el tile **Accesos** (junto a Configuración) para entrar a
+`admin-accesos.html` — como cualquier otro módulo, solo aparece si el rol
+logueado tiene permiso sobre `accesos`.
 
 ## Próximos módulos (sugeridos, sin construir todavía)
 

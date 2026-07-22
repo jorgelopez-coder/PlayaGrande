@@ -192,6 +192,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Misma URL /exec del backend RRHH usada en cierres.html (ver README.md).
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('rrhh')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 
 // Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
@@ -232,7 +247,7 @@ async function cargarKioskos() {
       const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
       const data = await resp.json();
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-        KIOSKOS = data.kioskos;
+        KIOSKOS = kioskosPermitidos(data.kioskos);
       }
     } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
@@ -395,12 +410,6 @@ function fmtCRC(n) { return '₡' + Math.round(n||0).toLocaleString('es-CR'); }
 // ── INIT ──────────────────────────────────────────────────────────
 cargarKioskos();
 document.getElementById('f-fecha-ingreso').value = hoy();
-
-// Redirige a login si no hay sesión válida (8 horas) — mismo patrón que index.html.
-const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
-if (!sesion || (Date.now() - sesion.ts) >= 8 * 60 * 60 * 1000) {
-  window.location.href = 'login.html';
-}
 </script>
 </body>
 </html>

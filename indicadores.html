@@ -348,6 +348,21 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Mismas URLs /exec usadas en el resto del ecosistema (ver README.md).
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('indicadores')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_RRHH   = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 const MERMAS_URL         = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
@@ -505,7 +520,7 @@ async function cargarKioskos() {
   try {
     const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     const data = await resp.json();
-    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = data.kioskos;
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
   } catch(e) { /* sin conexión: sigue con el respaldo */ }
   Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!KIOSKOS.includes(n)) KIOSKOS.push(n); });
   const sel = document.getElementById('kiosko-select');

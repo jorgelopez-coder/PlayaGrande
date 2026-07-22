@@ -264,6 +264,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.22.75.22 1.15V10.85c0 .4-.08.79-.22 1.15z"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Configuración</div><div class="mod-tile-area">Kioskos activos · ubicación · contacto</div></div>
       </a>
+      <a href="admin-accesos.html" class="mod-tile" data-mod="accesos">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5l8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Accesos</div><div class="mod-tile-area">Roles · PIN · módulos y kioskos permitidos</div></div>
+      </a>
       <a href="mantenimiento.html" class="mod-tile" data-mod="mantenimiento">
         <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Mantenimiento</div><div class="mod-tile-area">Reportar y dar seguimiento a incidencias</div></div>
@@ -696,6 +700,13 @@ function aplicarRol(sesion) {
     if (!sesion.modulos.includes(qa.dataset.mod)) qa.style.display = 'none';
   });
 }
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido
+// (ver admin-accesos.html) — usado por cargarKPIs() para que el dashboard
+// comparativo solo muestre los kioskos del rol logueado.
+function kioskosPermitidos(lista) {
+  if (!sesionActual || sesionActual.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => sesionActual.kioskos.includes(k));
+}
 
 const sesionActual = verificarAcceso();
 
@@ -811,15 +822,19 @@ async function cargarKPIs() {
     } else {
       kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
     }
+    // totalKioskos NO se filtra (es el conteo real de la operación); el
+    // dashboard sí se limita a lo que el rol logueado puede ver.
+    kioskosActivos = kioskosPermitidos(kioskosActivos);
     if (kioskosActivos.length) KIOSKOS = kioskosActivos;
   } catch(e) {
-    kioskosActivos = KIOSKOS; totalKioskos = KIOSKOS.length;
+    kioskosActivos = kioskosPermitidos(KIOSKOS); totalKioskos = KIOSKOS.length;
   }
 
   // Kioskos a comparar: los activos en Configuración + cualquiera con Square
-  // propio que todavía no esté dado de alta ahí (ej. Tamarindo).
+  // propio que todavía no esté dado de alta ahí (ej. Tamarindo) — ambos
+  // filtrados por lo que el rol logueado tiene permitido ver.
   const listaKioskos = (kioskosActivos.length ? kioskosActivos.slice() : KIOSKOS.slice());
-  Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!listaKioskos.includes(n)) listaKioskos.push(n); });
+  Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!listaKioskos.includes(n) && kioskosPermitidos([n]).length) listaKioskos.push(n); });
 
   // 2. PERSONAL (solo se usa el conteo para la barra de estado inferior)
   try {

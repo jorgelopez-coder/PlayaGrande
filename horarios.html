@@ -223,6 +223,21 @@ tbody tr:last-child td{border-bottom:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // Mismo Apps Script de RRHH que usan rrhh-vacaciones.html / rrhh-control-vacaciones.html / rrhh-personal.html
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('horarios')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 
 // Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
@@ -238,7 +253,7 @@ async function cargarKioskos() {
       const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
       const data = await resp.json();
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-        KIOSKOS = data.kioskos;
+        KIOSKOS = kioskosPermitidos(data.kioskos);
       }
     } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
@@ -471,7 +486,7 @@ async function cerrarSemana(){
   try{
     const resp=await fetch(APPS_SCRIPT_URL,{
       method:'POST',
-      body:new URLSearchParams({data:JSON.stringify({modulo:'cerrar_horario',semana_inicio:semana,pdf_base64:pdfBase64})})
+      body:new URLSearchParams({data:JSON.stringify({modulo:'cerrar_horario',semana_inicio:semana,pdf_base64:pdfBase64,kiosko:r.kiosko})})
     });
     const out=await resp.json();
     if(!out.ok){toast('Error al cerrar: '+(out.error||'desconocido'));return}
@@ -993,8 +1008,8 @@ async function generarPDF(){
     heightLeft-=pageH;
   }
 
-  const filename='horario_'+document.getElementById('week-start').value+'.pdf';
-  return {pdf,filename};
+  const filename='horario_'+resto.name.replace(/\s+/g,'_')+'_'+document.getElementById('week-start').value+'.pdf';
+  return {pdf,filename,kiosko:resto.name};
 }
 
 function pdfABase64(pdf){
