@@ -523,10 +523,19 @@ let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 // su data. Para sumar otro kiosko con Square propio, agregar acá una entrada
 // con el mismo patrón (sheetId de su hoja "Square - <Kiosko>", mismo sheetId
 // que en index.html).
+// execUrl (opcional): URL /exec del Web App propio de ESE kiosko (copia de
+// Codigo-Square-completo-con-Descuentos.gs implementada como Aplicación web).
+// Si está presente, "↻ Actualizar resumen de cierre" primero le pide a ese
+// Web App que recalcule Resumen_Cierre_Diario (?action=actualizarResumen) y
+// recién después vuelve a leer la hoja vía gviz. Sin execUrl, el botón solo
+// relee lo que ya haya en la hoja (no fuerza recálculo) — hay que actualizarla
+// a mano desde el menú "📊 Controles Square" de esa hoja, o desplegar el Web
+// App y agregar su URL acá.
 const SQUARE_KIOSKOS = {
   'Tamarindo': {
     sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
-    resumenTab: 'Resumen_Cierre_Diario'
+    resumenTab: 'Resumen_Cierre_Diario',
+    execUrl: 'https://script.google.com/macros/s/AKfycbyBo5LpkkkL-Spxsv6h4or87rvD-u02BcAv_B8GJg0nen0YZbwYPVijsRA9FJd8yf3u/exec'
   },
   'Liberia': {
     sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok',
@@ -930,16 +939,32 @@ async function actualizarResumenSquare() {
   const btn = document.getElementById('btn-actualizar-square');
   const kiosko = document.getElementById('f-kiosko').value;
 
-  // Kioskos con Square propio (gviz): los datos ya se sincronizan solos por
-  // el trigger horario del Apps Script de ese kiosko — acá solo hace falta
-  // releer la hoja, no hay endpoint "actualizarResumen" que llamar.
-  if (SQUARE_KIOSKOS[kiosko]) {
+  // Kioskos con Square propio (gviz). Si tienen execUrl (Web App propio
+  // desplegado), primero le pedimos que recalcule Resumen_Cierre_Diario antes
+  // de releer — si no hay execUrl, solo se relee lo que ya haya en la hoja
+  // (hace falta actualizarla a mano desde el menú de esa hoja mientras tanto).
+  const cfgPropio = SQUARE_KIOSKOS[kiosko];
+  if (cfgPropio) {
     btn.disabled = true;
     const textoOriginal = btn.textContent;
     btn.textContent = 'Actualizando…';
-    await cargarVentasSquare();
-    btn.disabled = false;
-    btn.textContent = textoOriginal;
+    try {
+      if (cfgPropio.execUrl) {
+        const resp = await fetch(cfgPropio.execUrl + '?action=actualizarResumen');
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Error desconocido');
+        showToast(data.mensaje || 'Resumen de cierre actualizado');
+      }
+      await cargarVentasSquare();
+      if (!cfgPropio.execUrl) {
+        showToast('Releído — este kiosko no tiene Web App propio, actualizá la hoja a mano si hace falta recalcular', 'error');
+      }
+    } catch (e) {
+      showToast('Error al actualizar resumen (' + e.message + ')', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+    }
     return;
   }
 
