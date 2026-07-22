@@ -180,6 +180,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cta-abrir{background:var(--card);border:1px dashed var(--border-h);border-radius:var(--radius);padding:2.5rem;text-align:center}
 .cta-abrir p{color:var(--muted);margin-bottom:14px;font-size:13px}
 
+/* Control (hoja de control: kioskos x quincenas) */
+.control-topbar{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px}
+.control-anio{font-family:var(--font-d);font-size:16px;font-weight:700;min-width:52px;text-align:center}
+.control-detalle-card .card-title{margin-bottom:0}
+.tabla-control{border-collapse:collapse;font-size:12px;white-space:nowrap}
+.tabla-control th{font-size:10px;font-weight:600;text-align:center;color:var(--muted);padding:4px 7px;border-bottom:1px solid var(--border)}
+.tabla-control td{padding:3px 7px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle}
+.tabla-control th.kiosko-col,.tabla-control td.kiosko-col{text-align:left;font-weight:600;position:sticky;left:0;background:var(--card);z-index:1;padding-right:14px}
+.control-celda{width:28px;height:24px;border-radius:6px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--subtle)}
+.control-celda.clickable{cursor:pointer}
+.control-celda.aprobada{background:var(--green-bg);color:var(--green);border-color:var(--green-lt)}
+.control-celda.pendiente{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-lt)}
+.control-celda.selected{outline:2px solid var(--text);outline-offset:1px}
+
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -228,15 +242,32 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('planilla',this)">Planilla</button>
+  <button class="tab-btn active" onclick="showTab('control',this)">Control</button>
+  <button class="tab-btn" onclick="showTab('planilla',this)">Planilla</button>
   <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
   <button class="tab-btn" onclick="showTab('feriados',this)">Feriados</button>
 </div>
 
 <main>
 
+<!-- ── TAB CONTROL (hoja de control: todos los kioskos x todas las quincenas) ── -->
+<div class="page active" id="tab-control">
+  <div class="control-topbar">
+    <button class="btn-sm" onclick="cambiarAnioControl(-1)">← Año anterior</button>
+    <span class="control-anio" id="control-anio-label">—</span>
+    <button class="btn-sm" onclick="cambiarAnioControl(1)">Año siguiente →</button>
+  </div>
+  <div class="card control-detalle-card" id="control-detalle">
+    <p class="hint" style="display:block">Hacé click en una quincena de la tabla para ver el monto total pagado.</p>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <div id="control-tabla-cont"><div class="empty-state"><span class="spinner"></span></div></div>
+  </div>
+  <p class="hint" style="display:block;margin-top:4px">✓ verde = planilla aprobada · ⏳ ámbar = calculada, pendiente de aprobación · — = quincena sin abrir todavía.</p>
+</div>
+
 <!-- ── TAB PLANILLA (wizard) ── -->
-<div class="page active" id="tab-planilla">
+<div class="page" id="tab-planilla">
   <div id="planilla-contenido"><div class="empty-state"><span class="spinner"></span></div></div>
 </div>
 
@@ -336,6 +367,7 @@ function showTab(tab, el) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   el.classList.add('active');
+  if (tab === 'control') cargarControl();
   if (tab === 'planilla') cargarTabPlanilla();
   if (tab === 'historial') cargarHistorial();
   if (tab === 'feriados') cargarFeriados();
@@ -453,7 +485,12 @@ function incidenciaAParticipante(inc) {
     dedOtras: numOr(inc['Deducción otras'],0), comentarioOtras: inc['Comentario otras']||'',
     dedEmbargo: numOr(inc['Deducción embargo salarial'],0), comentarioEmbargo: inc['Comentario embargo']||'',
     dedPension: numOr(inc['Deducción pensión alimenticia'],0), comentarioPension: inc['Comentario pensión']||'',
-    ccssBaseAjustada: (inc['CCSS base ajustada']===undefined) ? '' : inc['CCSS base ajustada']
+    ccssBaseAjustada: (inc['CCSS base ajustada']===undefined) ? '' : inc['CCSS base ajustada'],
+    // El rebajo de CCSS solo aplica si el expediente (Personal) tiene el
+    // casillero 'CCSS' marcado — un colaborador extra (sin fila en
+    // Personal) no tiene expediente contra el cual verificar, así que se
+    // asume registrado (mismo criterio que el backend, calcularPlanilla).
+    ccssRegistrado: esManual ? true : (persona ? !!persona['CCSS'] : false)
   };
 }
 // Arma el payload de guardarIncidencia() a partir de un participante en memoria.
@@ -544,7 +581,9 @@ function calcularClientePreview(part) {
   const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto, 0);
   const usaAjustada = !(part.ccssBaseAjustada===''||part.ccssBaseAjustada===undefined||part.ccssBaseAjustada===null);
   const baseCCSSFinal = usaAjustada ? Math.max(numOr(part.ccssBaseAjustada,0),0) : baseCCSSAuto;
-  const ccssObreraMonto = baseCCSSFinal * PORCENTAJE_CCSS_OBRERA;
+  // Igual que el backend (calcularPlanilla): sin CCSS marcado en el
+  // expediente, no se rebaja nada aunque haya base calculada.
+  const ccssObreraMonto = part.ccssRegistrado ? baseCCSSFinal * PORCENTAJE_CCSS_OBRERA : 0;
 
   const totalDeducciones = ccssObreraMonto + numOr(part.dedAdelanto,0)+numOr(part.dedCompras,0)+numOr(part.dedOtras,0)+numOr(part.dedEmbargo,0)+numOr(part.dedPension,0);
   const neto = totalIngresos - totalDeducciones;
@@ -625,6 +664,7 @@ function iniciarWizardNuevo() {
   const candidatos = TODOS_PERSONAL.filter(p => mismoKiosko(p['Kiosko'], kiosko) && (p['Estado']||'').toUpperCase()==='ACTIVO');
   WIZARD_PARTICIPANTES = candidatos.map(p => ({
     nombre: p['Nombre completo'], cedula: p['Cédula']||'', puesto: p['Puesto']||'', salario: Number(p['Salario'])||0, esManual: false,
+    ccssRegistrado: !!p['CCSS'],
     incluido: true,
     horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [],
@@ -763,6 +803,7 @@ function agregarExtraExistente(nombre) {
   if (!persona) return;
   WIZARD_PARTICIPANTES.push({
     nombre: persona['Nombre completo'], cedula: persona['Cédula']||'', puesto: persona['Puesto']||'', salario: Number(persona['Salario'])||0, esManual: false,
+    ccssRegistrado: !!persona['CCSS'],
     incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
@@ -781,6 +822,7 @@ function agregarExtraManual() {
   if (!nombre || !salario) { showToast('Ingresá al menos nombre y salario.', 'error'); return; }
   WIZARD_PARTICIPANTES.push({
     nombre, cedula, puesto, salario, esManual: true,
+    ccssRegistrado: true,
     incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
@@ -981,9 +1023,9 @@ function renderPaso3() {
     const detalleAbierto = PASO3_EXPANDIDO === i;
     return `
     <tr>
-      <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}</td>
+      <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}${!p.ccssRegistrado?'<span class="tag-manual" style="background:var(--red-bg);color:var(--red)">Sin CCSS</span>':''}</td>
       <td class="monto">${fmt(prev.baseCCSSAuto)}</td>
-      <td><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso3(${i},'ccssBaseAjustada',this.value)"></td>
+      <td><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso3(${i},'ccssBaseAjustada',this.value)" ${!p.ccssRegistrado?'disabled title="No tiene CCSS marcado en el expediente — no se aplica rebajo"':''}></td>
       <td class="monto">${fmt(prev.ccssObreraMonto)}</td>
       <td><button class="detalle-toggle" onclick="togglePaso3Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
     </tr>
@@ -1017,11 +1059,18 @@ function renderDetallePaso3(i, prev) {
     <div class="subcard">
       <div class="subcard-title">Cómo se arma la base de CCSS</div>
       <div style="font-size:12.5px">
-        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Total ingresos</span><span>${fmt(prev.totalIngresos)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Subsidio</span><span>${fmt(prev.subsidioMonto)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Incapacidad CCSS/INS/interna</span><span>${fmt(prev.incapCCSSMonto+prev.incapINSMonto+prev.incapInternaMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Horas regulares</span><span>${fmt(prev.horasRegularesMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Horas extra 50%</span><span>${fmt(prev.extra50Monto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Horas extra 100%</span><span>${fmt(prev.extra100Monto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Feriados</span><span>${fmt(prev.feriadosMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Vacaciones</span><span>${fmt(prev.vacacionesMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Días no trabajados</span><span>−${fmt(prev.diasNoTrabajadosMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);font-weight:600"><span>= Base CCSS automática</span><span>${fmt(prev.baseCCSSAuto)}</span></div>
       </div>
+      <p class="hint" style="display:block;margin-top:8px">Las horas extra (50% y 100%) sí forman parte de la base de cotización de CCSS — solo quedan afuera el subsidio de alimentación/transporte y las incapacidades (CCSS, INS, interna), que no son salario sujeto a cuota.</p>
+      ${p.ccssRegistrado
+        ? '<p class="hint" style="display:block;margin-top:4px">Registrado en CCSS según el expediente — se aplica la cuota obrera (10.67%) sobre esta base.</p>'
+        : '<p class="hint" style="display:block;margin-top:4px;color:var(--red)">Este colaborador no tiene marcado "CCSS" en su expediente (rrhh-personal.html) — no se aplica el rebajo, aunque haya base calculada. Si es un error, corregilo en la ficha del colaborador.</p>'}
     </div>
     <div class="subcard">
       <div class="subcard-title">Otras deducciones</div>
@@ -1102,7 +1151,7 @@ function renderTablaCalculo(resultado) {
     : '<p class="hint" style="display:block">No hay feriados activos en esta quincena.</p>';
   const filas = resultado.colaboradores.map((c, i) => `
     <tr class="calc-row" onclick="toggleDetalleCalculo(${i})">
-      <td>${c.colaborador}<div class="subtit">${c.puesto||''}</div></td>
+      <td>${c.colaborador}<div class="subtit">${c.puesto||''}${c.ccssRegistrado===false?' · <span style="color:var(--red)">sin CCSS</span>':''}</div></td>
       <td class="monto">${fmt(c.totalIngresos)}</td>
       <td class="monto">${fmt(c.totalDeducciones)}</td>
       <td class="monto" style="font-weight:700;color:var(--green)">${fmt(c.neto)}</td>
@@ -1123,7 +1172,7 @@ function renderTablaCalculo(resultado) {
         </div>
         <div><b>Deducciones</b>
           <div><span>Base CCSS${c.usaCCSSAjustada?' (ajustada)':''}</span><span>${fmt(c.baseCCSSFinal)}</span></div>
-          <div><span>CCSS obrera (10.67%)</span><span>${fmt(c.ccssObreraMonto)}</span></div>
+          <div><span>CCSS obrera (10.67%)${c.ccssRegistrado===false?' — sin CCSS en expediente':''}</span><span>${fmt(c.ccssObreraMonto)}</span></div>
           <div><span>Adelanto salario</span><span>${fmt(c.adelanto)}</span></div>
           <div><span>Compras aprobadas</span><span>${fmt(c.compras)}</span></div>
           <div><span>Otras</span><span>${fmt(c.otras)}</span></div>
@@ -1262,8 +1311,8 @@ function renderDetalleChecklistItem(i) {
       <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Incapacidad CCSS monto'])}</td><td class="monto">${fmt(d['Incapacidad INS monto'])}</td><td class="monto">${fmt(d['Incapacidad interna monto'])}</td><td class="monto">${fmt(d['Vacaciones monto'])}</td></tr>`).join('')}</tbody></table>`;
   }
   if (i === 2) {
-    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS</th><th style="text-align:right">CCSS obrera</th><th style="text-align:right">Adelanto</th><th style="text-align:right">Compras</th><th style="text-align:right">Otras</th><th style="text-align:right">Embargo</th><th style="text-align:right">Pensión</th><th style="text-align:right">Total ded.</th></tr></thead>
-      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Base CCSS utilizada'])}</td><td class="monto">${fmt(d['CCSS obrera monto'])}</td><td class="monto">${fmt(d['Adelanto salario'])}</td><td class="monto">${fmt(d['Compras aprobadas'])}</td><td class="monto">${fmt(d['Otras deducciones'])}</td><td class="monto">${fmt(d['Embargo salarial'])}</td><td class="monto">${fmt(d['Pensión alimenticia'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td></tr>`).join('')}</tbody></table>`;
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th>CCSS reg.</th><th style="text-align:right">Base CCSS</th><th style="text-align:right">CCSS obrera</th><th style="text-align:right">Adelanto</th><th style="text-align:right">Compras</th><th style="text-align:right">Otras</th><th style="text-align:right">Embargo</th><th style="text-align:right">Pensión</th><th style="text-align:right">Total ded.</th></tr></thead>
+      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td style="${d['CCSS registrado']==='No'?'color:var(--red)':''}">${d['CCSS registrado']||'—'}</td><td class="monto">${fmt(d['Base CCSS utilizada'])}</td><td class="monto">${fmt(d['CCSS obrera monto'])}</td><td class="monto">${fmt(d['Adelanto salario'])}</td><td class="monto">${fmt(d['Compras aprobadas'])}</td><td class="monto">${fmt(d['Otras deducciones'])}</td><td class="monto">${fmt(d['Embargo salarial'])}</td><td class="monto">${fmt(d['Pensión alimenticia'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td></tr>`).join('')}</tbody></table>`;
   }
   const totalNeto = filas.reduce((acc,d) => acc + (Number(d['Neto a pagar'])||0), 0);
   return `<p class="hint">Total neto a pagar: <b>${fmt(totalNeto)}</b> · ${filas.length} colaborador(es) en esta planilla.</p>`;
@@ -1401,6 +1450,99 @@ function renderPlanillaAprobada(planilla) {
       ${planilla['PDF URL'] ? `<p style="margin-top:10px"><a href="${planilla['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
       <p class="hint" style="display:block;margin-top:10px">Esta planilla ya fue aprobada — para corregirla hay que editar directamente el Sheet o abrir un periodo nuevo.</p>
     </div>
+  `;
+}
+
+// ══════════════════════════ CONTROL (todos los kioskos x todas las quincenas) ══════════════════════════
+let CONTROL_ANIO = hoy.getFullYear();
+let CONTROL_PLANILLAS = [];   // filas crudas de "Planillas", sin filtrar por kiosko — cubre todos los kioskos
+const MESES_CORTOS_CONTROL = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function cambiarAnioControl(delta) {
+  CONTROL_ANIO += delta;
+  renderControlAnioLabel();
+  renderTablaControl();
+}
+function renderControlAnioLabel() {
+  const el = document.getElementById('control-anio-label');
+  if (el) el.textContent = CONTROL_ANIO;
+}
+// Carga TODAS las filas de "Planillas" (todos los kioskos, no solo el
+// seleccionado en el selector de arriba) — esta pestaña es justamente el
+// panorama completo, independiente del kiosko/periodo elegido para trabajar
+// en la pestaña "Planilla".
+async function cargarControl() {
+  renderControlAnioLabel();
+  const cont = document.getElementById('control-tabla-cont');
+  cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  document.getElementById('control-detalle').innerHTML = '<p class="hint" style="display:block">Hacé click en una quincena de la tabla para ver el monto total pagado.</p>';
+  try {
+    if (!KIOSKOS || !KIOSKOS.length) await cargarKioskos();
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas');
+    const data = await resp.json();
+    CONTROL_PLANILLAS = data.ok ? data.registros : [];
+    renderTablaControl();
+  } catch (err) {
+    cont.innerHTML = '<div class="empty-state">No se pudo conectar con Google Sheets.</div>';
+  }
+}
+function buscarPlanillaControl(kiosko, periodo) {
+  return CONTROL_PLANILLAS.find(r => String(r['Periodo']) === periodo && mismoKiosko(r['Kiosko'], kiosko)) || null;
+}
+// Arma las 24 quincenas del año seleccionado (Ene 1, Ene 2 … Dic 1, Dic 2) —
+// "ir ampliando según sea necesario" se resuelve navegando de año en año con
+// los botones ← / →, en vez de mostrar todo el historial de una sola vez.
+function columnasControl() {
+  const columnas = [];
+  for (let mes = 1; mes <= 12; mes++) {
+    columnas.push({ periodo: `${CONTROL_ANIO}-${pad(mes)}-Q1`, label: `${MESES_CORTOS_CONTROL[mes-1]} 1` });
+    columnas.push({ periodo: `${CONTROL_ANIO}-${pad(mes)}-Q2`, label: `${MESES_CORTOS_CONTROL[mes-1]} 2` });
+  }
+  return columnas;
+}
+function renderTablaControl() {
+  const cont = document.getElementById('control-tabla-cont');
+  if (!KIOSKOS || !KIOSKOS.length) { cont.innerHTML = '<div class="empty-state">No hay kioskos configurados.</div>'; return; }
+  const columnas = columnasControl();
+  const filas = KIOSKOS.map(kiosko => {
+    const celdas = columnas.map(c => celdaControl(kiosko, c.periodo)).join('');
+    return `<tr><td class="kiosko-col">${kiosko}</td>${celdas}</tr>`;
+  }).join('');
+  cont.innerHTML = `
+    <table class="tabla-control">
+      <thead><tr><th class="kiosko-col">Kiosko</th>${columnas.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+  `;
+}
+function idCeldaControl(kiosko, periodo) { return 'cc-' + (kiosko + '|' + periodo).replace(/[^a-zA-Z0-9]/g, '_'); }
+function celdaControl(kiosko, periodo) {
+  const fila = buscarPlanillaControl(kiosko, periodo);
+  const id = idCeldaControl(kiosko, periodo);
+  if (!fila) return `<td><span class="control-celda" id="${id}">—</span></td>`;
+  const estado = fila['Estado'] || 'Pendiente de aprobación';
+  const clase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
+  const icono = estado === 'Aprobada' ? '✓' : '⏳';
+  const kioskoAttr = JSON.stringify(kiosko).replace(/"/g, '&quot;');
+  const periodoAttr = JSON.stringify(periodo).replace(/"/g, '&quot;');
+  return `<td><span class="control-celda clickable ${clase}" id="${id}" title="${estado}" onclick="seleccionarCeldaControl(${kioskoAttr}, ${periodoAttr})">${icono}</span></td>`;
+}
+function seleccionarCeldaControl(kiosko, periodo) {
+  document.querySelectorAll('.control-celda.selected').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById(idCeldaControl(kiosko, periodo));
+  if (el) el.classList.add('selected');
+  const fila = buscarPlanillaControl(kiosko, periodo);
+  if (!fila) return;
+  const estado = fila['Estado'] || 'Pendiente de aprobación';
+  const badgeClase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
+  document.getElementById('control-detalle').innerHTML = `
+    <p class="card-title">${kiosko} — ${periodo} <span class="estado-badge ${badgeClase}" style="margin-left:6px">${estado}</span></p>
+    <div class="total-row" style="margin-top:10px">
+      <span class="total-label">Total pagado</span>
+      <span class="total-valor">${fmt(fila['Total neto'])}</span>
+    </div>
+    <p class="hint" style="display:block;margin-top:8px">${fechaBonita(fila['Fecha inicio'])} — ${fechaBonita(fila['Fecha fin'])} · ${fila['Colaboradores']||0} colaborador(es) · calculado por ${fila['Calculado por']||'—'}${estado==='Aprobada' ? ` · aprobado por ${fila['Aprobado por']||'—'}` : ''}</p>
+    ${fila['PDF URL'] ? `<p class="hint" style="display:block;margin-top:4px"><a href="${fila['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
   `;
 }
 
@@ -1557,7 +1699,7 @@ async function toggleFeriadoActivo(i) {
 // ── INICIO ────────────────────────────────────────────────────────
 poblarSelectoresPeriodo();
 actualizarChipPeriodo();
-cargarKioskos().then(() => cargarTabPlanilla());
+cargarKioskos().then(() => cargarControl());
 </script>
 </body>
 </html>
