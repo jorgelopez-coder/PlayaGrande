@@ -457,6 +457,9 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
     <select id="hist-kiosko" onchange="renderHistorial()" style="width:150px"><option value="">Kiosko</option></select>
     <select id="hist-anio" onchange="renderHistorial()" style="width:100px"><option value="">Año</option></select>
     <select id="hist-mes" onchange="renderHistorial()" style="width:120px"><option value="">Mes</option></select>
+    <input type="date" id="hist-fecha-desde" onchange="renderHistorial()" style="width:145px" title="Desde"/>
+    <input type="date" id="hist-fecha-hasta" onchange="renderHistorial()" style="width:145px" title="Hasta"/>
+    <button class="btn-secondary" onclick="limpiarFiltrosHistorial()" style="padding:8px 14px;font-size:12px">✕ Limpiar filtros</button>
     <button class="btn-secondary" onclick="cargarHistorial()" style="padding:8px 14px;font-size:12px">↻ Actualizar</button>
     <span style="font-size:12px;color:var(--muted);margin-left:auto" id="hist-count"></span>
   </div>
@@ -1143,7 +1146,15 @@ async function cargarHistorial() {
         fotoSistemaUrl: r[40]||'', fotoDatafonoUrl: r[41]||'', obs: r[42]||'',
         anio, mes,
       };
-    }).filter(r => r.id).reverse();
+    }).filter(r => r.id);
+    // Orden por fecha (y hora como desempate) del más reciente al más antiguo,
+    // en vez de solo invertir el orden de llegada de la hoja — así el
+    // historial queda correcto aunque se registre un cierre atrasado.
+    historialData.sort((a, b) => {
+      const cmpFecha = (b.fecha||'').localeCompare(a.fecha||'');
+      if (cmpFecha !== 0) return cmpFecha;
+      return (b.hora||'').localeCompare(a.hora||'');
+    });
     poblarFiltrosHistorial();
     renderDashboardKiosko();
     renderDashboardMensual();
@@ -1168,12 +1179,23 @@ function filaFiltrada() {
   const kiosko = document.getElementById('hist-kiosko')?.value||'';
   const anio   = document.getElementById('hist-anio')?.value||'';
   const mes    = document.getElementById('hist-mes')?.value||'';
+  const desde  = document.getElementById('hist-fecha-desde')?.value||'';
+  const hasta  = document.getElementById('hist-fecha-hasta')?.value||'';
   return historialData.filter(r =>
     (!busq   || (r.encargado||'').toLowerCase().includes(busq)) &&
     (!kiosko || r.kiosko === kiosko) &&
     (!anio   || String(r.anio) === anio) &&
-    (!mes    || String(r.mes) === mes)
+    (!mes    || String(r.mes) === mes) &&
+    (!desde  || (r.fecha && r.fecha >= desde)) &&
+    (!hasta  || (r.fecha && r.fecha <= hasta))
   );
+}
+
+function limpiarFiltrosHistorial() {
+  ['hist-buscar','hist-kiosko','hist-anio','hist-mes','hist-fecha-desde','hist-fecha-hasta'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  renderHistorial();
 }
 
 function renderDashboardKiosko() {
