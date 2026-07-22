@@ -102,6 +102,19 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
 .hbar-val{font-size:12px;color:var(--text);white-space:nowrap;flex-shrink:0;font-family:var(--font-m);text-align:right}
 .hbar-meta-sub{font-size:10px;margin-top:2px;font-weight:600;font-family:var(--font-b)}
 
+/* ── DETALLE POR KIOSKO DENTRO DE UN KPI (toggle) ── */
+.kpi-card{position:relative}
+.kpi-detail-toggle{display:inline-block;margin-top:8px;font-size:10.5px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-weight:600;text-decoration:underline;text-underline-offset:2px;font-family:var(--font-b)}
+.kpi-detail-toggle:hover{color:var(--text)}
+.kpi-detail-body{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);display:none}
+.kpi-detail-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11.5px;padding:3px 0}
+.kpi-detail-row .kd-name{color:var(--text);font-weight:500}
+.kpi-detail-row .kd-val{font-family:var(--font-m);color:var(--muted);white-space:nowrap;text-align:right}
+
+/* ── GRÁFICO DE PASTEL (media página) ── */
+.chart-wrap-half{max-width:420px;height:260px;margin:0 auto}
+#pie-card{max-width:520px;margin-left:auto;margin-right:auto}
+
 /* ── METAS Y OBJETIVOS ── */
 .metas-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
 .metas-toggle{font-size:12px;color:var(--muted);font-weight:500}
@@ -191,10 +204,13 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
     <div class="empty-state"><span class="spinner"></span></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="pie-card">
     <p class="card-title">Ventas totales del período — kioskos con Square propio</p>
-    <div id="hbar-ventas"><div class="empty-state"><span class="spinner"></span></div></div>
-    <p class="footnote">La línea punteada morada marca la meta de ventas configurada para ese kiosko (si existe).</p>
+    <div class="chart-wrap chart-wrap-half">
+      <canvas id="chart-ventas-pie"></canvas>
+      <div class="chart-empty" id="chart-ventas-pie-empty" style="display:none"></div>
+    </div>
+    <p class="footnote">Distribución de las ventas totales del período entre los kioskos con Square propio.</p>
   </div>
 
   <div class="card">
@@ -216,24 +232,29 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
   </div>
 
   <div class="card">
-    <p class="card-title">Comparativo por kiosko</p>
-    <div class="compare-wrap">
-      <table class="compare-table">
-        <thead>
-          <tr>
-            <th>Kiosko</th>
-            <th>Ventas (Square)</th>
-            <th>% Merma</th>
-            <th>Efectivo pendiente</th>
-            <th>Tips / Ventas</th>
-          </tr>
-        </thead>
-        <tbody id="compare-body">
-          <tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>
-        </tbody>
-      </table>
+    <div class="metas-head" onclick="toggleComparativoCard()">
+      <p class="card-title" style="margin-bottom:0">Comparativo por kiosko</p>
+      <span class="metas-toggle" id="comparativo-toggle-icon">▸ Mostrar</span>
     </div>
-    <p class="footnote">"Ventas" y "Tips / Ventas" solo aparecen para kioskos con su propio Square conectado (hoy: Playa Grande, Liberia, Tamarindo). El peso de merma se captura para todos los kioskos, pero el % sobre lo vendido necesita las onzas de Square, por eso Nosara y Playa Hermosa muestran "N/D" en esa columna mientras no tengan Square propio.</p>
+    <div id="comparativo-body-wrap" style="display:none;margin-top:1rem">
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Kiosko</th>
+              <th>Ventas (Square)</th>
+              <th>% Merma</th>
+              <th>Efectivo pendiente</th>
+              <th>Tips / Ventas</th>
+            </tr>
+          </thead>
+          <tbody id="compare-body">
+            <tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footnote">"Ventas" y "Tips / Ventas" solo aparecen para kioskos con su propio Square conectado (hoy: Playa Grande, Liberia, Tamarindo). El peso de merma se captura para todos los kioskos, pero el % sobre lo vendido necesita las onzas de Square, por eso Nosara y Playa Hermosa muestran "N/D" en esa columna mientras no tengan Square propio.</p>
+    </div>
   </div>
 
 </div>
@@ -349,7 +370,7 @@ function guardarMetas() {
   setTimeout(() => { status.textContent = ''; }, 2500);
   if (indicadoresCache && Object.keys(indicadoresCache).length) {
     renderKpisGenerales(indicadoresCache);
-    renderHbarVentas(indicadoresCache);
+    renderPieVentas(indicadoresCache);
     renderComparativo(indicadoresCache);
     try {
       renderLineaVentas(indicadoresCache);
@@ -362,12 +383,31 @@ function guardarMetas() {
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const fmtUSD = n => '$' + Number(n||0).toLocaleString('es-CR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtOz = n => n.toLocaleString('es-CR',{maximumFractionDigits:1});
 const fmtG = n => Math.round(n).toLocaleString('es-CR');
 const hoy = new Date();
 const hoyISO = hoy.getFullYear() + '-' + pad(hoy.getMonth()+1) + '-' + pad(hoy.getDate());
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+// ── TOGGLES: detalle por kiosko dentro de un KPI + tabla comparativa ──
+function toggleKpiDetail(key) {
+  const body = document.getElementById('kpi-detail-' + key);
+  const btn = document.getElementById('kpi-detail-btn-' + key);
+  if (!body) return;
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  if (btn) btn.textContent = abierto ? 'Ver por kiosko ▾' : 'Ocultar ▴';
+}
+function toggleComparativoCard() {
+  const wrap = document.getElementById('comparativo-body-wrap');
+  const icon = document.getElementById('comparativo-toggle-icon');
+  if (!wrap) return;
+  const abierto = wrap.style.display !== 'none';
+  wrap.style.display = abierto ? 'none' : 'block';
+  icon.textContent = abierto ? '▸ Mostrar' : '▾ Ocultar';
+}
 
 // ── TABS ──────────────────────────────────────────────────────────
 function showTab(tab, el) {
@@ -582,13 +622,54 @@ async function calcularIndicadores() {
   return resultado;
 }
 
-// ── RENDER: KPIs GENERALES + BARRAS DE VENTAS + TABLA COMPARATIVA ──
+// ── DETALLE POR KIOSKO DE CADA KPI (contenido del toggle "Ver por kiosko") ──
+function kpiDetailVentasHtml(datos) {
+  return KIOSKOS.map(k => {
+    const d = datos[k];
+    if (!d) return '';
+    const val = d.squareOk ? fmtCRC(d.ventasTotal) : '<span class="compare-dash">Sin Square propio</span>';
+    return `<div class="kpi-detail-row"><span class="kd-name">${k}</span><span class="kd-val">${val}</span></div>`;
+  }).join('');
+}
+function kpiDetailMermaHtml(datos) {
+  return KIOSKOS.map(k => {
+    const d = datos[k];
+    if (!d) return '';
+    const val = d.mermaTotalG > 0
+      ? `${fmtG(d.mermaTotalG)} g${d.mermaPct!=null ? ' · '+d.mermaPct.toFixed(1)+'%' : ''}`
+      : '<span class="compare-dash">Sin merma</span>';
+    return `<div class="kpi-detail-row"><span class="kd-name">${k}</span><span class="kd-val">${val}</span></div>`;
+  }).join('');
+}
+function kpiDetailEfectivoHtml(datos) {
+  return KIOSKOS.map(k => {
+    const d = datos[k];
+    if (!d) return '';
+    const val = d.efPendFechas > 0
+      ? `${fmtCRC(d.efPendCrc)}${d.efPendUsd ? ' + '+fmtUSD(d.efPendUsd) : ''}`
+      : '<span class="compare-dash">Al día ✓</span>';
+    return `<div class="kpi-detail-row"><span class="kd-name">${k}</span><span class="kd-val">${val}</span></div>`;
+  }).join('');
+}
+function kpiDetailTipsHtml(datos) {
+  return KIOSKOS.map(k => {
+    const d = datos[k];
+    if (!d) return '';
+    const val = d.squareOk
+      ? `${d.tipsVentasPct!=null ? d.tipsVentasPct.toFixed(1)+'%' : 'N/D'} · ${fmtCRC(d.tipsTotal)}`
+      : '<span class="compare-dash">N/D</span>';
+    return `<div class="kpi-detail-row"><span class="kd-name">${k}</span><span class="kd-val">${val}</span></div>`;
+  }).join('');
+}
+
+// ── RENDER: KPIs GENERALES + PASTEL DE VENTAS + TABLA COMPARATIVA ──
 function renderKpisGenerales(datos) {
   const cont = document.getElementById('kpi-generales');
   const kioskosSquare = Object.values(datos).filter(d => d.squareOk);
   const ventasTotales = kioskosSquare.reduce((s,d)=>s+(d.ventasTotal||0),0);
   const mermaTotalG = Object.values(datos).reduce((s,d)=>s+d.mermaTotalG,0);
   const efPendTotal = Object.values(datos).reduce((s,d)=>s+d.efPendCrc,0);
+  const efPendTotalUsd = Object.values(datos).reduce((s,d)=>s+(d.efPendUsd||0),0);
   const tipsTotal = kioskosSquare.reduce((s,d)=>s+(d.tipsTotal||0),0);
   const tipsVentasPromedio = ventasTotales > 0 ? (tipsTotal/ventasTotales)*100 : null;
 
@@ -612,48 +693,74 @@ function renderKpisGenerales(datos) {
       <div class="kpi-label">Ventas totales (Square)</div>
       <div class="kpi-val">${fmtCRC(ventasTotales)}</div>
       <div class="kpi-sub">${kioskosSquare.length} kiosko${kioskosSquare.length===1?'':'s'} con Square propio${metaVentasTotal>0 ? ` · <span style="color:${cumplVentasColor};font-weight:600">${cumplVentasPct.toFixed(0)}% de la meta</span> (${fmtCRC(metaVentasTotal)})` : ''}</div>
+      <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-ventas" onclick="toggleKpiDetail('ventas')">Ver por kiosko ▾</button>
+      <div class="kpi-detail-body" id="kpi-detail-ventas">${kpiDetailVentasHtml(datos)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Merma total</div>
-      <div class="kpi-val" style="color:var(--red)">${fmtG(mermaTotalG)} g</div>
-      <div class="kpi-sub">${mermaPctGeneral!=null ? '≈ '+mermaPctGeneral.toFixed(1)+'% de lo vendido' : 'Sin datos suficientes'}${mermaMetaHtml}</div>
+      <div class="kpi-val" style="color:var(--red)">${mermaPctGeneral!=null ? mermaPctGeneral.toFixed(1)+'%' : 'N/D'}</div>
+      <div class="kpi-sub">${fmtG(mermaTotalG)} g${mermaMetaHtml}</div>
+      <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-merma" onclick="toggleKpiDetail('merma')">Ver por kiosko ▾</button>
+      <div class="kpi-detail-body" id="kpi-detail-merma">${kpiDetailMermaHtml(datos)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Efectivo pendiente de depositar</div>
       <div class="kpi-val" style="color:var(--amber)">${fmtCRC(efPendTotal)}</div>
-      <div class="kpi-sub">Saldo acumulado a hoy, todos los kioskos</div>
+      <div class="kpi-sub">${efPendTotalUsd>0 ? fmtUSD(efPendTotalUsd)+' adicional · ' : ''}Saldo acumulado a hoy, todos los kioskos</div>
+      <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-efectivo" onclick="toggleKpiDetail('efectivo')">Ver por kiosko ▾</button>
+      <div class="kpi-detail-body" id="kpi-detail-efectivo">${kpiDetailEfectivoHtml(datos)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Tips / Ventas</div>
       <div class="kpi-val" style="color:var(--blue)">${tipsVentasPromedio!=null ? tipsVentasPromedio.toFixed(1)+'%' : 'N/D'}</div>
       <div class="kpi-sub">Promedio ponderado, kioskos con Square</div>
+      <button type="button" class="kpi-detail-toggle" id="kpi-detail-btn-tips" onclick="toggleKpiDetail('tips')">Ver por kiosko ▾</button>
+      <div class="kpi-detail-body" id="kpi-detail-tips">${kpiDetailTipsHtml(datos)}</div>
     </div>`;
 }
 
-function renderHbarVentas(datos) {
-  const cont = document.getElementById('hbar-ventas');
-  const kioskosSquare = Object.values(datos).filter(d => d.squareOk && d.ventasTotal > 0);
-  if (!kioskosSquare.length) {
-    cont.innerHTML = '<div class="empty-state">Sin ventas registradas en el período para los kioskos con Square propio.</div>';
+let chartVentasPie = null;
+function renderPieVentas(datos) {
+  const idBase = 'chart-ventas-pie';
+  if (typeof Chart === 'undefined') {
+    mostrarChartVacio(idBase, 'No se pudo cargar la librería de gráficos (Chart.js). Revisá la conexión a internet y recargá la página.');
     return;
   }
-  const metasVals = kioskosSquare.map(d => metas.ventas[d.kiosko]).filter(v => v != null);
-  const max = Math.max(...kioskosSquare.map(d => d.ventasTotal), ...metasVals);
-  cont.innerHTML = kioskosSquare.sort((a,b)=>b.ventasTotal-a.ventasTotal).map(d => {
-    const meta = metas.ventas[d.kiosko];
-    const metaPct = meta != null ? Math.min(100, (meta/max*100)) : null;
-    const cumplPct = meta ? (d.ventasTotal/meta*100) : null;
-    const cumplColor = cumplPct==null ? '' : cumplPct>=100 ? 'var(--green)' : cumplPct>=70 ? 'var(--amber)' : 'var(--red)';
-    return `
-    <div class="hbar-row">
-      <div class="hbar-label">${d.kiosko}</div>
-      <div class="hbar-track">
-        <div class="hbar-fill" style="width:${max>0?(d.ventasTotal/max*100):0}%"></div>
-        ${metaPct!=null ? `<div class="hbar-meta-mark" style="left:${metaPct}%" title="Meta: ${fmtCRC(meta)}"></div>` : ''}
-      </div>
-      <div class="hbar-val">${fmtCRC(d.ventasTotal)}${cumplPct!=null ? `<div class="hbar-meta-sub" style="color:${cumplColor}">${cumplPct.toFixed(0)}% de meta (${fmtCRC(meta)})</div>` : ''}</div>
-    </div>`;
-  }).join('');
+  const kioskosSquare = Object.values(datos).filter(d => d.squareOk && d.ventasTotal > 0);
+  if (chartVentasPie) { chartVentasPie.destroy(); chartVentasPie = null; }
+  if (!kioskosSquare.length) {
+    mostrarChartVacio(idBase, 'Sin ventas registradas en el período para los kioskos con Square propio.');
+    return;
+  }
+  ocultarChartVacio(idBase);
+  const ordenados = kioskosSquare.sort((a,b)=>b.ventasTotal-a.ventasTotal);
+  const total = ordenados.reduce((s,d)=>s+d.ventasTotal,0);
+  chartVentasPie = new Chart(document.getElementById(idBase), {
+    type: 'pie',
+    data: {
+      labels: ordenados.map(d => d.kiosko),
+      datasets: [{
+        data: ordenados.map(d => d.ventasTotal),
+        backgroundColor: ordenados.map((_,i) => colorFor(i)),
+        borderColor: '#ffffff', borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const val = ctx.parsed;
+              const pct = total>0 ? (val/total*100).toFixed(1) : '0';
+              return `${ctx.label}: ${fmtCRC(val)} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 function renderComparativo(datos) {
@@ -875,7 +982,6 @@ function renderKioskoDiario(d, kiosko) {
 // ── CARGA GENERAL ─────────────────────────────────────────────────
 async function cargarTodo() {
   document.getElementById('kpi-generales').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
-  document.getElementById('hbar-ventas').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
   document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>';
   document.getElementById('kpi-kiosko').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
   document.getElementById('kiosko-diario-body').innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
@@ -883,20 +989,21 @@ async function cargarTodo() {
   try {
     indicadoresCache = await calcularIndicadores();
     renderKpisGenerales(indicadoresCache);
-    renderHbarVentas(indicadoresCache);
     renderComparativo(indicadoresCache);
     renderKioskoTab();
   } catch(e) {
     document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty">No se pudo cargar el comparativo. Revisá la conexión.</div></td></tr>';
   }
 
-  // Los gráficos de línea van en su propio try/catch: si Chart.js no carga o
-  // falla por lo que sea, no debe tumbar el resto del tablero (KPIs, tabla).
+  // Los gráficos van en su propio try/catch: si Chart.js no carga o falla
+  // por lo que sea, no debe tumbar el resto del tablero (KPIs, tabla).
   try {
+    renderPieVentas(indicadoresCache);
     renderLineaVentas(indicadoresCache);
     renderLineaMerma(indicadoresCache);
   } catch(e) {
     console.error('Error al renderizar los gráficos de línea:', e);
+    mostrarChartVacio('chart-ventas-pie', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
     mostrarChartVacio('chart-ventas-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
     mostrarChartVacio('chart-merma-linea', 'No se pudieron dibujar los gráficos. Revisá la consola del navegador.');
   }
