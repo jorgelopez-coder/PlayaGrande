@@ -281,10 +281,15 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
       <span class="metas-toggle" id="comparativo-toggle-icon">▸ Mostrar</span>
     </div>
     <div id="comparativo-body-wrap" style="display:none;margin-top:1rem">
+      <div class="chip-row" id="comparativo-agrupacion" style="margin-bottom:.75rem">
+        <button type="button" class="chip-btn active" data-agrupa="total" onclick="cambiarAgrupacionComparativo('total')">Total del período</button>
+        <button type="button" class="chip-btn" data-agrupa="semana" onclick="cambiarAgrupacionComparativo('semana')">Por semana</button>
+        <button type="button" class="chip-btn" data-agrupa="mes" onclick="cambiarAgrupacionComparativo('mes')">Por mes</button>
+      </div>
       <div class="compare-wrap">
         <table class="compare-table">
           <thead>
-            <tr>
+            <tr id="compare-thead-row">
               <th>Kiosko</th>
               <th>Ventas (Square)</th>
               <th>% Merma</th>
@@ -297,7 +302,7 @@ input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,
           </tbody>
         </table>
       </div>
-      <p class="footnote">"Ventas" y "Tips / Ventas" solo aparecen para kioskos con su propio Square conectado (hoy: Playa Grande, Liberia, Tamarindo). El peso de merma se captura para todos los kioskos, pero el % sobre lo vendido necesita las onzas de Square, por eso Nosara y Playa Hermosa muestran "N/D" en esa columna mientras no tengan Square propio.</p>
+      <p class="footnote" id="comparativo-footnote">"Ventas" y "Tips / Ventas" solo aparecen para kioskos con su propio Square conectado (hoy: Playa Grande, Liberia, Tamarindo). El peso de merma se captura para todos los kioskos, pero el % sobre lo vendido necesita las onzas de Square, por eso Nosara y Playa Hermosa muestran "N/D" en esa columna mientras no tengan Square propio.</p>
     </div>
   </div>
 
@@ -479,6 +484,81 @@ function toggleComparativoCard() {
   const abierto = wrap.style.display !== 'none';
   wrap.style.display = abierto ? 'none' : 'block';
   icon.textContent = abierto ? '▸ Mostrar' : '▾ Ocultar';
+}
+
+// ── AGRUPACIÓN DEL COMPARATIVO (Total del período / Semana / Mes) ──
+let comparativoAgrupacion = 'total'; // 'total' | 'semana' | 'mes'
+
+function cambiarAgrupacionComparativo(modo) {
+  comparativoAgrupacion = modo;
+  document.querySelectorAll('#comparativo-agrupacion .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.agrupa === modo));
+  if (indicadoresCache && Object.keys(indicadoresCache).length) renderComparativo(indicadoresCache);
+}
+
+function actualizarCabeceraComparativo() {
+  const row = document.getElementById('compare-thead-row');
+  if (!row) return;
+  const tienePeriodo = row.children.length === 6;
+  if (comparativoAgrupacion !== 'total' && !tienePeriodo) {
+    const th = document.createElement('th');
+    th.textContent = 'Período';
+    row.insertBefore(th, row.children[1]);
+  } else if (comparativoAgrupacion === 'total' && tienePeriodo) {
+    row.removeChild(row.children[1]);
+  }
+}
+
+function actualizarFootnoteComparativo() {
+  const p = document.getElementById('comparativo-footnote');
+  if (!p) return;
+  const base = '"Ventas" y "Tips / Ventas" solo aparecen para kioskos con su propio Square conectado (hoy: Playa Grande, Liberia, Tamarindo). El peso de merma se captura para todos los kioskos, pero el % sobre lo vendido necesita las onzas de Square, por eso Nosara y Playa Hermosa muestran "N/D" en esa columna mientras no tengan Square propio.';
+  p.textContent = comparativoAgrupacion === 'total'
+    ? base
+    : base + ' Al agrupar por semana o mes, "Efectivo pendiente" no se reparte por período porque es un saldo acumulado a hoy — ese dato queda visible en la vista "Total del período" y en los KPIs generales.';
+}
+
+// Clave/etiqueta de la semana (lunes) y del mes a los que pertenece una fecha ISO.
+function claveSemanaDe(fISO) {
+  const d = new Date(fISO + 'T00:00:00');
+  const dow = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dow);
+  return fechaISO(d);
+}
+function labelSemanaDe(claveISO) {
+  const d = new Date(claveISO + 'T00:00:00');
+  const fin = new Date(d); fin.setDate(fin.getDate() + 6);
+  const f = x => x.toLocaleDateString('es-CR', { day:'numeric', month:'short' });
+  return `Semana del ${f(d)} al ${f(fin)}`;
+}
+function claveMesDe(fISO) { return fISO.slice(0,7); }
+function labelMesDe(claveYYYYMM) {
+  const [y,m] = claveYYYYMM.split('-').map(Number);
+  const lbl = new Date(y, m-1, 1).toLocaleDateString('es-CR', { month:'long', year:'numeric' });
+  return lbl.charAt(0).toUpperCase() + lbl.slice(1);
+}
+
+// Agrupa las series diarias de un kiosko (porDia/mermaPorDia/tipsPorDia) en
+// buckets de semana o mes, recalculando % de merma y Tips/Ventas por bucket.
+function agruparPorPeriodoKiosko(d, modo) {
+  const claveDe = modo === 'semana' ? claveSemanaDe : claveMesDe;
+  const labelDe = modo === 'semana' ? labelSemanaDe : labelMesDe;
+  const buckets = {};
+  const sumar = (fecha, campo, valor) => {
+    const clave = claveDe(fecha);
+    if (!buckets[clave]) buckets[clave] = { ventas:0, onzas:0, mermaG:0, tips:0 };
+    buckets[clave][campo] += (valor || 0);
+  };
+  Object.entries(d.porDia||{}).forEach(([fecha,v]) => { sumar(fecha,'ventas',v.ventas); sumar(fecha,'onzas',v.onzas); });
+  Object.entries(d.mermaPorDia||{}).forEach(([fecha,g]) => sumar(fecha,'mermaG',g));
+  Object.entries(d.tipsPorDia||{}).forEach(([fecha,t]) => sumar(fecha,'tips',t));
+  return Object.entries(buckets)
+    .sort((a,b) => a[0] < b[0] ? 1 : (a[0] > b[0] ? -1 : 0)) // más reciente primero
+    .map(([clave, v]) => {
+      const mermaOz = v.mermaG / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
+      const mermaPct = d.tieneSquare && (v.onzas + mermaOz) > 0 ? (mermaOz/(v.onzas+mermaOz))*100 : null;
+      const tipsVentasPct = d.tieneSquare && v.ventas > 0 ? (v.tips/v.ventas)*100 : null;
+      return { clave, label: labelDe(clave), ventas:v.ventas, onzas:v.onzas, mermaG:v.mermaG, mermaPct, tips:v.tips, tipsVentasPct };
+    });
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
@@ -984,43 +1064,99 @@ function renderPieVentas(datos) {
   });
 }
 
+function filaComparativoTotal(kiosko, d) {
+  const ventasHtml = !d.tieneSquare
+    ? '<span class="compare-dash">Sin Square propio</span>'
+    : !d.squareOk
+      ? '<span class="compare-dash">Sin conexión</span>'
+      : `<div class="compare-val">${fmtCRC(d.ventasTotal)}</div><div class="compare-sub">${fmtOz(d.onzasTotal)} oz de barril</div>`;
+
+  const mermaMetaHtml = (metas.mermaPct!=null && d.mermaPct!=null)
+    ? (d.mermaPct<=metas.mermaPct
+        ? ` <span style="color:var(--green)">✓ meta ${metas.mermaPct}%</span>`
+        : ` <span style="color:var(--red)">⚠ meta ${metas.mermaPct}%</span>`)
+    : '';
+  const mermaHtml = d.mermaTotalG > 0
+    ? `<div class="compare-val" style="color:var(--red)">${fmtG(d.mermaTotalG)} g</div><div class="compare-sub">${d.mermaPct!=null ? d.mermaPct.toFixed(1)+'%' : 'N/D'}${mermaMetaHtml}</div>`
+    : (d.squareOk ? '<span class="compare-dash">Sin merma registrada</span>' : '<span class="compare-dash">N/D</span>');
+
+  const efHtml = d.efPendFechas > 0
+    ? `<div class="compare-val" style="color:var(--amber)">${fmtCRC(d.efPendCrc)}</div><div class="compare-sub">${d.efPendFechas} fecha${d.efPendFechas===1?'':'s'} pendiente${d.efPendFechas===1?'':'s'}</div>`
+    : '<span class="compare-dash">Al día ✓</span>';
+
+  const tipsHtml = d.squareOk
+    ? `<div class="compare-val">${d.tipsVentasPct!=null ? d.tipsVentasPct.toFixed(1)+'%' : 'N/D'}</div><div class="compare-sub">${fmtCRC(d.tipsTotal)} en tips</div>`
+    : '<span class="compare-dash">N/D</span>';
+
+  return `<tr>
+    <td><div class="compare-kiosko"><span class="compare-dot"></span>${kiosko}</div></td>
+    <td>${ventasHtml}</td>
+    <td>${mermaHtml}</td>
+    <td>${efHtml}</td>
+    <td>${tipsHtml}</td>
+  </tr>`;
+}
+
+function filaComparativoPeriodo(kiosko, d, p) {
+  const ventasHtml = !d.tieneSquare
+    ? '<span class="compare-dash">Sin Square propio</span>'
+    : !d.squareOk
+      ? '<span class="compare-dash">Sin conexión</span>'
+      : `<div class="compare-val">${fmtCRC(p.ventas)}</div><div class="compare-sub">${fmtOz(p.onzas)} oz de barril</div>`;
+
+  const mermaMetaHtml = (metas.mermaPct!=null && p.mermaPct!=null)
+    ? (p.mermaPct<=metas.mermaPct
+        ? ` <span style="color:var(--green)">✓ meta ${metas.mermaPct}%</span>`
+        : ` <span style="color:var(--red)">⚠ meta ${metas.mermaPct}%</span>`)
+    : '';
+  const mermaHtml = p.mermaG > 0
+    ? `<div class="compare-val" style="color:var(--red)">${fmtG(p.mermaG)} g</div><div class="compare-sub">${p.mermaPct!=null ? p.mermaPct.toFixed(1)+'%' : 'N/D'}${mermaMetaHtml}</div>`
+    : (d.squareOk ? '<span class="compare-dash">Sin merma registrada</span>' : '<span class="compare-dash">N/D</span>');
+
+  const efHtml = '<span class="compare-dash" title="Es un saldo acumulado a hoy, no varía por período">Ver en Total del período</span>';
+
+  const tipsHtml = d.squareOk
+    ? `<div class="compare-val">${p.tipsVentasPct!=null ? p.tipsVentasPct.toFixed(1)+'%' : 'N/D'}</div><div class="compare-sub">${fmtCRC(p.tips)} en tips</div>`
+    : '<span class="compare-dash">N/D</span>';
+
+  return `<tr>
+    <td><div class="compare-kiosko"><span class="compare-dot"></span>${kiosko}</div></td>
+    <td>${p.label}</td>
+    <td>${ventasHtml}</td>
+    <td>${mermaHtml}</td>
+    <td>${efHtml}</td>
+    <td>${tipsHtml}</td>
+  </tr>`;
+}
+
+function filaComparativoVacia(kiosko) {
+  return `<tr>
+    <td><div class="compare-kiosko"><span class="compare-dot"></span>${kiosko}</div></td>
+    <td colspan="5"><span class="compare-dash">Sin datos en el período seleccionado</span></td>
+  </tr>`;
+}
+
 function renderComparativo(datos) {
+  actualizarCabeceraComparativo();
+  actualizarFootnoteComparativo();
   const body = document.getElementById('compare-body');
-  if (!KIOSKOS.length) { body.innerHTML = '<tr><td colspan="5"><div class="empty">No hay kioskos configurados.</div></td></tr>'; return; }
-  body.innerHTML = KIOSKOS.map(kiosko => {
+  const colspanVacio = comparativoAgrupacion === 'total' ? 5 : 6;
+  if (!KIOSKOS.length) { body.innerHTML = `<tr><td colspan="${colspanVacio}"><div class="empty">No hay kioskos configurados.</div></td></tr>`; return; }
+
+  if (comparativoAgrupacion === 'total') {
+    body.innerHTML = KIOSKOS.map(kiosko => datos[kiosko] ? filaComparativoTotal(kiosko, datos[kiosko]) : '').join('');
+    return;
+  }
+
+  const filas = [];
+  KIOSKOS.forEach(kiosko => {
     const d = datos[kiosko];
-    if (!d) return '';
-    const ventasHtml = !d.tieneSquare
-      ? '<span class="compare-dash">Sin Square propio</span>'
-      : !d.squareOk
-        ? '<span class="compare-dash">Sin conexión</span>'
-        : `<div class="compare-val">${fmtCRC(d.ventasTotal)}</div><div class="compare-sub">${fmtOz(d.onzasTotal)} oz de barril</div>`;
-
-    const mermaMetaHtml = (metas.mermaPct!=null && d.mermaPct!=null)
-      ? (d.mermaPct<=metas.mermaPct
-          ? ` <span style="color:var(--green)">✓ meta ${metas.mermaPct}%</span>`
-          : ` <span style="color:var(--red)">⚠ meta ${metas.mermaPct}%</span>`)
-      : '';
-    const mermaHtml = d.mermaTotalG > 0
-      ? `<div class="compare-val" style="color:var(--red)">${fmtG(d.mermaTotalG)} g</div><div class="compare-sub">${d.mermaPct!=null ? d.mermaPct.toFixed(1)+'%' : 'N/D'}${mermaMetaHtml}</div>`
-      : (d.squareOk ? '<span class="compare-dash">Sin merma registrada</span>' : '<span class="compare-dash">N/D</span>');
-
-    const efHtml = d.efPendFechas > 0
-      ? `<div class="compare-val" style="color:var(--amber)">${fmtCRC(d.efPendCrc)}</div><div class="compare-sub">${d.efPendFechas} fecha${d.efPendFechas===1?'':'s'} pendiente${d.efPendFechas===1?'':'s'}</div>`
-      : '<span class="compare-dash">Al día ✓</span>';
-
-    const tipsHtml = d.squareOk
-      ? `<div class="compare-val">${d.tipsVentasPct!=null ? d.tipsVentasPct.toFixed(1)+'%' : 'N/D'}</div><div class="compare-sub">${fmtCRC(d.tipsTotal)} en tips</div>`
-      : '<span class="compare-dash">N/D</span>';
-
-    return `<tr>
-      <td><div class="compare-kiosko"><span class="compare-dot"></span>${kiosko}</div></td>
-      <td>${ventasHtml}</td>
-      <td>${mermaHtml}</td>
-      <td>${efHtml}</td>
-      <td>${tipsHtml}</td>
-    </tr>`;
-  }).join('');
+    if (!d) return;
+    const periodos = agruparPorPeriodoKiosko(d, comparativoAgrupacion);
+    if (!periodos.length) { filas.push(filaComparativoVacia(kiosko)); return; }
+    periodos.forEach(p => filas.push(filaComparativoPeriodo(kiosko, d, p)));
+  });
+  body.innerHTML = filas.length ? filas.join('') : `<tr><td colspan="${colspanVacio}"><div class="empty">Sin datos en el período seleccionado.</div></td></tr>`;
 }
 
 // ── RENDER: GRÁFICOS DE LÍNEA (ventas por período + evolución % merma) ──
@@ -1270,7 +1406,7 @@ function renderKioskoDiario(d, kiosko) {
 // ── CARGA GENERAL ─────────────────────────────────────────────────
 async function cargarTodo() {
   document.getElementById('kpi-generales').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
-  document.getElementById('compare-body').innerHTML = '<tr><td colspan="5"><div class="empty"><span class="spinner"></span></div></td></tr>';
+  document.getElementById('compare-body').innerHTML = `<tr><td colspan="${comparativoAgrupacion==='total'?5:6}"><div class="empty"><span class="spinner"></span></div></td></tr>`;
   document.getElementById('kpi-kiosko').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
   document.getElementById('kiosko-top10-body').innerHTML = '<tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
   document.getElementById('kiosko-diario-body').innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="spinner"></span></div></td></tr>';
