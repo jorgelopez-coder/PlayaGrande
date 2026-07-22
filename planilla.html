@@ -132,7 +132,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .calc-tabla tr.calc-row{cursor:pointer}
 .calc-tabla tr.calc-row:hover{background:var(--surface)}
 .calc-tabla tr.calc-detalle td{background:var(--surface);padding:12px 14px}
-.calc-tabla .monto{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.calc-tabla .monto,.tabla-wizard .monto{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
 .subtit{font-size:11px;color:var(--muted);margin-top:2px}
 .detalle-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:12.5px}
 .detalle-grid b{display:block;margin-bottom:6px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
@@ -431,6 +431,7 @@ function incidenciaAParticipante(inc) {
   try { feriadosTrabajados = JSON.parse(inc['Feriados trabajados']||'[]'); } catch(e) {}
   return {
     nombre: inc['Colaborador'], esManual: esManual,
+    cedula: esManual ? '' : (persona ? persona['Cédula']||'' : ''),
     puesto: esManual ? (inc['Puesto manual']||'') : (persona ? persona['Puesto']||'' : ''),
     salario: esManual ? (Number(inc['Salario manual'])||0) : (persona ? Number(persona['Salario'])||0 : 0),
     horasRegulares: numOr(inc['Horas regulares'], 120),
@@ -567,6 +568,8 @@ let WIZARD_CHECKLIST_ITEMS = [
 ];
 let WIZARD_CHECKLIST_MARCADOS = [];
 let WIZARD_CALCULO_PREVIEW = null;
+let WIZARD_DETALLE_FILAS = [];   // filas crudas de PlanillasDetalle de la corrida actual (Paso 5)
+let PASO5_DETALLE_ABIERTO = [];  // qué item del checklist tiene su detalle desplegado
 
 async function cargarTabPlanilla() {
   const cont = document.getElementById('planilla-contenido');
@@ -621,7 +624,7 @@ function iniciarWizardNuevo() {
   const kiosko = document.getElementById('pl-kiosko').value;
   const candidatos = TODOS_PERSONAL.filter(p => mismoKiosko(p['Kiosko'], kiosko) && (p['Estado']||'').toUpperCase()==='ACTIVO');
   WIZARD_PARTICIPANTES = candidatos.map(p => ({
-    nombre: p['Nombre completo'], puesto: p['Puesto']||'', salario: Number(p['Salario'])||0, esManual: false,
+    nombre: p['Nombre completo'], cedula: p['Cédula']||'', puesto: p['Puesto']||'', salario: Number(p['Salario'])||0, esManual: false,
     incluido: true,
     horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [],
@@ -670,22 +673,29 @@ function renderWizard() {
 // ── PASO 1: VERIFICAR COLABORADORES ACTIVOS ──────────────────────
 let EXTRA_MODO = 'buscar';
 function renderPaso1() {
-  const filas = WIZARD_PARTICIPANTES.map((p, i) => `
+  const filas = WIZARD_PARTICIPANTES.map((p, i) => {
+    const salarioDiario = (Number(p.salario)||0) / 30;
+    const salarioHora = salarioDiario / 8;
+    return `
     <tr>
       <td class="col-check"><input type="checkbox" ${p.incluido!==false?'checked':''} onchange="WIZARD_PARTICIPANTES[${i}].incluido=this.checked"></td>
       <td>${p.nombre}${p.esManual?'<span class="tag-manual">Extra</span>':''}</td>
+      <td>${p.cedula||'—'}</td>
       <td>${p.puesto||'—'}</td>
       <td class="monto">${fmt(p.salario)}</td>
+      <td class="monto">${fmt(salarioDiario)}</td>
+      <td class="monto">${fmt(salarioHora)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   document.getElementById('wizard-paso').innerHTML = `
     <div class="card">
       <p class="card-title">Verificar colaboradores activos</p>
       <p class="hint" style="display:block;margin-bottom:10px">Desmarcá a quien no trabajó esta quincena, o agregá a alguien extra con el botón de abajo.</p>
       <table class="tabla-wizard">
-        <thead><tr><th></th><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Salario</th></tr></thead>
-        <tbody>${filas || '<tr><td colspan="4" class="hint" style="padding:1rem 0">No hay colaboradores activos en este kiosko.</td></tr>'}</tbody>
+        <thead><tr><th></th><th>Colaborador</th><th>Cédula</th><th>Puesto</th><th style="text-align:right">Salario</th><th style="text-align:right">Salario/día</th><th style="text-align:right">Salario/hora</th></tr></thead>
+        <tbody>${filas || '<tr><td colspan="7" class="hint" style="padding:1rem 0">No hay colaboradores activos en este kiosko.</td></tr>'}</tbody>
       </table>
       <button class="btn-secondary" style="margin-top:12px" onclick="toggleFormExtra()">+ Agregar colaborador extra</button>
       <div id="form-extra" style="display:none;margin-top:12px"></div>
@@ -726,9 +736,10 @@ function renderExtraCuerpo() {
     cont.innerHTML = `
       <div class="field"><label>Nombre completo</label><input type="text" id="extra-nombre"></div>
       <div class="field-row">
+        <div class="field"><label>Cédula</label><input type="text" id="extra-cedula"></div>
         <div class="field"><label>Puesto</label><input type="text" id="extra-puesto"></div>
-        <div class="field"><label>Salario mensual (₡)</label><input type="number" id="extra-salario" min="0" step="500"></div>
       </div>
+      <div class="field"><label>Salario mensual (₡)</label><input type="number" id="extra-salario" min="0" step="500"></div>
       <button class="btn-secondary" onclick="agregarExtraManual()">Agregar</button>
     `;
   }
@@ -751,7 +762,7 @@ function agregarExtraExistente(nombre) {
   const persona = TODOS_PERSONAL.find(p => p['Nombre completo'] === nombre);
   if (!persona) return;
   WIZARD_PARTICIPANTES.push({
-    nombre: persona['Nombre completo'], puesto: persona['Puesto']||'', salario: Number(persona['Salario'])||0, esManual: false,
+    nombre: persona['Nombre completo'], cedula: persona['Cédula']||'', puesto: persona['Puesto']||'', salario: Number(persona['Salario'])||0, esManual: false,
     incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
@@ -764,11 +775,12 @@ function agregarExtraExistente(nombre) {
 }
 function agregarExtraManual() {
   const nombre = document.getElementById('extra-nombre').value.trim();
+  const cedula = document.getElementById('extra-cedula').value.trim();
   const puesto = document.getElementById('extra-puesto').value.trim();
   const salario = Number(document.getElementById('extra-salario').value) || 0;
   if (!nombre || !salario) { showToast('Ingresá al menos nombre y salario.', 'error'); return; }
   WIZARD_PARTICIPANTES.push({
-    nombre, puesto, salario, esManual: true,
+    nombre, cedula, puesto, salario, esManual: true,
     incluido: true, horasRegulares: 120, extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
@@ -871,26 +883,44 @@ function togglePaso2Detalle(i) {
   PASO2_EXPANDIDO = PASO2_EXPANDIDO === i ? -1 : i;
   renderPaso2();
 }
-function renderDetallePaso2(i, feriadosDelPeriodo) {
-  const p = WIZARD_PARTICIPANTES[i];
+
+// ── Subsecciones colapsables (usadas dentro del detalle de cada fila del
+// wizard) — cerradas por defecto; el estado (qué subsección quedó abierta)
+// se guarda en un Set para que sobreviva a los re-renders que disparan los
+// campos de fecha (actualizarCampoPaso2/actualizarCampoPaso3).
+let SUBCARDS_ABIERTOS = new Set();
+function scId(paso, i, clave) { return `${paso}-${i}-${clave}`; }
+function toggleSubcard(id) {
+  if (SUBCARDS_ABIERTOS.has(id)) SUBCARDS_ABIERTOS.delete(id); else SUBCARDS_ABIERTOS.add(id);
+  if (WIZARD_PASO === 2) renderPaso2();
+  else if (WIZARD_PASO === 3) renderPaso3();
+}
+function subcardColapsable(id, titulo, contenidoHtml) {
+  const abierto = SUBCARDS_ABIERTOS.has(id);
   return `
     <div class="subcard">
-      <div class="subcard-title">Comentarios de horas extra</div>
+      <div class="subcard-title" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:${abierto?'8px':'0'}" onclick="toggleSubcard('${id}')">
+        <span>${titulo}</span><span>${abierto?'▾':'▸'}</span>
+      </div>
+      <div style="display:${abierto?'block':'none'}">${abierto?contenidoHtml:''}</div>
+    </div>
+  `;
+}
+
+function renderDetallePaso2(i, feriadosDelPeriodo) {
+  const p = WIZARD_PARTICIPANTES[i];
+  return subcardColapsable(scId(2,i,'comentarios'), 'Comentarios de horas extra', `
       <div class="field-row">
         <div class="field"><label>Comentario extra 50%</label><input type="text" value="${p.comentarioExtra50}" oninput="actualizarCampoSilencioso(${i},'comentarioExtra50',this.value)"></div>
         <div class="field"><label>Comentario extra 100%</label><input type="text" value="${p.comentarioExtra100}" oninput="actualizarCampoSilencioso(${i},'comentarioExtra100',this.value)"></div>
       </div>
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Feriados de esta quincena</div>
+  `) + subcardColapsable(scId(2,i,'feriados'), 'Feriados de esta quincena', `
       ${feriadosDelPeriodo.length ? feriadosDelPeriodo.map(f => `
         <div class="check-row">
           <input type="checkbox" ${p.feriadosTrabajados.indexOf(String(f['Fecha']))!==-1?'checked':''} onchange="toggleFeriadoTrabajado(${i}, '${f['Fecha']}', this.checked)">
           <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si lo trabajó — se paga doble)</span></span>
         </div>`).join('') : '<p class="hint">No hay feriados activos en esta quincena.</p>'}
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Incapacidades</div>
+  `) + subcardColapsable(scId(2,i,'incapacidades'), 'Incapacidades', `
       <p class="hint" style="display:block;margin-bottom:8px">CCSS: primeros 3 días al 50% a cargo del patrono. INS: ₡0 (lo paga el INS). Ambas restan días no trabajados automáticamente.</p>
       <div class="field-row">
         <div class="field"><label>CCSS — inicio real</label><input type="date" value="${p.incapCcssIni}" onchange="actualizarCampoPaso2(${i},'incapCcssIni',this.value)"></div>
@@ -908,13 +938,9 @@ function renderDetallePaso2(i, feriadosDelPeriodo) {
         <div class="field"><label>% a pagar</label><input type="number" min="0" max="100" value="${p.incapInternaPct}" oninput="actualizarCampoSilencioso(${i},'incapInternaPct',this.value)"></div>
       </div>
       <div class="field"><label>Comentario interna</label><input type="text" value="${p.comentarioIncapInterna}" oninput="actualizarCampoSilencioso(${i},'comentarioIncapInterna',this.value)"></div>
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Vacaciones</div>
+  `) + subcardColapsable(scId(2,i,'vacaciones'), 'Vacaciones', `
       <div class="info-box">Se calculan solas desde las solicitudes aprobadas — no se ingresan acá. <a href="rrhh-vacaciones.html" target="_blank">Pedir vacaciones para ${p.nombre.split(' ')[0]} →</a></div>
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Subsidio de alimentación/transporte</div>
+  `) + subcardColapsable(scId(2,i,'subsidio'), 'Subsidio de alimentación/transporte', `
       <div class="field-row3">
         <div class="field"><label>₡/día</label><input type="number" min="0" step="100" value="${p.subsidioMonto}" oninput="actualizarCampoSilencioso(${i},'subsidioMonto',this.value)"></div>
         <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.subsidioDias}" oninput="actualizarCampoSilencioso(${i},'subsidioDias',this.value)"></div>
@@ -928,16 +954,13 @@ function renderDetallePaso2(i, feriadosDelPeriodo) {
         </div>
       </div>
       <div class="field"><label>Comentario subsidio</label><input type="text" value="${p.comentarioSubsidio}" oninput="actualizarCampoSilencioso(${i},'comentarioSubsidio',this.value)"></div>
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Otros días no trabajados</div>
+  `) + subcardColapsable(scId(2,i,'diasnotrabajados'), 'Otros días no trabajados', `
       <p class="hint" style="display:block;margin-bottom:8px">Solo ausencias sin incapacidad ni vacación (ej. inasistencia injustificada) — incapacidad y vacaciones ya suman días automáticamente, no los repitas acá.</p>
       <div class="field-row">
         <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.diasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'diasNoTrabajados',this.value)"></div>
         <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioDiasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'comentarioDiasNoTrabajados',this.value)"></div>
       </div>
-    </div>
-  `;
+  `);
 }
 function toggleFeriadoTrabajado(i, fecha, marcado) {
   const p = WIZARD_PARTICIPANTES[i];
@@ -962,20 +985,18 @@ function renderPaso3() {
       <td class="monto">${fmt(prev.baseCCSSAuto)}</td>
       <td><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso3(${i},'ccssBaseAjustada',this.value)"></td>
       <td class="monto">${fmt(prev.ccssObreraMonto)}</td>
-      <td><input type="number" min="0" step="100" value="${p.dedAdelanto}" oninput="actualizarCampoSilencioso(${i},'dedAdelanto',this.value)"></td>
-      <td><input type="number" min="0" step="100" value="${p.dedCompras}" oninput="actualizarCampoSilencioso(${i},'dedCompras',this.value)"></td>
       <td><button class="detalle-toggle" onclick="togglePaso3Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
     </tr>
-    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="7">${detalleAbierto?renderDetallePaso3(i, prev):''}</td></tr>
+    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="5">${detalleAbierto?renderDetallePaso3(i, prev):''}</td></tr>
     `;
   }).join('');
 
   document.getElementById('wizard-paso').innerHTML = `
     <div class="card">
       <p class="card-title">Deducciones</p>
-      <p class="hint" style="display:block;margin-bottom:10px">La base de CCSS ya excluye subsidio e incapacidades. Dejá "Base CCSS ajustada" vacío para usar el cálculo automático, o escribí un monto para forzarlo.</p>
+      <p class="hint" style="display:block;margin-bottom:10px">La base de CCSS ya excluye subsidio e incapacidades. Dejá "Base CCSS ajustada" vacío para usar el cálculo automático, o escribí un monto para forzarlo. Adelanto de salario y compras aprobadas se cargan en el detalle, dentro de "Otras deducciones".</p>
       <table class="tabla-wizard">
-        <thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS auto</th><th>Base ajustada</th><th style="text-align:right">CCSS (10.67%)</th><th>Adelanto</th><th>Compras</th><th></th></tr></thead>
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS auto</th><th>Base ajustada</th><th style="text-align:right">CCSS (10.67%)</th><th></th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -1003,14 +1024,15 @@ function renderDetallePaso3(i, prev) {
       </div>
     </div>
     <div class="subcard">
-      <div class="subcard-title">Comentarios de adelanto y compras</div>
-      <div class="field-row">
-        <div class="field"><label>Comentario adelanto</label><input type="text" value="${p.comentarioAdelanto}" oninput="actualizarCampoSilencioso(${i},'comentarioAdelanto',this.value)"></div>
-        <div class="field"><label>Comentario compras</label><input type="text" value="${p.comentarioCompras}" oninput="actualizarCampoSilencioso(${i},'comentarioCompras',this.value)"></div>
-      </div>
-    </div>
-    <div class="subcard">
       <div class="subcard-title">Otras deducciones</div>
+      <div class="field-row">
+        <div class="field"><label>Adelanto de salario ₡</label><input type="number" min="0" step="100" value="${p.dedAdelanto}" oninput="actualizarCampoSilencioso(${i},'dedAdelanto',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioAdelanto}" oninput="actualizarCampoSilencioso(${i},'comentarioAdelanto',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Compras aprobadas ₡</label><input type="number" min="0" step="100" value="${p.dedCompras}" oninput="actualizarCampoSilencioso(${i},'dedCompras',this.value)"></div>
+        <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioCompras}" oninput="actualizarCampoSilencioso(${i},'comentarioCompras',this.value)"></div>
+      </div>
       <div class="field-row">
         <div class="field"><label>Otras deducciones ₡</label><input type="number" min="0" step="100" value="${p.dedOtras}" oninput="actualizarCampoSilencioso(${i},'dedOtras',this.value)"></div>
         <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioOtras}" oninput="actualizarCampoSilencioso(${i},'comentarioOtras',this.value)"></div>
@@ -1187,12 +1209,7 @@ async function renderPaso5() {
       </div>
       <div class="card">
         <p class="card-title">Checklist de verificación</p>
-        ${WIZARD_CHECKLIST_ITEMS.map((item, i) => `
-          <label class="checklist-item">
-            <input type="checkbox" onchange="toggleChecklistItem(${i}, this.checked)">
-            <span>${item}</span>
-          </label>
-        `).join('')}
+        <div id="checklist-card-body"></div>
       </div>
       <div class="wizard-actions">
         <button class="btn-secondary" onclick="irAPaso(4)">← Atrás</button>
@@ -1201,6 +1218,9 @@ async function renderPaso5() {
       <div id="post-aprobacion"></div>
     `;
     WIZARD_CHECKLIST_MARCADOS = WIZARD_CHECKLIST_ITEMS.map(() => false);
+    PASO5_DETALLE_ABIERTO = WIZARD_CHECKLIST_ITEMS.map(() => false);
+    WIZARD_DETALLE_FILAS = detalle;
+    renderChecklistCard();
   } catch (err) {
     document.getElementById('wizard-paso').innerHTML = `<div class="card"><div class="empty-state">Error: ${err.message}</div></div>`;
   }
@@ -1208,6 +1228,45 @@ async function renderPaso5() {
 function toggleChecklistItem(i, marcado) {
   WIZARD_CHECKLIST_MARCADOS[i] = marcado;
   document.getElementById('btn-aprobar').disabled = WIZARD_CHECKLIST_MARCADOS.some(v => !v);
+}
+function toggleChecklistDetalle(i) {
+  PASO5_DETALLE_ABIERTO[i] = !PASO5_DETALLE_ABIERTO[i];
+  renderChecklistCard();
+}
+// Cada item del checklist se puede desplegar para ver el detalle por
+// colaborador que respalda esa afirmación — usa las filas crudas de
+// PlanillasDetalle (mismos datos que arma calcularPlanilla en el backend).
+function renderChecklistCard() {
+  const cont = document.getElementById('checklist-card-body');
+  if (!cont) return;
+  cont.innerHTML = WIZARD_CHECKLIST_ITEMS.map((item, i) => `
+    <div class="checklist-item" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" ${WIZARD_CHECKLIST_MARCADOS[i]?'checked':''} onchange="toggleChecklistItem(${i}, this.checked)">
+        <span style="flex:1">${item}</span>
+        <button class="detalle-toggle" onclick="toggleChecklistDetalle(${i})">${PASO5_DETALLE_ABIERTO[i]?'Cerrar':'Ver detalle ▾'}</button>
+      </div>
+      <div style="display:${PASO5_DETALLE_ABIERTO[i]?'block':'none'};margin-left:28px">${PASO5_DETALLE_ABIERTO[i]?renderDetalleChecklistItem(i):''}</div>
+    </div>
+  `).join('');
+}
+function renderDetalleChecklistItem(i) {
+  const filas = WIZARD_DETALLE_FILAS;
+  if (!filas.length) return '<p class="hint">Sin detalle guardado para esta planilla.</p>';
+  if (i === 0) {
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Total ingresos</th></tr></thead>
+      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${fmt(d['Horas extra 50% monto'])}</td><td class="monto">${fmt(d['Horas extra 100% monto'])}</td><td class="monto">${fmt(d['Total ingresos'])}</td></tr>`).join('')}</tbody></table>`;
+  }
+  if (i === 1) {
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Incap. CCSS</th><th style="text-align:right">Incap. INS</th><th style="text-align:right">Incap. interna</th><th style="text-align:right">Vacaciones</th></tr></thead>
+      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Incapacidad CCSS monto'])}</td><td class="monto">${fmt(d['Incapacidad INS monto'])}</td><td class="monto">${fmt(d['Incapacidad interna monto'])}</td><td class="monto">${fmt(d['Vacaciones monto'])}</td></tr>`).join('')}</tbody></table>`;
+  }
+  if (i === 2) {
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS</th><th style="text-align:right">CCSS obrera</th><th style="text-align:right">Adelanto</th><th style="text-align:right">Compras</th><th style="text-align:right">Otras</th><th style="text-align:right">Embargo</th><th style="text-align:right">Pensión</th><th style="text-align:right">Total ded.</th></tr></thead>
+      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Base CCSS utilizada'])}</td><td class="monto">${fmt(d['CCSS obrera monto'])}</td><td class="monto">${fmt(d['Adelanto salario'])}</td><td class="monto">${fmt(d['Compras aprobadas'])}</td><td class="monto">${fmt(d['Otras deducciones'])}</td><td class="monto">${fmt(d['Embargo salarial'])}</td><td class="monto">${fmt(d['Pensión alimenticia'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td></tr>`).join('')}</tbody></table>`;
+  }
+  const totalNeto = filas.reduce((acc,d) => acc + (Number(d['Neto a pagar'])||0), 0);
+  return `<p class="hint">Total neto a pagar: <b>${fmt(totalNeto)}</b> · ${filas.length} colaborador(es) en esta planilla.</p>`;
 }
 async function aprobarPlanillaFinal() {
   const kiosko = document.getElementById('pl-kiosko').value;
@@ -1229,21 +1288,24 @@ async function aprobarPlanillaFinal() {
     const csvUrl = generarCSVPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
 
     let driveMsg = '';
+    let driveUrl = '';
     try {
       const archResp = await postBackend({ modulo: 'planilla_guardar_archivo', id: PLANILLA_ACTUAL['ID'], pdf_base64: pdfBase64, kiosko, periodo: r.periodo });
       if (archResp.ok === false) throw new Error(archResp.error);
-      driveMsg = `<p class="hint" style="display:block;margin-top:6px">PDF archivado en Drive: <a href="${archResp.result.url}" target="_blank">ver archivo ↗</a></p>`;
+      driveUrl = archResp.result.url;
+      driveMsg = `<p class="hint" style="display:block;margin-top:6px">PDF archivado en Drive: <a href="${driveUrl}" target="_blank">ver archivo ↗</a></p>`;
     } catch (e) {
       driveMsg = `<p class="hint" style="display:block;margin-top:6px">No se pudo archivar en Drive (${e.message}). Podés descargar el PDF igual.</p>`;
     }
 
+    const textoWA = `La planilla de ${kiosko} — ${r.periodo} está lista. Total a pagar: ${fmt(total)}.` + (driveUrl ? ` Ver archivo: ${driveUrl}` : '');
     document.getElementById('post-aprobacion').innerHTML = `
       <div class="card">
         <p class="card-title">Planilla aprobada ✓</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn-secondary" onclick='descargarPDF(${JSON.stringify(pdfBase64)}, ${JSON.stringify('Planilla_'+kiosko+'_'+r.periodo+'.pdf')})'>Descargar PDF</button>
           <a class="btn-secondary" href="${csvUrl}" download="Planilla_${kiosko}_${r.periodo}.csv" style="text-decoration:none;display:inline-block">Descargar Excel/CSV</a>
-          <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(`La planilla de ${kiosko} — ${r.periodo} está lista. Total a pagar: ${fmt(total)}.`)})'>
+          <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(textoWA)})'>
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg>
             Notificar por WhatsApp
           </button>
