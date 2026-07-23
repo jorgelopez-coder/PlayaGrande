@@ -47,11 +47,6 @@ header {
 .sync-btn:hover { border-color:var(--border-h); color:var(--text); }
 .sync-btn svg { width:12px; height:12px; }
 
-/* ── CONTROLES DEL HISTÓRICO DE VENTAS (selects de periodo/día) ─ */
-.hist-select { font-family:var(--font-m); font-size:11px; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px 9px; cursor:pointer; }
-.hist-select:hover { border-color:var(--border-h); color:var(--text); }
-.hist-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-
 /* ── MENÚ HORIZONTAL DE MÓDULOS ── */
 .topnav { height:46px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:stretch; gap:2px; background:var(--card); position:sticky; top:60px; z-index:19; }
 .nav-item { position:relative; display:flex; }
@@ -144,34 +139,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .compare-detail-block { margin-bottom:.5rem; }
 .compare-detail-block:last-child { margin-bottom:0; }
 .compare-detail-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:.3rem 0 .2rem; }
-
-/* ── TOP 10 PRODUCTOS ───────────────────────────────────── */
-.prod-row { display:flex; align-items:center; gap:12px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
-.prod-row:last-child { border-bottom:none; }
-.prod-rank { font-family:var(--font-m); font-size:11px; font-weight:600; color:var(--subtle); width:16px; flex-shrink:0; }
-.prod-info { flex:1; min-width:0; }
-.prod-nombre { font-size:12.5px; font-weight:500; }
-.prod-meta { font-size:11px; color:var(--muted); margin-top:1px; }
-.prod-monto { font-family:var(--font-m); font-size:13px; font-weight:600; color:var(--green); flex-shrink:0; white-space:nowrap; }
-
-/* ── VOLUMEN DE CERVEZA DE BARRIL (ONZAS) ─────────────────── */
-.volcerv-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
-.volcerv-card { padding:1.1rem 1.25rem; border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
-.volcerv-nombre { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:6px; }
-.volcerv-kpi { font-family:var(--font-m); font-size:24px; font-weight:600; color:var(--text); }
-.volcerv-kpi-sub { font-size:11px; color:var(--subtle); margin-bottom:10px; }
-.volcerv-warn { font-size:10.5px; color:var(--amber); margin-bottom:8px; }
-.volcerv-merma { font-size:11px; color:var(--muted); margin-bottom:8px; display:flex; flex-wrap:wrap; gap:5px; align-items:baseline; }
-.volcerv-merma-label { font-weight:600; text-transform:uppercase; letter-spacing:.04em; font-size:9.5px; color:var(--subtle); }
-.volcerv-merma-val { font-family:var(--font-m); font-weight:600; color:var(--red); }
-.volcerv-merma-pct { font-family:var(--font-m); color:var(--red); }
-.volcerv-hist-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed var(--border); }
-.volcerv-hist-row:last-child { border-bottom:none; }
-.volcerv-hist-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; padding:8px 0 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); cursor:pointer; font-family:var(--font-b); }
-.volcerv-hist-toggle:hover { color:var(--text); }
-.volcerv-hist-toggle.open .volcerv-hist-chevron { transform:rotate(180deg); color:var(--text); }
-.volcerv-hist-chevron { display:flex; color:var(--subtle); transition:transform .15s; }
-.volcerv-hist-body.closed { display:none; }
 
 /* ── FILAS DE DETALLE (usadas en Comparativo por kiosko) ──── */
 .persona-row { display:flex; align-items:center; gap:10px; padding:.6rem 1.25rem; border-bottom:1px solid var(--border); }
@@ -406,75 +373,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
-  <!-- Histórico de ventas por kiosko: gráfico para comparar periodos
-       anteriores entre sí, con filtro opcional por día de semana (ej. ver
-       solo los viernes para comparar viernes contra viernes). -->
-  <div class="section-card" style="margin-bottom:1.5rem;">
-    <div class="section-head" style="flex-wrap:wrap; gap:.6rem;">
-      <span class="section-title"><span class="clip"></span>Histórico de ventas por kiosko</span>
-      <div class="hist-controls">
-        <select id="hist-periodo" class="hist-select" onchange="renderGraficoHistoricoVentas()">
-          <option value="7">Últimos 7 días</option>
-          <option value="14">Últimos 14 días</option>
-          <option value="30" selected>Últimos 30 días</option>
-          <option value="60">Últimos 60 días</option>
-          <option value="90">Últimos 90 días</option>
-        </select>
-        <select id="hist-dia-semana" class="hist-select" onchange="renderGraficoHistoricoVentas()">
-          <option value="todos" selected>Todos los días</option>
-          <option value="1">Solo lunes</option>
-          <option value="2">Solo martes</option>
-          <option value="3">Solo miércoles</option>
-          <option value="4">Solo jueves</option>
-          <option value="5">Solo viernes</option>
-          <option value="6">Solo sábados</option>
-          <option value="0">Solo domingos</option>
-        </select>
-      </div>
-    </div>
-    <div style="padding:1rem 1.25rem;">
-      <canvas id="hist-ventas-chart" height="90"></canvas>
-      <div id="hist-ventas-vacio" class="no-alerts" style="display:none;">Sin datos de ventas Square para el rango seleccionado.</div>
-    </div>
-    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      Solo incluye kioskos con Square propio conectado. Use el filtro de día de semana para comparar, por ejemplo, todos los viernes entre sí a lo largo del periodo elegido.
-    </div>
-  </div>
-
-  <!-- Top 10 productos vendidos hoy, por kiosko con Square propio -->
-  <div class="grid-2col" style="margin-bottom:1.5rem;">
-    <div class="section-card">
-      <div class="section-head">
-        <span class="section-title"><span class="clip"></span>Top 10 — Playa Grande</span>
-        <span id="top10-playagrande-sub" style="font-size:11px;color:var(--muted);"></span>
-      </div>
-      <div id="top-productos-playagrande-body">
-        <div class="no-alerts"><span class="spinner"></span></div>
-      </div>
-    </div>
-    <div class="section-card">
-      <div class="section-head">
-        <span class="section-title"><span class="clip"></span>Top 10 — Tamarindo</span>
-      </div>
-      <div id="top-productos-tamarindo-body">
-        <div class="no-alerts"><span class="spinner"></span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Cerveza de barril (draft) vendida — onzas por día, por kiosko con Square propio -->
-  <div class="section-card" style="margin-bottom:1.5rem;">
-    <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Cerveza de barril vendida (onzas)</span>
-    </div>
-    <div id="volumen-cerveza-body" class="volcerv-grid">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      Solo cuenta cerveza de barril (no embotellada): categoría "DRAFT", o categoría de cervezas sin la palabra "botella" en el nombre. Las onzas se sacan del nombre de cada producto. La merma se captura por peso (gramos) en <a href="mermas.html" style="color:var(--muted);">Mermas de Cerveza</a> — el % sobre el total vendido convierte ese peso a onzas con una densidad estándar de cerveza (~1.005 g/mL), es una aproximación.
-    </div>
-  </div>
-
   <!-- Acciones rápidas -->
   <div class="section-card" style="margin-bottom:1.5rem;">
       <div class="section-head clickable" onclick="toggleAccionesRapidas()">
@@ -605,7 +503,6 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
 // Mismas URLs /exec usadas en cierres.html, rrhh.html, configuracion.html y
@@ -639,24 +536,8 @@ const SQUARE_KIOSKOS = {
   }
 };
 
-// Mismo Web App que mantenimiento.html/mermas.html (Code-mantenimiento-backend.gs,
-// Sheet "Operaciones - Kioskos", pestaña "Mermas") — se lee acá para agregar
-// el peso de la merma del día y su % sobre el total vendido, junto al
-// volumen de cerveza de barril (ver cargarVolumenCervezaPorKiosko más abajo).
-const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
-// Densidad aproximada de la cerveza (g/mL) para convertir el peso de la
-// merma (capturada en gramos en mermas.html) a onzas y poder compararla
-// contra las onzas vendidas — es una aproximación, no una medición exacta.
-const DENSIDAD_CERVEZA_G_ML = 1.005;
-
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-
-// ── HISTÓRICO DE VENTAS POR KIOSKO (gráfico comparativo + filtro por día
-// de semana, ver sección "Histórico de ventas por kiosko" más abajo) ──
-let HISTORICO_VENTAS_KIOSKOS = {}; // { 'Playa Grande': {fecha: monto} | null, ... }
-let chartHistoricoVentas = null;
-const PALETA_KIOSKOS = ['#1a7a4a', '#185fa5', '#c87820', '#6a3a9a', '#c84a20', '#2a9d8f'];
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -781,15 +662,6 @@ function toggleCompareDetail(rowId) {
   }
 }
 
-// ── HISTÓRICO DE CERVEZA POR DÍA (colapsable, por kiosko) ────
-function toggleVolcervHist(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.toggle('closed');
-  const btn = document.querySelector(`.volcerv-hist-toggle[data-target="${id}"]`);
-  if (btn) btn.classList.toggle('open', !el.classList.contains('closed'));
-}
-
 // ── KPIs ──────────────────────────────────────────────────────
 function diasDesde(fechaISO) {
   if (!fechaISO) return null;
@@ -897,18 +769,6 @@ async function cargarKPIs() {
   } catch(e) {
     compareBody.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No se pudo cargar el comparativo por kiosko.</div></td></tr>';
   }
-
-  // 4. TOP 10 PRODUCTOS — por cada kiosko con Square propio.
-  await cargarTop10PlayaGrande();
-  await cargarTop10Tamarindo();
-
-  // 5. VOLUMEN DE CERVEZA DE BARRIL (onzas) — hoy + histórico por día,
-  //    por cada kiosko con Square propio (ver SQUARE_KIOSKOS).
-  await cargarVolumenCervezaPorKiosko();
-
-  // 6. HISTÓRICO DE VENTAS POR KIOSKO — gráfico comparativo por periodo +
-  //    filtro por día de semana (ver SQUARE_KIOSKOS).
-  await cargarHistoricoVentasKioskos();
 
   document.getElementById('status-dot').className = 'sdot';
   document.getElementById('status-texto').textContent =
@@ -1125,359 +985,6 @@ async function obtenerResumenHoySquare(cfg) {
   } catch(e) {
     return null;
   }
-}
-
-// ── TOP 10 productos por fuente (arma un bloque de filas .prod-row) ──
-function fmtTop10(top10) {
-  return top10 === null
-    ? '<div class="no-alerts">No se pudo cargar el top de productos.</div>'
-    : (top10.length
-      ? top10.map(([nombre, monto], i) => `
-        <div class="prod-row">
-          <span class="prod-rank">${i + 1}</span>
-          <div class="prod-info"><div class="prod-nombre">${nombre}</div></div>
-          <span class="prod-monto">${fmtCRC(monto)}</span>
-        </div>`).join('')
-      : '<div class="no-alerts">Todavía no hay ventas registradas hoy.</div>');
-}
-
-// ── TOP 10 — PLAYA GRANDE (hoja "Square - Playa Grande", Ventas_Por_Producto) ──
-async function cargarTop10PlayaGrande() {
-  const cfg = SQUARE_KIOSKOS['Playa Grande'];
-  const subEl = document.getElementById('top10-playagrande-sub');
-  const topBody = document.getElementById('top-productos-playagrande-body');
-  if (!cfg || !topBody) return;
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
-    const texto = await resp.text();
-    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
-    const filas = json.table.rows || [];
-
-    const ahora = new Date();
-    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
-    const porProducto = {};
-    const pedidosHoy = new Set();
-    let totalHoy = 0;
-
-    filas.forEach(fila => {
-      const c = fila.c || [];
-      const fecha = c[0] && (c[0].f || c[0].v);
-      if (fecha !== hoyISO) return;
-      const producto = (c[4] && c[4].v) || 'Sin nombre';
-      const orderId = c[3] && c[3].v;
-      const totalLinea = Number((c[9] && c[9].v) || 0);
-      totalHoy += totalLinea;
-      if (orderId) pedidosHoy.add(orderId);
-      porProducto[producto] = (porProducto[producto] || 0) + totalLinea;
-    });
-
-    subEl.textContent = `${fmtCRC(totalHoy)} · ${pedidosHoy.size} pedido${pedidosHoy.size === 1 ? '' : 's'} hoy`;
-    const top10 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    topBody.innerHTML = fmtTop10(top10);
-  } catch (e) {
-    subEl.textContent = 'Sin conexión';
-    topBody.innerHTML = fmtTop10(null);
-  }
-}
-
-// ── TOP 10 — TAMARINDO (pestaña Ventas_Por_Producto de su misma hoja —
-// mismas columnas que la de Playa Grande: Fecha, Hora, Location ID, Order
-// ID, Producto, Categoría, Cantidad, Precio Unitario, Descuento, Total
-// Línea). Si se agrega un tercer kiosko con Square propio, duplicar esta
-// función + su tarjeta en el HTML (#top-productos-<kiosko>-body).
-async function cargarTop10Tamarindo() {
-  const cfg = SQUARE_KIOSKOS['Tamarindo'];
-  const topBody = document.getElementById('top-productos-tamarindo-body');
-  if (!cfg || !topBody) return;
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
-    const texto = await resp.text();
-    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
-    const filas = json.table.rows || [];
-
-    const ahora = new Date();
-    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
-    const porProducto = {};
-
-    filas.forEach(fila => {
-      const c = fila.c || [];
-      const fecha = c[0] && (c[0].f || c[0].v);
-      if (fecha !== hoyISO) return;
-      const producto = (c[4] && c[4].v) || 'Sin nombre';
-      const totalLinea = Number((c[9] && c[9].v) || 0);
-      porProducto[producto] = (porProducto[producto] || 0) + totalLinea;
-    });
-
-    const top10 = Object.entries(porProducto).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    topBody.innerHTML = fmtTop10(top10);
-  } catch (e) {
-    topBody.innerHTML = fmtTop10(null);
-  }
-}
-
-// ── VOLUMEN DE CERVEZA DE BARRIL (ONZAS) — por kiosko, con histórico por
-// día. Lee la misma pestaña Ventas_Por_Producto que el Top 10 de arriba
-// (ver SQUARE_KIOSKOS) y para cada línea decide si es cerveza de barril:
-//   - Playa Grande clasifica sus chorros con categoría "DRAFT".
-//   - Tamarindo no tiene esa categoría separada — ahí todo lo de "CERVEZAS"
-//     que NO diga "botella" en el nombre es de barril.
-// La cantidad de onzas se saca del nombre del producto (ej. "16 onz",
-// "16oz", "10 oz"). Si un producto de barril no trae onzas identificables
-// en el nombre (ej. "2x1 LAGER DRAFT"), esa línea se cuenta pero se avisa
-// aparte en vez de sumarla con un valor inventado.
-function esCervezaBarril(categoria, nombre) {
-  const cat = (categoria || '').toUpperCase();
-  const nom = (nombre || '').toUpperCase();
-  if (nom.includes('BOTELLA')) return false;
-  return cat === 'DRAFT' || cat.includes('CERVEZA');
-}
-
-function extraerOnzas(nombre) {
-  const m = (nombre || '').match(/(\d+(?:[.,]\d+)?)\s*(?:onz|oz)\b/i);
-  return m ? parseFloat(m[1].replace(',', '.')) : null;
-}
-
-const ML_POR_ONZA = 29.5735;
-
-// Mermas (Sheet "Operaciones - Kioskos", pestaña "Mermas" — ver mermas.html)
-// agrupadas por kiosko y fecha, sumando el "Peso Neto Merma (g)" de todas
-// las pesadas de ese día. Independiente de SQUARE_KIOSKOS: la captura de
-// mermas aplica a cualquier kiosko, pero acá solo se cruza contra los que
-// tienen Square propio porque son los únicos con "onzas vendidas" para
-// calcular el %.
-async function obtenerMermasPorKiosko() {
-  try {
-    const resp = await fetch(MERMAS_URL + '?modulo=mermas', { cache: 'no-store' });
-    const data = await resp.json();
-    const porKiosko = {};
-    (data.registros || []).forEach(r => {
-      const kiosko = r['Kiosko'];
-      const fecha = String(r['Fecha'] || '').slice(0, 10);
-      if (!kiosko || !fecha) return;
-      const neto = Number(r['Peso Neto Merma (g)']) || 0;
-      (porKiosko[kiosko] = porKiosko[kiosko] || {});
-      porKiosko[kiosko][fecha] = (porKiosko[kiosko][fecha] || 0) + neto;
-    });
-    return porKiosko;
-  } catch (e) {
-    return {};
-  }
-}
-
-async function cargarVolumenCervezaPorKiosko() {
-  const cont = document.getElementById('volumen-cerveza-body');
-  if (!cont) return;
-  const entradas = Object.entries(SQUARE_KIOSKOS);
-  if (!entradas.length) {
-    cont.innerHTML = '<div class="no-alerts">No hay kioskos con Square propio conectado todavía.</div>';
-    return;
-  }
-  const mermasPorKiosko = await obtenerMermasPorKiosko();
-  const resultados = await Promise.all(
-    entradas.map(([nombre, cfg]) => obtenerVolumenCervezaKiosko(nombre, cfg, mermasPorKiosko[nombre] || {}))
-  );
-  cont.innerHTML = resultados.map(fmtVolumenCervezaCard).join('');
-}
-
-async function obtenerVolumenCervezaKiosko(nombreKiosko, cfg, mermasPorFecha) {
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
-    const texto = await resp.text();
-    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
-    const filas = json.table.rows || [];
-
-    const ahora = new Date();
-    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
-
-    const porDia = {};
-    let sinOnzas = 0;
-
-    filas.forEach(fila => {
-      const c = fila.c || [];
-      const fecha = c[0] && (c[0].f || c[0].v);
-      if (!fecha) return;
-      const producto = (c[4] && c[4].v) || '';
-      const categoria = (c[5] && c[5].v) || '';
-      const cantidad = Number((c[6] && c[6].v) || 0);
-      if (!esCervezaBarril(categoria, producto)) return;
-      const onzasUnit = extraerOnzas(producto);
-      if (onzasUnit == null) { sinOnzas++; return; }
-      porDia[fecha] = (porDia[fecha] || 0) + onzasUnit * cantidad;
-    });
-
-    // Se combinan las fechas con ventas y las fechas con merma registrada,
-    // para que un día con merma pero sin ventas (ej. kiosko cerrado) también
-    // aparezca en el histórico.
-    const fechas = new Set([...Object.keys(porDia), ...Object.keys(mermasPorFecha || {})]);
-    const historico = [...fechas].sort((a, b) => (a < b ? 1 : -1)).map(fecha => {
-      const oz = porDia[fecha] || 0;
-      const mermaG = (mermasPorFecha && mermasPorFecha[fecha]) || 0;
-      const mermaOz = mermaG / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
-      const pct = (oz + mermaOz) > 0 ? (mermaOz / (oz + mermaOz)) * 100 : null;
-      return { fecha, oz, mermaG, mermaOz, pct };
-    });
-
-    const hoyEntry = historico.find(h => h.fecha === hoyISO) || { oz: 0, mermaG: 0, mermaOz: 0, pct: null };
-
-    return {
-      nombreKiosko, ok: true,
-      hoy: hoyEntry.oz, mermaHoyG: hoyEntry.mermaG, mermaHoyPct: hoyEntry.pct,
-      historico, sinOnzas
-    };
-  } catch (e) {
-    return { nombreKiosko, ok: false };
-  }
-}
-
-function fmtVolumenCervezaCard(r) {
-  if (!r.ok) {
-    return `<div class="volcerv-card">
-      <div class="volcerv-nombre">${r.nombreKiosko}</div>
-      <div class="no-alerts">No se pudo cargar el volumen de cerveza.</div>
-    </div>`;
-  }
-  const fmtOz = n => n.toLocaleString('es-CR', { maximumFractionDigits: 1 });
-  const fmtG = n => Math.round(n).toLocaleString('es-CR');
-  const litrosHoy = r.hoy * ML_POR_ONZA / 1000;
-  const mermaHtml = (r.mermaHoyG > 0)
-    ? `<div class="volcerv-merma">
-        <span class="volcerv-merma-label">Merma hoy</span>
-        <span class="volcerv-merma-val">${fmtG(r.mermaHoyG)} g</span>
-        ${r.mermaHoyPct != null ? `<span class="volcerv-merma-pct">≈ ${r.mermaHoyPct.toFixed(1)}% del total vendido</span>` : ''}
-      </div>`
-    : '';
-  const filasHist = r.historico.slice(0, 14).map(h => `
-    <div class="volcerv-hist-row">
-      <span>${h.fecha}</span>
-      <span>${fmtOz(h.oz)} oz${h.mermaG > 0 ? ` · merma ${fmtG(h.mermaG)} g${h.pct != null ? ` (${h.pct.toFixed(1)}%)` : ''}` : ''}</span>
-    </div>`).join('');
-  const histId = 'hist-' + r.nombreKiosko.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-
-  return `<div class="volcerv-card">
-    <div class="volcerv-nombre">${r.nombreKiosko}</div>
-    <div class="volcerv-kpi">${fmtOz(r.hoy)} oz</div>
-    <div class="volcerv-kpi-sub">≈ ${fmtOz(litrosHoy)} L vendidos hoy</div>
-    ${mermaHtml}
-    ${r.sinOnzas ? `<div class="volcerv-warn">⚠ ${r.sinOnzas} línea(s) de barril sin onzas identificables en el nombre — no se sumaron.</div>` : ''}
-    <button type="button" class="volcerv-hist-toggle" data-target="${histId}" onclick="toggleVolcervHist('${histId}')">
-      <span>Histórico por día</span>
-      <span class="volcerv-hist-chevron"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </button>
-    <div class="volcerv-hist-body closed" id="${histId}">
-      ${filasHist || '<div class="no-alerts">Todavía no hay ventas de cerveza de barril.</div>'}
-    </div>
-  </div>`;
-}
-
-// ── HISTÓRICO DE VENTAS POR KIOSKO — misma pestaña Ventas_Por_Producto que
-// el Top 10 y el volumen de cerveza (ver SQUARE_KIOSKOS), pero sumando el
-// "Total Línea" (columna J) de TODAS las categorías por fecha, igual que
-// obtenerResumenHoySquare. Con esto se arma un gráfico de barras por kiosko
-// y fecha, para comparar visualmente periodos anteriores. El filtro de día
-// de semana permite, por ejemplo, comparar solo los viernes entre sí. ──
-async function obtenerVentasDiariasKiosko(cfg) {
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
-    const texto = await resp.text();
-    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
-    const filas = json.table.rows || [];
-    const porDia = {};
-    filas.forEach(fila => {
-      const c = fila.c || [];
-      const fecha = c[0] && (c[0].f || c[0].v);
-      if (!fecha) return;
-      const totalLinea = Number((c[9] && c[9].v) || 0);
-      porDia[fecha] = (porDia[fecha] || 0) + totalLinea;
-    });
-    return porDia;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function cargarHistoricoVentasKioskos() {
-  const entradas = Object.entries(SQUARE_KIOSKOS);
-  if (!entradas.length) return;
-  const resultados = await Promise.all(entradas.map(([, cfg]) => obtenerVentasDiariasKiosko(cfg)));
-  entradas.forEach(([nombre], i) => { HISTORICO_VENTAS_KIOSKOS[nombre] = resultados[i]; });
-  renderGraficoHistoricoVentas();
-}
-
-function renderGraficoHistoricoVentas() {
-  const canvas = document.getElementById('hist-ventas-chart');
-  const vacioEl = document.getElementById('hist-ventas-vacio');
-  const selPeriodo = document.getElementById('hist-periodo');
-  const selDia = document.getElementById('hist-dia-semana');
-  if (!canvas || !selPeriodo || !selDia || typeof Chart === 'undefined') return;
-
-  const periodoDias = Number(selPeriodo.value || 30);
-  const diaSemanaVal = selDia.value;
-  const filtroDia = diaSemanaVal === 'todos' ? null : Number(diaSemanaVal);
-
-  const hoy = new Date();
-  const desde = new Date(hoy);
-  desde.setDate(desde.getDate() - periodoDias + 1);
-  const desdeISO = desde.getFullYear() + '-' + pad(desde.getMonth() + 1) + '-' + pad(desde.getDate());
-
-  const kioskos = Object.keys(SQUARE_KIOSKOS);
-  const fechasSet = new Set();
-  kioskos.forEach(nombre => {
-    const porDia = HISTORICO_VENTAS_KIOSKOS[nombre];
-    if (!porDia) return;
-    Object.keys(porDia).forEach(fecha => {
-      if (fecha < desdeISO) return;
-      if (filtroDia !== null && new Date(fecha + 'T00:00:00').getDay() !== filtroDia) return;
-      fechasSet.add(fecha);
-    });
-  });
-  const fechas = [...fechasSet].sort();
-
-  if (!fechas.length) {
-    canvas.style.display = 'none';
-    vacioEl.style.display = '';
-    if (chartHistoricoVentas) { chartHistoricoVentas.destroy(); chartHistoricoVentas = null; }
-    return;
-  }
-  canvas.style.display = '';
-  vacioEl.style.display = 'none';
-
-  const labels = fechas.map(f => {
-    const d = new Date(f + 'T00:00:00');
-    return d.toLocaleDateString('es-CR', { day: 'numeric', month: 'short' });
-  });
-
-  const datasets = kioskos.map((nombre, i) => {
-    const porDia = HISTORICO_VENTAS_KIOSKOS[nombre] || {};
-    const color = PALETA_KIOSKOS[i % PALETA_KIOSKOS.length];
-    return {
-      label: nombre,
-      data: fechas.map(f => Math.round(porDia[f] || 0)),
-      backgroundColor: color,
-      borderColor: color,
-      borderRadius: 4,
-      maxBarThickness: 28
-    };
-  });
-
-  if (chartHistoricoVentas) chartHistoricoVentas.destroy();
-  chartHistoricoVentas = new Chart(canvas.getContext('2d'), {
-    type: 'bar',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true, ticks: { callback: v => '₡' + Number(v).toLocaleString('es-CR') } }
-      },
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtCRC(ctx.raw)}` } }
-      }
-    }
-  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────
