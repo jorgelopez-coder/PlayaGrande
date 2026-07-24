@@ -151,7 +151,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
   <div class="field">
-    <label>Ingredientes <span class="req">*</span> <span style="font-weight:400;color:var(--muted)">— cantidad en la unidad base del producto (ml para productos por peso, unidades para el resto)</span></label>
+    <label>Ingredientes <span class="req">*</span> <span style="font-weight:400;color:var(--muted)">— cantidad en la unidad del producto (según se definió en Base de Productos)</span></label>
     <div id="ingredientes-lista"></div>
     <button class="btn-link" onclick="agregarFilaIngrediente()">+ Agregar ingrediente</button>
   </div>
@@ -197,8 +197,16 @@ function kioskosPermitidos(lista) {
 
 // ── CONFIG (mismo Web App que inventario.html y compras.html) ──────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar):
+// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar).
+// Recetas y la sincronización de ventas siguen viviendo acá — solo el
+// catálogo de ingredientes (ver PRODUCTOS_URL abajo) se mudó a Base de
+// Productos.
 const INVENTARIO_V2_URL = '';
+// URL /exec del Web App de Code-productos-backend.gs (Base de Productos,
+// mismo que usa productos.html) — de acá sale la lista de ingredientes para
+// elegir en una receta. Solo se listan productos con "Aplica receta"
+// activado en el catálogo.
+const PRODUCTOS_URL = 'https://script.google.com/macros/s/AKfycbyB4WFtP4NpzlTG9Rv4bsaqnniFPGse5xXCC5Op2wux9jxC6nrIGYZJWn38OfNHYKJUaw/exec';
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 let PRODUCTOS = [];
@@ -221,6 +229,13 @@ async function postInv(payload) {
 async function getInv(params) {
   if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
   const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+async function getProd(params) {
+  if (!PRODUCTOS_URL) throw new Error('Falta configurar PRODUCTOS_URL en el código.');
+  const resp = await fetchConTimeout(PRODUCTOS_URL + '?' + new URLSearchParams(params).toString());
   const out = await resp.json();
   if (!out.ok) throw new Error(out.error || 'Error desconocido');
   return out;
@@ -259,21 +274,21 @@ async function cargarKioskos() {
   document.getElementById('sync-kiosko').innerHTML = '<option value="">Todos los kioskos con Square configurado</option>' + opciones;
 }
 
-// ── PRODUCTOS (para el selector de ingredientes) ───────────────────
+// ── PRODUCTOS (para el selector de ingredientes — Base de Productos) ──
 async function cargarProductos() {
   try {
-    const data = await getInv({ modulo: 'productos' });
-    PRODUCTOS = (data.registros || []).filter(p => p['Activo'] !== false);
+    const data = await getProd({ modulo: 'productos' });
+    PRODUCTOS = (data.registros || []).filter(p => p['Activo'] !== false && p['Aplica receta'] !== false);
   } catch(e) {
     PRODUCTOS = [];
   }
 }
 function unidadProducto(p) {
-  return (p && p['Unidad Base'] === 'ml') ? 'ml' : 'ud';
+  return (p && p['Unidad']) ? p['Unidad'] : 'Unidad';
 }
 function opcionesProductos(seleccionadoId) {
   return '<option value="" disabled ' + (seleccionadoId ? '' : 'selected') + '>Elegí un producto…</option>'
-    + PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre Interno'])} (${unidadProducto(p)})</option>`).join('');
+    + PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre'])} (${unidadProducto(p)})</option>`).join('');
 }
 
 // ── INGREDIENTES (filas dinámicas) ─────────────────────────────────
@@ -300,7 +315,7 @@ function leerIngredientes() {
     const producto = PRODUCTOS.find(p => String(p['ID']) === String(productoId));
     return {
       productoId,
-      productoNombre: producto ? producto['Nombre Interno'] : '',
+      productoNombre: producto ? producto['Nombre'] : '',
       cantidad: Number(row.querySelector('.ing-cantidad').value) || 0
     };
   }).filter(i => i.productoId && i.cantidad > 0);
