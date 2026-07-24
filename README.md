@@ -455,6 +455,12 @@ guardar el cierre sin adjuntar ninguna.
    implementaciones → Editar → Nueva versión. Sin este paso, "Aprobar
    planilla" avisa que falta configurarlo pero igual aprueba y deja
    descargar el PDF/Excel — solo el archivado en Drive queda pendiente.
+6b. Para que "Cerrar cálculo" de `servicio-10.html` pueda archivar el PDF de
+   cada reparto de Servicio 10%, creá una carpeta en Drive (ej. **"Servicio
+   10% - Kioskos"**), copiá su ID y pegalo en `Code-rrhh-kioskos-backend.gs`,
+   constante `FOLDER_ID_SERVICIO` — después volvé a Implementar → Gestionar
+   implementaciones → Editar → Nueva versión. Sin este paso, el reparto se
+   cierra igual (no bloquea) — solo el archivado en Drive queda pendiente.
 7. `rrhh-nuevo-ingreso.html` incluye un espacio para tomar/subir la foto de
    la cédula del colaborador (opcional) y se guarda en la carpeta de Drive
    fija `FOLDER_ID_CEDULAS` (ya viene con un ID real cargado en
@@ -715,44 +721,77 @@ Noveno módulo: **Servicio 10%**, `servicio-10.html` — cálculo y repartición
 del 10% de servicio entre el equipo, por kiosko y por un rango de fechas
 libre (no atado a la quincena de Planilla, a diferencia de esta). A
 diferencia de Control de Tips (propina voluntaria de tarjeta, ya cobrada
-suelta por cierre), acá el monto a repartir se **calcula**: 10% (editable)
-de las Ventas Netas ₡ sumadas de los cierres de caja del kiosko en el rango
-elegido. Tres pestañas:
+suelta por cierre), acá el monto a repartir se **calcula por fecha**:
+"Total Ventas ₡" de Cierres ya incluye el 10% cobrado al cliente, así que
+por cada día del periodo, **Venta Neta = Total Ventas ₡ ÷ 1.1** y **Monto
+Servicio = Venta Neta × 10%** (10% fijo de ley, sin campo editable). Además,
+no todos los días reparten entre el mismo equipo: la asignación de quién
+recibe es **por fecha específica**, no un total del periodo prorrateado por
+días trabajados. Cuatro pestañas:
 
 - **Nuevo reparto**: elegís el kiosko (arriba) y el periodo (fecha inicio/
-  fin), "Calcular reparto" trae el total de Ventas Netas ₡ de "Cierres" para
-  ese kiosko+rango y sugiere el monto (10%, editable) y la tabla de
-  colaboradores con sus **días trabajados**, contados automáticamente desde
-  "Horarios" (días con Estado="trabajo" en ese kiosko+rango — vacaciones,
-  incapacidad, permiso y días libres no cuentan). Cada fila es editable
-  (ajustar días a mano) y se puede agregar un colaborador que no salió en
-  Horarios (selector de Personal activo del kiosko, o "Otro / escribir
-  nombre…" para alguien sin ficha). El monto de cada colaborador se
-  recalcula en vivo, proporcional a sus días sobre el total, con el
-  redondeo ajustado en la última fila para que la suma cierre exacta.
-  "Guardar reparto" archiva el cálculo como snapshot (no se recalcula solo
-  después) — si hace falta corregirlo, se guarda un reparto nuevo.
-- **Pendientes de pago**: cada colaborador de cada reparto guardado es una
-  fila independiente con su propio estado de pago (a diferencia de
-  TipsPagos, que paga varios cierres de una sola vez) — se puede seleccionar
-  y pagar de a uno o varios juntos (incluso de distintos periodos/kioskos)
-  con una fecha y referencia común, igual que control-tips.html.
-- **Historial de repartos**: lista de cálculos guardados por kiosko, con
-  badge de Pagado completo/Parcial/Pendiente y detalle desplegable por
+  fin), "Calcular reparto" trae la Venta Neta y el Monto Servicio de cada
+  día individual desde "Cierres", y sugiere para cada uno los colaboradores
+  que lo reciben según "Horarios" (turnos con Estado="Trabajo" ese día
+  específico — vacaciones, incapacidad, permiso y días libres no cuentan).
+  Cada día es editable por separado: se pueden agregar o quitar
+  colaboradores solo para esa fecha (selector de Personal activo del
+  kiosko, o "Otro / escribir nombre…"), y el monto por persona de ese día
+  se recalcula en vivo (Monto Servicio del día ÷ cantidad de colaboradores
+  asignados ese día). Debajo se arma un resumen agregado por colaborador
+  (días totales y monto total en el periodo) solo para lectura — la edición
+  real pasa siempre por el día, no por el total. Las fechas que ya quedaban
+  cubiertas por un reparto cerrado anterior del mismo kiosko se **omiten
+  automáticamente** del cálculo (con aviso) para no pagarlas dos veces.
+  **"Cerrar cálculo"** genera un PDF del detalle (jsPDF + html2canvas, mismo
+  patrón que el cierre de semana de `horarios.html`), lo archiva en Drive y
+  guarda el reparto ya cerrado en un solo paso — no existe un estado
+  "borrador" editable después; si hace falta corregir algo, se cierra un
+  reparto nuevo (las fechas ya cerradas no se pueden repetir, ver control
+  de fechas abajo).
+- **Pendientes de pago**: agrupa el detalle (guardado por fecha) por
+  colaborador + reparto, mostrando una sola fila por persona con el rango de
+  fechas y el monto total de ese reparto — se puede seleccionar y pagar de a
+  uno o varios juntos (incluso de distintos repartos/kioskos) con una fecha
+  y referencia común, igual que control-tips.html.
+- **Historial de repartos**: lista de cálculos cerrados por kiosko, con
+  badge de Pagado completo/Parcial/Pendiente, link al PDF archivado en
+  Drive (si se pudo subir) y detalle desplegable con el resumen por
   colaborador (días, monto, estado de pago).
+- **Control de fechas**: para el kiosko elegido y un rango de fechas,
+  compara los días con ventas registradas en "Cierres" contra los días ya
+  cubiertos por algún reparto cerrado, y marca cada fecha como "Incluida ✓"
+  o "Falta ⚠" — para poder verificar que ningún día quedó sin repartir.
+
+**Control de fechas repetidas**: además de omitirlas automáticamente al
+calcular (arriba), `guardarServicioReparto()` en el backend vuelve a
+validar — por las dudas de que dos personas cierren cálculos casi al mismo
+tiempo — que ninguna fecha del reparto que se está cerrando ya esté cubierta
+por otro reparto cerrado del mismo kiosko, y rechaza el cierre completo si
+encuentra alguna (listándola en el mensaje de error) en vez de guardar
+datos duplicados.
 
 Backend: mismo Web App de RRHH (`Code-rrhh-kioskos-backend.gs`), extendido
-con 2 pestañas nuevas — **ServicioRepartos** (maestro, uno por cálculo
-guardado: kiosko, periodo, ventas netas, porcentaje, monto total) y
-**ServicioRepartoDetalle** (uno por colaborador de cada reparto, con su
-propio Pagado/Fecha pago/Referencia pago — mismo patrón maestro/detalle que
-Planillas/PlanillasDetalle). `servicio-10.html` además lee directamente el
-Web App de ventas (`SHEETS_URL`, mismo que cierres.html/control-tips.html)
-para sumar Ventas Netas ₡ de "Cierres", y `?modulo=horarios`/`?modulo=personal`
-del Web App de RRHH para sugerir días trabajados y ofrecer el selector de
-"+ Agregar colaborador" — no hace falta ningún despliegue nuevo, solo correr
-`configurarHojas()` una vez más en el Sheet de RRHH (ver paso 2 más abajo)
-para que cree las 2 pestañas nuevas.
+con 2 pestañas nuevas — **ServicioRepartos** (maestro, uno por reparto
+cerrado: kiosko, periodo, ventas netas, monto total, cantidad de días y
+colaboradores, y la URL del PDF archivado) y **ServicioRepartoDetalle**
+(una fila por **fecha + colaborador**, con su propio Pagado/Fecha pago/
+Referencia pago — la fecha vive a nivel de detalle, no de maestro, porque
+un mismo reparto puede tener distintos colaboradores en distintos días).
+`servicio-10.html` además lee directamente el Web App de ventas
+(`SHEETS_URL`, mismo que cierres.html/control-tips.html) para traer Total
+Ventas ₡ de "Cierres" día por día, y `?modulo=horarios`/`?modulo=personal`
+del Web App de RRHH para sugerir colaboradores por fecha y ofrecer el
+selector de "+ agregar" — no hace falta ningún despliegue nuevo del lado de
+ventas, solo correr `configurarHojas()` una vez más en el Sheet de RRHH
+(ver paso 2 más abajo) para que cree las 2 pestañas nuevas.
+
+Para que "Cerrar cálculo" pueda archivar el PDF en Drive, creá una carpeta
+(ej. **"Servicio 10% - Kioskos"**), copiá su ID y pegalo en
+`Code-rrhh-kioskos-backend.gs`, constante `FOLDER_ID_SERVICIO` — después
+volvé a Implementar → Gestionar implementaciones → Editar → Nueva versión.
+Mientras esté vacío, el reparto se cierra igual (no bloquea), solo no queda
+copia en Drive.
 
 ## Próximos módulos (sugeridos, sin construir todavía)
 

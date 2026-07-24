@@ -169,47 +169,88 @@ const PORCENTAJE_CCSS_OBRERA = 0.1067;
 
 // ── SERVICIO 10% (servicio-10.html) ───────────────────────────────
 // Cálculo y repartición del 10% de servicio entre el equipo, por kiosko y
-// por un rango de fechas libre (no atado a la quincena de Planilla). El
-// monto a repartir se calcula del lado del cliente (servicio-10.html trae
-// las Ventas Netas ₡ de "Cierres" del Sheet de ventas para el kiosko y
-// rango elegidos — 10% no aplicaba antes a los kioskos, ver README) y se
-// reparte por días trabajados: sugerido automáticamente contando los días
-// con Estado="trabajo" en "Horarios" para ese kiosko+rango, pero editable a
-// mano fila por fila antes de guardar (agregar/quitar colaboradores,
-// ajustar días) — por eso el reparto final se guarda como snapshot, igual
-// que Planillas/PlanillasDetalle, en vez de recalcularse siempre en vivo.
+// por un rango de fechas libre (no atado a la quincena de Planilla). Fórmula
+// (ver servicio-10.html): "Total Ventas ₡" de Cierres ya incluye el 10% de
+// servicio cobrado al cliente, así que Venta Neta = Total Ventas ₡ / 1.1, y
+// Monto Servicio = Venta Neta × 10% — no es un porcentaje configurable, es
+// el 10% de ley, así que no hay campo de porcentaje en la UI ni columna acá.
 //
-// Maestro (uno por cálculo guardado) + Detalle (uno por colaborador en ese
-// cálculo, con su propio estado de pago — cada colaborador puede cobrar su
-// parte en un momento distinto, a diferencia de TipsPagos que paga varios
-// cierres de una sola vez con una única referencia).
+// A diferencia de la primera versión (que repartía el total del periodo
+// proporcional a "días trabajados" agregados), acá la asignación es POR
+// FECHA: cada día del periodo tiene su propia venta y su propio monto de
+// servicio, y se reparte solo entre los colaboradores asignados ESE día
+// específico (sugerido desde "Horarios", editable a mano día por día) — no
+// todos los días reparten entre las mismas personas. El detalle guarda una
+// fila por (fecha, colaborador), que es también la base del control de
+// fechas duplicadas (abajo) y de la pestaña "Control de fechas".
+//
+// El cálculo se guarda ya CERRADO en un solo paso (botón "Cerrar cálculo" en
+// servicio-10.html): valida que ninguna fecha se repita con un reparto ya
+// cerrado del mismo kiosko, archiva una copia en PDF en Drive (si se mandó
+// pdf_base64 y FOLDER_ID_SERVICIO está configurado) y guarda maestro+detalle
+// de una vez — no existe un estado "borrador" editable después de cerrado.
 const HOJA_SERVICIO_REPARTOS = 'ServicioRepartos';
 const ENCABEZADOS_SERVICIO_REPARTOS = [
   'ID', 'Kiosko', 'Fecha inicio', 'Fecha fin', 'Fecha cálculo', 'Calculado por',
-  'Ventas Netas ₡', 'Porcentaje', 'Monto Servicio ₡', 'Total días', 'Colaboradores', 'Notas'
+  'Ventas Netas ₡', 'Monto Servicio ₡', 'Total días', 'Colaboradores',
+  'Estado', 'PDF URL', 'Notas'
 ];
 const HOJA_SERVICIO_DETALLE = 'ServicioRepartoDetalle';
 const ENCABEZADOS_SERVICIO_DETALLE = [
-  'ID Detalle', 'ID Reparto', 'Kiosko', 'Fecha inicio', 'Fecha fin',
-  'Colaborador', 'Puesto', 'Días trabajados', 'Monto ₡',
+  'ID Detalle', 'ID Reparto', 'Kiosko', 'Fecha', 'Colaborador', 'Puesto', 'Monto ₡',
   'Pagado', 'Fecha pago', 'Referencia pago', 'Notas pago'
 ];
 
-// Guarda un cálculo de reparto del 10% de servicio: una fila maestra en
-// ServicioRepartos y una fila de detalle por colaborador en
-// ServicioRepartoDetalle (todas arrancan "Pagado"="No"). data:
+// Carpeta de Drive donde se archiva el PDF de cada cálculo de Servicio 10%
+// cerrado. Pegá acá el ID de una carpeta tuya (de la URL de la carpeta en
+// Drive) y volvé a Implementar → Gestionar implementaciones → Editar →
+// Nueva versión — mientras esté vacío, "Cerrar cálculo" avisa que no se
+// pudo archivar pero igual cierra el reparto (no bloquea el cierre).
+const FOLDER_ID_SERVICIO = '';
+
+// Guarda un cálculo YA CERRADO de reparto del 10% de servicio: una fila
+// maestra en ServicioRepartos y una fila de detalle por (fecha, colaborador)
+// en ServicioRepartoDetalle (todas arrancan "Pagado"="No"). Antes de
+// guardar, rechaza el cálculo completo si alguna de sus fechas ya está
+// cubierta por otro reparto cerrado del mismo kiosko (control de fechas
+// repetidas — ver también servicio-10.html, que hace el mismo chequeo del
+// lado del cliente para no dejar que el usuario llegue hasta acá con
+// fechas repetidas, pero la validación real vive aquí). data:
 // { id, kiosko, fecha_inicio, fecha_fin, calculado_por, ventas_netas,
-//   porcentaje, monto_servicio, notas,
-//   colaboradores: [{ colaborador, puesto, dias, monto }, ...] }
+//   monto_servicio, notas, pdf_base64 (opcional),
+//   asignaciones: [{ fecha, colaborador, puesto, monto }, ...] }
 function guardarServicioReparto(p) {
   if (!p.kiosko) throw new Error('Falta el kiosko.');
   if (!p.fecha_inicio || !p.fecha_fin) throw new Error('Falta el periodo (fecha inicio/fin).');
-  if (!Array.isArray(p.colaboradores) || !p.colaboradores.length) {
-    throw new Error('Falta el detalle de colaboradores del reparto.');
+  if (!Array.isArray(p.asignaciones) || !p.asignaciones.length) {
+    throw new Error('Falta el detalle de colaboradores por fecha.');
   }
 
-  const hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
+  const hojaDetExistente = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
+  const fechasExistentes = {};
+  filasComoObjetos(hojaDetExistente).forEach(function (d) {
+    if (d['Kiosko'] === p.kiosko) fechasExistentes[valorComoTexto(d['Fecha']).slice(0, 10)] = true;
+  });
+  const fechasNuevas = [];
+  p.asignaciones.forEach(function (a) {
+    if (fechasNuevas.indexOf(a.fecha) === -1) fechasNuevas.push(a.fecha);
+  });
+  const fechasRepetidas = fechasNuevas.filter(function (f) { return fechasExistentes[f]; });
+  if (fechasRepetidas.length) {
+    throw new Error('Estas fechas ya fueron incluidas en otro reparto cerrado de ' + p.kiosko + ': ' + fechasRepetidas.join(', '));
+  }
+
   const idReparto = p.id || Date.now();
+
+  let pdfUrl = '';
+  if (p.pdf_base64 && FOLDER_ID_SERVICIO) {
+    pdfUrl = guardarPDFServicioEnDrive(p.kiosko, p.fecha_inicio, p.fecha_fin, p.pdf_base64);
+  }
+
+  const colaboradoresUnicos = {};
+  p.asignaciones.forEach(function (a) { colaboradoresUnicos[a.colaborador] = true; });
+
+  const hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
   const fila = hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_SERVICIO_REPARTOS, {
     'ID': idReparto,
@@ -219,25 +260,24 @@ function guardarServicioReparto(p) {
     'Fecha cálculo': new Date().toISOString(),
     'Calculado por': p.calculado_por || '',
     'Ventas Netas ₡': Number(p.ventas_netas) || 0,
-    'Porcentaje': Number(p.porcentaje) || 10,
     'Monto Servicio ₡': Number(p.monto_servicio) || 0,
-    'Total días': p.colaboradores.reduce(function (s, c) { return s + (Number(c.dias) || 0); }, 0),
-    'Colaboradores': p.colaboradores.length,
+    'Total días': fechasNuevas.length,
+    'Colaboradores': Object.keys(colaboradoresUnicos).length,
+    'Estado': 'Cerrado',
+    'PDF URL': pdfUrl,
     'Notas': p.notas || ''
   });
 
   const hojaDet = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
-  p.colaboradores.forEach(function (c, i) {
+  p.asignaciones.forEach(function (a, i) {
     agregarFilaPorEncabezado(hojaDet, ENCABEZADOS_SERVICIO_DETALLE, {
       'ID Detalle': idReparto + '-' + i,
       'ID Reparto': idReparto,
       'Kiosko': p.kiosko,
-      'Fecha inicio': p.fecha_inicio,
-      'Fecha fin': p.fecha_fin,
-      'Colaborador': c.colaborador || '',
-      'Puesto': c.puesto || '',
-      'Días trabajados': Number(c.dias) || 0,
-      'Monto ₡': Number(c.monto) || 0,
+      'Fecha': a.fecha,
+      'Colaborador': a.colaborador || '',
+      'Puesto': a.puesto || '',
+      'Monto ₡': Number(a.monto) || 0,
       'Pagado': 'No',
       'Fecha pago': '',
       'Referencia pago': '',
@@ -245,7 +285,22 @@ function guardarServicioReparto(p) {
     });
   });
 
-  return { id: idReparto, colaboradores: p.colaboradores.length };
+  return { id: idReparto, pdf_url: pdfUrl, fechas: fechasNuevas.length, asignaciones: p.asignaciones.length };
+}
+
+// Sube el PDF del reparto cerrado a la carpeta fija FOLDER_ID_SERVICIO,
+// reemplazando una copia previa del mismo kiosko+periodo si existiera.
+function guardarPDFServicioEnDrive(kiosko, fechaInicio, fechaFin, base64) {
+  const folder = DriveApp.getFolderById(FOLDER_ID_SERVICIO);
+  const kioskoLimpio = String(kiosko || '').trim().replace(/[\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+  const nombre = 'Servicio10_' + (kioskoLimpio ? kioskoLimpio + '_' : '') + fechaInicio + '_a_' + fechaFin + '.pdf';
+  const existentes = folder.getFilesByName(nombre);
+  while (existentes.hasNext()) existentes.next().setTrashed(true);
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, 'application/pdf', nombre);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
 }
 
 // Marca como pagados uno o varios renglones de detalle (uno por colaborador
@@ -453,7 +508,7 @@ function prepararHoja(nombre, encabezados) {
   ];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_PLANILLAS] = ['Fecha inicio', 'Fecha fin'];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_REPARTOS] = ['Fecha inicio', 'Fecha fin'];
-  COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_DETALLE] = ['Fecha inicio', 'Fecha fin', 'Fecha pago'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_DETALLE] = ['Fecha', 'Fecha pago'];
   (COLUMNAS_TEXTO_POR_HOJA[nombre] || []).forEach(function (col) {
     const idx = encabezados.indexOf(col) + 1;
     if (idx > 0) hoja.getRange(2, idx, Math.max(hoja.getMaxRows() - 1, 1), 1).setNumberFormat('@');
