@@ -80,11 +80,10 @@ tr:last-child td{border-bottom:none}
 .table-wrap{overflow-x:auto}
 .kiosko-tag{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap}
 
-.chip-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
-.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:var(--green-bg);color:var(--green);border:1px solid var(--green-lt);border-radius:20px;padding:3px 6px 3px 10px}
-.chip button{background:none;border:none;color:var(--green);font-size:14px;line-height:1;cursor:pointer;padding:0 2px;font-weight:700}
-.chip-add{display:flex;gap:6px;align-items:center}
-.chip-add select{padding:6px 8px;font-size:12px}
+.check-row{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--border);font-size:13px}
+.check-row:last-child{border-bottom:none}
+.check-row input[type=checkbox]{width:16px;height:16px;flex-shrink:0;accent-color:var(--green)}
+.check-puesto{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
 .dia-sin-asignar{font-size:11px;color:var(--red);margin-bottom:4px}
 
 .kpi-pendiente-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
@@ -170,7 +169,7 @@ tr:last-child td{border-bottom:none}
 
   <div class="card">
     <p class="card-title">Periodo a repartir</p>
-    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la venta de Cierres, calcula el monto de servicio (Venta Neta = Total Ventas ₡ ÷ 1.1; Servicio = Venta Neta × 10%) y sugiere quién lo recibe ese día según Horarios (turnos "Trabajo") — todo editable día por día antes de cerrar. Los días que ya quedaron incluidos en un reparto cerrado anterior se omiten automáticamente para no pagarlos dos veces.</p>
+    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%) y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Los días que ya quedaron incluidos en un reparto cerrado anterior se omiten automáticamente para no pagarlos dos veces.</p>
     <div class="field-row">
       <div class="field">
         <label for="sv-fecha-inicio">Fecha inicio <span class="req">*</span></label>
@@ -190,15 +189,8 @@ tr:last-child td{border-bottom:none}
 
     <div class="card">
       <p class="card-title">Detalle por fecha — <span id="sv-kiosko-lbl"></span></p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Fecha</th><th style="text-align:right">Venta Neta ₡</th><th style="text-align:right">Servicio 10% ₡</th>
-            <th>Colaboradores que reciben ese día</th><th style="text-align:right">₡ c/u</th>
-          </tr></thead>
-          <tbody id="sv-dias-body"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
-        </table>
-      </div>
+      <p class="card-note">Cada fecha está contraída — hacé clic para abrirla y marcar quién recibe el servicio ese día. Por defecto vienen tildados los colaboradores con turno "Trabajo" ese día según Horarios; el listado incluye a todos los activos del kiosko para poder ajustar a mano.</p>
+      <div id="sv-dias-lista"><div class="empty-state"><span class="spinner"></span></div></div>
     </div>
 
     <div class="card">
@@ -497,7 +489,9 @@ async function calcularReparto() {
       detalleTodos.filter(d => d['Kiosko'] === kioskoActual).map(d => soloFecha(d['Fecha']))
     );
 
-    const colaboradoresPorFecha = new Map(); // fecha -> [{colaborador,puesto}]
+    // Quién tuvo turno "Trabajo" cada fecha (sugerencia de check por
+    // defecto), por nombre en minúscula -> {colaborador, puesto}.
+    const colaboradoresPorFecha = new Map();
     (rHorarios.registros || []).forEach(h => {
       if ((h['Kiosko'] || '') !== kioskoActual) return;
       if ((h['Estado'] || 'trabajo') !== 'trabajo') return;
@@ -505,18 +499,18 @@ async function calcularReparto() {
       if (!nombre) return;
       const fecha = soloFecha(h['Fecha']);
       if (!fecha || fecha < fi || fecha > ff) return;
-      if (!colaboradoresPorFecha.has(fecha)) colaboradoresPorFecha.set(fecha, []);
-      const arr = colaboradoresPorFecha.get(fecha);
-      if (!arr.some(c => c.colaborador.toLowerCase() === nombre.toLowerCase())) {
-        arr.push({ colaborador: nombre, puesto: h['Puesto'] || '' });
-      }
+      if (!colaboradoresPorFecha.has(fecha)) colaboradoresPorFecha.set(fecha, new Map());
+      colaboradoresPorFecha.get(fecha).set(nombre.toLowerCase(), { colaborador: nombre, puesto: h['Puesto'] || '' });
     });
 
+    // Roster completo de activos del kiosko (o rotativos) — se despliega
+    // TODOS los días, no solo quienes trabajaron, para poder marcar a mano.
     personalActivo = (rPersonal.registros || [])
       .filter(p => String(p['Estado'] || '').toUpperCase() === 'ACTIVO')
       .filter(p => !p['Kiosko'] || p['Kiosko'] === kioskoActual)
       .map(p => ({ nombre: p['Nombre completo'] || '', puesto: p['Puesto'] || '' }))
-      .filter(p => p.nombre);
+      .filter(p => p.nombre)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     let fechasOmitidas = 0;
     diasCalculados = listaFechas(fi, ff)
@@ -525,11 +519,24 @@ async function calcularReparto() {
         return true;
       })
       .map(f => {
-        const ventaTotal = ventasPorFecha.get(f) || 0;
-        const ventaNeta = ventaTotal / DIVISOR_VENTA_CON_SERVICIO;
-        const montoServicio = ventaNeta * PORCENTAJE_SERVICIO;
-        const colaboradores = (colaboradoresPorFecha.get(f) || []).map(c => ({ ...c }));
-        return { fecha: f, ventaTotal, ventaNeta, montoServicio, colaboradores };
+        // CORREGIDO: "Venta Neta" es el monto tal cual queda registrado en
+        // Cierres (sin dividir) — la división por 1.1 es solo un paso
+        // interno de la fórmula del monto de servicio, no un valor a
+        // mostrar como "venta neta".
+        const ventaNeta = ventasPorFecha.get(f) || 0;
+        const montoServicio = (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
+        const trabajaron = colaboradoresPorFecha.get(f) || new Map();
+        const colaboradores = personalActivo.map(p => ({
+          colaborador: p.nombre, puesto: p.puesto, recibe: trabajaron.has(p.nombre.toLowerCase())
+        }));
+        // Si alguien trabajó ese día pero no está en el roster de activos
+        // del kiosko (ej. cubriendo desde otro kiosko), se agrega igual.
+        trabajaron.forEach((info, key) => {
+          if (!colaboradores.some(c => c.colaborador.toLowerCase() === key)) {
+            colaboradores.push({ colaborador: info.colaborador, puesto: info.puesto, recibe: true });
+          }
+        });
+        return { fecha: f, ventaNeta, montoServicio, colaboradores };
       });
 
     renderDiasReparto();
@@ -539,7 +546,7 @@ async function calcularReparto() {
     if (fechasOmitidas > 0) {
       showToast(`${fechasOmitidas} fecha(s) ya estaban en un reparto cerrado y se omitieron`, 'error');
     } else {
-      showToast('Cálculo listo — revisá los colaboradores de cada día antes de cerrar', 'success');
+      showToast('Cálculo listo — abrí cada fecha para marcar quién recibe', 'success');
     }
   } catch (e) {
     showToast('Error al calcular: ' + e.message, 'error');
@@ -548,80 +555,102 @@ async function calcularReparto() {
   }
 }
 
-function montoPorColaboradorDia(d) {
-  return d.colaboradores.length ? Math.round(d.montoServicio / d.colaboradores.length) : 0;
+// Cantidad de colaboradores tildados ese día y el monto que le toca a cada
+// uno (Monto Servicio del día ÷ cantidad de tildados).
+function diaResumenTexto(i) {
+  const d = diasCalculados[i];
+  const seleccionados = d.colaboradores.filter(c => c.recibe).length;
+  const total = d.colaboradores.length;
+  const montoCU = seleccionados ? Math.round(d.montoServicio / seleccionados) : 0;
+  return { seleccionados, total, montoCU };
+}
+
+function checklistHtml(i) {
+  const d = diasCalculados[i];
+  if (!d.colaboradores.length) return '<div class="empty" style="padding:1rem 0">Sin personal activo en este kiosko.</div>';
+  return d.colaboradores.map((c, ci) => `<label class="check-row">
+    <input type="checkbox" ${c.recibe ? 'checked' : ''} onchange="toggleRecibeDia(${i},${ci},this.checked)"/>
+    <span>${escHtml(c.colaborador)}</span>
+    <span class="check-puesto">${escHtml(c.puesto) || ''}</span>
+  </label>`).join('');
+}
+
+function renderChecklistDia(i) {
+  const cont = document.getElementById('dia-checklist-' + i);
+  if (cont) cont.innerHTML = checklistHtml(i);
 }
 
 function renderDiasReparto() {
-  const tbody = document.getElementById('sv-dias-body');
+  const cont = document.getElementById('sv-dias-lista');
   if (!diasCalculados.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">No hay fechas nuevas para repartir en este periodo (o ya estaban todas incluidas en otro reparto cerrado).</td></tr>';
+    cont.innerHTML = '<div class="empty-state">No hay fechas nuevas para repartir en este periodo (o ya estaban todas incluidas en otro reparto cerrado).</div>';
     actualizarResumenReparto();
     return;
   }
-  tbody.innerHTML = diasCalculados.map((d, i) => {
-    const chips = d.colaboradores.map((c, ci) => `<span class="chip">${escHtml(c.colaborador)}<button type="button" onclick="quitarColaboradorDia(${i},${ci})" title="Quitar">×</button></span>`).join('');
-    const montoCU = montoPorColaboradorDia(d);
-    const aviso = (!d.colaboradores.length && d.montoServicio > 0.5)
-      ? `<div class="dia-sin-asignar">⚠ Sin colaboradores — no se repartiría</div>` : '';
-    return `<tr>
-      <td>${fechaLbl(d.fecha)}</td>
-      <td class="num">${fmtCRC(d.ventaNeta)}</td>
-      <td class="num">${fmtCRC(d.montoServicio)}</td>
-      <td>
-        <div class="chip-wrap">${chips || '<span style="color:var(--subtle);font-size:12px">— sin asignar —</span>'}</div>
-        ${aviso}
-        <div class="chip-add">
-          <select id="sv-dia-add-${i}"></select>
-          <button type="button" class="btn-mini" onclick="agregarColaboradorDia(${i})">+ agregar</button>
+  cont.innerHTML = diasCalculados.map((d, i) => {
+    const { seleccionados, total, montoCU } = diaResumenTexto(i);
+    const aviso = (!seleccionados && d.montoServicio > 0.5) ? '<span class="badge b-pend">⚠ sin asignar</span>' : '';
+    return `<div class="hist-card" onclick="toggleDia(${i})">
+      <div class="hist-head">
+        <div>
+          <div class="hist-fecha">${fechaLbl(d.fecha)}</div>
+          <div class="hist-ref" id="dia-sub-${i}">${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}</div>
         </div>
-      </td>
-      <td class="num">${fmtCRC(montoCU)}</td>
-    </tr>`;
+        <div class="hist-total">${fmtCRC(d.montoServicio)}</div>
+      </div>
+      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)}</span>${aviso}</div>
+    </div>
+    <div class="hist-detail" id="dia-detalle-${i}">
+      <div class="toolbar">
+        <button type="button" class="btn-mini" onclick="marcarTodosDia(${i},true)">Seleccionar todos (reparto equitativo)</button>
+        <button type="button" class="btn-mini" onclick="marcarTodosDia(${i},false)">Ninguno</button>
+        <button type="button" class="btn-mini" onclick="agregarOtroColaboradorDia(${i})">+ otro colaborador</button>
+      </div>
+      <div id="dia-checklist-${i}">${checklistHtml(i)}</div>
+    </div>`;
   }).join('');
-  diasCalculados.forEach((d, i) => poblarSelectDia(i));
   actualizarResumenReparto();
 }
 
-function poblarSelectDia(i) {
-  const sel = document.getElementById('sv-dia-add-' + i);
-  if (!sel) return;
-  const yaAgregados = new Set(diasCalculados[i].colaboradores.map(c => c.colaborador.toLowerCase()));
-  const disponibles = personalActivo.filter(p => !yaAgregados.has(p.nombre.toLowerCase()));
-  sel.innerHTML = '<option value="">Elegir…</option>'
-    + disponibles.map(p => `<option value="${escHtml(p.nombre)}" data-puesto="${escHtml(p.puesto)}">${escHtml(p.nombre)}</option>`).join('')
-    + '<option value="__otro__">Otro / escribir nombre…</option>';
+function toggleDia(i) {
+  const el = document.getElementById('dia-detalle-' + i);
+  if (el) el.classList.toggle('open');
 }
 
-function agregarColaboradorDia(i) {
-  const sel = document.getElementById('sv-dia-add-' + i);
-  let nombre, puesto;
-  if (sel.value === '__otro__') {
-    nombre = (window.prompt('Nombre del colaborador:') || '').trim();
-    if (!nombre) return;
-    puesto = '';
-  } else {
-    if (!sel.value) { showToast('Elegí un colaborador o "Otro / escribir nombre…"', 'error'); return; }
-    nombre = sel.value;
-    puesto = (sel.selectedOptions[0] && sel.selectedOptions[0].dataset.puesto) || '';
-  }
+function toggleRecibeDia(i, ci, checked) {
+  diasCalculados[i].colaboradores[ci].recibe = checked;
+  actualizarDiaResumen(i);
+}
+
+function marcarTodosDia(i, valor) {
+  diasCalculados[i].colaboradores.forEach(c => c.recibe = valor);
+  renderChecklistDia(i);
+  actualizarDiaResumen(i);
+}
+
+function agregarOtroColaboradorDia(i) {
+  const nombre = (window.prompt('Nombre del colaborador:') || '').trim();
+  if (!nombre) return;
   if (diasCalculados[i].colaboradores.some(c => c.colaborador.toLowerCase() === nombre.toLowerCase())) {
-    showToast('Ese colaborador ya está asignado ese día', 'error'); return;
+    showToast('Ya está en la lista de ese día', 'error'); return;
   }
-  diasCalculados[i].colaboradores.push({ colaborador: nombre, puesto });
-  renderDiasReparto();
+  diasCalculados[i].colaboradores.push({ colaborador: nombre, puesto: '', recibe: true });
+  renderChecklistDia(i);
+  actualizarDiaResumen(i);
 }
 
-function quitarColaboradorDia(i, ci) {
-  diasCalculados[i].colaboradores.splice(ci, 1);
-  renderDiasReparto();
+function actualizarDiaResumen(i) {
+  const { seleccionados, total, montoCU } = diaResumenTexto(i);
+  const sub = document.getElementById('dia-sub-' + i);
+  if (sub) sub.textContent = `${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}`;
+  actualizarResumenReparto();
 }
 
 function calcularResumenColaboradores() {
   const map = new Map();
-  diasCalculados.forEach(d => {
-    const montoCU = montoPorColaboradorDia(d);
-    d.colaboradores.forEach(c => {
+  diasCalculados.forEach((d, i) => {
+    const { montoCU } = diaResumenTexto(i);
+    d.colaboradores.filter(c => c.recibe).forEach(c => {
       if (!map.has(c.colaborador)) map.set(c.colaborador, { colaborador: c.colaborador, puesto: c.puesto, dias: 0, monto: 0 });
       const e = map.get(c.colaborador);
       e.dias += 1; e.monto += montoCU;
@@ -652,17 +681,17 @@ function actualizarResumenReparto() {
 }
 
 function actualizarBotonCerrar() {
-  const hayAsignaciones = diasCalculados.some(d => d.colaboradores.length > 0);
+  const hayAsignaciones = diasCalculados.some(d => d.colaboradores.some(c => c.recibe));
   document.getElementById('btn-cerrar-reparto').disabled = !(diasCalculados.length && hayAsignaciones);
 }
 
 async function cerrarCalculo() {
   const asignaciones = [];
-  diasCalculados.forEach(d => {
-    const montoCU = montoPorColaboradorDia(d);
-    d.colaboradores.forEach(c => asignaciones.push({ fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || '', monto: montoCU }));
+  diasCalculados.forEach((d, i) => {
+    const { montoCU } = diaResumenTexto(i);
+    d.colaboradores.filter(c => c.recibe).forEach(c => asignaciones.push({ fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || '', monto: montoCU }));
   });
-  if (!asignaciones.length) { showToast('No hay colaboradores asignados en ningún día', 'error'); return; }
+  if (!asignaciones.length) { showToast('No hay colaboradores marcados en ningún día', 'error'); return; }
 
   const fi = document.getElementById('sv-fecha-inicio').value;
   const ff = document.getElementById('sv-fecha-fin').value;
@@ -713,7 +742,7 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, resumen) {
       <td style="padding:5px;border:1px solid #c8ddd0">${fechaLbl(d.fecha)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.ventaNeta)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.montoServicio)}</td>
-      <td style="padding:5px;border:1px solid #c8ddd0">${d.colaboradores.map(c => escHtml(c.colaborador)).join(', ') || '—'}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0">${d.colaboradores.filter(c => c.recibe).map(c => escHtml(c.colaborador)).join(', ') || '—'}</td>
     </tr>`).join('');
   const filasResumen = resumen.map(r => `<tr>
       <td style="padding:5px;border:1px solid #c8ddd0">${escHtml(r.colaborador)}</td>
@@ -980,7 +1009,7 @@ async function calcularControlFechas() {
     const filas = Array.from(ventasPorFecha.keys())
       .filter(f => (ventasPorFecha.get(f) || 0) > 0)
       .sort()
-      .map(f => ({ fecha: f, ventaNeta: (ventasPorFecha.get(f) || 0) / DIVISOR_VENTA_CON_SERVICIO, cubierta: cubiertas.has(f) }));
+      .map(f => ({ fecha: f, ventaNeta: ventasPorFecha.get(f) || 0, cubierta: cubiertas.has(f) }));
 
     document.getElementById('kpi-ctrl-total').textContent = filas.length;
     document.getElementById('kpi-ctrl-faltan').textContent = filas.filter(x => !x.cubierta).length;
