@@ -141,6 +141,18 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cfg-tc-actual{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px}
 @media (max-width:640px){.cfg-grid{grid-template-columns:1fr}}
 
+/* ── TABS (Catálogo / Mínimos por kiosko) ── */
+.tabs-switch{display:flex;gap:6px;margin-bottom:1.25rem;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{font-family:var(--font-d);font-size:13px;font-weight:600;padding:9px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* ── MÍNIMOS POR KIOSKO ── */
+.min-input{width:72px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-b);font-size:12.5px;padding:5px 6px;text-align:center;outline:none}
+.min-input:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(26,122,74,.08)}
+.min-input.guardando{opacity:.5}
+.min-na{font-size:11.5px;color:var(--subtle)}
+
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -183,31 +195,55 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <div class="status-carga" id="status-carga"><span class="spinner"></span> Conectando…</div>
 
-  <div class="kpi-strip">
-    <div class="kpi-box"><div class="kpi-val" id="kpi-total">—</div><div class="kpi-lbl">Productos</div></div>
-    <div class="kpi-box"><div class="kpi-val" id="kpi-categorias">—</div><div class="kpi-lbl">Categorías en uso</div></div>
-    <div class="kpi-box"><div class="kpi-val" id="kpi-areas">—</div><div class="kpi-lbl">Áreas en uso</div></div>
-    <div class="kpi-box"><div class="kpi-val ambar" id="kpi-inactivos">—</div><div class="kpi-lbl">Inactivos</div></div>
+  <div class="tabs-switch">
+    <button class="tab-btn active" id="tab-btn-catalogo" onclick="cambiarVista('catalogo')">Catálogo</button>
+    <button class="tab-btn" id="tab-btn-minimos" onclick="cambiarVista('minimos')">📏 Mínimos por kiosko</button>
   </div>
 
-  <div class="toolbar">
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" class="search-input" id="s-prod" placeholder="Buscar por nombre o proveedor…" oninput="renderTabla()"/>
+  <div id="vista-catalogo">
+    <div class="kpi-strip">
+      <div class="kpi-box"><div class="kpi-val" id="kpi-total">—</div><div class="kpi-lbl">Productos</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-categorias">—</div><div class="kpi-lbl">Categorías en uso</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-areas">—</div><div class="kpi-lbl">Áreas en uso</div></div>
+      <div class="kpi-box"><div class="kpi-val ambar" id="kpi-inactivos">—</div><div class="kpi-lbl">Inactivos</div></div>
     </div>
-    <select class="filter-sel" id="f-cat" onchange="renderTabla()"><option value="">Todas las categorías</option></select>
-    <select class="filter-sel" id="f-kiosko" onchange="renderTabla()"><option value="">Todos los kioskos</option></select>
-    <select class="filter-sel" id="f-estado" onchange="renderTabla()">
-      <option value="activos" selected>Solo activos</option>
-      <option value="todos">Todos</option>
-      <option value="inactivos">Solo inactivos</option>
-    </select>
-    <div class="conn-row"><span class="conn-dot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="s-prod" placeholder="Buscar por nombre o proveedor…" oninput="renderTabla()"/>
+      </div>
+      <select class="filter-sel" id="f-cat" onchange="renderTabla()"><option value="">Todas las categorías</option></select>
+      <select class="filter-sel" id="f-kiosko" onchange="renderTabla()"><option value="">Todos los kioskos</option></select>
+      <select class="filter-sel" id="f-estado" onchange="renderTabla()">
+        <option value="activos" selected>Solo activos</option>
+        <option value="todos">Todos</option>
+        <option value="inactivos">Solo inactivos</option>
+      </select>
+      <div class="conn-row"><span class="conn-dot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
+    </div>
+
+    <div class="card">
+      <div class="tabla-wrap" id="tabla-productos"><div class="empty">Cargando…</div></div>
+      <div class="pagination" id="pag-productos" style="display:none"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <div class="tabla-wrap" id="tabla-productos"><div class="empty">Cargando…</div></div>
-    <div class="pagination" id="pag-productos" style="display:none"></div>
+  <div id="vista-minimos" style="display:none">
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem;">
+      Mínimo esperado de stock para cada producto activo, por kiosko. Se guarda solo con salir del campo —
+      dejalo vacío si todavía no querés definir un mínimo para esa combinación.
+    </p>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="s-min" placeholder="Buscar por nombre o proveedor…" oninput="renderMinimosTabla()"/>
+      </div>
+      <select class="filter-sel" id="f-min-cat" onchange="renderMinimosTabla()"><option value="">Todas las categorías</option></select>
+    </div>
+    <div class="card">
+      <div class="tabla-wrap" id="tabla-minimos"><div class="empty">Cargando…</div></div>
+    </div>
   </div>
 </main>
 
@@ -288,15 +324,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <input type="number" id="mp-iva" min="0" step="any" placeholder="13"/>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Cantidad en la presentación</label>
-          <input type="number" id="mp-cantidad" min="0" step="any" placeholder="Ej. 6" oninput="actualizarCostoPreview()"/>
-        </div>
-        <div class="field">
-          <label>Stock mínimo esperado</label>
-          <input type="number" id="mp-stock-minimo" min="0" step="any" placeholder="0"/>
-        </div>
+      <div class="field">
+        <label>Cantidad en la presentación</label>
+        <input type="number" id="mp-cantidad" min="0" step="any" placeholder="Ej. 6" oninput="actualizarCostoPreview()"/>
       </div>
 
       <div class="section-label">Información para recetas</div>
@@ -347,6 +377,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field">
         <label class="check-row"><input type="checkbox" id="mp-kioskos-todos" checked onchange="toggleKioskosTodos()"/> Todos los kioskos (incluye los que abran después)</label>
         <div class="kiosko-check-grid" id="mp-kioskos-lista" style="display:none;"></div>
+        <div class="field-hint">El mínimo esperado de este producto en cada kiosko se define aparte, en "📏 Mínimos por kiosko".</div>
       </div>
 
       <div class="section-label">Otros</div>
@@ -526,6 +557,9 @@ document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
 
 let productos = [];
+let minimos = []; // filas crudas de la pestaña "Minimos": [{ 'Producto ID', 'Kiosko', 'Mínimo', 'Actualizado' }, ...]
+let minimosPorProducto = {}; // { productoId: { kiosko: numero } } — construido a partir de "minimos" en cada cargarDatos()
+let vistaActual = 'catalogo';
 let categoriasSugeridas = CATEGORIAS_DEFAULT.slice();
 let areasSugeridas = AREAS_DEFAULT.slice();
 // ── CONFIGURACIÓN (catálogos editables, pestaña "⚙ Configurar") ────────
@@ -571,6 +605,7 @@ async function cargarKioskosDisponibles() {
   } catch (e) { /* se queda con el default de 4 kioskos */ }
   poblarFiltroKiosko();
   poblarChecksKiosko();
+  renderMinimosTabla();
 }
 function poblarFiltroKiosko() {
   const sel = document.getElementById('f-kiosko');
@@ -611,7 +646,6 @@ async function cargarDatos() {
       costo: Number(r['Costo por unidad']) || 0,
       rendimiento: r['Rendimiento (%)'] !== '' && r['Rendimiento (%)'] !== undefined ? Number(r['Rendimiento (%)']) : 100,
       proveedor: r['Proveedor'] || '',
-      stockMinimo: Number(r['Stock mínimo']) || 0,
       kioskos: (r['Kioskos'] || 'Todos').toString().trim() || 'Todos',
       nota: r['Nota'] || '',
       activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false',
@@ -620,6 +654,16 @@ async function cargarDatos() {
       aplicaReceta: r['Aplica receta'] !== false && r['Aplica receta'] !== 'FALSE' && r['Aplica receta'] !== 'false',
       usarPrecioManual: r['Usar precio manual'] === true || r['Usar precio manual'] === 'TRUE' || r['Usar precio manual'] === 'true'
     })).sort((a,b) => a.nombre.localeCompare(b.nombre));
+    minimos = out.minimos || [];
+    minimosPorProducto = {};
+    minimos.forEach(m => {
+      const pid = m['Producto ID'];
+      const kiosko = m['Kiosko'];
+      const valor = Number(m['Mínimo']) || 0;
+      if (!pid || !kiosko || valor <= 0) return;
+      if (!minimosPorProducto[pid]) minimosPorProducto[pid] = {};
+      minimosPorProducto[pid][kiosko] = valor;
+    });
     if (out.categoriasSugeridas && out.categoriasSugeridas.length) categoriasSugeridas = out.categoriasSugeridas;
     if (out.areasSugeridas && out.areasSugeridas.length) areasSugeridas = out.areasSugeridas;
     unidadesSugeridas = out.unidadesSugeridas || [];
@@ -685,7 +729,13 @@ function inicializar() {
   selCat.innerHTML = '<option value="">Todas las categorías</option>' +
     cats.map(c => `<option value="${c}"${c===valCat?' selected':''}>${c}</option>`).join('');
 
+  const selMinCat = document.getElementById('f-min-cat');
+  const valMinCat = selMinCat.value;
+  selMinCat.innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}"${c===valMinCat?' selected':''}>${c}</option>`).join('');
+
   renderTabla();
+  renderMinimosTabla();
 }
 
 function opcionesCategoria(valorActual) {
@@ -810,6 +860,85 @@ function _renderTabla() {
     </table>`;
 
   renderPaginacion('pag-productos', total, pagActual, p => { pagActual = p; _renderTabla(); });
+}
+
+// ── MÍNIMOS POR KIOSKO ("📏 Mínimos por kiosko") ──────────────────
+// Sección aparte del catálogo (v5): lista todos los productos activos y
+// permite definir/actualizar, para cada uno, un mínimo esperado de stock
+// POR KIOSKO — reemplaza al viejo campo único "Stock mínimo" del formulario
+// de producto (que era un solo número global, sin distinguir kiosko).
+function cambiarVista(vista) {
+  vistaActual = vista;
+  document.getElementById('vista-catalogo').style.display = vista === 'catalogo' ? '' : 'none';
+  document.getElementById('vista-minimos').style.display = vista === 'minimos' ? '' : 'none';
+  document.getElementById('tab-btn-catalogo').classList.toggle('active', vista === 'catalogo');
+  document.getElementById('tab-btn-minimos').classList.toggle('active', vista === 'minimos');
+  if (vista === 'minimos') renderMinimosTabla();
+}
+
+function renderMinimosTabla() {
+  const cont = document.getElementById('tabla-minimos');
+  if (!cont) return;
+
+  const busq = (document.getElementById('s-min').value || '').toLowerCase();
+  const cat  = document.getElementById('f-min-cat').value;
+
+  const lista = productos.filter(p => {
+    if (!p.activo) return false;
+    const matchBusq = !busq || p.nombre.toLowerCase().includes(busq) || (p.proveedor||'').toLowerCase().includes(busq);
+    const matchCat  = !cat || p.categoria === cat;
+    return matchBusq && matchCat;
+  });
+
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty">' +
+      (productos.some(p => p.activo) ? 'Sin resultados.' : 'Todavía no hay productos activos en el catálogo.') +
+      '</div>';
+    return;
+  }
+
+  const filas = lista.map(p => {
+    const k = kioskosDeProducto(p);
+    const celdas = KIOSKOS.map(kiosko => {
+      if (!k.esTodos && !k.lista.includes(kiosko)) return `<td><span class="min-na">No aplica</span></td>`;
+      const valorActual = (minimosPorProducto[p.id] && minimosPorProducto[p.id][kiosko]) || '';
+      const idInput = 'min-' + p.id + '-' + kiosko.replace(/[^a-zA-Z0-9]/g, '');
+      return `<td><input type="number" class="min-input" id="${idInput}" min="0" step="1" value="${valorActual}"
+        placeholder="—" onchange="guardarMinimoCelda('${p.id}', '${kiosko.replace(/'/g,"\\'")}', this)"/></td>`;
+    }).join('');
+    return `
+      <tr>
+        <td style="font-weight:500;max-width:220px;">${p.nombre}</td>
+        <td style="color:var(--muted);">${p.categoria || '—'}</td>
+        ${celdas}
+      </tr>`;
+  }).join('');
+
+  const encabezadosKiosko = KIOSKOS.map(k => `<th>${k}</th>`).join('');
+
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Producto</th><th>Categoría</th>${encabezadosKiosko}</tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+}
+
+async function guardarMinimoCelda(productoId, kiosko, el) {
+  const valor = Number(el.value) || 0;
+  el.classList.add('guardando');
+  el.disabled = true;
+  try {
+    await postProd({ accion:'minimo_guardar', productoId, kiosko, valor });
+    if (!minimosPorProducto[productoId]) minimosPorProducto[productoId] = {};
+    if (valor > 0) minimosPorProducto[productoId][kiosko] = valor;
+    else delete minimosPorProducto[productoId][kiosko];
+    showToast('Mínimo actualizado ✓', 'success');
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  } finally {
+    el.classList.remove('guardando');
+    el.disabled = false;
+  }
 }
 
 // ── CONFIGURACIÓN (modal "⚙ Configurar") ─────────────────────────
@@ -1042,7 +1171,6 @@ function abrirModalProducto(idx) {
   document.getElementById('mp-iva').value = p && p.iva ? p.iva : '';
   document.getElementById('mp-cantidad').value = p && p.cantidadPresentacion ? p.cantidadPresentacion : '';
   document.getElementById('mp-rendimiento').value = p ? p.rendimiento : '';
-  document.getElementById('mp-stock-minimo').value = p && p.stockMinimo ? p.stockMinimo : '';
   document.getElementById('mp-nota').value = p ? p.nota : '';
   document.getElementById('mp-activo').checked = p ? p.activo : true;
   setAplicaReceta(p ? p.aplicaReceta : true);
@@ -1080,7 +1208,6 @@ async function guardarProducto() {
       iva: document.getElementById('mp-iva').value,
       cantidad_presentacion: document.getElementById('mp-cantidad').value,
       rendimiento: document.getElementById('mp-rendimiento').value,
-      stock_minimo: document.getElementById('mp-stock-minimo').value,
       kioskos: leerKioskosDeModal(),
       nota: document.getElementById('mp-nota').value.trim(),
       activo: document.getElementById('mp-activo').checked,
@@ -1156,7 +1283,6 @@ function mapearFilaCarga(row) {
     cantidad_presentacion: Number(obj['Cantidad presentación']) || 0,
     rendimiento: (rendVal !== undefined && rendVal !== '') ? Number(rendVal) : 100,
     proveedor: (obj['Proveedor']||'').toString().trim(),
-    stock_minimo: Number(obj['Stock mínimo']) || 0,
     kioskos: (obj['Kioskos']||'Todos').toString().trim() || 'Todos',
     nota: (obj['Nota']||'').toString().trim(),
     activo: true,
@@ -1270,11 +1396,11 @@ async function confirmarCargaMasiva() {
 }
 
 function descargarPlantilla() {
-  const encabezados = ['Nombre *','Categoría','Área de negocio','Unidad *','Presentación','Tamaño','Precio sin IVA','IVA (%)','Cantidad presentación','Rendimiento (%)','Proveedor','Stock mínimo','Kioskos','Nota','Familia','Subfamilia'];
+  const encabezados = ['Nombre *','Categoría','Área de negocio','Unidad *','Presentación','Tamaño','Precio sin IVA','IVA (%)','Cantidad presentación','Rendimiento (%)','Proveedor','Kioskos','Nota','Familia','Subfamilia'];
   const ejemplos = [
-    ['Cerveza IPA 355ml','Cerveza','Barra / Coctelería','botella','Six pack','355 ml',450,13,6,100,'Distribuidora XYZ',24,'Todos','','Cerveza',''],
-    ['Ron añejo 750ml','Licores y Destilados','Barra / Coctelería','botella','Unidad','750 ml',6500,13,1,100,'Licorera ABC',6,'Playa Grande,Liberia','Solo en esos 2 kioskos por ahora','Licores','Ron'],
-    ['Vaso plástico 12oz','Vasos y Desechables','Bodega','unidad','Paquete','100 unidades',2500,13,100,100,'Distribuidora XYZ',200,'Todos','','','']
+    ['Cerveza IPA 355ml','Cerveza','Barra / Coctelería','botella','Six pack','355 ml',450,13,6,100,'Distribuidora XYZ','Todos','','Cerveza',''],
+    ['Ron añejo 750ml','Licores y Destilados','Barra / Coctelería','botella','Unidad','750 ml',6500,13,1,100,'Licorera ABC','Playa Grande,Liberia','Solo en esos 2 kioskos por ahora','Licores','Ron'],
+    ['Vaso plástico 12oz','Vasos y Desechables','Bodega','unidad','Paquete','100 unidades',2500,13,100,100,'Distribuidora XYZ','Todos','','','']
   ];
   const ws = XLSX.utils.aoa_to_sheet([encabezados, ...ejemplos]);
   const wb = XLSX.utils.book_new();

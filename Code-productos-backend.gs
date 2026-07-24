@@ -52,7 +52,21 @@
  * RRHH (administrada desde configuracion.html) — productos.html lee esa
  * misma lista en vivo, no la tiene hardcodeada.
  *
- * Pestaña: "Productos".
+ * v5 (2026-07-24, mismo día): se saca la columna "Stock mínimo" de
+ * ENCABEZADOS_PRODUCTOS (era un solo número global por producto) y se
+ * reemplaza por una pestaña nueva, "Minimos" — un mínimo esperado POR
+ * PRODUCTO × POR KIOSKO (mismo concepto que ya usa la pestaña "Minimos" de
+ * Inventario v2 — ver Code-inventario-v2-backend.gs — pero acá vive en el
+ * Sheet de Base de Productos, no se tocan esos dos módulos entre sí). Se
+ * gestiona desde una sección aparte de productos.html ("📏 Mínimos por
+ * kiosko"), no desde el formulario de "Nuevo producto". Como el Sheet de
+ * este módulo todavía no se había desplegado (ver notas del proyecto), no
+ * hace falta migración: si alguien ya había desplegado la v2/v3/v4 con la
+ * columna "Stock mínimo" y tiene datos ahí, esos valores quedan huérfanos —
+ * hay que migrarlos a mano a la pestaña "Minimos" (Producto ID, Kiosko,
+ * Mínimo) antes de borrar la columna vieja del Sheet real.
+ *
+ * Pestañas: "Productos" y "Minimos".
  *
  * Cómo desplegarlo:
  * 1. Creá un Google Sheet nuevo, ej. "Base de Productos - Kioskos".
@@ -82,11 +96,20 @@ const HOJA_PRODUCTOS = 'Productos';
 const ENCABEZADOS_PRODUCTOS = [
   'ID', 'Nombre', 'Categoría', 'Área de negocio', 'Unidad', 'Presentación',
   'Tamaño', 'Precio sin IVA', 'IVA (%)', 'Cantidad presentación',
-  'Costo por unidad', 'Rendimiento (%)', 'Proveedor', 'Stock mínimo',
+  'Costo por unidad', 'Rendimiento (%)', 'Proveedor',
   'Kioskos', 'Nota', 'Activo', 'Actualizado',
   'Familia', 'Subfamilia', // v3
   'Aplica receta', 'Usar precio manual' // v4 — siempre al FINAL, ver nota de migración arriba
+  // "Stock mínimo" (global) sacada en v5 — ver pestaña "Minimos" más abajo.
 ];
+
+// ── MINIMOS (pestaña "Minimos", v5) ───────────────────────────────────
+// Mínimo esperado por PRODUCTO × KIOSKO. Una fila por combinación que
+// Jorge haya definido explícitamente desde la sección "📏 Mínimos por
+// kiosko" de productos.html — si un producto/kiosko no tiene fila acá,
+// significa que no se le definió mínimo todavía (no es lo mismo que 0).
+const HOJA_MINIMOS = 'Minimos';
+const ENCABEZADOS_MINIMOS = ['Producto ID', 'Kiosko', 'Mínimo', 'Actualizado'];
 
 // ── CONFIGURACIÓN (catálogos editables, pestaña "Configuracion") ──────
 // Reemplaza a los antiguos CATEGORIAS_SUGERIDAS/AREAS_SUGERIDAS hardcodeados:
@@ -121,6 +144,7 @@ const CONFIG_DEFAULTS = {
 
 function configurarHoja() {
   prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS);
+  prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS);
   sembrarConfigPorDefecto(prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG));
 }
 
@@ -225,6 +249,7 @@ function doGet(e) {
       return jsonOut({
         ok: true,
         registros: filasComoObjetos(prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS)),
+        minimos: filasComoObjetos(prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS)),
         categoriasSugeridas: cfg.categorias,
         areasSugeridas: cfg.areas,
         unidadesSugeridas: cfg.unidades,
@@ -254,6 +279,7 @@ function doPost(e) {
       case 'producto_guardar':       return jsonOut(guardarProducto(payload));
       case 'producto_eliminar':      return jsonOut(eliminarProducto(payload));
       case 'productos_carga_masiva': return jsonOut(cargaMasivaProductos(payload));
+      case 'minimo_guardar':         return jsonOut(guardarMinimo(payload));
       case 'config_agregar':             return jsonOut(configAgregar(payload));
       case 'config_eliminar':            return jsonOut(configEliminar(payload));
       case 'config_subfamilia_agregar':  return jsonOut(configSubfamiliaAgregar(payload));
@@ -293,7 +319,6 @@ function valoresProducto(p, id) {
     'Costo por unidad': Number(costo.toFixed(4)),
     'Rendimiento (%)': rendimiento,
     'Proveedor': p.proveedor || '',
-    'Stock mínimo': Number(p.stock_minimo) || 0,
     'Kioskos': p.kioskos || 'Todos',
     'Nota': p.nota || '',
     'Activo': p.activo === false || p.activo === 'false' ? false : true,
@@ -351,6 +376,38 @@ function cargaMasivaProductos(p) {
   });
 
   return { ok: true, creados: creados.length, errores: errores };
+}
+
+// ── MINIMOS (mínimo esperado por producto × kiosko, v5) ───────────────
+// Upsert de una sola celda de la grilla "📏 Mínimos por kiosko": busca la
+// fila (Producto ID, Kiosko) y la actualiza, o la crea si es la primera vez
+// que se define un mínimo para esa combinación. Si el valor llega en 0 (o
+// vacío), se borra la fila en vez de guardar un 0 — así la grilla vuelve a
+// mostrar la celda como "sin definir" en lugar de un mínimo real de cero.
+function guardarMinimo(p) {
+  if (!p.productoId) throw new Error('Falta el producto.');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  const hoja = prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS);
+  const nFilas = hoja.getLastRow() - 1;
+  let filaEncontrada = -1;
+  if (nFilas > 0) {
+    const datos = hoja.getRange(2, 1, nFilas, 2).getValues();
+    for (let i = 0; i < datos.length; i++) {
+      if (String(datos[i][0]) === String(p.productoId) && String(datos[i][1]) === String(p.kiosko)) {
+        filaEncontrada = i + 2;
+        break;
+      }
+    }
+  }
+  const valor = Number(p.valor) || 0;
+  if (valor <= 0) {
+    if (filaEncontrada > -1) hoja.deleteRow(filaEncontrada);
+    return { ok: true, borrado: true };
+  }
+  const fila = [p.productoId, p.kiosko, valor, new Date().toISOString()];
+  if (filaEncontrada > -1) hoja.getRange(filaEncontrada, 1, 1, ENCABEZADOS_MINIMOS.length).setValues([fila]);
+  else hoja.appendRow(fila);
+  return { ok: true, valor: valor };
 }
 
 // ── CONFIGURACIÓN (catálogos editables) ───────────────────────────────
