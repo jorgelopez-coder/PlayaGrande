@@ -125,6 +125,22 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .carga-tabla-wrap td{padding:6px 9px;border-bottom:1px solid var(--border)}
 .carga-resumen{font-size:12.5px;color:var(--muted)}
 
+/* ── CONFIGURACIÓN (catálogos editables) ── */
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+.cfg-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px}
+.cfg-card-title{font-family:var(--font-d);font-size:13px;font-weight:700;margin-bottom:8px}
+.cfg-card-hint{font-size:11px;color:var(--muted);margin-top:8px}
+.cfg-list{margin-bottom:8px;max-height:150px;overflow-y:auto}
+.cfg-item{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:7px;background:var(--card);margin-bottom:4px;font-size:12.5px}
+.cfg-item button{background:none;border:none;color:var(--subtle);cursor:pointer;font-size:15px;line-height:1;padding:0 4px}
+.cfg-item button:hover{color:var(--red)}
+.cfg-empty{font-size:12px;color:var(--subtle);padding:4px 0}
+.cfg-add-row{display:flex;gap:6px}
+.cfg-add-row input,.cfg-add-row select{flex:1;font-size:13px;padding:7px 9px}
+.cfg-add-row button{padding:7px 12px;border-radius:8px;border:1px solid var(--green-lt);background:var(--green-bg);color:var(--green);cursor:pointer;font-weight:600;white-space:nowrap;font-size:12.5px}
+.cfg-tc-actual{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px}
+@media (max-width:640px){.cfg-grid{grid-template-columns:1fr}}
+
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -159,6 +175,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <p>Catálogo único de productos — nombre, categoría, área, costo y proveedor. Independiente de Inventario/Compras.</p>
     </div>
     <div class="page-header-actions">
+      <button class="btn-outline" onclick="abrirModalConfig()">⚙ Configurar</button>
       <button class="btn-outline" onclick="triggerCargaMasiva()">⇧ Carga masiva</button>
       <button class="btn-primary" onclick="abrirModalProducto(null)">+ Nuevo producto</button>
     </div>
@@ -218,8 +235,18 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div class="field-row">
         <div class="field">
+          <label>Familia (opcional)</label>
+          <select id="mp-familia" onchange="actualizarSubfamiliasModal()"></select>
+        </div>
+        <div class="field">
+          <label>Subfamilia (opcional)</label>
+          <select id="mp-subfamilia"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
           <label>Unidad</label>
-          <input type="text" id="mp-unidad" placeholder="Ej. botella, litro, unidad"/>
+          <select id="mp-unidad"></select>
         </div>
         <div class="field">
           <label>Proveedor</label>
@@ -231,7 +258,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field-row">
         <div class="field">
           <label>Presentación del proveedor</label>
-          <input type="text" id="mp-presentacion" placeholder="Ej. six pack, caja de 24"/>
+          <select id="mp-presentacion"></select>
         </div>
         <div class="field">
           <label>Tamaño</label>
@@ -240,7 +267,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div class="field-row">
         <div class="field">
-          <label>Precio de compra sin IVA (₡)</label>
+          <label>Moneda del precio</label>
+          <select id="mp-moneda" onchange="onMonedaChange()">
+            <option value="CRC">Colones (₡)</option>
+            <option value="USD">Dólares (US$)</option>
+          </select>
+        </div>
+        <div class="field" id="mp-wrap-tipo-cambio" style="display:none;">
+          <label>Tipo de cambio (₡ por US$)</label>
+          <input type="number" id="mp-tipo-cambio" min="0" step="0.01" placeholder="Ej. 520" oninput="actualizarCostoPreview()"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label id="mp-lbl-precio">Precio de compra sin IVA (₡)</label>
           <input type="number" id="mp-precio" min="0" step="any" placeholder="0" oninput="actualizarCostoPreview()"/>
         </div>
         <div class="field">
@@ -311,6 +351,94 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<!-- ── MODAL CONFIGURACIÓN ── -->
+<div class="modal-overlay" id="modal-config">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3>Configuración de Base de Productos</h3>
+      <button class="modal-close" onclick="cerrarModalConfig()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem;">
+        Estas listas alimentan los selectores del formulario de producto. Agregar o quitar un valor acá no afecta a los productos que ya lo tengan guardado.
+      </p>
+
+      <div class="section-label" style="margin-top:0;">Tipo de cambio</div>
+      <div class="cfg-card" style="margin-bottom:1.25rem;">
+        <p class="cfg-card-title">Tipo de cambio (₡ por US$)</p>
+        <div class="cfg-tc-actual" id="cfg-tc-actual">—</div>
+        <div class="cfg-add-row">
+          <input type="number" id="cfg-tc-input" min="0" step="0.01" placeholder="Ej. 520" onkeydown="if(event.key==='Enter')guardarTipoCambio()"/>
+          <button onclick="guardarTipoCambio()">Guardar</button>
+        </div>
+        <p class="cfg-card-hint">Se usa para convertir a colones un precio de compra ingresado en dólares (campo "Moneda del precio" del formulario de producto).</p>
+      </div>
+
+      <div class="section-label">Clasificación</div>
+      <div class="cfg-grid">
+        <div class="cfg-card">
+          <p class="cfg-card-title">Categoría</p>
+          <div class="cfg-list" id="cfg-lista-Categoria"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Categoria" placeholder="Nueva categoría…" onkeydown="if(event.key==='Enter')configAgregarItem('Categoria')"/>
+            <button onclick="configAgregarItem('Categoria')">+ Agregar</button>
+          </div>
+        </div>
+        <div class="cfg-card">
+          <p class="cfg-card-title">Área de negocio</p>
+          <div class="cfg-list" id="cfg-lista-Area"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Area" placeholder="Nueva área…" onkeydown="if(event.key==='Enter')configAgregarItem('Area')"/>
+            <button onclick="configAgregarItem('Area')">+ Agregar</button>
+          </div>
+        </div>
+        <div class="cfg-card">
+          <p class="cfg-card-title">Familia</p>
+          <div class="cfg-list" id="cfg-lista-Familia"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Familia" placeholder="Nueva familia…" onkeydown="if(event.key==='Enter')configAgregarItem('Familia')"/>
+            <button onclick="configAgregarItem('Familia')">+ Agregar</button>
+          </div>
+        </div>
+        <div class="cfg-card">
+          <p class="cfg-card-title">Subfamilia</p>
+          <div class="field" style="margin-bottom:8px;">
+            <select id="cfg-subfamilia-familia" onchange="renderConfigSubfamilias()"></select>
+          </div>
+          <div class="cfg-list" id="cfg-lista-Subfamilia"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Subfamilia" placeholder="Nueva subfamilia…" onkeydown="if(event.key==='Enter')configAgregarSubfamilia()"/>
+            <button onclick="configAgregarSubfamilia()">+ Agregar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Unidades y presentación</div>
+      <div class="cfg-grid">
+        <div class="cfg-card">
+          <p class="cfg-card-title">Unidad</p>
+          <div class="cfg-list" id="cfg-lista-Unidad"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Unidad" placeholder="Nueva unidad…" onkeydown="if(event.key==='Enter')configAgregarItem('Unidad')"/>
+            <button onclick="configAgregarItem('Unidad')">+ Agregar</button>
+          </div>
+        </div>
+        <div class="cfg-card">
+          <p class="cfg-card-title">Presentación del proveedor</p>
+          <div class="cfg-list" id="cfg-lista-Presentacion"></div>
+          <div class="cfg-add-row">
+            <input type="text" id="cfg-nuevo-Presentacion" placeholder="Nueva presentación…" onkeydown="if(event.key==='Enter')configAgregarItem('Presentacion')"/>
+            <button onclick="configAgregarItem('Presentacion')">+ Agregar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModalConfig()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -363,6 +491,15 @@ document.getElementById('date-chip').textContent =
 let productos = [];
 let categoriasSugeridas = CATEGORIAS_DEFAULT.slice();
 let areasSugeridas = AREAS_DEFAULT.slice();
+// ── CONFIGURACIÓN (catálogos editables, pestaña "⚙ Configurar") ────────
+// Copiado de la pestaña "Configuración" de costos-productos.html (Lorito).
+// Se llena desde la misma respuesta de ?modulo=productos (out.*Sugeridas) —
+// no hay round-trip aparte para esto.
+let unidadesSugeridas = [];
+let presentacionesSugeridas = [];
+let familiasSugeridas = [];
+let subfamilias = []; // [{familia, subfamilia}, ...]
+let tipoCambioUsd = null;
 let pagActual = 1;
 const POR_PAGINA = 20;
 
@@ -440,10 +577,18 @@ async function cargarDatos() {
       stockMinimo: Number(r['Stock mínimo']) || 0,
       kioskos: (r['Kioskos'] || 'Todos').toString().trim() || 'Todos',
       nota: r['Nota'] || '',
-      activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false'
+      activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false',
+      familia: r['Familia'] || '',
+      subfamilia: r['Subfamilia'] || ''
     })).sort((a,b) => a.nombre.localeCompare(b.nombre));
     if (out.categoriasSugeridas && out.categoriasSugeridas.length) categoriasSugeridas = out.categoriasSugeridas;
     if (out.areasSugeridas && out.areasSugeridas.length) areasSugeridas = out.areasSugeridas;
+    unidadesSugeridas = out.unidadesSugeridas || [];
+    presentacionesSugeridas = out.presentacionesSugeridas || [];
+    familiasSugeridas = out.familiasSugeridas || [];
+    subfamilias = out.subfamilias || [];
+    tipoCambioUsd = out.tipoCambioUsd || null;
+    renderConfigListas();
 
     document.getElementById('conn-dot').classList.remove('off');
     document.getElementById('conn-label').textContent = 'Conectado';
@@ -470,6 +615,18 @@ function todasLasCategorias() {
 function todasLasAreas() {
   const enUso = productos.map(p => p.area).filter(Boolean);
   return [...new Set([...areasSugeridas, ...enUso])].sort();
+}
+function todasLasUnidades() {
+  const enUso = productos.map(p => p.unidad).filter(Boolean);
+  return [...new Set([...unidadesSugeridas, ...enUso])].sort();
+}
+function todasLasPresentaciones() {
+  const enUso = productos.map(p => p.presentacion).filter(Boolean);
+  return [...new Set([...presentacionesSugeridas, ...enUso])].sort();
+}
+function todasLasFamilias() {
+  const enUso = productos.map(p => p.familia).filter(Boolean);
+  return [...new Set([...familiasSugeridas, ...enUso])].sort();
 }
 
 function inicializar() {
@@ -503,6 +660,30 @@ function opcionesArea(valorActual) {
   const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
   return '<option value=""' + (!valorActual?' selected':'') + '>Sin área asignada</option>' +
     lista.map(a => `<option value="${a}"${a===valorActual?' selected':''}>${a}</option>`).join('');
+}
+function opcionesUnidad(valorActual) {
+  const opciones = todasLasUnidades();
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value=""' + (!valorActual?' selected':'') + '>Sin definir</option>' +
+    lista.map(u => `<option value="${u}"${u===valorActual?' selected':''}>${u}</option>`).join('');
+}
+function opcionesPresentacion(valorActual) {
+  const opciones = todasLasPresentaciones();
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value=""' + (!valorActual?' selected':'') + '>Sin definir</option>' +
+    lista.map(p => `<option value="${p}"${p===valorActual?' selected':''}>${p}</option>`).join('');
+}
+function opcionesFamilia(valorActual) {
+  const opciones = todasLasFamilias();
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value="">Sin definir</option>' +
+    lista.map(f => `<option value="${f}"${f===valorActual?' selected':''}>${f}</option>`).join('');
+}
+function opcionesSubfamilia(familia, valorActual) {
+  const opciones = (subfamilias || []).filter(s => s.familia === familia).map(s => s.subfamilia);
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value="">Sin definir</option>' +
+    lista.map(s => `<option value="${s}"${s===valorActual?' selected':''}>${s}</option>`).join('');
 }
 
 function fmtColones(n) {
@@ -592,9 +773,153 @@ function _renderTabla() {
   renderPaginacion('pag-productos', total, pagActual, p => { pagActual = p; _renderTabla(); });
 }
 
+// ── CONFIGURACIÓN (modal "⚙ Configurar") ─────────────────────────
+// Copiado de la pestaña "⚙ Configuración" de costos-productos.html
+// (Lorito): catálogos editables de Categoría/Área/Unidad/Presentación/
+// Familia(+Subfamilia) y Tipo de cambio USD. Cada acción pega directo al
+// backend (Code-productos-backend.gs) y después vuelve a pedir todo el
+// catálogo con cargarDatos() para quedar sincronizado en todos lados
+// (selects del modal de producto, filtros del toolbar, etc.)
+const CFG_TIPOS = ['Categoria', 'Area', 'Unidad', 'Presentacion', 'Familia'];
+const CFG_GETTER = {
+  Categoria: () => categoriasSugeridas,
+  Area: () => areasSugeridas,
+  Unidad: () => unidadesSugeridas,
+  Presentacion: () => presentacionesSugeridas,
+  Familia: () => familiasSugeridas
+};
+
+function abrirModalConfig() {
+  renderConfigListas();
+  document.getElementById('modal-config').classList.add('open');
+}
+function cerrarModalConfig() { document.getElementById('modal-config').classList.remove('open'); }
+document.getElementById('modal-config').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-config')) cerrarModalConfig();
+});
+
+function renderConfigListas() {
+  document.getElementById('cfg-tc-actual').textContent =
+    tipoCambioUsd ? '₡' + Number(tipoCambioUsd).toLocaleString('es-CR', { minimumFractionDigits:2 }) : 'Sin definir';
+  if (!document.getElementById('cfg-tc-input').value) document.getElementById('cfg-tc-input').value = tipoCambioUsd || '';
+
+  CFG_TIPOS.forEach(tipo => {
+    const lista = CFG_GETTER[tipo]();
+    const cont = document.getElementById('cfg-lista-' + tipo);
+    cont.innerHTML = lista.length ? lista.map(item => `
+      <div class="cfg-item"><span>${item}</span>
+        <button onclick="configEliminarItem('${tipo}','${item.replace(/'/g,"\\'")}')" title="Eliminar">×</button>
+      </div>`).join('') : '<div class="cfg-empty">Sin valores todavía.</div>';
+  });
+  renderConfigSubfamilias();
+}
+
+async function configAgregarItem(tipo) {
+  const input = document.getElementById('cfg-nuevo-' + tipo);
+  const valor = input.value.trim();
+  if (!valor) return;
+  try {
+    await postProd({ accion:'config_agregar', tipo, valor });
+    input.value = '';
+    showToast(`"${valor}" agregado ✓`, 'success');
+    await cargarDatos();
+    renderConfigListas();
+    if (document.getElementById('modal-producto').classList.contains('open')) {
+      document.getElementById('mp-categoria').innerHTML = opcionesCategoria(document.getElementById('mp-categoria').value);
+    }
+  } catch(e) { showToast('No se pudo agregar: ' + e.message, 'error'); }
+}
+
+async function configEliminarItem(tipo, valor) {
+  if (!confirm(`¿Quitar "${valor}" de la lista de ${tipo}?`)) return;
+  try {
+    await postProd({ accion:'config_eliminar', tipo, valor });
+    showToast(`"${valor}" eliminado ✓`, 'success');
+    await cargarDatos();
+    renderConfigListas();
+  } catch(e) { showToast('No se pudo eliminar: ' + e.message, 'error'); }
+}
+
+function renderConfigSubfamilias() {
+  const selFamilia = document.getElementById('cfg-subfamilia-familia');
+  const familias = familiasSugeridas;
+  const valActual = selFamilia.value;
+  selFamilia.innerHTML = familias.length
+    ? familias.map(f => `<option${f===valActual?' selected':''}>${f}</option>`).join('')
+    : '<option value="">Agregá una familia primero</option>';
+
+  const familiaElegida = selFamilia.value;
+  const lista = (subfamilias || []).filter(s => s.familia === familiaElegida);
+  const cont = document.getElementById('cfg-lista-Subfamilia');
+  cont.innerHTML = lista.length ? lista.map(s => `
+    <div class="cfg-item"><span>${s.subfamilia}</span>
+      <button onclick="configEliminarSubfamilia('${familiaElegida.replace(/'/g,"\\'")}','${s.subfamilia.replace(/'/g,"\\'")}')" title="Eliminar">×</button>
+    </div>`).join('') : '<div class="cfg-empty">Sin subfamilias para esta familia.</div>';
+}
+
+async function configAgregarSubfamilia() {
+  const familia = document.getElementById('cfg-subfamilia-familia').value;
+  const input = document.getElementById('cfg-nuevo-Subfamilia');
+  const valor = input.value.trim();
+  if (!familia) { showToast('Agregá (o elegí) una familia primero.', 'error'); return; }
+  if (!valor) return;
+  try {
+    await postProd({ accion:'config_subfamilia_agregar', familia, valor });
+    input.value = '';
+    showToast(`"${valor}" agregada ✓`, 'success');
+    await cargarDatos();
+    renderConfigListas();
+  } catch(e) { showToast('No se pudo agregar: ' + e.message, 'error'); }
+}
+
+async function configEliminarSubfamilia(familia, valor) {
+  if (!confirm(`¿Quitar "${valor}" de ${familia}?`)) return;
+  try {
+    await postProd({ accion:'config_subfamilia_eliminar', familia, valor });
+    showToast(`"${valor}" eliminada ✓`, 'success');
+    await cargarDatos();
+    renderConfigListas();
+  } catch(e) { showToast('No se pudo eliminar: ' + e.message, 'error'); }
+}
+
+async function guardarTipoCambio() {
+  const valor = Number(document.getElementById('cfg-tc-input').value);
+  if (!valor || valor <= 0) { showToast('Ingresá un tipo de cambio válido.', 'error'); return; }
+  try {
+    await postProd({ accion:'config_tipo_cambio_guardar', valor });
+    tipoCambioUsd = valor;
+    document.getElementById('cfg-tc-actual').textContent = '₡' + valor.toLocaleString('es-CR', { minimumFractionDigits:2 });
+    showToast('Tipo de cambio guardado ✓', 'success');
+  } catch(e) { showToast('No se pudo guardar: ' + e.message, 'error'); }
+}
+
 // ── COSTO EN VIVO (modal) ────────────────────────────────────────
+// Moneda del precio de compra (₡/US$): igual que en Lorito, la conversión a
+// colones pasa en el navegador antes de guardar — el Sheet siempre recibe
+// "Precio sin IVA" ya en colones, no se persiste la moneda original.
+function onMonedaChange() {
+  const esUSD = document.getElementById('mp-moneda').value === 'USD';
+  document.getElementById('mp-wrap-tipo-cambio').style.display = esUSD ? '' : 'none';
+  document.getElementById('mp-lbl-precio').textContent = esUSD
+    ? 'Precio de compra sin IVA (US$)' : 'Precio de compra sin IVA (₡)';
+  if (esUSD && !document.getElementById('mp-tipo-cambio').value && tipoCambioUsd) {
+    document.getElementById('mp-tipo-cambio').value = tipoCambioUsd;
+  }
+  actualizarCostoPreview();
+}
+function precioEnCRC() {
+  const ingresado = Number(document.getElementById('mp-precio').value) || 0;
+  if (document.getElementById('mp-moneda').value !== 'USD') return ingresado;
+  const tc = Number(document.getElementById('mp-tipo-cambio').value) || 0;
+  return ingresado * tc;
+}
+function actualizarSubfamiliasModal() {
+  document.getElementById('mp-subfamilia').innerHTML =
+    opcionesSubfamilia(document.getElementById('mp-familia').value, '');
+}
+
 function actualizarCostoPreview() {
-  const precio = Number(document.getElementById('mp-precio').value) || 0;
+  const precio = precioEnCRC();
   const cantidad = Number(document.getElementById('mp-cantidad').value) || 0;
   const rendimientoInput = document.getElementById('mp-rendimiento').value;
   const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
@@ -639,10 +964,18 @@ function abrirModalProducto(idx) {
   document.getElementById('mp-nombre').value = p ? p.nombre : '';
   document.getElementById('mp-categoria').innerHTML = opcionesCategoria(p ? p.categoria : '');
   document.getElementById('mp-area').innerHTML = opcionesArea(p ? p.area : '');
-  document.getElementById('mp-unidad').value = p ? p.unidad : '';
+  document.getElementById('mp-familia').innerHTML = opcionesFamilia(p ? p.familia : '');
+  document.getElementById('mp-subfamilia').innerHTML = opcionesSubfamilia(p ? p.familia : '', p ? p.subfamilia : '');
+  document.getElementById('mp-unidad').innerHTML = opcionesUnidad(p ? p.unidad : '');
   document.getElementById('mp-proveedor').value = p ? p.proveedor : '';
-  document.getElementById('mp-presentacion').value = p ? p.presentacion : '';
+  document.getElementById('mp-presentacion').innerHTML = opcionesPresentacion(p ? p.presentacion : '');
   document.getElementById('mp-tamano').value = p ? p.tamano : '';
+  // El precio guardado siempre está en colones (ver precioEnCRC) — al editar
+  // se muestra en ₡, no se reconstruye la moneda original de cuando se cargó.
+  document.getElementById('mp-moneda').value = 'CRC';
+  document.getElementById('mp-tipo-cambio').value = '';
+  document.getElementById('mp-wrap-tipo-cambio').style.display = 'none';
+  document.getElementById('mp-lbl-precio').textContent = 'Precio de compra sin IVA (₡)';
   document.getElementById('mp-precio').value = p && p.precio ? p.precio : '';
   document.getElementById('mp-iva').value = p && p.iva ? p.iva : '';
   document.getElementById('mp-cantidad').value = p && p.cantidadPresentacion ? p.cantidadPresentacion : '';
@@ -672,11 +1005,14 @@ async function guardarProducto() {
       nombre,
       categoria: document.getElementById('mp-categoria').value,
       area: document.getElementById('mp-area').value,
-      unidad: document.getElementById('mp-unidad').value.trim(),
+      familia: document.getElementById('mp-familia').value,
+      subfamilia: document.getElementById('mp-subfamilia').value,
+      unidad: document.getElementById('mp-unidad').value,
       proveedor: document.getElementById('mp-proveedor').value.trim(),
-      presentacion: document.getElementById('mp-presentacion').value.trim(),
+      presentacion: document.getElementById('mp-presentacion').value,
       tamano: document.getElementById('mp-tamano').value.trim(),
-      precio_sin_iva: document.getElementById('mp-precio').value,
+      // Siempre en colones, ya convertido si la moneda elegida era US$ (ver precioEnCRC()).
+      precio_sin_iva: precioEnCRC(),
       iva: document.getElementById('mp-iva').value,
       cantidad_presentacion: document.getElementById('mp-cantidad').value,
       rendimiento: document.getElementById('mp-rendimiento').value,
@@ -757,7 +1093,9 @@ function mapearFilaCarga(row) {
     stock_minimo: Number(obj['Stock mínimo']) || 0,
     kioskos: (obj['Kioskos']||'Todos').toString().trim() || 'Todos',
     nota: (obj['Nota']||'').toString().trim(),
-    activo: true
+    activo: true,
+    familia: (obj['Familia']||'').toString().trim(),
+    subfamilia: (obj['Subfamilia']||'').toString().trim()
   };
 }
 
@@ -866,11 +1204,11 @@ async function confirmarCargaMasiva() {
 }
 
 function descargarPlantilla() {
-  const encabezados = ['Nombre *','Categoría','Área de negocio','Unidad *','Presentación','Tamaño','Precio sin IVA','IVA (%)','Cantidad presentación','Rendimiento (%)','Proveedor','Stock mínimo','Kioskos','Nota'];
+  const encabezados = ['Nombre *','Categoría','Área de negocio','Unidad *','Presentación','Tamaño','Precio sin IVA','IVA (%)','Cantidad presentación','Rendimiento (%)','Proveedor','Stock mínimo','Kioskos','Nota','Familia','Subfamilia'];
   const ejemplos = [
-    ['Cerveza IPA 355ml','Cerveza','Barra / Coctelería','botella','Six pack','355 ml',450,13,6,100,'Distribuidora XYZ',24,'Todos',''],
-    ['Ron añejo 750ml','Licores y Destilados','Barra / Coctelería','botella','Unidad','750 ml',6500,13,1,100,'Licorera ABC',6,'Playa Grande,Liberia','Solo en esos 2 kioskos por ahora'],
-    ['Vaso plástico 12oz','Vasos y Desechables','Bodega','unidad','Paquete','100 unidades',2500,13,100,100,'Distribuidora XYZ',200,'Todos','']
+    ['Cerveza IPA 355ml','Cerveza','Barra / Coctelería','botella','Six pack','355 ml',450,13,6,100,'Distribuidora XYZ',24,'Todos','','Cerveza',''],
+    ['Ron añejo 750ml','Licores y Destilados','Barra / Coctelería','botella','Unidad','750 ml',6500,13,1,100,'Licorera ABC',6,'Playa Grande,Liberia','Solo en esos 2 kioskos por ahora','Licores','Ron'],
+    ['Vaso plástico 12oz','Vasos y Desechables','Bodega','unidad','Paquete','100 unidades',2500,13,100,100,'Distribuidora XYZ',200,'Todos','','','']
   ];
   const ws = XLSX.utils.aoa_to_sheet([encabezados, ...ejemplos]);
   const wb = XLSX.utils.book_new();
@@ -884,8 +1222,9 @@ function descargarPlantilla() {
     ['3. Los campos marcados con * son obligatorios (Nombre y Unidad).'],
     ["4. Columna 'Kioskos': dejala en 'Todos' para que el producto aplique a todos los kioskos actuales y a los que abran después."],
     ["   Si solo aplica a algunos, escribí sus nombres separados por coma, exactamente igual a como están en Configuración. Ej: Playa Grande,Liberia"],
-    ['5. Borrá las 3 filas de ejemplo antes de subir el archivo (son solo referencia).'],
-    ["6. Guardá como .xlsx y subilo con el botón 'Carga masiva'."]
+    ["5. Columnas 'Familia' y 'Subfamilia': opcionales, para clasificación adicional (ej. Familia=Licores, Subfamilia=Ron). Dejalas vacías si no aplican."],
+    ['6. Borrá las 3 filas de ejemplo antes de subir el archivo (son solo referencia).'],
+    ["7. Guardá como .xlsx y subilo con el botón 'Carga masiva'."]
   ]);
   XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucciones');
   XLSX.writeFile(wb, 'plantilla_productos_kioskos.xlsx');

@@ -282,11 +282,28 @@ encabezados + 3 filas de ejemplo al vuelo (sin archivo estático que
 mantener). Siempre crea productos nuevos — para editar uno existente se usa
 el formulario, no la carga masiva.
 
+**Configuración (v3, botón "⚙ Configurar")**: copiado de la pestaña "⚙
+Configuración" de `costos-productos.html` (Lorito) — Categoría, Área de
+negocio, Unidad, Presentación del proveedor, Familia (con Subfamilia
+dependiente) y Tipo de cambio (₡ por US$) pasan de ser listas hardcodeadas o
+campos de texto libre a catálogos editables (agregar/quitar) guardados en
+una pestaña nueva del Sheet, "Configuracion". El modal de producto usa esas
+mismas listas: Unidad y Presentación ahora son selects (antes texto libre),
+se agregan Familia/Subfamilia opcionales, y el precio de compra tiene un
+selector de Moneda (₡/US$) — si se elige dólares, convierte a colones con el
+tipo de cambio configurado antes de guardar (igual que Lorito, no se
+persiste la moneda original, el Sheet siempre tiene el precio en ₡). Fuera
+de alcance, igual que en v1/v2: "aplica para recetas", conversión automática
+unidad de compra → unidad de receta, "peso de botella vacía" (eso ya vive
+en `mermas.html` con su propio flujo de tara) e historial de compras.
+
 Backend (`Code-productos-backend.gs`, Sheet nuevo **"Base de Productos -
-Kioskos"**, pestaña "Productos"): `producto_guardar`, `producto_eliminar` y
-`productos_carga_masiva` (recibe un arreglo de productos, crea los que
-tengan nombre y devuelve el detalle de creados/errores). Categorías y áreas
-de negocio sugeridas para kioskos de cerveza y cocteles precargadas en los
+Kioskos"**, pestañas "Productos" y "Configuracion"): `producto_guardar`,
+`producto_eliminar`, `productos_carga_masiva`, `config_agregar`,
+`config_eliminar`, `config_subfamilia_agregar`, `config_subfamilia_eliminar`
+y `config_tipo_cambio_guardar`. La pestaña "Configuracion" se siembra sola
+con catálogos por defecto la primera vez que se crea (categorías y áreas de
+negocio sugeridas para kioskos de cerveza y cocteles precargadas en los
 selectores (Categorías: Cerveza, Licores y Destilados, Insumos de
 Coctelería, Bebidas No Alcohólicas, Hielo, Vasos y Desechables, Snacks,
 Limpieza e Higiene, Equipo y Utensilios, Otros — Áreas: Barra/Coctelería,

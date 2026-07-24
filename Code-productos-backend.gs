@@ -15,6 +15,22 @@
  * carga masiva, no hay lectura automática de facturas ni Sheet de compras
  * externo.
  *
+ * v3 (2026-07-24, mismo día): se copia la pestaña "⚙ Configuración" de
+ * costos-productos.html — Categoría, Área de negocio, Unidad, Presentación
+ * del proveedor, Familia/Subfamilia y Tipo de cambio (₡ por US$) pasan de
+ * ser listas sugeridas hardcodeadas (o campos de texto libre) a catálogos
+ * editables desde una pestaña nueva del Sheet, "Configuracion" (agregar/
+ * quitar valores desde productos.html, sin tocar el código). Se agregan las
+ * columnas "Familia" y "Subfamilia" a ENCABEZADOS_PRODUCTOS (clasificación
+ * opcional del producto, igual que en Lorito). El tipo de cambio USD solo
+ * sirve como ayuda de conversión en el formulario — igual que en Lorito, el
+ * precio siempre se guarda ya convertido a colones, no se persiste la
+ * moneda original. Fuera de alcance (igual que en v1/v2): "aplica para
+ * recetas", conversión automática unidad de compra → unidad de receta,
+ * "peso de botella vacía" e historial de compras — esas viven del lado de
+ * facturas/compras o, en el caso del peso de botella, ya tienen su propio
+ * flujo con tara en mermas.html.
+ *
  * Agregado propio de Kioskos (no existe en Lorito, que es un solo local):
  * columna "Kioskos" — en qué kioskos se vende/usa cada producto. Valor
  * "Todos" (default) significa que aplica a todos los kioskos actuales Y a
@@ -55,27 +71,84 @@ const ENCABEZADOS_PRODUCTOS = [
   'ID', 'Nombre', 'Categoría', 'Área de negocio', 'Unidad', 'Presentación',
   'Tamaño', 'Precio sin IVA', 'IVA (%)', 'Cantidad presentación',
   'Costo por unidad', 'Rendimiento (%)', 'Proveedor', 'Stock mínimo',
-  'Kioskos', 'Nota', 'Activo', 'Actualizado'
+  'Kioskos', 'Nota', 'Activo', 'Actualizado',
+  'Familia', 'Subfamilia' // v3 — siempre al FINAL, ver nota de migración arriba
 ];
 
-// Catálogo sugerido de categorías (editable libremente desde el formulario —
-// esto solo precarga el selector, no restringe lo que ya haya guardado).
-const CATEGORIAS_SUGERIDAS = [
-  'Cerveza', 'Licores y Destilados', 'Insumos de Coctelería',
-  'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
-  'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
-];
+// ── CONFIGURACIÓN (catálogos editables, pestaña "Configuracion") ──────
+// Reemplaza a los antiguos CATEGORIAS_SUGERIDAS/AREAS_SUGERIDAS hardcodeados:
+// ahora viven en una pestaña del Sheet y se administran desde la pestaña
+// "⚙ Configurar" de productos.html (igual que la pestaña "Configuración" de
+// costos-productos.html en Lorito). Estas listas de acá solo se usan UNA
+// VEZ, para sembrar la hoja "Configuracion" la primera vez que se crea —
+// después de eso el Sheet manda, esto no se vuelve a leer.
+const HOJA_CONFIG = 'Configuracion';
+const ENCABEZADOS_CONFIG = ['Tipo', 'Valor', 'Extra'];
 
-// Áreas de negocio sugeridas — mismo criterio que categorías (libre,
-// editable, esto solo precarga el selector). Adaptado de "Área de negocio"
-// de Lorito a la operación de un kiosko de cerveza y cocteles.
-const AREAS_SUGERIDAS = [
-  'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
-  'Limpieza e Higiene', 'Administración', 'Mantenimiento y Equipo'
-];
+// Tipo puede ser: 'Categoria' | 'Area' | 'Unidad' | 'Presentacion' | 'Familia'
+// | 'Subfamilia' (Extra = familia a la que pertenece) | 'TipoCambioUSD'
+// (fila única, Valor = número, sin Extra).
+const CONFIG_DEFAULTS = {
+  Categoria: [
+    'Cerveza', 'Licores y Destilados', 'Insumos de Coctelería',
+    'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
+    'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
+  ],
+  Area: [
+    'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
+    'Limpieza e Higiene', 'Administración', 'Mantenimiento y Equipo'
+  ],
+  Unidad: ['Unidad', 'Litro', 'Mililitro', 'Onza', 'Kilo', 'Gramo'],
+  Presentacion: [
+    'Botella', 'Lata', 'Six pack', 'Caja', 'Bolsa', 'Paquete',
+    'Barril', 'Galón', 'Unidad'
+  ],
+  Familia: ['Cerveza', 'Licores', 'Cocteles', 'No alcohólicos']
+};
 
 function configurarHoja() {
   prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS);
+  sembrarConfigPorDefecto(prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG));
+}
+
+// Si "Configuracion" está recién creada (sin filas todavía), la llena con
+// los catálogos por defecto de arriba. Si ya tiene datos no la toca —
+// aunque Jorge borre todos los valores de un tipo desde la pantalla, no se
+// vuelve a sembrar sola.
+function sembrarConfigPorDefecto(hojaConfig) {
+  if (hojaConfig.getLastRow() > 1) return;
+  const filas = [];
+  Object.keys(CONFIG_DEFAULTS).forEach(function(tipo) {
+    CONFIG_DEFAULTS[tipo].forEach(function(valor) { filas.push([tipo, valor, '']); });
+  });
+  if (filas.length) hojaConfig.getRange(2, 1, filas.length, ENCABEZADOS_CONFIG.length).setValues(filas);
+}
+
+// Lee toda la pestaña "Configuracion" y la separa en las listas que
+// consume el frontend. Se llama en cada doGet ?modulo=productos (misma
+// llamada que ya hacía productos.html, sin agregar otro round-trip).
+function leerConfigListas() {
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  sembrarConfigPorDefecto(hoja);
+  const filas = filasComoObjetos(hoja);
+  const listas = { Categoria: [], Area: [], Unidad: [], Presentacion: [], Familia: [] };
+  const subfamilias = [];
+  let tipoCambioUsd = null;
+  filas.forEach(function(f) {
+    const tipo = f['Tipo'];
+    if (tipo === 'Subfamilia') { subfamilias.push({ familia: f['Extra'] || '', subfamilia: f['Valor'] }); return; }
+    if (tipo === 'TipoCambioUSD') { tipoCambioUsd = Number(f['Valor']) || null; return; }
+    if (listas[tipo]) listas[tipo].push(f['Valor']);
+  });
+  return {
+    categorias: listas.Categoria,
+    areas: listas.Area,
+    unidades: listas.Unidad,
+    presentaciones: listas.Presentacion,
+    familias: listas.Familia,
+    subfamilias: subfamilias,
+    tipoCambioUsd: tipoCambioUsd
+  };
 }
 
 // ── UTILIDADES (mismo patrón del ecosistema — ver Code-inventario-v2-backend.gs) ──
@@ -135,11 +208,17 @@ function doGet(e) {
   try {
     const modulo = (e && e.parameter && e.parameter.modulo) || 'productos';
     if (modulo === 'productos') {
+      const cfg = leerConfigListas();
       return jsonOut({
         ok: true,
         registros: filasComoObjetos(prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS)),
-        categoriasSugeridas: CATEGORIAS_SUGERIDAS,
-        areasSugeridas: AREAS_SUGERIDAS
+        categoriasSugeridas: cfg.categorias,
+        areasSugeridas: cfg.areas,
+        unidadesSugeridas: cfg.unidades,
+        presentacionesSugeridas: cfg.presentaciones,
+        familiasSugeridas: cfg.familias,
+        subfamilias: cfg.subfamilias,
+        tipoCambioUsd: cfg.tipoCambioUsd
       });
     }
     return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
@@ -162,6 +241,11 @@ function doPost(e) {
       case 'producto_guardar':       return jsonOut(guardarProducto(payload));
       case 'producto_eliminar':      return jsonOut(eliminarProducto(payload));
       case 'productos_carga_masiva': return jsonOut(cargaMasivaProductos(payload));
+      case 'config_agregar':             return jsonOut(configAgregar(payload));
+      case 'config_eliminar':            return jsonOut(configEliminar(payload));
+      case 'config_subfamilia_agregar':  return jsonOut(configSubfamiliaAgregar(payload));
+      case 'config_subfamilia_eliminar': return jsonOut(configSubfamiliaEliminar(payload));
+      case 'config_tipo_cambio_guardar': return jsonOut(configTipoCambioGuardar(payload));
       default: throw new Error('Acción no reconocida: ' + payload.accion);
     }
   } catch (err) {
@@ -200,7 +284,9 @@ function valoresProducto(p, id) {
     'Kioskos': p.kioskos || 'Todos',
     'Nota': p.nota || '',
     'Activo': p.activo === false || p.activo === 'false' ? false : true,
-    'Actualizado': new Date().toISOString()
+    'Actualizado': new Date().toISOString(),
+    'Familia': p.familia || '',
+    'Subfamilia': p.subfamilia || ''
   };
 }
 
@@ -250,4 +336,98 @@ function cargaMasivaProductos(p) {
   });
 
   return { ok: true, creados: creados.length, errores: errores };
+}
+
+// ── CONFIGURACIÓN (catálogos editables) ───────────────────────────────
+// Tipos simples: una fila por valor, sin relación con nada más.
+const TIPOS_CONFIG_SIMPLE = ['Categoria', 'Area', 'Unidad', 'Presentacion', 'Familia'];
+
+function configAgregar(p) {
+  if (TIPOS_CONFIG_SIMPLE.indexOf(p.tipo) === -1) throw new Error('Tipo de configuración no reconocido: ' + p.tipo);
+  const valor = (p.valor || '').toString().trim();
+  if (!valor) throw new Error('Falta el valor a agregar.');
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  const filas = filasComoObjetos(hoja);
+  const yaExiste = filas.some(function(f) {
+    return f['Tipo'] === p.tipo && String(f['Valor']).toLowerCase() === valor.toLowerCase();
+  });
+  if (yaExiste) throw new Error('Ese valor ya existe en la lista.');
+  hoja.appendRow([p.tipo, valor, '']);
+  return { ok: true };
+}
+
+function configEliminar(p) {
+  if (TIPOS_CONFIG_SIMPLE.indexOf(p.tipo) === -1) throw new Error('Tipo de configuración no reconocido: ' + p.tipo);
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) throw new Error('No se encontró ese valor.');
+  const datos = hoja.getRange(2, 1, nFilas, ENCABEZADOS_CONFIG.length).getValues();
+  let filaEncontrada = -1;
+  for (let i = 0; i < datos.length; i++) {
+    if (datos[i][0] === p.tipo && String(datos[i][1]) === String(p.valor)) { filaEncontrada = i + 2; break; }
+  }
+  if (filaEncontrada === -1) throw new Error('No se encontró ese valor.');
+  hoja.deleteRow(filaEncontrada);
+
+  // Si se elimina una Familia, se eliminan también sus subfamilias huérfanas
+  // (de abajo hacia arriba para que no se corran los índices al borrar).
+  if (p.tipo === 'Familia') {
+    const nFilas2 = hoja.getLastRow() - 1;
+    if (nFilas2 > 0) {
+      const datos2 = hoja.getRange(2, 1, nFilas2, ENCABEZADOS_CONFIG.length).getValues();
+      for (let i = datos2.length - 1; i >= 0; i--) {
+        if (datos2[i][0] === 'Subfamilia' && datos2[i][2] === p.valor) hoja.deleteRow(i + 2);
+      }
+    }
+  }
+  return { ok: true };
+}
+
+function configSubfamiliaAgregar(p) {
+  const familia = (p.familia || '').toString().trim();
+  const subfamilia = (p.valor || '').toString().trim();
+  if (!familia) throw new Error('Falta la familia.');
+  if (!subfamilia) throw new Error('Falta la subfamilia.');
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  const filas = filasComoObjetos(hoja);
+  const yaExiste = filas.some(function(f) {
+    return f['Tipo'] === 'Subfamilia' && f['Extra'] === familia && String(f['Valor']).toLowerCase() === subfamilia.toLowerCase();
+  });
+  if (yaExiste) throw new Error('Esa subfamilia ya existe para esa familia.');
+  hoja.appendRow(['Subfamilia', subfamilia, familia]);
+  return { ok: true };
+}
+
+function configSubfamiliaEliminar(p) {
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas > 0) {
+    const datos = hoja.getRange(2, 1, nFilas, ENCABEZADOS_CONFIG.length).getValues();
+    for (let i = datos.length - 1; i >= 0; i--) {
+      if (datos[i][0] === 'Subfamilia' && datos[i][2] === p.familia && datos[i][1] === p.valor) {
+        hoja.deleteRow(i + 2);
+        return { ok: true };
+      }
+    }
+  }
+  throw new Error('No se encontró esa subfamilia.');
+}
+
+// "TipoCambioUSD" es una fila única (no una lista) — se busca por Tipo y se
+// actualiza el Valor si ya existe, o se crea si es la primera vez.
+function configTipoCambioGuardar(p) {
+  const valor = Number(p.valor);
+  if (!valor || valor <= 0) throw new Error('Ingresá un tipo de cambio válido.');
+  const hoja = prepararHoja(HOJA_CONFIG, ENCABEZADOS_CONFIG);
+  const nFilas = hoja.getLastRow() - 1;
+  let filaExistente = -1;
+  if (nFilas > 0) {
+    const tipos = hoja.getRange(2, 1, nFilas, 1).getValues();
+    for (let i = 0; i < tipos.length; i++) {
+      if (tipos[i][0] === 'TipoCambioUSD') { filaExistente = i + 2; break; }
+    }
+  }
+  if (filaExistente === -1) hoja.appendRow(['TipoCambioUSD', valor, '']);
+  else hoja.getRange(filaExistente, 2).setValue(valor);
+  return { ok: true, tipoCambioUsd: valor };
 }
