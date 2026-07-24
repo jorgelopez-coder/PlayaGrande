@@ -569,11 +569,13 @@ async function calcularReparto() {
       colaboradoresPorFecha.get(fecha).set(nombre.toLowerCase(), { colaborador: nombre, puesto: h['Puesto'] || '' });
     });
 
-    // Roster completo de activos del kiosko (o rotativos) — se despliega
+    // Roster completo de activos del kiosko seleccionado — se despliega
     // TODOS los días, no solo quienes trabajaron, para poder marcar a mano.
+    // Solo entra quien tiene ese kiosko asignado en Personal (no se incluyen
+    // colaboradores sin kiosko asignado ni de otros kioskos).
     personalActivo = (rPersonal.registros || [])
       .filter(p => String(p['Estado'] || '').toUpperCase() === 'ACTIVO')
-      .filter(p => !String(p['Kiosko'] || '').trim() || mismoKiosko(p['Kiosko'], kioskoActual))
+      .filter(p => mismoKiosko(p['Kiosko'], kioskoActual))
       .map(p => ({ nombre: p['Nombre completo'] || '', puesto: p['Puesto'] || '' }))
       .filter(p => p.nombre)
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
