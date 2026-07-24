@@ -228,8 +228,11 @@ function guardarServicioReparto(p) {
 
   const hojaDetExistente = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
   const fechasExistentes = {};
+  const kioskoNorm = String(p.kiosko || '').trim().toLowerCase();
   filasComoObjetos(hojaDetExistente).forEach(function (d) {
-    if (d['Kiosko'] === p.kiosko) fechasExistentes[valorComoTexto(d['Fecha']).slice(0, 10)] = true;
+    if (String(d['Kiosko'] || '').trim().toLowerCase() === kioskoNorm) {
+      fechasExistentes[valorComoTexto(d['Fecha']).slice(0, 10)] = true;
+    }
   });
   const fechasNuevas = [];
   p.asignaciones.forEach(function (a) {

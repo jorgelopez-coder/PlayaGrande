@@ -190,6 +190,10 @@ tr:last-child td{border-bottom:none}
     <div class="card">
       <p class="card-title">Detalle por fecha — <span id="sv-kiosko-lbl"></span></p>
       <p class="card-note">Cada fecha está contraída — hacé clic para abrirla y marcar quién recibe el servicio ese día. Por defecto vienen tildados los colaboradores con turno "Trabajo" ese día según Horarios; el listado incluye a todos los activos del kiosko para poder ajustar a mano.</p>
+      <div class="toolbar">
+        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(true)">Seleccionar todos en todas las fechas (reparto equitativo)</button>
+        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(false)">Ninguno en todas las fechas</button>
+      </div>
       <div id="sv-dias-lista"><div class="empty-state"><span class="spinner"></span></div></div>
     </div>
 
@@ -385,6 +389,14 @@ function fechaLbl(iso) {
 function escHtml(s) {
   return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Compara nombres de kiosko normalizando espacios y mayúsculas/minúsculas
+// (mismo patrón que planilla.html) — una comparación estricta "===" entre
+// el valor guardado en Cierres/Horarios/Personal y el string exacto que
+// viene de Configuracion puede fallar por un espacio de más y hacer que el
+// roster de activos (o las ventas, o los turnos) queden vacíos en silencio.
+function mismoKiosko(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
 function listaFechas(fi, ff) {
   const out = []; let d = new Date(fi + 'T12:00:00'); const fin = new Date(ff + 'T12:00:00');
   while (d <= fin) { out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
@@ -408,7 +420,7 @@ async function obtenerVentasPorFecha(kiosko, fi, ff) {
   const resp = await fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json());
   const cierres = resp.records || [];
   const map = new Map();
-  cierres.filter(r => (r[COL_KIOSKO] || '') === kiosko).forEach(r => {
+  cierres.filter(r => mismoKiosko(r[COL_KIOSKO], kiosko)).forEach(r => {
     const f = soloFecha(r[COL_FECHA]);
     if (!f || f < fi || f > ff) return;
     map.set(f, (map.get(f) || 0) + (Number(r[COL_TOTAL_VENTAS]) || 0));
@@ -486,14 +498,14 @@ async function calcularReparto() {
     // Control de fechas repetidas: cualquier fecha ya cubierta por un
     // reparto cerrado del mismo kiosko se omite del cálculo nuevo.
     const fechasYaCubiertas = new Set(
-      detalleTodos.filter(d => d['Kiosko'] === kioskoActual).map(d => soloFecha(d['Fecha']))
+      detalleTodos.filter(d => mismoKiosko(d['Kiosko'], kioskoActual)).map(d => soloFecha(d['Fecha']))
     );
 
     // Quién tuvo turno "Trabajo" cada fecha (sugerencia de check por
     // defecto), por nombre en minúscula -> {colaborador, puesto}.
     const colaboradoresPorFecha = new Map();
     (rHorarios.registros || []).forEach(h => {
-      if ((h['Kiosko'] || '') !== kioskoActual) return;
+      if (!mismoKiosko(h['Kiosko'], kioskoActual)) return;
       if ((h['Estado'] || 'trabajo') !== 'trabajo') return;
       const nombre = String(h['Colaborador'] || '').trim();
       if (!nombre) return;
@@ -507,7 +519,7 @@ async function calcularReparto() {
     // TODOS los días, no solo quienes trabajaron, para poder marcar a mano.
     personalActivo = (rPersonal.registros || [])
       .filter(p => String(p['Estado'] || '').toUpperCase() === 'ACTIVO')
-      .filter(p => !p['Kiosko'] || p['Kiosko'] === kioskoActual)
+      .filter(p => !String(p['Kiosko'] || '').trim() || mismoKiosko(p['Kiosko'], kioskoActual))
       .map(p => ({ nombre: p['Nombre completo'] || '', puesto: p['Puesto'] || '' }))
       .filter(p => p.nombre)
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -626,6 +638,24 @@ function marcarTodosDia(i, valor) {
   diasCalculados[i].colaboradores.forEach(c => c.recibe = valor);
   renderChecklistDia(i);
   actualizarDiaResumen(i);
+}
+
+// Aplica "Seleccionar todos"/"Ninguno" a TODAS las fechas calculadas de una
+// sola vez (reparto equitativo entre todo el roster, en cada día). Evita
+// recalcular el resumen global una vez por fecha (actualizarDiaResumen lo
+// hace) — acá se actualiza cada fecha y se recalcula el total una sola vez
+// al final.
+function marcarTodosGlobal(valor) {
+  if (!diasCalculados.length) return;
+  diasCalculados.forEach((d, i) => {
+    d.colaboradores.forEach(c => c.recibe = valor);
+    renderChecklistDia(i);
+    const { seleccionados, total, montoCU } = diaResumenTexto(i);
+    const sub = document.getElementById('dia-sub-' + i);
+    if (sub) sub.textContent = `${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}`;
+  });
+  actualizarResumenReparto();
+  showToast(valor ? 'Todo el equipo activo quedó marcado en todas las fechas' : 'Se limpió la selección en todas las fechas', 'success');
 }
 
 function agregarOtroColaboradorDia(i) {
@@ -815,7 +845,7 @@ function agruparPendientesPorColaborador() {
   const grupos = new Map();
   detalleTodos
     .filter(d => !esPagado(d))
-    .filter(d => !kioskoActual || d['Kiosko'] === kioskoActual)
+    .filter(d => !kioskoActual || mismoKiosko(d['Kiosko'], kioskoActual))
     .forEach(d => {
       const key = d['ID Reparto'] + '|' + d['Colaborador'];
       if (!grupos.has(key)) {
@@ -931,7 +961,7 @@ async function cargarHistorial() {
 
 function renderHistorialServicio() {
   const cont = document.getElementById('sv-hist-lista');
-  const lista = repartosTodos.filter(r => !kioskoActual || r['Kiosko'] === kioskoActual);
+  const lista = repartosTodos.filter(r => !kioskoActual || mismoKiosko(r['Kiosko'], kioskoActual));
   if (!lista.length) {
     cont.innerHTML = '<div class="empty-state">Todavía no hay repartos cerrados' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</div>';
     return;
@@ -1005,7 +1035,7 @@ async function calcularControlFechas() {
     detalleTodos = rDetalle.registros || [];
     recalcularPendientes();
 
-    const cubiertas = new Set(detalleTodos.filter(d => d['Kiosko'] === kioskoActual).map(d => soloFecha(d['Fecha'])));
+    const cubiertas = new Set(detalleTodos.filter(d => mismoKiosko(d['Kiosko'], kioskoActual)).map(d => soloFecha(d['Fecha'])));
     const filas = Array.from(ventasPorFecha.keys())
       .filter(f => (ventasPorFecha.get(f) || 0) > 0)
       .sort()
