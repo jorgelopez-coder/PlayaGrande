@@ -245,24 +245,59 @@ tipo de control/tara/densidad de licores y sifones después).
 (`inventario.html`), **Compras** (`compras.html`) y **Recetas**
 (`recetas.html`).
 
-Octavo módulo: **Base de Productos**, `productos.html` — catálogo básico de
+Octavo módulo: **Base de Productos**, `productos.html` — catálogo de
 productos, **independiente** de la pestaña "Productos" de Inventario v2
-(esa sigue siendo la fuente para stock/mínimos/recetas). Adaptado de
-"Maestro_Productos" de Ecosistema Lorito (`maestro-productos.html`), pero
-simplificado: sin Alias_Productos ni Costo_Promedio (esas dos hojas viven
-del lado de facturas/compras en Lorito y acá todavía no aplican). Un solo
-CRUD: nombre, categoría, unidad (texto libre — botella, litro, caja de 24,
-etc.), nota opcional y activo/inactivo, con búsqueda y filtro por
-categoría/estado.
+(esa sigue siendo la fuente para stock/mínimos/recetas). Adaptado de "Base
+de Productos · Costos" de Ecosistema Lorito (`costos-productos.html` /
+`Code-costos-backend.gs`, la versión más completa del maestro de productos
+ahí — reemplaza a la versión anterior más simple de este mismo módulo en
+Kioskos), pero simplificado: sin Alias_Productos, sin Costo_Promedio
+calculado automático desde facturas ni panel de "Pendientes de mapear"
+(esas tres cosas viven del lado de facturas/compras en Lorito y acá todavía
+no aplican — acá el precio/costo se ingresa a mano o por carga masiva).
+
+Campos por producto: nombre, categoría, área de negocio, unidad,
+presentación del proveedor, tamaño, precio de compra sin IVA, IVA%,
+cantidad en la presentación, costo por unidad (calculado automáticamente =
+precio / cantidad), rendimiento%, proveedor, stock mínimo esperado, nota y
+activo/inactivo — más **Kioskos**, un campo propio de este ecosistema que
+no existe en Lorito (ver abajo). Búsqueda (nombre y proveedor) y filtro por
+categoría/kiosko/estado.
+
+**Kioskos por producto**: cada producto tiene un checkbox por kiosko para
+marcar dónde se vende/usa, con una opción maestra "Todos los kioskos"
+(default) que aplica automáticamente a los que abran después — así no hay
+que volver a editar cada producto cuando Jorge abre un kiosko nuevo. La
+lista de kioskos **no está hardcodeada**: `productos.html` la trae en vivo
+de la misma pestaña "Configuracion" del Sheet de RRHH que usan
+`compras.html`/`mermas.html`/`recetas.html`/`inventario.html` (administrada
+desde `configuracion.html`), con el mismo patrón `KIOSKOS` +
+`kioskosPermitidos()`.
+
+**Carga masiva**: botón "⇧ Carga masiva" para subir un .xlsx/.csv con
+varios productos de una vez (parseo client-side con SheetJS, igual que
+`costos-productos.html` de Lorito), con previsualización antes de confirmar
+y un botón "Descargar plantilla de ejemplo" que genera el Excel con
+encabezados + 3 filas de ejemplo al vuelo (sin archivo estático que
+mantener). Siempre crea productos nuevos — para editar uno existente se usa
+el formulario, no la carga masiva.
 
 Backend (`Code-productos-backend.gs`, Sheet nuevo **"Base de Productos -
-Kioskos"**, pestaña "Productos"): CRUD simple (`producto_guardar`,
-`producto_eliminar`), sin conexión a facturas, compras ni Square. Categorías
-sugeridas para kioskos de cerveza y cocteles precargadas en el selector
-(Cerveza, Licores y Destilados, Insumos de Coctelería, Bebidas No
-Alcohólicas, Hielo, Vasos y Desechables, Snacks, Limpieza e Higiene, Equipo
-y Utensilios, Otros) pero editables libremente — no restringen lo ya
-guardado.
+Kioskos"**, pestaña "Productos"): `producto_guardar`, `producto_eliminar` y
+`productos_carga_masiva` (recibe un arreglo de productos, crea los que
+tengan nombre y devuelve el detalle de creados/errores). Categorías y áreas
+de negocio sugeridas para kioskos de cerveza y cocteles precargadas en los
+selectores (Categorías: Cerveza, Licores y Destilados, Insumos de
+Coctelería, Bebidas No Alcohólicas, Hielo, Vasos y Desechables, Snacks,
+Limpieza e Higiene, Equipo y Utensilios, Otros — Áreas: Barra/Coctelería,
+Bodega, Cocina/Snacks, Limpieza e Higiene, Administración, Mantenimiento y
+Equipo) pero editables libremente — no restringen lo ya guardado.
+
+⚠️ Si ya tenías la versión anterior (7 columnas) desplegada con datos
+reales: la estructura de columnas cambió (18 columnas ahora, ver el
+comentario al inicio de `Code-productos-backend.gs`). Reemplazá la fila 1
+de encabezados del Sheet a mano antes de seguir usando el módulo — si la
+pestaña estaba vacía no hace falta hacer nada especial.
 
 `index.html` agrega el tile **Base de Productos**, junto a Compras y
 Recetas.
@@ -700,6 +735,10 @@ intencionalmente independiente de Inventario v2.
 
 Sin el paso 5, `productos.html` muestra "Falta configurar PRODUCTOS_URL" al
 cargar. No requiere carpeta de Drive (no maneja fotos) ni Script Properties.
+El checkbox de kioskos por producto reutiliza `APPS_SCRIPT_RRHH` (la misma
+URL que ya usan `compras.html`/`mermas.html`/`recetas.html`), así que no
+hace falta ningún despliegue extra para eso — si esa URL cambia algún día
+hay que actualizarla en todos esos archivos, `productos.html` incluido.
 
 ## Kioskos activos — sección de Configuración
 

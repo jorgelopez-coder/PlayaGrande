@@ -27,15 +27,18 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 .date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
 
-main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
+main{max-width:1240px;margin:0 auto;padding:2rem 2rem 5rem}
 .page-header{margin-bottom:1.5rem;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .page-header h1{font-family:var(--font-d);font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
 .page-header p{font-size:13px;color:var(--muted)}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .btn-primary{font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 18px;border-radius:9px;border:none;background:var(--green);color:#fff;cursor:pointer;white-space:nowrap;transition:opacity .15s}
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-outline{font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 16px;border-radius:9px;border:1px solid var(--green-lt);background:var(--green-bg);color:var(--green);cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.btn-outline:hover{opacity:.85}
 
-.kpi-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
 .kpi-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
 .kpi-val{font-family:var(--font-d);font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
 .kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
@@ -59,6 +62,7 @@ tr:hover td{background:var(--surface)}
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 .b-ok{background:var(--green-bg);color:var(--green)}
 .b-off{background:var(--surface);color:var(--muted)}
+.b-kiosko{background:var(--blue-bg);color:var(--blue)}
 .b-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
 
 .btn-mini{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
@@ -85,22 +89,41 @@ tr:hover td{background:var(--surface)}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:50;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
 .modal{background:var(--card);border-radius:var(--radius);max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
+.modal.modal-lg{max-width:600px}
 .modal-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .modal-head h3{font-family:var(--font-d);font-size:16px;font-weight:700}
 .modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:2px}
 .modal-body{padding:1.25rem 1.5rem}
 .field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
-input[type=text],select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;transition:border-color .15s}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row .field{margin-bottom:1rem}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;transition:border-color .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
 input::placeholder,textarea::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
-.check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .check-row input{width:auto}
-.modal-foot{padding:1.1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 .6rem;border-top:1px solid var(--border);padding-top:1rem}
+.section-label:first-child{margin-top:0;border-top:none;padding-top:0}
+.kiosko-check-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px}
+.kiosko-check-grid .check-row{font-size:12.5px}
+.costo-preview{font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:2px}
+.costo-preview b{color:var(--text)}
+.modal-foot{padding:1.1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.modal-foot .carga-resumen{margin-right:auto}
 .btn-sec{padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
 .btn-save{font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 20px;border-radius:9px;border:none;background:var(--green);color:#fff;cursor:pointer}
 .btn-save:disabled{opacity:.5;cursor:not-allowed}
+.btn-link{background:none;border:none;color:var(--blue);font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0}
+
+.carga-tabla-wrap{max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:.75rem}
+.carga-tabla-wrap table{width:100%;border-collapse:collapse;font-size:12.5px}
+.carga-tabla-wrap th{position:sticky;top:0;background:var(--surface);text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.carga-tabla-wrap td{padding:6px 9px;border-bottom:1px solid var(--border)}
+.carga-resumen{font-size:12.5px;color:var(--muted)}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -109,7 +132,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .toast svg{width:16px;height:16px;flex-shrink:0}
 
 @media (max-width:640px){
-  .kpi-strip{grid-template-columns:1fr}
+  .kpi-strip{grid-template-columns:1fr 1fr}
+  .field-row{grid-template-columns:1fr}
+  .kiosko-check-grid{grid-template-columns:1fr}
   main{padding:1.25rem 1.25rem 4rem}
 }
 </style>
@@ -131,9 +156,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="page-header">
     <div>
       <h1>Base de Productos</h1>
-      <p>Catálogo único de productos — nombre, categoría y unidad. Independiente de Inventario/Compras.</p>
+      <p>Catálogo único de productos — nombre, categoría, área, costo y proveedor. Independiente de Inventario/Compras.</p>
     </div>
-    <button class="btn-primary" onclick="abrirModalProducto(null)">+ Nuevo producto</button>
+    <div class="page-header-actions">
+      <button class="btn-outline" onclick="triggerCargaMasiva()">⇧ Carga masiva</button>
+      <button class="btn-primary" onclick="abrirModalProducto(null)">+ Nuevo producto</button>
+    </div>
   </div>
 
   <div class="status-carga" id="status-carga"><span class="spinner"></span> Conectando…</div>
@@ -141,15 +169,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="kpi-strip">
     <div class="kpi-box"><div class="kpi-val" id="kpi-total">—</div><div class="kpi-lbl">Productos</div></div>
     <div class="kpi-box"><div class="kpi-val" id="kpi-categorias">—</div><div class="kpi-lbl">Categorías en uso</div></div>
+    <div class="kpi-box"><div class="kpi-val" id="kpi-areas">—</div><div class="kpi-lbl">Áreas en uso</div></div>
     <div class="kpi-box"><div class="kpi-val ambar" id="kpi-inactivos">—</div><div class="kpi-lbl">Inactivos</div></div>
   </div>
 
   <div class="toolbar">
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" class="search-input" id="s-prod" placeholder="Buscar por nombre…" oninput="renderTabla()"/>
+      <input type="text" class="search-input" id="s-prod" placeholder="Buscar por nombre o proveedor…" oninput="renderTabla()"/>
     </div>
     <select class="filter-sel" id="f-cat" onchange="renderTabla()"><option value="">Todas las categorías</option></select>
+    <select class="filter-sel" id="f-kiosko" onchange="renderTabla()"><option value="">Todos los kioskos</option></select>
     <select class="filter-sel" id="f-estado" onchange="renderTabla()">
       <option value="activos" selected>Solo activos</option>
       <option value="todos">Todos</option>
@@ -166,7 +196,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ── MODAL PRODUCTO ── -->
 <div class="modal-overlay" id="modal-producto">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-head">
       <h3 id="modal-producto-titulo">Nuevo producto</h3>
       <button class="modal-close" onclick="cerrarModalProducto()">×</button>
@@ -176,17 +206,76 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <label>Nombre <span style="color:var(--red)">*</span></label>
         <input type="text" id="mp-nombre" placeholder="Ej. Cerveza IPA 355ml"/>
       </div>
-      <div class="field">
-        <label>Categoría</label>
-        <select id="mp-categoria"></select>
+      <div class="field-row">
+        <div class="field">
+          <label>Categoría</label>
+          <select id="mp-categoria"></select>
+        </div>
+        <div class="field">
+          <label>Área de negocio</label>
+          <select id="mp-area"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Unidad</label>
+          <input type="text" id="mp-unidad" placeholder="Ej. botella, litro, unidad"/>
+        </div>
+        <div class="field">
+          <label>Proveedor</label>
+          <input type="text" id="mp-proveedor" placeholder="Ej. Distribuidora XYZ"/>
+        </div>
+      </div>
+
+      <div class="section-label">Compra y costo</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Presentación del proveedor</label>
+          <input type="text" id="mp-presentacion" placeholder="Ej. six pack, caja de 24"/>
+        </div>
+        <div class="field">
+          <label>Tamaño</label>
+          <input type="text" id="mp-tamano" placeholder="Ej. 355 ml, 750 ml"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Precio de compra sin IVA (₡)</label>
+          <input type="number" id="mp-precio" min="0" step="any" placeholder="0" oninput="actualizarCostoPreview()"/>
+        </div>
+        <div class="field">
+          <label>IVA (%)</label>
+          <input type="number" id="mp-iva" min="0" step="any" placeholder="13"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Cantidad en la presentación</label>
+          <input type="number" id="mp-cantidad" min="0" step="any" placeholder="Ej. 6" oninput="actualizarCostoPreview()"/>
+        </div>
+        <div class="field">
+          <label>Rendimiento (%)</label>
+          <input type="number" id="mp-rendimiento" min="0" step="any" placeholder="100" oninput="actualizarCostoPreview()"/>
+        </div>
       </div>
       <div class="field">
-        <label>Unidad</label>
-        <input type="text" id="mp-unidad" placeholder="Ej. botella, litro, caja de 24, unidad"/>
+        <div class="costo-preview" id="mp-costo-preview">Completá precio y cantidad para calcular el costo por unidad.</div>
       </div>
+      <div class="field">
+        <label>Stock mínimo esperado</label>
+        <input type="number" id="mp-stock-minimo" min="0" step="any" placeholder="0"/>
+      </div>
+
+      <div class="section-label">Dónde aplica</div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="mp-kioskos-todos" checked onchange="toggleKioskosTodos()"/> Todos los kioskos (incluye los que abran después)</label>
+        <div class="kiosko-check-grid" id="mp-kioskos-lista" style="display:none;"></div>
+      </div>
+
+      <div class="section-label">Otros</div>
       <div class="field">
         <label>Nota (opcional)</label>
-        <textarea id="mp-nota" rows="2" placeholder="Marca, tamaño, presentación…"></textarea>
+        <textarea id="mp-nota" rows="2" placeholder="Marca, presentación, aclaraciones…"></textarea>
       </div>
       <label class="check-row"><input type="checkbox" id="mp-activo" checked/> Producto activo</label>
     </div>
@@ -197,11 +286,37 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<!-- ── MODAL CARGA MASIVA ── -->
+<input type="file" id="input-carga" accept=".xlsx,.xls,.csv" style="display:none" onchange="procesarArchivoCarga(event)"/>
+<div class="modal-overlay" id="modal-carga">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3>Carga masiva de productos</h3>
+      <button class="modal-close" onclick="cerrarModalCarga()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:.75rem;">
+        Subí un Excel (.xlsx) o CSV con varios productos de una vez.
+        <button class="btn-link" onclick="descargarPlantilla()">Descargar plantilla de ejemplo ↓</button>
+      </p>
+      <div id="carga-contenido">
+        <div class="empty">Elegí un archivo con el botón "⇧ Carga masiva" de la pantalla anterior.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="carga-resumen" id="carga-resumen"></span>
+      <button class="btn-sec" onclick="cerrarModalCarga()">Cancelar</button>
+      <button class="btn-save" id="carga-btn-confirmar" onclick="confirmarCargaMasiva()" style="display:none">Confirmar carga</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── CONTROL DE ACCESO ─────────────────────────────────────────────
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
@@ -213,16 +328,32 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
   alert('Tu usuario no tiene acceso a este módulo.');
   window.location.href = 'index.html';
 }
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
 
 // ── CONFIG ────────────────────────────────────────────────────────
-// URL /exec del Web App de Code-productos-backend.gs (pegar al desplegar —
-// Sheet propio "Base de Productos - Kioskos", independiente de Inventario v2):
+// URL /exec del Web App de Code-productos-backend.gs (Sheet propio "Base de
+// Productos - Kioskos", independiente de Inventario v2):
 const PRODUCTOS_URL = 'https://script.google.com/macros/s/AKfycbyB4WFtP4NpzlTG9Rv4bsaqnniFPGse5xXCC5Op2wux9jxC6nrIGYZJWn38OfNHYKJUaw/exec';
+
+// Misma URL que usan compras.html/mermas.html/recetas.html/inventario.html —
+// de ahí sale la lista real de kioskos activos (pestaña "Configuracion" del
+// Sheet de RRHH, administrada desde configuracion.html). No está hardcodeada
+// acá: cuando Jorge abre un kiosko nuevo en esa pantalla, aparece solo en
+// los checkboxes de este módulo.
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
 const CATEGORIAS_DEFAULT = [
   'Cerveza', 'Licores y Destilados', 'Insumos de Coctelería',
   'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
   'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
+];
+const AREAS_DEFAULT = [
+  'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
+  'Limpieza e Higiene', 'Administración', 'Mantenimiento y Equipo'
 ];
 
 const hoy = new Date();
@@ -231,6 +362,7 @@ document.getElementById('date-chip').textContent =
 
 let productos = [];
 let categoriasSugeridas = CATEGORIAS_DEFAULT.slice();
+let areasSugeridas = AREAS_DEFAULT.slice();
 let pagActual = 1;
 const POR_PAGINA = 20;
 
@@ -256,6 +388,28 @@ async function postProd(payload) {
   return out;
 }
 
+// ── KIOSKOS (lista real, desde Configuración) ───────────────────────
+async function cargarKioskosDisponibles() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  } catch (e) { /* se queda con el default de 4 kioskos */ }
+  poblarFiltroKiosko();
+  poblarChecksKiosko();
+}
+function poblarFiltroKiosko() {
+  const sel = document.getElementById('f-kiosko');
+  const valActual = sel.value;
+  sel.innerHTML = '<option value="">Todos los kioskos</option>' +
+    KIOSKOS.map(k => `<option value="${k}"${k===valActual?' selected':''}>${k}</option>`).join('');
+}
+function poblarChecksKiosko() {
+  document.getElementById('mp-kioskos-lista').innerHTML = KIOSKOS.map(k =>
+    `<label class="check-row"><input type="checkbox" class="mp-kiosko-chk" value="${k}"/> ${k}</label>`
+  ).join('');
+}
+
 async function cargarDatos() {
   if (!PRODUCTOS_URL) {
     document.getElementById('status-carga').innerHTML =
@@ -273,11 +427,23 @@ async function cargarDatos() {
       id: r['ID'],
       nombre: r['Nombre'] || '',
       categoria: r['Categoría'] || '',
+      area: r['Área de negocio'] || '',
       unidad: r['Unidad'] || '',
+      presentacion: r['Presentación'] || '',
+      tamano: r['Tamaño'] || '',
+      precio: Number(r['Precio sin IVA']) || 0,
+      iva: Number(r['IVA (%)']) || 0,
+      cantidadPresentacion: Number(r['Cantidad presentación']) || 0,
+      costo: Number(r['Costo por unidad']) || 0,
+      rendimiento: r['Rendimiento (%)'] !== '' && r['Rendimiento (%)'] !== undefined ? Number(r['Rendimiento (%)']) : 100,
+      proveedor: r['Proveedor'] || '',
+      stockMinimo: Number(r['Stock mínimo']) || 0,
+      kioskos: (r['Kioskos'] || 'Todos').toString().trim() || 'Todos',
       nota: r['Nota'] || '',
       activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false'
     })).sort((a,b) => a.nombre.localeCompare(b.nombre));
     if (out.categoriasSugeridas && out.categoriasSugeridas.length) categoriasSugeridas = out.categoriasSugeridas;
+    if (out.areasSugeridas && out.areasSugeridas.length) areasSugeridas = out.areasSugeridas;
 
     document.getElementById('conn-dot').classList.remove('off');
     document.getElementById('conn-label').textContent = 'Conectado';
@@ -301,14 +467,20 @@ function todasLasCategorias() {
   const enUso = productos.map(p => p.categoria).filter(Boolean);
   return [...new Set([...categoriasSugeridas, ...enUso])].sort();
 }
+function todasLasAreas() {
+  const enUso = productos.map(p => p.area).filter(Boolean);
+  return [...new Set([...areasSugeridas, ...enUso])].sort();
+}
 
 function inicializar() {
   const activos = productos.filter(p => p.activo);
   const inactivos = productos.length - activos.length;
   const catsEnUso = [...new Set(activos.map(p => p.categoria).filter(Boolean))];
+  const areasEnUso = [...new Set(activos.map(p => p.area).filter(Boolean))];
 
   document.getElementById('kpi-total').textContent      = productos.length;
   document.getElementById('kpi-categorias').textContent = catsEnUso.length;
+  document.getElementById('kpi-areas').textContent      = areasEnUso.length;
   document.getElementById('kpi-inactivos').textContent  = inactivos;
 
   const selCat = document.getElementById('f-cat');
@@ -326,19 +498,49 @@ function opcionesCategoria(valorActual) {
   return '<option value=""' + (!valorActual?' selected':'') + '>Sin categoría</option>' +
     lista.map(c => `<option value="${c}"${c===valorActual?' selected':''}>${c}</option>`).join('');
 }
+function opcionesArea(valorActual) {
+  const opciones = todasLasAreas();
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value=""' + (!valorActual?' selected':'') + '>Sin área asignada</option>' +
+    lista.map(a => `<option value="${a}"${a===valorActual?' selected':''}>${a}</option>`).join('');
+}
+
+function fmtColones(n) {
+  return '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:0, maximumFractionDigits:2 });
+}
+
+// Kioskos de un producto → { esTodos, lista[] }
+function kioskosDeProducto(p) {
+  const raw = (p.kioskos || 'Todos').trim();
+  if (!raw || raw.toLowerCase() === 'todos') return { esTodos:true, lista: KIOSKOS.slice() };
+  return { esTodos:false, lista: raw.split(',').map(k=>k.trim()).filter(Boolean) };
+}
+function badgeKioskos(p) {
+  const k = kioskosDeProducto(p);
+  if (k.esTodos) return `<span class="badge b-kiosko"><span class="b-dot"></span>Todos</span>`;
+  if (!k.lista.length) return `<span class="badge b-off">Sin asignar</span>`;
+  const titulo = k.lista.join(', ');
+  return `<span class="badge b-kiosko" title="${titulo}"><span class="b-dot"></span>${k.lista.length} kiosko${k.lista.length===1?'':'s'}</span>`;
+}
 
 function renderTabla() { pagActual = 1; _renderTabla(); }
 
 function _renderTabla() {
   const busq = document.getElementById('s-prod').value.toLowerCase();
   const cat  = document.getElementById('f-cat').value;
+  const kioskoSel = document.getElementById('f-kiosko').value;
   const estado = document.getElementById('f-estado').value;
 
   const lista = productos.filter(p => {
-    const matchBusq = !busq || p.nombre.toLowerCase().includes(busq);
+    const matchBusq = !busq || p.nombre.toLowerCase().includes(busq) || (p.proveedor||'').toLowerCase().includes(busq);
     const matchCat  = !cat || p.categoria === cat;
     const matchEstado = estado === 'todos' ? true : (estado === 'activos' ? p.activo : !p.activo);
-    return matchBusq && matchCat && matchEstado;
+    let matchKiosko = true;
+    if (kioskoSel) {
+      const k = kioskosDeProducto(p);
+      matchKiosko = k.esTodos || k.lista.includes(kioskoSel);
+    }
+    return matchBusq && matchCat && matchEstado && matchKiosko;
   });
 
   const total  = lista.length;
@@ -347,7 +549,7 @@ function _renderTabla() {
 
   if (!lista.length) {
     document.getElementById('tabla-productos').innerHTML = '<div class="empty">' +
-      (productos.length ? 'Sin resultados.' : 'Todavía no hay productos. Creá uno con "+ Nuevo producto".') +
+      (productos.length ? 'Sin resultados.' : 'Todavía no hay productos. Creá uno con "+ Nuevo producto" o usá "Carga masiva".') +
       '</div>';
     document.getElementById('pag-productos').style.display = 'none';
     return;
@@ -362,10 +564,13 @@ function _renderTabla() {
       : `<span class="badge b-off"><span class="b-dot"></span>Inactivo</span>`;
     return `
       <tr>
-        <td style="font-weight:500;max-width:240px;">${p.nombre}</td>
+        <td style="font-weight:500;max-width:220px;">${p.nombre}</td>
         <td style="color:var(--muted);">${p.categoria || '—'}</td>
+        <td style="color:var(--muted);">${p.area || '—'}</td>
         <td style="color:var(--muted);">${p.unidad || '—'}</td>
-        <td style="color:var(--muted);max-width:220px;">${p.nota || '—'}</td>
+        <td style="color:var(--muted);white-space:nowrap;">${p.costo ? fmtColones(p.costo) : '—'}</td>
+        <td style="color:var(--muted);max-width:160px;">${p.proveedor || '—'}</td>
+        <td>${badgeKioskos(p)}</td>
         <td>${badgeEstado}</td>
         <td>
           <div class="fila-acciones">
@@ -379,12 +584,48 @@ function _renderTabla() {
   document.getElementById('tabla-productos').innerHTML = `
     <table>
       <thead><tr>
-        <th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Nota</th><th>Estado</th><th>Acciones</th>
+        <th>Nombre</th><th>Categoría</th><th>Área</th><th>Unidad</th><th>Costo/u</th><th>Proveedor</th><th>Kioskos</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
       <tbody>${filas}</tbody>
     </table>`;
 
   renderPaginacion('pag-productos', total, pagActual, p => { pagActual = p; _renderTabla(); });
+}
+
+// ── COSTO EN VIVO (modal) ────────────────────────────────────────
+function actualizarCostoPreview() {
+  const precio = Number(document.getElementById('mp-precio').value) || 0;
+  const cantidad = Number(document.getElementById('mp-cantidad').value) || 0;
+  const rendimientoInput = document.getElementById('mp-rendimiento').value;
+  const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
+  const el = document.getElementById('mp-costo-preview');
+  if (!(cantidad > 0)) {
+    el.innerHTML = 'Completá el precio y la cantidad en la presentación para calcular el costo por unidad.';
+    return;
+  }
+  const costo = precio / cantidad;
+  const costoReal = rendimiento > 0 ? costo / (rendimiento/100) : costo;
+  el.innerHTML = `Costo por unidad: <b>${fmtColones(costo)}</b>` +
+    (rendimiento !== 100 ? ` · Costo real (con rendimiento): <b>${fmtColones(costoReal)}</b>` : '');
+}
+
+// ── KIOSKOS (checkboxes del modal) ───────────────────────────────
+function toggleKioskosTodos() {
+  const todos = document.getElementById('mp-kioskos-todos').checked;
+  document.getElementById('mp-kioskos-lista').style.display = todos ? 'none' : 'grid';
+}
+function marcarKioskosEnModal(kioskosStr) {
+  const k = kioskosStr && kioskosStr.trim() && kioskosStr.trim().toLowerCase() !== 'todos'
+    ? kioskosStr.split(',').map(s=>s.trim()).filter(Boolean)
+    : null; // null = "Todos"
+  document.getElementById('mp-kioskos-todos').checked = !k;
+  document.getElementById('mp-kioskos-lista').style.display = k ? 'grid' : 'none';
+  document.querySelectorAll('.mp-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+}
+function leerKioskosDeModal() {
+  if (document.getElementById('mp-kioskos-todos').checked) return 'Todos';
+  const marcados = Array.from(document.querySelectorAll('.mp-kiosko-chk:checked')).map(c => c.value);
+  return marcados.length ? marcados.join(',') : 'Todos';
 }
 
 // ── MODAL CREAR / EDITAR ─────────────────────────────────────────
@@ -397,9 +638,20 @@ function abrirModalProducto(idx) {
   document.getElementById('modal-producto-titulo').textContent = p ? 'Editar producto' : 'Nuevo producto';
   document.getElementById('mp-nombre').value = p ? p.nombre : '';
   document.getElementById('mp-categoria').innerHTML = opcionesCategoria(p ? p.categoria : '');
+  document.getElementById('mp-area').innerHTML = opcionesArea(p ? p.area : '');
   document.getElementById('mp-unidad').value = p ? p.unidad : '';
+  document.getElementById('mp-proveedor').value = p ? p.proveedor : '';
+  document.getElementById('mp-presentacion').value = p ? p.presentacion : '';
+  document.getElementById('mp-tamano').value = p ? p.tamano : '';
+  document.getElementById('mp-precio').value = p && p.precio ? p.precio : '';
+  document.getElementById('mp-iva').value = p && p.iva ? p.iva : '';
+  document.getElementById('mp-cantidad').value = p && p.cantidadPresentacion ? p.cantidadPresentacion : '';
+  document.getElementById('mp-rendimiento').value = p ? p.rendimiento : '';
+  document.getElementById('mp-stock-minimo').value = p && p.stockMinimo ? p.stockMinimo : '';
   document.getElementById('mp-nota').value = p ? p.nota : '';
   document.getElementById('mp-activo').checked = p ? p.activo : true;
+  marcarKioskosEnModal(p ? p.kioskos : 'Todos');
+  actualizarCostoPreview();
 
   document.getElementById('modal-producto').classList.add('open');
 }
@@ -419,7 +671,17 @@ async function guardarProducto() {
       accion: 'producto_guardar',
       nombre,
       categoria: document.getElementById('mp-categoria').value,
+      area: document.getElementById('mp-area').value,
       unidad: document.getElementById('mp-unidad').value.trim(),
+      proveedor: document.getElementById('mp-proveedor').value.trim(),
+      presentacion: document.getElementById('mp-presentacion').value.trim(),
+      tamano: document.getElementById('mp-tamano').value.trim(),
+      precio_sin_iva: document.getElementById('mp-precio').value,
+      iva: document.getElementById('mp-iva').value,
+      cantidad_presentacion: document.getElementById('mp-cantidad').value,
+      rendimiento: document.getElementById('mp-rendimiento').value,
+      stock_minimo: document.getElementById('mp-stock-minimo').value,
+      kioskos: leerKioskosDeModal(),
       nota: document.getElementById('mp-nota').value.trim(),
       activo: document.getElementById('mp-activo').checked
     };
@@ -450,6 +712,186 @@ async function eliminarProductoUI(idx) {
   }
 }
 
+// ── CARGA MASIVA ──────────────────────────────────────────────────
+let _cargaProductos = [];
+let _cargaInvalidos = 0;
+
+function triggerCargaMasiva() {
+  document.getElementById('carga-contenido').innerHTML =
+    '<div class="empty">Elegí un archivo con el botón "⇧ Carga masiva" de la pantalla anterior.</div>';
+  document.getElementById('input-carga').click();
+}
+function abrirModalCarga() {
+  document.getElementById('carga-resumen').textContent = '';
+  document.getElementById('carga-btn-confirmar').style.display = 'none';
+  document.getElementById('modal-carga').classList.add('open');
+}
+function cerrarModalCarga() {
+  document.getElementById('modal-carga').classList.remove('open');
+  _cargaProductos = [];
+  _cargaInvalidos = 0;
+}
+document.getElementById('modal-carga').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-carga')) cerrarModalCarga();
+});
+
+function normalizarHeaderCarga(h) {
+  return String(h||'').replace(/\s*\*\s*$/, '').trim();
+}
+function mapearFilaCarga(row) {
+  const obj = {};
+  Object.keys(row).forEach(k => { obj[normalizarHeaderCarga(k)] = row[k]; });
+  const rendVal = obj['Rendimiento (%)'];
+  return {
+    nombre: (obj['Nombre']||'').toString().trim(),
+    categoria: (obj['Categoría']||'').toString().trim(),
+    area: (obj['Área de negocio']||'').toString().trim(),
+    unidad: (obj['Unidad']||'').toString().trim(),
+    presentacion: (obj['Presentación']||'').toString().trim(),
+    tamano: (obj['Tamaño']||'').toString().trim(),
+    precio_sin_iva: Number(obj['Precio sin IVA']) || 0,
+    iva: Number(obj['IVA (%)']) || 0,
+    cantidad_presentacion: Number(obj['Cantidad presentación']) || 0,
+    rendimiento: (rendVal !== undefined && rendVal !== '') ? Number(rendVal) : 100,
+    proveedor: (obj['Proveedor']||'').toString().trim(),
+    stock_minimo: Number(obj['Stock mínimo']) || 0,
+    kioskos: (obj['Kioskos']||'Todos').toString().trim() || 'Todos',
+    nota: (obj['Nota']||'').toString().trim(),
+    activo: true
+  };
+}
+
+async function leerXLSXCarga(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'array' });
+        const nombreHoja = wb.SheetNames.includes('Productos') ? 'Productos' : wb.SheetNames[0];
+        const ws = wb.Sheets[nombreHoja];
+        resolve(XLSX.utils.sheet_to_json(ws, { defval:'' }));
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+async function leerCSVCarga(file) {
+  const text = await file.text();
+  const rows = text.split(/\r?\n/).filter(r => r.trim());
+  if (!rows.length) return [];
+  const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return rows.slice(1).map(row => {
+    const vals = row.split(',').map(v => v.trim().replace(/^"|"$/g,''));
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = vals[i] !== undefined ? vals[i] : '');
+    return obj;
+  });
+}
+
+async function procesarArchivoCarga(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  abrirModalCarga();
+  document.getElementById('carga-contenido').innerHTML = '<div class="empty"><span class="spinner"></span> Leyendo archivo…</div>';
+
+  try {
+    let filas;
+    if (file.name.toLowerCase().endsWith('.csv')) filas = await leerCSVCarga(file);
+    else filas = await leerXLSXCarga(file);
+
+    const mapeadas = filas.map(mapearFilaCarga);
+    _cargaProductos = mapeadas.filter(p => p.nombre);
+    _cargaInvalidos = mapeadas.length - _cargaProductos.length;
+    mostrarPreviaCarga();
+  } catch(err) {
+    document.getElementById('carga-contenido').innerHTML =
+      `<div style="color:var(--red);padding:1rem;">Error al leer el archivo: ${err.message}</div>`;
+  }
+}
+
+function mostrarPreviaCarga() {
+  const cont = document.getElementById('carga-contenido');
+  if (!_cargaProductos.length) {
+    cont.innerHTML = '<div class="empty">No se encontró ningún producto con nombre en el archivo. Revisá que la columna "Nombre" tenga datos desde la fila 2.</div>';
+    document.getElementById('carga-resumen').textContent = '';
+    document.getElementById('carga-btn-confirmar').style.display = 'none';
+    return;
+  }
+
+  const filas = _cargaProductos.map(p => `
+    <tr>
+      <td style="font-weight:500;">${p.nombre}</td>
+      <td>${p.categoria || '—'}</td>
+      <td>${p.area || '—'}</td>
+      <td>${p.unidad || '—'}</td>
+      <td>${p.precio_sin_iva ? fmtColones(p.precio_sin_iva) : '—'}</td>
+      <td>${p.kioskos}</td>
+    </tr>`).join('');
+
+  cont.innerHTML = `
+    <div class="carga-tabla-wrap">
+      <table>
+        <thead><tr><th>Nombre</th><th>Categoría</th><th>Área</th><th>Unidad</th><th>Precio</th><th>Kioskos</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('carga-resumen').textContent =
+    `${_cargaProductos.length} producto${_cargaProductos.length===1?'':'s'} listo${_cargaProductos.length===1?'':'s'} para cargar` +
+    (_cargaInvalidos ? ` · ${_cargaInvalidos} fila${_cargaInvalidos===1?'':'s'} sin nombre (se ignoran)` : '');
+  document.getElementById('carga-btn-confirmar').style.display = 'inline-block';
+}
+
+async function confirmarCargaMasiva() {
+  if (!_cargaProductos.length) { showToast('No hay productos válidos para cargar.', 'error'); return; }
+  const btn = document.getElementById('carga-btn-confirmar');
+  btn.disabled = true;
+  btn.textContent = 'Cargando…';
+  try {
+    const out = await postProd({ accion:'productos_carga_masiva', productos:_cargaProductos });
+    let msg = `${out.creados} producto${out.creados===1?'':'s'} creado${out.creados===1?'':'s'} ✓`;
+    if (out.errores && out.errores.length) msg += ` · ${out.errores.length} con error`;
+    showToast(msg, (out.errores && out.errores.length) ? 'error' : 'success');
+    cerrarModalCarga();
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo completar la carga: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar carga';
+  }
+}
+
+function descargarPlantilla() {
+  const encabezados = ['Nombre *','Categoría','Área de negocio','Unidad *','Presentación','Tamaño','Precio sin IVA','IVA (%)','Cantidad presentación','Rendimiento (%)','Proveedor','Stock mínimo','Kioskos','Nota'];
+  const ejemplos = [
+    ['Cerveza IPA 355ml','Cerveza','Barra / Coctelería','botella','Six pack','355 ml',450,13,6,100,'Distribuidora XYZ',24,'Todos',''],
+    ['Ron añejo 750ml','Licores y Destilados','Barra / Coctelería','botella','Unidad','750 ml',6500,13,1,100,'Licorera ABC',6,'Playa Grande,Liberia','Solo en esos 2 kioskos por ahora'],
+    ['Vaso plástico 12oz','Vasos y Desechables','Bodega','unidad','Paquete','100 unidades',2500,13,100,100,'Distribuidora XYZ',200,'Todos','']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([encabezados, ...ejemplos]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+
+  const wsInstr = XLSX.utils.aoa_to_sheet([
+    ['PLANTILLA DE CARGA MASIVA · BASE DE PRODUCTOS'], [''],
+    ['Instrucciones:'],
+    ["1. Completá los datos en la hoja 'Productos', empezando desde la fila 2."],
+    ['2. No borres ni modifiques los encabezados de la fila 1.'],
+    ['3. Los campos marcados con * son obligatorios (Nombre y Unidad).'],
+    ["4. Columna 'Kioskos': dejala en 'Todos' para que el producto aplique a todos los kioskos actuales y a los que abran después."],
+    ["   Si solo aplica a algunos, escribí sus nombres separados por coma, exactamente igual a como están en Configuración. Ej: Playa Grande,Liberia"],
+    ['5. Borrá las 3 filas de ejemplo antes de subir el archivo (son solo referencia).'],
+    ["6. Guardá como .xlsx y subilo con el botón 'Carga masiva'."]
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsInstr, 'Instrucciones');
+  XLSX.writeFile(wb, 'plantilla_productos_kioskos.xlsx');
+}
+
+// ── PAGINACIÓN / TOAST (utilidades genéricas) ─────────────────────
 function renderPaginacion(id, total, pag, cb) {
   const pagEl = document.getElementById(id);
   const totalPag = Math.ceil(total / POR_PAGINA);
@@ -488,6 +930,10 @@ function showToast(msg, type='success') {
   setTimeout(()=>t.classList.remove('show'), 3500);
 }
 
+// ── INIT ──────────────────────────────────────────────────────────
+poblarFiltroKiosko();
+poblarChecksKiosko();
+cargarKioskosDisponibles();
 cargarDatos();
 </script>
 </body>
