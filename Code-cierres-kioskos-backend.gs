@@ -14,6 +14,8 @@
 // 5. Copiá la URL /exec resultante en SHEETS_URL dentro de cierres.html.
 // 6. Creá una carpeta en Drive para las fotos de respaldo (ej. "Cierres de
 //    caja - Kioskos"), copiá su ID y pegalo en FOLDER_ID_CIERRES más abajo.
+// 7. Corré también UNA VEZ agregarEncabezadosTipsPagos() para crear la
+//    pestaña "TipsPagos" (control de pago de propinas, control-tips.html).
 //
 // Si se agregan columnas nuevas: actualizar HEADERS al FINAL del array (nunca
 // insertar en el medio), volver a pegar el código, Implementar → Gestionar
@@ -51,6 +53,16 @@ const HEADERS_DEPOSITOS = [
   'Foto comprobante (URL)', 'Notas'
 ];
 
+// Pagos de propinas a colaboradores (tips cobrados en el cierre de tarjeta,
+// depositados aparte). Cada fila es un PAGO (puede cubrir varios cierres a
+// la vez, de uno o más kioskos), no un cierre individual — los cierres
+// cubiertos quedan en "IDs cierres cubiertos" (JSON con los ID de la hoja
+// "Cierres"), igual que "Fechas cubiertas" en Depositos.
+const HEADERS_TIPS_PAGOS = [
+  'ID', 'Fecha registro', 'Fecha de pago', 'Número de referencia',
+  'IDs cierres cubiertos', 'Kioskos', 'Monto total ₡', 'Notas'
+];
+
 function doPost(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -74,6 +86,10 @@ function doPost(e) {
 
     if (data.type === 'deposito') {
       return guardarDeposito(ss, data);
+    }
+
+    if (data.type === 'tipsPago') {
+      return guardarPagoTips(ss, data);
     }
 
     if (data.type === 'extraerIA') {
@@ -131,6 +147,30 @@ function doPost(e) {
   }
 }
 
+// A diferencia del Sheet de RRHH, este backend nunca fuerza formato de texto
+// en sus columnas de fecha/hora ('Fecha', 'Hora', 'Fecha registro', 'Fecha
+// depósito', 'Fecha de pago'...). Si Google Sheets autoconvirtió alguna
+// celda a un valor de fecha/hora real (Date object) — algo que puede pasar
+// fila por fila según cómo se haya escrito el dato — JSON.stringify serializa
+// ese Date en UTC. Los consumidores (cierres.html, depositos.html,
+// control-tips.html, servicio-10.html, index.html) solo hacen
+// String(fecha).slice(0,10), así que una fila afectada puede aparecer con la
+// fecha corrida y quedar excluida de los cálculos de ese día (ej.: Venta Neta
+// en ₡0 para una fecha con cierre real). Esta función reformatea cualquier
+// celda Date de vuelta a texto en hora de Costa Rica antes de mandarla, para
+// que la fecha/hora mostrada sea siempre la que se guardó, sin importar cómo
+// la haya autoconvertido Sheets.
+function normalizarFilaFechas(fila) {
+  return fila.map(function (v) {
+    if (!(v instanceof Date)) return v;
+    const horaTxt = Utilities.formatDate(v, 'America/Costa_Rica', 'HH:mm');
+    if (horaTxt === '00:00') {
+      return Utilities.formatDate(v, 'America/Costa_Rica', 'yyyy-MM-dd');
+    }
+    return horaTxt;
+  });
+}
+
 function doGet(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -146,13 +186,20 @@ function doGet(e) {
     const depSheet = ss.getSheetByName('Depositos');
     if (!depSheet || depSheet.getLastRow() === 0) return jsonOut({ records: [] });
     const rows = depSheet.getDataRange().getValues();
-    return jsonOut({ records: rows.slice(1) });
+    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+  }
+
+  if (e && e.parameter && e.parameter.action === 'tipspagos') {
+    const tipsSheet = ss.getSheetByName('TipsPagos');
+    if (!tipsSheet || tipsSheet.getLastRow() === 0) return jsonOut({ records: [] });
+    const rows = tipsSheet.getDataRange().getValues();
+    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
   }
 
   let sheet = ss.getSheetByName('Cierres');
   if (!sheet) sheet = ss.getActiveSheet();
   const rows = sheet.getDataRange().getValues();
-  return jsonOut({ records: rows.slice(1) });
+  return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
 }
 
 function jsonOut(obj) {
@@ -182,6 +229,19 @@ function agregarEncabezadosDepositos() {
     sheet.getRange(1, 1, 1, HEADERS_DEPOSITOS.length).setValues([HEADERS_DEPOSITOS]);
   }
   sheet.getRange(1, 1, 1, HEADERS_DEPOSITOS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+}
+
+function agregarEncabezadosTipsPagos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('TipsPagos');
+  if (!sheet) sheet = ss.insertSheet('TipsPagos');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS_TIPS_PAGOS);
+  } else {
+    sheet.getRange(1, 1, 1, HEADERS_TIPS_PAGOS.length).setValues([HEADERS_TIPS_PAGOS]);
+  }
+  sheet.getRange(1, 1, 1, HEADERS_TIPS_PAGOS.length).setFontWeight('bold');
   sheet.setFrozenRows(1);
 }
 
@@ -217,6 +277,32 @@ function guardarDeposito(ss, data) {
     data.diferenciaCrc || 0,
     data.diferenciaUsd || 0,
     fotoUrl,
+    data.notas || ''
+  ]);
+
+  return jsonOut({ result: 'ok' });
+}
+
+// ── PAGOS DE PROPINAS (TIPS) ──────────────────────────────────────
+// data: { id, fechaPago, referencia, idsCubiertos:[ID de Cierres...],
+//         kioskos:[nombre...], montoTotal, notas }
+function guardarPagoTips(ss, data) {
+  let sheet = ss.getSheetByName('TipsPagos');
+  if (!sheet) sheet = ss.insertSheet('TipsPagos');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS_TIPS_PAGOS);
+    sheet.getRange(1, 1, 1, HEADERS_TIPS_PAGOS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+
+  sheet.appendRow([
+    data.id || Date.now(),
+    hoyCR(),
+    data.fechaPago || '',
+    data.referencia || '',
+    JSON.stringify(data.idsCubiertos || []),
+    (data.kioskos || []).join(', '),
+    data.montoTotal || 0,
     data.notas || ''
   ]);
 
