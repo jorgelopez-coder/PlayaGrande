@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuentas por pagar · Kioskos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#faf7f0; --surface:#f2ede2; --card:#ffffff;
+      --border:#c8ddd0; --border-h:#8ab89e;
+      --text:#1c3a28; --muted:#5a8a6a; --subtle:#a0c8b0;
+      --green:#1a7a4a; --green-bg:#eef8f2; --green-lt:#d0eedd;
+      --red:#c84a20; --red-bg:#fdf0eb; --red-lt:#f0c0a8;
+      --amber:#c87820; --amber-bg:#fdf6e3; --amber-lt:#f0d890;
+      --blue:#185fa5; --blue-bg:#eef4fb; --blue-lt:#b8d0f0;
+      --purple:#6a3a9a; --purple-bg:#f3eefb;
+      --radius:12px; --font-d:'Inter Tight',sans-serif; --font-b:'Inter',sans-serif;
+    }
+    body { background:var(--bg); color:var(--text); font-family:var(--font-b); font-size:14px; line-height:1.6; min-height:100vh; }
+
+    header { height:56px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; background:var(--bg); position:sticky; top:0; z-index:20; }
+    .nav-left { display:flex; align-items:center; gap:10px; }
+    .back-btn { display:flex; align-items:center; gap:5px; font-size:13px; color:var(--muted); text-decoration:none; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); transition:color .15s,border-color .15s; }
+    .back-btn:hover { color:var(--text); border-color:var(--border-h); }
+    .back-btn svg { width:13px; height:13px; }
+    .page-title { font-family:var(--font-d); font-size:14px; font-weight:700; }
+    .nav-right { display:flex; align-items:center; gap:10px; }
+    .date-chip { font-size:11px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
+    .kiosko-sel { font-size:12.5px; font-weight:500; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); outline:none; cursor:pointer; }
+
+    main { max-width:1200px; margin:0 auto; padding:2rem 2rem 5rem; }
+    .page-header { margin-bottom:1.5rem; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .page-header h1 { font-family:var(--font-d); font-size:24px; font-weight:700; letter-spacing:-.02em; margin-bottom:4px; }
+    .page-header p { font-size:13px; color:var(--muted); }
+
+    /* KPIs */
+    .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.25rem; }
+    .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; }
+    .kpi-val { font-family:var(--font-d); font-size:22px; font-weight:700; letter-spacing:-.02em; color:var(--text); }
+    .kpi-lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+    .kpi-val.verde { color:var(--green); }
+    .kpi-val.rojo  { color:var(--red); }
+    .kpi-val.ambar { color:var(--amber); }
+    .kpi-box.kpi-clickable { cursor:pointer; user-select:none; }
+    .kpi-box-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+    .kpi-detalle { margin-top:.75rem; padding-top:.65rem; border-top:1px solid var(--border); font-size:12px; }
+    .kpi-detalle-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:.35rem 0; }
+    .kpi-detalle-row + .kpi-detalle-row { border-top:1px solid var(--border); }
+    .kpi-detalle-empty { color:var(--muted); padding:.25rem 0; }
+    .kpi-detalle-link { display:inline-block; margin-top:.5rem; font-size:11px; color:var(--green); cursor:pointer; }
+    .kpi-detalle-link:hover { text-decoration:underline; }
+
+    /* Banner de alerta (duplicados / sin conexión) */
+    .banner { display:flex; align-items:flex-start; gap:10px; padding:.85rem 1.1rem; border-radius:var(--radius); font-size:12.5px; margin-bottom:1rem; border:1px solid; }
+    .banner-warn { background:var(--red-bg); border-color:var(--red-lt); color:var(--red); }
+    .banner svg { width:16px; height:16px; flex-shrink:0; margin-top:1px; }
+
+    /* Tabs */
+    .tabs { display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:1.25rem; width:fit-content; flex-wrap:wrap; }
+    .tab { font-size:13px; font-weight:500; padding:6px 16px; border-radius:7px; border:none; cursor:pointer; background:transparent; color:var(--muted); transition:background .15s,color .15s; white-space:nowrap; }
+    .tab.active { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+    /* Toolbar */
+    .toolbar { display:flex; gap:8px; margin-bottom:1rem; flex-wrap:wrap; align-items:center; }
+    .search-wrap { position:relative; flex:1; min-width:200px; }
+    .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--subtle); pointer-events:none; }
+    .search-input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:9px; color:var(--text); font-family:var(--font-b); font-size:13px; padding:8px 12px 8px 32px; outline:none; transition:border-color .15s; }
+    .search-input:focus { border-color:var(--green); }
+    .search-input::placeholder { color:var(--subtle); }
+    .filter-sel { font-size:13px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); outline:none; cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:30px; }
+    input[type="date"] { background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-b); font-size:12.5px; padding:6px 8px; outline:none; }
+    input[type="date"]:focus { border-color:var(--green); }
+
+    /* Card */
+    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:12px; overflow:hidden; }
+
+    /* Tabla */
+    .tabla-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; background:var(--surface); }
+    td { padding:11px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:var(--surface); }
+    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .kiosko-tag { display:inline-block; font-size:10px; font-weight:600; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:1px 8px; margin-left:6px; white-space:nowrap; }
+
+    /* Fila expandible */
+    .tr-main { cursor:pointer; }
+    .tr-detail { display:none; }
+    .tr-detail.open { display:table-row; }
+    .detail-cell { padding:0 !important; border-bottom:1px solid var(--border); }
+    .detail-inner { padding:12px 24px; background:var(--surface); }
+    .detail-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .detail-table th { background:transparent; font-size:10px; padding:6px 8px; }
+    .detail-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+    .detail-table tr:last-child td { border-bottom:none; }
+
+    /* Badges de estado */
+    .badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+    .b-tiempo    { background:var(--green-bg); color:var(--green); }
+    .b-vencida   { background:var(--red-bg);   color:var(--red); }
+    .b-abono     { background:var(--amber-bg); color:var(--amber); }
+    .b-cancelada { background:var(--blue-bg);  color:var(--blue); }
+    .b-dup       { background:var(--red-bg);   color:var(--red); }
+    .b-dup-monto { background:var(--amber-bg); color:var(--amber); }
+    .b-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
+
+    /* Botones de acción de fila */
+    .row-actions { display:flex; gap:6px; }
+    .btn-mini { font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; white-space:nowrap; }
+    .btn-mini:hover { border-color:var(--border-h); color:var(--text); }
+    .btn-mini.pago  { border-color:var(--green-lt); background:var(--green-bg); color:var(--green); }
+    .btn-mini.pago:hover { background:var(--green); color:#fff; }
+    .btn-mini.abono { border-color:var(--amber-lt); background:var(--amber-bg); color:var(--amber); }
+    .btn-mini.abono:hover { background:var(--amber); color:#fff; }
+    .btn-mini:disabled { opacity:.4; cursor:default; }
+
+    #btn-toggle-filtros.activo { border-color:var(--green-lt); background:var(--green-bg); color:var(--green); }
+    .filtro-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:20px; background:var(--green); color:#fff; font-size:10px; font-weight:700; }
+
+    /* Filtro de estado multi-selección (chips) */
+    .estado-filtro { display:flex; gap:6px; flex-wrap:wrap; }
+    .estado-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:500; padding:7px 12px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--muted); cursor:pointer; user-select:none; transition:background .12s,border-color .12s,color .12s; }
+    .estado-chip input { display:none; }
+    .estado-chip:hover { border-color:var(--border-h); }
+    .estado-chip.chk-tiempo.activo    { background:var(--green-bg);  border-color:var(--green-lt);  color:var(--green); }
+    .estado-chip.chk-vencida.activo   { background:var(--red-bg);    border-color:var(--red-lt);    color:var(--red); }
+    .estado-chip.chk-abono.activo     { background:var(--amber-bg); border-color:var(--amber-lt);  color:var(--amber); }
+    .estado-chip.chk-cancelada.activo { background:var(--blue-bg);   border-color:var(--blue-lt);   color:var(--blue); }
+
+    .proj-input { width:130px; font-size:12px; padding:5px 7px; }
+    .proy-wrap { display:inline-block; }
+    .proy-wrap .proj-input { display:none; }
+    .proy-wrap.open .proy-toggle { display:none; }
+    .proy-wrap.open .proj-input { display:inline-block; }
+    .proy-toggle { display:flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--border); border-radius:7px; padding:5px 8px; cursor:pointer; white-space:nowrap; }
+    .proy-toggle:hover { color:var(--text); border-color:var(--border-h); }
+
+    /* Arrow toggle */
+    .toggle-arrow { width:16px; height:16px; transition:transform .2s; color:var(--subtle); }
+    .toggle-arrow.open { transform:rotate(180deg); }
+
+    /* Paginación */
+    .pagination { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+    .pag-btns { display:flex; gap:4px; }
+    .pag-btn { padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:12px; cursor:pointer; transition:background .12s; }
+    .pag-btn:hover:not(:disabled) { background:var(--surface); color:var(--text); }
+    .pag-btn:disabled { opacity:.4; cursor:default; }
+    .pag-btn.active { background:var(--green); color:#fff; border-color:var(--green); }
+
+    /* Empty / Spinner */
+    .empty { text-align:center; padding:3rem; color:var(--subtle); font-size:13px; }
+    .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Status */
+    .status-bar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem 1.25rem; font-size:12px; color:var(--muted); margin-top:1.5rem; }
+    .sdot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+    .sdot.off { background:var(--subtle); }
+    .ssep { width:1px; height:14px; background:var(--border); }
+
+    /* MODAL */
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:50; align-items:flex-start; justify-content:center; padding:1.5rem 1rem; overflow-y:auto; }
+    .modal-bg.open { display:flex; }
+    .modal { background:var(--card); border-radius:16px; width:100%; max-width:440px; margin:auto; }
+    .modal-head { padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .modal-title { font-family:var(--font-d); font-size:18px; font-weight:700; }
+    .modal-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+    .close-btn { background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1; }
+    .modal-body { padding:1.25rem 1.5rem; }
+    .field { margin-bottom:.9rem; }
+    .field label { font-size:13px; font-weight:500; display:block; margin-bottom:5px; }
+    .field input, .field select { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-b); font-size:13px; padding:8px 12px; outline:none; transition:border-color .15s; }
+    .field input:focus, .field select:focus { border-color:var(--green); }
+    .field-hint { font-size:11px; color:var(--muted); margin-top:3px; }
+    .modal-foot { padding:1rem 1.5rem; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+    .btn-sec { padding:9px 16px; border-radius:9px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+    .btn-sec:hover { color:var(--text); border-color:var(--border-h); }
+    .btn-save { padding:10px 22px; border-radius:9px; background:var(--green); color:#fff; border:none; font-family:var(--font-d); font-size:14px; font-weight:700; cursor:pointer; }
+    .btn-save:hover { opacity:.9; }
+
+    /* Proveedores (tab) */
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:1rem 0 .5rem; }
+    .prov-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
+    .prov-row:last-child { border-bottom:none; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.success { border-color:var(--green); color:var(--green); }
+    .toast.error   { border-color:var(--red);   color:var(--red); }
+    .toast svg { width:16px; height:16px; flex-shrink:0; }
+
+    @media (max-width:700px) {
+      header { padding:0 1rem; } main { padding:1.5rem 1rem 3rem; }
+      .kpi-strip { grid-template-columns:1fr 1fr; }
+      .field-row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Cuentas por pagar</span>
+  </div>
+  <div class="nav-right">
+    <select class="kiosko-sel" id="sel-kiosko" onchange="cambiarKiosko(this.value)">
+      <option value="">Todos los kioskos</option>
+    </select>
+    <span class="date-chip" id="date-chip"></span>
+  </div>
+</header>
+
+<main>
+  <div class="page-header">
+    <div>
+      <h1>Cuentas por pagar</h1>
+      <p>Facturas de proveedores de todos los kioskos · vencimientos · proyección y registro de pagos</p>
+    </div>
+    <div id="status-carga" style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;">
+      <span class="spinner"></span> Cargando…
+    </div>
+  </div>
+
+  <!-- Banner de facturas duplicadas -->
+  <div class="banner banner-warn" id="banner-duplicados" style="display:none;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:flex-start;gap:10px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <strong>Posibles facturas duplicadas detectadas.</strong>
+        <span id="banner-duplicados-msg"></span>
+      </div>
+    </div>
+    <button class="btn-mini" style="border-color:var(--red-lt);background:#fff;color:var(--red);white-space:nowrap;" onclick="irATabDuplicados()">Ver duplicados →</button>
+  </div>
+
+  <!-- Indicador: pagos proyectados de la semana en curso -->
+  <div class="card" id="card-semana" style="display:none;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--blue);"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <strong style="font-size:13px;">Pagos proyectados esta semana</strong>
+        <span class="filtro-badge" id="semana-count" style="background:var(--blue);"></span>
+      </div>
+      <span style="font-size:12px;color:var(--muted);">Total: <strong id="semana-total" style="color:var(--text);"></strong></span>
+    </div>
+    <div id="lista-semana" style="padding:.25rem 1.25rem;"></div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-strip">
+    <div class="kpi-box kpi-clickable" onclick="toggleKpiDetalle('total')">
+      <div class="kpi-box-head">
+        <div>
+          <div class="kpi-val verde" id="kpi-total">₡—</div>
+          <div class="kpi-lbl">Total por pagar</div>
+        </div>
+        <svg class="toggle-arrow" id="kpi-ico-total" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-total" style="display:none;"></div>
+    </div>
+    <div class="kpi-box kpi-clickable" onclick="toggleKpiDetalle('vencidas')">
+      <div class="kpi-box-head">
+        <div>
+          <div class="kpi-val rojo" id="kpi-vencidas">—</div>
+          <div class="kpi-lbl">Facturas vencidas</div>
+        </div>
+        <svg class="toggle-arrow" id="kpi-ico-vencidas" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-vencidas" style="display:none;"></div>
+    </div>
+    <div class="kpi-box kpi-clickable" onclick="toggleKpiDetalle('porvencer')">
+      <div class="kpi-box-head">
+        <div>
+          <div class="kpi-val ambar" id="kpi-porvencer">—</div>
+          <div class="kpi-lbl">Vencen en 7 días</div>
+        </div>
+        <svg class="toggle-arrow" id="kpi-ico-porvencer" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-porvencer" style="display:none;"></div>
+    </div>
+    <div class="kpi-box kpi-clickable" onclick="toggleKpiDetalle('pagado-mes')">
+      <div class="kpi-box-head">
+        <div>
+          <div class="kpi-val" id="kpi-pagado-mes">₡—</div>
+          <div class="kpi-lbl">Pagado este mes</div>
+        </div>
+        <svg class="toggle-arrow" id="kpi-ico-pagado-mes" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-pagado-mes" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('facturas',this)">Facturas</button>
+    <button class="tab" onclick="switchTab('proyeccion',this)">Proyección de pagos</button>
+    <button class="tab" onclick="switchTab('historial',this)">Historial</button>
+    <button class="tab" id="tab-btn-duplicados" onclick="switchTab('duplicados',this)">Duplicados <span class="filtro-badge" id="dup-tab-count" style="display:none;background:var(--red);"></span></button>
+    <button class="tab" onclick="switchTab('proveedores',this)">Proveedores</button>
+  </div>
+
+  <!-- ══ TAB FACTURAS ══════════════════════════════════════════════ -->
+  <div id="tab-facturas">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="s-fact" placeholder="Buscar factura, proveedor o referencia de pago…" oninput="renderFacturas()">
+      </div>
+      <button class="btn-mini" id="btn-toggle-filtros" onclick="toggleFiltros()" style="display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros
+        <span class="filtro-badge" id="filtro-count" style="display:none;">0</span>
+        <svg class="toggle-arrow" id="filtro-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <button class="btn-mini" onclick="descargarReporte()" style="display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+        Descargar reporte
+      </button>
+    </div>
+
+    <div class="card" id="panel-filtros" style="display:none;padding:1rem 1.25rem;margin-bottom:1rem;">
+      <div class="toolbar" style="margin-bottom:.75rem;align-items:center;">
+        <div class="estado-filtro" id="f-estado">
+          <label class="estado-chip chk-tiempo"><input type="checkbox" value="A tiempo" onchange="toggleEstadoChip(this)"><span>A tiempo</span></label>
+          <label class="estado-chip chk-vencida"><input type="checkbox" value="Vencida" onchange="toggleEstadoChip(this)"><span>Vencida</span></label>
+          <label class="estado-chip chk-abono"><input type="checkbox" value="Abono" onchange="toggleEstadoChip(this)"><span>Abono</span></label>
+          <label class="estado-chip chk-cancelada"><input type="checkbox" value="Cancelada" onchange="toggleEstadoChip(this)"><span>Cancelada</span></label>
+        </div>
+        <select class="filter-sel" id="f-proveedor" onchange="renderFacturas()">
+          <option value="">Todos los proveedores</option>
+        </select>
+        <select class="filter-sel" id="f-anio" onchange="renderFacturas()">
+          <option value="">Todos los años</option>
+        </select>
+        <select class="filter-sel" id="f-mes" onchange="renderFacturas()">
+          <option value="">Todos los meses</option>
+          <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+          <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+          <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select class="filter-sel" id="f-proyectada" onchange="renderFacturas()">
+          <option value="">Fecha proyectada: todas</option>
+          <option value="con">Con fecha proyectada</option>
+          <option value="sin">Sin fecha proyectada</option>
+        </select>
+      </div>
+      <div class="toolbar" style="margin-bottom:0;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:12px;color:var(--muted);">Desde</label>
+          <input type="date" id="f-desde" onchange="renderFacturas()">
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:12px;color:var(--muted);">Hasta</label>
+          <input type="date" id="f-hasta" onchange="renderFacturas()">
+        </div>
+        <button class="btn-mini" onclick="limpiarFiltroFecha()">Limpiar fechas</button>
+        <button class="btn-mini" style="margin-left:auto;" onclick="limpiarTodosFiltros()">Limpiar todos los filtros</button>
+      </div>
+    </div>
+
+    <div class="card" id="seleccion-bar" style="display:none;padding:.75rem 1.25rem;margin-bottom:12px;background:var(--green-bg);border-color:var(--green-lt);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:13px;color:var(--green);"><strong id="sel-count">0</strong> factura(s) seleccionada(s)</span>
+      <span style="font-size:14px;font-weight:700;color:var(--green);font-family:var(--font-d);">Total: <span id="sel-total">₡0,00</span></span>
+      <button class="btn-mini" onclick="limpiarSeleccion()">Limpiar selección</button>
+    </div>
+
+    <div class="card">
+      <div class="tabla-wrap" id="tabla-facturas">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+      <div class="pagination" id="pag-facturas" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PROYECCIÓN ═══════════════════════════════════════════ -->
+  <div id="tab-proyeccion" style="display:none;">
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+        Línea de tiempo de pagos proyectados
+      </div>
+      <div class="tabla-wrap" id="tabla-proyeccion">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+      <div id="proyeccion-resumen" style="padding:.85rem 1.25rem;font-size:12px;color:var(--muted);border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB HISTORIAL ════════════════════════════════════════════ -->
+  <div id="tab-historial" style="display:none;">
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+        Pagos registrados
+      </div>
+      <div class="tabla-wrap" id="tabla-historial">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB DUPLICADOS ═══════════════════════════════════════════ -->
+  <div id="tab-duplicados" style="display:none;">
+    <div class="banner banner-warn" style="align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          Estas facturas comparten kiosko, número y fecha, y probablemente se cargaron dos veces desde el archivo de Drive.
+          Revisá cada grupo: aceptalo si es un registro legítimo, o eliminá la copia que sobra directamente del origen (hoja <strong>Registro Facturas</strong>).
+          Esta acción no se puede deshacer.
+        </div>
+      </div>
+      <button class="btn-mini" style="border-color:var(--red-lt);background:#fff;color:var(--red);white-space:nowrap;" onclick="eliminarTodasCopias2()">Eliminar todas las copias 2</button>
+    </div>
+    <div id="lista-duplicados">
+      <div class="empty"><span class="spinner"></span></div>
+    </div>
+
+    <h3 style="margin:1.75rem 0 .5rem;font-family:var(--font-d);font-size:15px;">Posibles duplicados por proveedor, fecha y monto</h3>
+    <div class="banner" style="align-items:flex-start;gap:10px;background:var(--amber-bg);border-color:var(--amber-lt);color:var(--amber);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        Estas facturas comparten kiosko, proveedor, fecha y monto, pero tienen números de factura distintos: puede tratarse de un reingreso
+        con el folio mal digitado, o de dos facturas legítimas que coinciden en monto por casualidad. Revisá antes de eliminar.
+      </div>
+    </div>
+    <div id="lista-duplicados-monto">
+      <div class="empty"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PROVEEDORES ══════════════════════════════════════════ -->
+  <div id="tab-proveedores" style="display:none;">
+    <div class="card" style="padding:1.25rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <strong id="prov-form-titulo" style="font-family:var(--font-d);font-size:14px;">Nuevo proveedor</strong>
+        <button class="btn-link" id="prov-cancelar" style="display:none;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;" onclick="cancelarEdicionProveedor()">Cancelar edición</button>
+      </div>
+      <input type="hidden" id="pv-id">
+      <div class="field-row">
+        <div class="field"><label for="pv-nombre-juridico">Nombre jurídico *</label><input type="text" id="pv-nombre-juridico" placeholder="Distribuidora XYZ S.A."></div>
+        <div class="field"><label for="pv-nombre-comercial">Nombre comercial</label><input type="text" id="pv-nombre-comercial" placeholder="Nombre con que se conoce"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="pv-categoria">Categoría</label>
+          <select id="pv-categoria">
+            <option value="" selected>Sin categoría</option>
+            <option>Frutas y Verduras</option><option>Carnes y Aves</option><option>Mariscos</option>
+            <option>Lácteos y Huevos</option><option>Bebidas</option><option>Abarrotes</option>
+            <option>Limpieza e Higiene</option><option>Empaques y Desechables</option>
+            <option>Panadería y Repostería</option><option>Servicios</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="field"><label for="pv-contacto">Nombre de contacto</label><input type="text" id="pv-contacto" placeholder="Vendedor o encargado"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="pv-telefono">Teléfono</label><input type="text" id="pv-telefono" placeholder="8888-8888"></div>
+        <div class="field"><label for="pv-correo">Correo</label><input type="email" id="pv-correo" placeholder="correo@proveedor.com"></div>
+      </div>
+      <div class="field"><label for="pv-dias-pedido">Días de pedido</label><input type="text" id="pv-dias-pedido" placeholder="Lunes, Jueves…"></div>
+      <div class="field"><label for="pv-notas-contacto">Observaciones de contacto</label><input type="text" id="pv-notas-contacto" placeholder="Horario de atención, datos adicionales…"></div>
+      <div class="section-label">Info de pago</div>
+      <div class="field-row">
+        <div class="field"><label for="pv-cuenta">Número de cuenta / IBAN</label><input type="text" id="pv-cuenta" placeholder="CR21 0152 0200 1026 2840 66"></div>
+        <div class="field">
+          <label for="pv-condicion-pago">Condición de pago (días de crédito)</label>
+          <input type="number" min="0" id="pv-condicion-pago" placeholder="0" value="0">
+          <div class="field-hint">Días desde la fecha de factura hasta el vencimiento.</div>
+        </div>
+      </div>
+      <div class="field"><label for="pv-notas-pago">Observaciones de pago</label><input type="text" id="pv-notas-pago" placeholder="Banco, tipo de cuenta, datos adicionales…"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:.5rem;">
+        <button class="btn-save" onclick="guardarProveedorForm()">Guardar proveedor</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">Proveedores registrados</div>
+      <div id="prov-lista"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div style="display:flex;align-items:center;gap:6px;"><span class="sdot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
+    <span class="ssep"></span>
+    <span id="status-msg">—</span>
+    <span style="margin-left:auto;">v1.0 · Cuentas por pagar · Kioskos</span>
+  </div>
+</main>
+
+<!-- MODAL REGISTRAR PAGO -->
+<div class="modal-bg" id="modal-pago">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Registrar pago</div>
+        <div class="modal-sub" id="pago-sub">Factura —</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-pago')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pago-numero">
+      <input type="hidden" id="pago-kiosko">
+      <div class="field">
+        <label for="pago-fecha">Fecha real de pago</label>
+        <input type="date" id="pago-fecha">
+      </div>
+      <div class="field">
+        <label for="pago-medio">Medio de pago</label>
+        <select id="pago-medio" onchange="actualizarCamposMedioPago('pago')">
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta débito">Tarjeta débito</option>
+          <option value="Caja chica">Caja chica</option>
+          <option value="Fondo de caja">Fondo de caja</option>
+          <option value="Reembolso">Reembolso</option>
+          <option value="Nota de crédito">Nota de crédito</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field" id="pago-campo-reembolso" style="display:none;">
+        <label for="pago-reembolso-a">Reembolsar a</label>
+        <input type="text" id="pago-reembolso-a" placeholder="Nombre de la persona a reembolsar">
+      </div>
+      <div class="field" id="pago-campo-notacredito" style="display:none;">
+        <label for="pago-nota-credito">Nota de crédito asociada</label>
+        <input type="text" id="pago-nota-credito" placeholder="Número de la nota de crédito">
+      </div>
+      <div class="field">
+        <label for="pago-referencia">Referencia bancaria</label>
+        <input type="text" id="pago-referencia" placeholder="Nº de transferencia / comprobante">
+        <div class="field-hint">Al guardar, la factura pasa a estado <strong>Cancelada</strong>.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModal('modal-pago')">Cancelar</button>
+      <button class="btn-save" onclick="guardarPago()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ABONO PARCIAL -->
+<div class="modal-bg" id="modal-abono">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Abono parcial</div>
+        <div class="modal-sub" id="abono-sub">Factura —</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-abono')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="abono-numero">
+      <input type="hidden" id="abono-kiosko">
+      <div class="field">
+        <label for="abono-fecha">Fecha del abono</label>
+        <input type="date" id="abono-fecha">
+      </div>
+      <div class="field">
+        <label for="abono-monto">Monto abonado</label>
+        <input type="number" step="0.01" id="abono-monto" placeholder="0.00">
+        <div class="field-hint" id="abono-saldo-hint"></div>
+      </div>
+      <div class="field">
+        <label for="abono-medio">Medio de pago</label>
+        <select id="abono-medio" onchange="actualizarCamposMedioPago('abono')">
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta débito">Tarjeta débito</option>
+          <option value="Caja chica">Caja chica</option>
+          <option value="Fondo de caja">Fondo de caja</option>
+          <option value="Reembolso">Reembolso</option>
+          <option value="Nota de crédito">Nota de crédito</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field" id="abono-campo-reembolso" style="display:none;">
+        <label for="abono-reembolso-a">Reembolsar a</label>
+        <input type="text" id="abono-reembolso-a" placeholder="Nombre de la persona a reembolsar">
+      </div>
+      <div class="field" id="abono-campo-notacredito" style="display:none;">
+        <label for="abono-nota-credito">Nota de crédito asociada</label>
+        <input type="text" id="abono-nota-credito" placeholder="Número de la nota de crédito">
+      </div>
+      <div class="field">
+        <label for="abono-referencia">Referencia bancaria</label>
+        <input type="text" id="abono-referencia" placeholder="Nº de transferencia / comprobante">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModal('modal-abono')">Cancelar</button>
+      <button class="btn-save" onclick="guardarAbono()">Guardar abono</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO (mismo patrón que compras.html/cierres.html) ─
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('cuentas-por-pagar')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// ─── CONFIGURACIÓN ────────────────────────────────────────────────
+// Sheet nuevo "Cuentas por Pagar - Kioskos" (ver Code-cuentas-por-pagar-kioskos-backend.gs).
+// Reemplazá estos dos valores una vez creado y desplegado el Sheet/Web App.
+const COMPRAS_SHEET_ID = 'PEGAR_AQUI_EL_ID_DEL_SHEET_CUENTAS_POR_PAGAR_KIOSKOS';
+const APPS_SCRIPT_AP = 'PEGAR_AQUI_LA_URL_/exec_DEL_WEB_APP_DE_CUENTAS_POR_PAGAR_KIOSKOS';
+// Mismo backend de RRHH que ya usan compras.html/cierres.html/inventario.html,
+// para traer la lista de kioskos activos (?modulo=kioskos).
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+// ─────────────────────────────────────────────────────────────────
+
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let kioskoActual = ''; // '' = todos los kioskos
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+const hoyISO = hoy.toISOString().slice(0,10);
+
+const fmt  = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const fmtN = n => Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const escapeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+
+let dataFacturas = [];   // hoja "Registro Facturas" (una fila por factura, con columna Kiosko)
+let proveedores  = [];   // hoja "proveedores" del Sheet
+let dataAbonos   = [];   // hoja "Abonos" (pagos parciales)
+let dataDesglose = [];   // hoja "Desglose_IA" (líneas de producto por factura)
+let facturasAP   = [];   // dataset ya calculado (estado, saldo, kiosko, etc.) — TODOS los kioskos
+let pagFacturas  = 1;
+const POR_PAGINA = 100;
+const seleccionadas = new Set(); // claves compuestas "numero§kiosko" marcadas con check
+
+// Clave compuesta número de factura + kiosko: el número de factura solo es
+// único DENTRO de un mismo kiosko, así que toda identificación de una factura
+// concreta (selección, lookup, modales) tiene que usar esta clave, no solo el número.
+function claveF(numero, kiosko) { return String(numero) + '§' + String(kiosko||''); }
+
+async function cargarKioskos() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  } catch(e) { /* se queda con el respaldo hardcodeado */ }
+  const sel = document.getElementById('sel-kiosko');
+  sel.innerHTML = '<option value="">Todos los kioskos</option>' +
+    KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
+}
+
+function cambiarKiosko(valor) {
+  kioskoActual = valor || '';
+  inicializar();
+}
+
+// Dataset visible según el kiosko seleccionado en el encabezado.
+function datasetActual() {
+  return kioskoActual ? facturasAP.filter(f => f.kiosko === kioskoActual) : facturasAP;
+}
+function abonosVisibles() {
+  return kioskoActual ? dataAbonos.filter(a => a['Kiosko'] === kioskoActual) : dataAbonos;
+}
+
+// ── GVIZ: leer hoja pública del Sheet de compras ──────────────────
+// Nota: si la hoja solicitada no existe todavía, el endpoint gviz de Google
+// hace fallback silencioso a la PRIMERA hoja del archivo en vez de dar
+// error. Por eso se valida con `expectedCol` que la hoja devuelta sea
+// realmente la que se pidió antes de aceptar los datos.
+function gvizLoad(hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    var cb    = '_ap_' + Math.random().toString(36).slice(2,10);
+    var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '&sheet=' + encodeURIComponent(hoja);
+    var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e) {}
+      try { if (s && s.parentNode) document.body.removeChild(s); } catch(e) {}
+    }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        var cols = (data.table.cols||[]).map(function(c){ return String(c.label||c.id||'').trim(); });
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        var rows = (data.table.rows||[]).filter(function(r){ return r&&r.c; }).map(function(row){
+          var obj = {};
+          cols.forEach(function(col,i){
+            var cell = row.c[i];
+            obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : '';
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    var s = document.createElement('script');
+    s.onerror = function(){ cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
+}
+
+function filaAProveedor(r) {
+  return {
+    id: r['ID'] || '',
+    nombre_juridico: r['Nombre jurídico'] || '',
+    nombre_comercial: r['Nombre comercial'] || '',
+    categoria: r['Categoría'] || '',
+    contacto: r['Contacto'] || '',
+    telefono: r['Teléfono'] || '',
+    correo: r['Correo'] || '',
+    dias_pedido: r['Días de pedido'] || '',
+    notas_contacto: r['Notas de contacto'] || '',
+    cuenta: r['Cuenta'] || '',
+    condicion_pago: r['Condición de pago'],
+    notas_pago: r['Notas de pago'] || ''
+  };
+}
+
+async function cargarDatos() {
+  document.getElementById('status-carga').innerHTML = '<span class="spinner"></span> Conectando con Google Sheets…';
+  try {
+    const [dF, dP, dAb, dDes] = await Promise.all([
+      gvizLoad('Registro Facturas', 'Factura'),
+      gvizLoad('proveedores', 'ID').catch(() => []),
+      gvizLoad('Abonos', 'Monto abonado').catch(() => []),
+      gvizLoad('Desglose_IA', 'Producto').catch(() => [])
+    ]);
+
+    if (!dF.length) throw new Error('Sin datos en la hoja de facturas');
+
+    dataFacturas = dF;
+    proveedores  = dP.filter(r => r['ID']).map(filaAProveedor);
+    dataAbonos   = dAb;
+    dataDesglose = dDes;
+
+    document.getElementById('conn-dot').classList.remove('off');
+    document.getElementById('conn-label').textContent = 'Conectado · Google Sheets';
+    document.getElementById('status-carga').innerHTML =
+      '<span style="color:var(--green);">✓</span> ' + dataFacturas.length + ' facturas cargadas';
+
+    construirFacturasAP();
+    inicializar();
+    renderProveedoresTab();
+
+  } catch(e) {
+    console.error('Error cargando cuentas por pagar:', e.message);
+    document.getElementById('conn-dot').classList.add('off');
+    document.getElementById('conn-label').textContent = 'Error de conexión';
+    document.getElementById('status-carga').innerHTML =
+      '<span style="color:var(--red);">✕</span> ' + e.message;
+    ['tabla-facturas','tabla-proyeccion','tabla-historial'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="empty">No se pudo conectar. Verificá que el Sheet sea público (Compartir → Cualquiera con el enlace).</div>';
+    });
+  }
+}
+
+function limpiarMonto(v) { return parseFloat(String(v||'0').replace(/[,₡\s]/g,'')) || 0; }
+
+// Normaliza texto para comparar nombres de proveedor sin depender de mayúsculas,
+// tildes o espacios extra (p.ej. "Distribuidora ABC" vs "distribuidora  abc").
+function normalizarTexto(s) {
+  return String(s||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+// Clave de "duplicado posible": kiosko + proveedor + fecha de factura + moneda
+// + monto. Incluye el kiosko porque el mismo proveedor puede facturarle a dos
+// kioskos distintos el mismo día por el mismo monto sin que eso sea un duplicado.
+function claveDupMontoDeCampos(kiosko, proveedor, fechaFactura, moneda, monto) {
+  return String(kiosko||'') + '||' + normalizarTexto(proveedor) + '||' + fechaFactura + '||' + (moneda||'CRC') + '||' + Number(monto||0).toFixed(2);
+}
+
+// Convierte fechas formateadas por gviz como "D/M/YYYY" a ISO "YYYY-MM-DD".
+function isoDate(str) {
+  const s = String(str||'').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return '';
+  const [, d, mo, y] = m;
+  return y + '-' + mo.padStart(2,'0') + '-' + d.padStart(2,'0');
+}
+
+// Suma días de crédito a una fecha ISO para obtener la fecha de vencimiento.
+function sumarDias(fechaISO, dias) {
+  if (!fechaISO) return '';
+  const d = new Date(fechaISO + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + (parseInt(dias)||0));
+  return d.toISOString().slice(0,10);
+}
+
+function buscarProveedor(nombreFactura) {
+  const nombre = (nombreFactura||'').trim().toLowerCase();
+  if (!nombre) return null;
+  return proveedores.find(p =>
+    (p.nombre_juridico||'').trim().toLowerCase() === nombre ||
+    (p.nombre_comercial||'').trim().toLowerCase() === nombre
+  ) || null;
+}
+
+// ── CONSTRUIR DATASET: hoja "Registro Facturas" (todos los kioskos) + proveedores ──
+function construirFacturasAP() {
+  const parsed = dataFacturas.filter(r => (r['Factura']||'').trim()).map(r => ({
+    r,
+    numero: r['Factura'].trim(),
+    kiosko: r['Kiosko'] || '',
+    proveedorNombre: r['Proveedor'] || '',
+    fechaFactura: isoDate(r['Fecha']),
+    moneda: r['Moneda'] || 'CRC',
+    monto: limpiarMonto(r['TOTAL']),
+    aceptado: ['sí','si','true'].includes(String(r['Duplicado aceptado']||'').trim().toLowerCase())
+  }));
+
+  // Duplicado exacto = mismo kiosko + número de factura + misma fecha, salvo
+  // que ya se haya aceptado explícitamente como registro legítimo.
+  const claveDup = p => p.kiosko + '||' + p.numero + '||' + p.fechaFactura;
+  const conteo = {};
+  const grupoAceptado = {};
+  parsed.forEach(p => {
+    const k = claveDup(p);
+    conteo[k] = (conteo[k]||0) + 1;
+    if (p.aceptado) grupoAceptado[k] = true;
+  });
+  const esDuplicada = p => conteo[claveDup(p)] > 1 && !grupoAceptado[claveDup(p)];
+
+  // Duplicado posible = mismo kiosko + proveedor + fecha de factura + monto,
+  // aunque el número de factura sea distinto. Solo cuenta si el grupo tiene al
+  // menos dos números de factura distintos.
+  const claveDupMonto = p => claveDupMontoDeCampos(p.kiosko, p.proveedorNombre, p.fechaFactura, p.moneda, p.monto);
+  const conteoMonto = {};
+  const numerosPorClaveMonto = {};
+  const grupoMontoAceptado = {};
+  parsed.forEach(p => {
+    const km = claveDupMonto(p);
+    conteoMonto[km] = (conteoMonto[km]||0) + 1;
+    if (!numerosPorClaveMonto[km]) numerosPorClaveMonto[km] = new Set();
+    numerosPorClaveMonto[km].add(p.numero);
+    if (p.aceptado) grupoMontoAceptado[km] = true;
+  });
+  const esDuplicadaPorMonto = p => conteoMonto[claveDupMonto(p)] > 1
+    && numerosPorClaveMonto[claveDupMonto(p)].size > 1
+    && !grupoMontoAceptado[claveDupMonto(p)];
+
+  const clavesExactasDuplicadas = [...new Set(parsed.filter(esDuplicada).map(claveDup))];
+  const clavesMontoDuplicadas = [...new Set(parsed.filter(esDuplicadaPorMonto).map(claveDupMonto))];
+
+  const bannerDup = document.getElementById('banner-duplicados');
+  if (clavesExactasDuplicadas.length || clavesMontoDuplicadas.length) {
+    bannerDup.style.display = 'flex';
+    const partes = [];
+    if (clavesExactasDuplicadas.length) {
+      partes.push(clavesExactasDuplicadas.length + ' grupo(s) con mismo kiosko, número y fecha');
+    }
+    if (clavesMontoDuplicadas.length) {
+      partes.push(clavesMontoDuplicadas.length + ' posible(s) duplicado(s) por kiosko + proveedor + fecha + monto con número de factura distinto');
+    }
+    document.getElementById('banner-duplicados-msg').textContent = ' Revisá — ' + partes.join(' · ');
+  } else {
+    bannerDup.style.display = 'none';
+  }
+  const dupTabBadge = document.getElementById('dup-tab-count');
+  const totalGruposRevisar = clavesExactasDuplicadas.length + clavesMontoDuplicadas.length;
+  if (totalGruposRevisar) {
+    dupTabBadge.textContent = totalGruposRevisar;
+    dupTabBadge.style.display = 'inline-flex';
+  } else {
+    dupTabBadge.style.display = 'none';
+  }
+
+  // El ordinal identifica la posición física de cada fila entre las que
+  // comparten kiosko + número de Factura (así el backend borra la copia
+  // correcta), independientemente de si califican como duplicado.
+  const contadorOrdinal = {};
+  facturasAP = parsed.map(p => {
+    const { r, numero, kiosko, proveedorNombre, fechaFactura } = p;
+    const claveOrdinal = kiosko + '||' + numero;
+    contadorOrdinal[claveOrdinal] = (contadorOrdinal[claveOrdinal]||0) + 1;
+
+    const monto           = limpiarMonto(r['TOTAL']);
+    const moneda          = r['Moneda'] || 'CRC';
+    const fechaProyectada = isoDate(r['Fecha proyectada de pago']);
+    const fechaRealPago   = isoDate(r['Fecha de pago']);
+    const medioPago       = r['Medio de pago'] || '';
+    const referenciaPago  = r['Referencia'] || '';
+    const nota            = r['Notas'] || '';
+    const totalAbonado    = parseFloat(r['Total abonado'])||0;
+    // Tipo de cambio: para CRC es 1; para USD se define manualmente en la UI
+    // (no hay columna confiable en el Sheet), conservando el valor ya cargado si existe.
+    const tcPrevio   = facturaPorNumero(numero, kiosko);
+    const tipoCambio = moneda === 'CRC' ? 1 : (tcPrevio ? tcPrevio.tipoCambio : (limpiarMonto(r['TC']) || null));
+    const montoColones = moneda === 'CRC' ? monto : (tipoCambio ? Math.round(monto * tipoCambio * 100) / 100 : null);
+
+    const prov = buscarProveedor(proveedorNombre);
+    const sinProveedor = !prov;
+    const cuentaProveedor = prov ? (prov.cuenta || '') : '';
+    const diasCredito = prov ? (parseInt(prov.condicion_pago)||0) : 0;
+    const fechaVencimiento = sumarDias(fechaFactura, diasCredito);
+
+    let saldoPendiente = montoColones != null ? Math.round((montoColones - totalAbonado) * 100) / 100 : 0;
+
+    let estado;
+    if (fechaRealPago) {
+      estado = 'Cancelada';
+    } else if (totalAbonado > 0 && saldoPendiente > 0.01) {
+      estado = 'Abono';
+    } else if (totalAbonado > 0 && saldoPendiente <= 0.01) {
+      estado = 'Cancelada';
+    } else if (fechaVencimiento && hoyISO > fechaVencimiento) {
+      estado = 'Vencida';
+    } else {
+      estado = 'A tiempo';
+    }
+    if (estado === 'Cancelada') saldoPendiente = 0;
+
+    return {
+      numero, kiosko, proveedor: proveedorNombre, fechaFactura, monto, moneda, tipoCambio, montoColones,
+      sinProveedor, cuentaProveedor, diasCredito, fechaVencimiento, fechaProyectada, fechaRealPago, referenciaPago, medioPago, totalAbonado, nota,
+      saldoPendiente, estado, duplicada: esDuplicada(p), duplicadaMonto: esDuplicadaPorMonto(p), ordinal: contadorOrdinal[claveOrdinal]
+    };
+  });
+}
+
+function abonosDeFactura(numero, kiosko) {
+  return dataAbonos.filter(a => a['Factura'] === numero && a['Kiosko'] === kiosko);
+}
+
+// Líneas de producto (hoja Desglose_IA) que corresponden a una factura de un kiosko.
+function productosDeFactura(numero, kiosko) {
+  return dataDesglose.filter(l => l['Número de factura'] === numero && l['Kiosko'] === kiosko);
+}
+
+// ── INICIALIZAR ───────────────────────────────────────────────────
+function inicializar() {
+  const dataset = datasetActual();
+  const abonos  = abonosVisibles();
+
+  const pendientes = dataset.filter(f => f.estado !== 'Cancelada');
+  const totalPorPagar = pendientes.reduce((a,f) => a + f.saldoPendiente, 0);
+  const facturasVencidas = dataset.filter(f => f.estado === 'Vencida');
+  const vencidas = facturasVencidas.length;
+
+  const facturasPorVencer = dataset.filter(f => {
+    if (f.estado !== 'A tiempo' || !f.fechaVencimiento) return false;
+    const dias = (new Date(f.fechaVencimiento) - new Date(hoyISO)) / 86400000;
+    return dias >= 0 && dias <= 7;
+  });
+  const en7dias = facturasPorVencer.length;
+
+  const mesActual = hoyISO.substring(0,7);
+  const facturasPagadasMes = dataset.filter(f => f.fechaRealPago && f.fechaRealPago.substring(0,7) === mesActual);
+  const pagosCompletosMes = facturasPagadasMes.reduce((a,f) => a + (f.montoColones - (f.totalAbonado||0)), 0);
+  const abonosMes = abonos.filter(a => isoDate(a['Fecha de abono']).substring(0,7) === mesActual);
+  const abonosDelMes = abonosMes.reduce((a,r) => a + (parseFloat(r['Monto abonado'])||0), 0);
+  const pagadoMes = pagosCompletosMes + abonosDelMes;
+
+  document.getElementById('kpi-total').textContent     = fmt(totalPorPagar);
+  document.getElementById('kpi-vencidas').textContent  = vencidas;
+  document.getElementById('kpi-porvencer').textContent = en7dias;
+  document.getElementById('kpi-pagado-mes').textContent = fmt(pagadoMes);
+  document.getElementById('status-msg').textContent    = `${dataset.length} facturas · Por pagar: ${fmt(totalPorPagar)}`;
+
+  renderKpiDetalles({ pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes });
+
+  // Filtro de proveedores (según el kiosko actual)
+  const provsUnicos = [...new Set(dataset.map(f => f.proveedor).filter(Boolean))].sort();
+  const selProv = document.getElementById('f-proveedor');
+  const valProv = selProv.value;
+  selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
+    provsUnicos.map(p => `<option value="${p}"${p===valProv?' selected':''}>${p}</option>`).join('');
+
+  // Filtro de años
+  const anios = [...new Set(dataset.map(f => (f.fechaFactura||'').substring(0,4)).filter(Boolean))].sort().reverse();
+  const selAnio = document.getElementById('f-anio');
+  const valAnio = selAnio.value;
+  selAnio.innerHTML = '<option value="">Todos los años</option>' +
+    anios.map(a => `<option value="${a}"${a===valAnio?' selected':''}>${a}</option>`).join('');
+
+  renderFacturas();
+  renderProyeccion();
+  renderHistorial();
+  renderDuplicados();
+  renderSemana();
+  actualizarBarraSeleccion();
+}
+
+// ── KPIs: paneles de detalle desplegables ──────────────────────────
+function toggleKpiDetalle(key) {
+  const panel = document.getElementById('kpi-detalle-' + key);
+  const ico   = document.getElementById('kpi-ico-' + key);
+  const abierto = panel.style.display !== 'none';
+  panel.style.display = abierto ? 'none' : 'block';
+  ico.classList.toggle('open', !abierto);
+}
+
+// Salta a la pestaña Facturas con el filtro de estado ya aplicado.
+function verEstadoEnTabla(estados) {
+  limpiarEstadoFiltro();
+  [].concat(estados).forEach(estado => {
+    const input = document.querySelector(`#f-estado input[value="${estado}"]`);
+    if (input) { input.checked = true; input.closest('.estado-chip').classList.add('activo'); }
+  });
+  toggleFiltros(true);
+  actualizarContadorFiltros();
+  renderFacturas();
+  switchTab('facturas', document.querySelector('.tabs .tab'));
+}
+
+function filaKpiDetalle(izqTop, izqBot, derTop, derColor) {
+  return `
+    <div class="kpi-detalle-row">
+      <div style="min-width:0;">
+        <div style="font-weight:500;">${izqTop}</div>
+        <div style="font-size:11px;color:var(--muted);">${izqBot}</div>
+      </div>
+      <span class="num" style="font-weight:600;white-space:nowrap;${derColor?`color:${derColor};`:''}">${derTop}</span>
+    </div>`;
+}
+
+function renderKpiDetalles({ pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes }) {
+  const grupos = [
+    { estado: 'A tiempo', color: 'var(--green)' },
+    { estado: 'Vencida',  color: 'var(--red)' },
+    { estado: 'Abono',    color: 'var(--amber)' }
+  ].map(g => {
+    const facs = pendientes.filter(f => f.estado === g.estado);
+    return { ...g, count: facs.length, total: facs.reduce((a,f) => a + f.saldoPendiente, 0) };
+  }).filter(g => g.count > 0);
+
+  document.getElementById('kpi-detalle-total').innerHTML = grupos.length
+    ? grupos.map(g => filaKpiDetalle(g.estado, `${g.count} factura(s)`, fmt(g.total), g.color)).join('')
+      + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla(['A tiempo','Vencida','Abono'])">Ver todas en la tabla →</span>`
+    : `<div class="kpi-detalle-empty">No hay facturas pendientes.</div>`;
+
+  const vencidasOrdenadas = [...facturasVencidas].sort((a,b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+  document.getElementById('kpi-detalle-vencidas').innerHTML = vencidasOrdenadas.length
+    ? vencidasOrdenadas.slice(0,8).map(f => {
+        const dias = Math.round((new Date(hoyISO) - new Date(f.fechaVencimiento)) / 86400000);
+        return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · ${dias}d vencida`, fmt(f.saldoPendiente), 'var(--red)');
+      }).join('')
+      + (vencidasOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${vencidasOrdenadas.length - 8} más…</div>` : '')
+      + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('Vencida')">Ver todas en la tabla →</span>`
+    : `<div class="kpi-detalle-empty">No hay facturas vencidas.</div>`;
+
+  const porVencerOrdenadas = [...facturasPorVencer].sort((a,b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
+  document.getElementById('kpi-detalle-porvencer').innerHTML = porVencerOrdenadas.length
+    ? porVencerOrdenadas.slice(0,8).map(f => {
+        const dias = Math.round((new Date(f.fechaVencimiento) - new Date(hoyISO)) / 86400000);
+        return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · vence en ${dias}d`, fmt(f.saldoPendiente), 'var(--amber)');
+      }).join('')
+      + (porVencerOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${porVencerOrdenadas.length - 8} más…</div>` : '')
+      + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('A tiempo')">Ver facturas "A tiempo" en la tabla →</span>`
+    : `<div class="kpi-detalle-empty">No hay facturas por vencer en los próximos 7 días.</div>`;
+
+  const filasPagadoMes = [];
+  if (facturasPagadasMes.length) filasPagadoMes.push(filaKpiDetalle('Pagos completos', `${facturasPagadasMes.length} factura(s)`, fmt(pagosCompletosMes)));
+  if (abonosMes.length) filasPagadoMes.push(filaKpiDetalle('Abonos parciales', `${abonosMes.length} abono(s)`, fmt(abonosDelMes)));
+  document.getElementById('kpi-detalle-pagado-mes').innerHTML = filasPagadoMes.length
+    ? filasPagadoMes.join('')
+    : `<div class="kpi-detalle-empty">No hay pagos registrados este mes.</div>`;
+}
+
+// Lunes a domingo de la semana que contiene la fecha de hoy.
+function rangoSemanaActual() {
+  const hoy = new Date(hoyISO + 'T00:00:00');
+  const dow = hoy.getDay(); // 0=domingo … 6=sábado
+  const offsetLunes = dow === 0 ? -6 : 1 - dow;
+  const lunes = new Date(hoy); lunes.setDate(hoy.getDate() + offsetLunes);
+  const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+  return { inicio: lunes.toISOString().slice(0,10), fin: domingo.toISOString().slice(0,10) };
+}
+
+function renderSemana() {
+  const { inicio, fin } = rangoSemanaActual();
+  const lista = datasetActual()
+    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada && f.fechaProyectada >= inicio && f.fechaProyectada <= fin)
+    .sort((a,b) => a.fechaProyectada.localeCompare(b.fechaProyectada));
+
+  const card = document.getElementById('card-semana');
+  if (!lista.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const total = lista.reduce((a,f) => a + f.saldoPendiente, 0);
+  document.getElementById('semana-count').textContent = lista.length;
+  document.getElementById('semana-total').textContent = fmt(total);
+
+  document.getElementById('lista-semana').innerHTML = lista.map(f => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.55rem 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${f.fechaProyectada}</span>
+        <div style="min-width:0;">
+          <div style="font-weight:500;font-size:13px;">${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span></div>
+          <div style="font-size:11px;color:var(--muted);">${f.numero}</div>
+        </div>
+      </div>
+      <span class="num" style="font-weight:600;white-space:nowrap;">${fmt(f.saldoPendiente)}</span>
+    </div>`).join('');
+}
+
+// ── RENDER FACTURAS ───────────────────────────────────────────────
+function renderFacturas() {
+  pagFacturas = 1;
+  _renderFacturas();
+}
+
+function badgeEstado(estado) {
+  const map = {
+    'A tiempo':  'b-tiempo',
+    'Vencida':   'b-vencida',
+    'Abono':     'b-abono',
+    'Cancelada': 'b-cancelada'
+  };
+  const cls = map[estado] || 'b-tiempo';
+  return `<span class="badge ${cls}"><span class="b-dot"></span>${estado}</span>`;
+}
+
+function limpiarFiltroFecha() {
+  document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  renderFacturas();
+}
+
+// ── FILTRO DE ESTADO (multi-selección) ────────────────────────────
+function toggleEstadoChip(checkbox) {
+  checkbox.closest('.estado-chip').classList.toggle('activo', checkbox.checked);
+  renderFacturas();
+}
+
+function estadosSeleccionados() {
+  return [...document.querySelectorAll('#f-estado input:checked')].map(c => c.value);
+}
+
+function limpiarEstadoFiltro() {
+  document.querySelectorAll('#f-estado input').forEach(c => {
+    c.checked = false;
+    c.closest('.estado-chip').classList.remove('activo');
+  });
+}
+
+// ── PANEL DE FILTROS (colapsable) ─────────────────────────────────
+function toggleFiltros(forzarAbierto) {
+  const panel = document.getElementById('panel-filtros');
+  const chevron = document.getElementById('filtro-chevron');
+  const abierto = forzarAbierto != null ? forzarAbierto : panel.style.display === 'none';
+  panel.style.display = abierto ? 'block' : 'none';
+  chevron.classList.toggle('open', abierto);
+}
+
+function limpiarTodosFiltros() {
+  document.getElementById('s-fact').value = '';
+  limpiarEstadoFiltro();
+  document.getElementById('f-proveedor').value = '';
+  document.getElementById('f-anio').value = '';
+  document.getElementById('f-mes').value = '';
+  document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  document.getElementById('f-proyectada').value = '';
+  renderFacturas();
+}
+
+function actualizarContadorFiltros() {
+  const ids = ['f-proveedor','f-anio','f-mes','f-desde','f-hasta','f-proyectada'];
+  const activos = ids.filter(id => document.getElementById(id).value).length + (estadosSeleccionados().length ? 1 : 0);
+  const badge = document.getElementById('filtro-count');
+  const btn   = document.getElementById('btn-toggle-filtros');
+  if (activos) {
+    badge.textContent = activos;
+    badge.style.display = 'inline-flex';
+    btn.classList.add('activo');
+  } else {
+    badge.style.display = 'none';
+    btn.classList.remove('activo');
+  }
+}
+
+// Filtro compartido entre el render de la tabla y la descarga del reporte.
+function obtenerFacturasFiltradas() {
+  const busq      = document.getElementById('s-fact').value.toLowerCase();
+  const estados   = estadosSeleccionados();
+  const proveedor = document.getElementById('f-proveedor').value;
+  const anio      = document.getElementById('f-anio').value;
+  const mes       = document.getElementById('f-mes').value;
+  const desde     = document.getElementById('f-desde').value;
+  const hasta     = document.getElementById('f-hasta').value;
+  const proyectada = document.getElementById('f-proyectada').value;
+
+  return datasetActual().filter(f => {
+    const matchBusq      = !busq || f.numero.toLowerCase().includes(busq) || f.proveedor.toLowerCase().includes(busq) ||
+      (f.referenciaPago||'').toLowerCase().includes(busq) ||
+      abonosDeFactura(f.numero, f.kiosko).some(a => (a['Referencia']||'').toLowerCase().includes(busq));
+    const matchEstado    = !estados.length || estados.includes(f.estado);
+    const matchProveedor = !proveedor || f.proveedor === proveedor;
+    const matchAnio      = !anio || f.fechaFactura.substring(0,4) === anio;
+    const matchMes       = !mes || f.fechaFactura.substring(5,7) === mes;
+    const matchDesde     = !desde || (f.fechaFactura && f.fechaFactura >= desde);
+    const matchHasta     = !hasta || (f.fechaFactura && f.fechaFactura <= hasta);
+    const matchProyectada = !proyectada || (proyectada === 'con' ? !!f.fechaProyectada : !f.fechaProyectada);
+    return matchBusq && matchEstado && matchProveedor && matchAnio && matchMes && matchDesde && matchHasta && matchProyectada;
+  }).sort((a,b) => (b.fechaFactura||'').localeCompare(a.fechaFactura||''));
+}
+
+// ── DESCARGAR REPORTE (CSV, respeta los filtros activos) ──────────
+function descargarReporte() {
+  const lista = obtenerFacturasFiltradas();
+  if (!lista.length) { showToast('No hay facturas para exportar con los filtros actuales.', 'error'); return; }
+
+  const encabezados = ['Kiosko','Fecha factura','Factura','Proveedor','Moneda','Monto','Tipo de cambio','Monto en colones','Estado','Fecha proyectada','Total abonado','Saldo pendiente','Fecha real de pago','Medio de pago','Referencia'];
+  const csvEscape = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const filas = lista.map(f => [
+    f.kiosko, f.fechaFactura, f.numero, f.proveedor, f.moneda, f.monto, f.moneda==='USD'?f.tipoCambio:'', f.montoColones, f.estado,
+    f.fechaProyectada, f.totalAbonado, f.saldoPendiente, f.fechaRealPago, f.medioPago, f.referenciaPago
+  ].map(csvEscape).join(','));
+  const csv = '\uFEFF' + [encabezados.map(csvEscape).join(','), ...filas].join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `cuentas-por-pagar-kioskos_${hoyISO}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function _renderFacturas() {
+  actualizarContadorFiltros();
+
+  let lista = obtenerFacturasFiltradas();
+
+  const total  = lista.length;
+  const inicio = (pagFacturas-1) * POR_PAGINA;
+  const pagina = lista.slice(inicio, inicio + POR_PAGINA);
+
+  if (!lista.length) {
+    document.getElementById('tabla-facturas').innerHTML = '<div class="empty">Sin resultados.</div>';
+    document.getElementById('pag-facturas').style.display = 'none';
+    return;
+  }
+
+  const filas = pagina.map((f, idx) => {
+    const rowId = 'frow-' + (inicio + idx);
+    const clave = claveF(f.numero, f.kiosko);
+    const dupBadge = f.duplicada
+      ? `<span class="badge b-dup" style="margin-left:6px;">⚠ Duplicada</span>`
+      : (f.duplicadaMonto ? `<span class="badge b-dup-monto" style="margin-left:6px;">⚠ Posible duplicado</span>` : '');
+    const notaBadge = f.nota ? `<span title="${f.nota.replace(/"/g,'&quot;')}" style="margin-left:6px;font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:20px;padding:1px 7px;">Nota</span>` : '';
+    const sinProvBadge = f.sinProveedor ? `<span onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;margin-left:4px;">
+        <span title="Proveedor sin registrar en la base de proveedores" style="font-size:10px;color:var(--red);">⚠</span>
+        <button type="button" class="btn-mini" style="padding:2px 8px;font-size:10.5px;border-color:var(--red-lt);background:var(--red-bg);color:var(--red);" onclick="agregarProveedorRapido('${f.proveedor.replace(/'/g,"\\'")}')">+ Agregar</button>
+      </span>` : '';
+
+    const puedeAccionar = f.estado !== 'Cancelada';
+    const abonos = abonosDeFactura(f.numero, f.kiosko);
+    const lineasProducto = productosDeFactura(f.numero, f.kiosko);
+
+    const detalleHtml = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="font-size:12px;color:var(--muted);line-height:2;">
+          Kiosko: <strong style="color:var(--text);">${f.kiosko||'—'}</strong><br>
+          Fecha factura: <strong style="color:var(--text);">${f.fechaFactura||'—'}</strong><br>
+          Moneda: <strong style="color:var(--text);">${f.moneda||'—'}</strong><br>
+          Número de cuenta: <strong style="color:var(--text);">${f.cuentaProveedor||'Sin registrar'}</strong><br>
+          Condición de pago: <strong style="color:var(--text);">${f.diasCredito} día${f.diasCredito!==1?'s':''}</strong><br>
+          Fecha de vencimiento: <strong style="color:${f.estado==='Vencida'?'var(--red)':'var(--text)'};">${f.fechaVencimiento||'—'}</strong><br>
+          Fecha proyectada de pago:
+          <span class="proy-placeholder" id="proyph-${rowId}" style="${seleccionadas.has(clave)?'display:none;':''}">
+            <strong style="color:var(--text);">${f.fechaProyectada||'Sin definir'}</strong>
+            <span style="font-size:11px;color:var(--subtle);">(marcá el check de la fila para editar)</span>
+          </span>
+          <span class="proy-wrap" id="proy-${rowId}" style="${seleccionadas.has(clave)?'':'display:none;'}">
+            <button type="button" class="proy-toggle" onclick="toggleProyEdit('${rowId}')">
+              <span class="proy-txt">${f.fechaProyectada || 'Sin definir'}</span>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <input type="date" class="proj-input" value="${f.fechaProyectada||''}" ${!puedeAccionar?'disabled':''}
+              onchange="guardarProyeccionFactura('${f.numero}','${f.kiosko}', this.value, '${rowId}')">
+          </span><br>
+          Fecha real de pago: <strong style="color:var(--text);">${f.fechaRealPago||'—'}</strong><br>
+          ${f.fechaRealPago ? `Medio de pago: <strong style="color:var(--text);">${f.medioPago||'—'}</strong><br>Referencia: <strong style="color:var(--text);">${f.referenciaPago||'—'}</strong><br>` : ''}
+          Total abonado: <strong style="color:var(--text);">${fmt(f.totalAbonado||0)}</strong><br>
+          Saldo pendiente: <strong style="color:var(--text);">${fmt(f.saldoPendiente)}</strong>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Abonos registrados</div>
+          ${abonos.length ? `
+            <table class="detail-table">
+              <thead><tr><th>Fecha</th><th>Medio</th><th>Referencia</th><th style="text-align:right;">Monto</th></tr></thead>
+              <tbody>
+                ${abonos.map(a => `<tr>
+                  <td>${isoDate(a['Fecha de abono'])||'—'}</td>
+                  <td style="color:var(--muted);">${a['Medio de pago']||'—'}</td>
+                  <td style="color:var(--muted);">${a['Referencia']||'—'}</td>
+                  <td class="num">${fmt(a['Monto abonado'])}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>` : '<div style="font-size:12px;color:var(--subtle);">Sin abonos registrados.</div>'}
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <button type="button" class="proy-toggle" onclick="event.stopPropagation(); toggleProductosFactura('${rowId}')">
+          <span id="prod-txt-${rowId}">Ver detalle de productos (${lineasProducto.length})</span>
+          <svg class="toggle-arrow" id="prod-ico-${rowId}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        <div id="prod-${rowId}" style="display:none;margin-top:8px;">
+          ${lineasProducto.length ? `
+            <table class="detail-table">
+              <thead><tr><th>Producto</th><th>Nombre normalizado</th><th>Categoría</th><th style="text-align:right;">Cant.</th><th>Unidad</th><th style="text-align:right;">P. Unit.</th><th style="text-align:right;">Total línea</th></tr></thead>
+              <tbody>
+                ${lineasProducto.map(l => `<tr>
+                  <td>${l['Producto']||'—'}</td>
+                  <td style="color:var(--muted);">${l['Nombre normalizado']||'—'}</td>
+                  <td style="color:var(--muted);">${l['Categoría']||'—'}</td>
+                  <td class="num">${l['Cantidad']||'—'}</td>
+                  <td style="color:var(--muted);">${l['Unidad de medida']||'—'}</td>
+                  <td class="num">${fmt(l['Precio unitario'])}</td>
+                  <td class="num">${fmt(l['Total línea'])}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>` : '<div style="font-size:12px;color:var(--subtle);">Sin detalle de productos disponible para esta factura (probablemente fue ingresada manualmente).</div>'}
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);" onclick="event.stopPropagation()">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Notas / comentarios</div>
+        <textarea id="nota-${rowId}" rows="2" placeholder="Agregar una nota sobre esta factura…"
+          style="width:100%;font-family:var(--font-b);font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;resize:vertical;background:var(--bg);color:var(--text);">${f.nota||''}</textarea>
+        <div style="margin-top:6px;display:flex;justify-content:flex-end;">
+          <button type="button" class="btn-mini" onclick="guardarNotaFactura('${f.numero}','${f.kiosko}', ${f.ordinal}, document.getElementById('nota-${rowId}').value, '${rowId}')">Guardar nota</button>
+        </div>
+      </div>`;
+
+    return `
+      <tr class="tr-main" onclick="toggleDetalle('${rowId}')">
+        <td onclick="event.stopPropagation()">
+          <input type="checkbox" class="chk-fila" data-numero="${f.numero}" data-kiosko="${f.kiosko}" data-rowid="${rowId}" ${seleccionadas.has(clave)?'checked':''}
+            onchange="toggleSeleccionFila('${f.numero}','${f.kiosko}', this.checked, '${rowId}')">
+        </td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap;min-width:90px;">${f.fechaFactura||'—'}</td>
+        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td style="font-size:12px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.numero}${dupBadge}${notaBadge}</td>
+        <td style="font-weight:500;">${f.proveedor}${sinProvBadge}</td>
+        <td class="num" style="font-weight:600;">
+          ${f.moneda === 'USD' ? `
+            <div>US$${fmtN(f.monto)}</div>
+            <div onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;font-weight:400;font-size:11px;color:var(--muted);margin-top:2px;">
+              TC <input type="number" step="0.01" min="0" class="tc-input" style="width:64px;" value="${f.tipoCambio||''}" placeholder="0.00"
+                onchange="guardarTipoCambio('${f.numero}','${f.kiosko}', this.value)">
+              <span>${f.montoColones!=null ? '= '+fmt(f.montoColones) : '(falta TC)'}</span>
+            </div>` : fmt(f.monto)}
+        </td>
+        <td>${badgeEstado(f.estado)}</td>
+        <td class="num" style="font-weight:600;">${fmt(f.saldoPendiente)}</td>
+        <td onclick="event.stopPropagation()">
+          <div class="row-actions">
+            <button class="btn-mini pago" ${!puedeAccionar?'disabled':''} onclick="abrirModalPago('${f.numero}','${f.kiosko}')">Pago total</button>
+            <button class="btn-mini abono" ${!puedeAccionar?'disabled':''} onclick="abrirModalAbono('${f.numero}','${f.kiosko}')">Abono</button>
+          </div>
+        </td>
+      </tr>
+      <tr class="tr-detail" id="${rowId}">
+        <td class="detail-cell" colspan="9">
+          <div class="detail-inner">${detalleHtml}</div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const clavesPagina = pagina.map(f => claveF(f.numero, f.kiosko));
+  const todasMarcadasEnPagina = clavesPagina.length > 0 && clavesPagina.every(k => seleccionadas.has(k));
+
+  document.getElementById('tabla-facturas').innerHTML = `
+    <table>
+      <thead><tr>
+        <th><input type="checkbox" id="chk-all" ${todasMarcadasEnPagina?'checked':''} onchange="toggleSeleccionarTodos(this.checked)"></th>
+        <th>Fecha</th><th>Kiosko</th><th>Factura</th><th>Proveedor</th>
+        <th style="text-align:right;">Monto</th><th>Estado</th><th style="text-align:right;">Saldo</th>
+        <th>Acciones</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+
+  window._paginaActualClaves = clavesPagina;
+
+  renderPaginacion('pag-facturas', total, pagFacturas, p => { pagFacturas = p; _renderFacturas(); });
+}
+
+function toggleDetalle(id) {
+  const el  = document.getElementById(id);
+  const ico = document.getElementById(id + '-ico');
+  const open = !el.classList.contains('open');
+  el.classList.toggle('open', open);
+  if (ico) ico.classList.toggle('open', open);
+}
+
+// ── DETALLE DE PRODUCTOS DE UNA FACTURA (hoja Desglose_IA) ────────
+function toggleProductosFactura(rowId) {
+  const cont = document.getElementById('prod-' + rowId);
+  const ico  = document.getElementById('prod-ico-' + rowId);
+  if (!cont) return;
+  const abrir = cont.style.display === 'none';
+  cont.style.display = abrir ? 'block' : 'none';
+  if (ico) ico.classList.toggle('open', abrir);
+}
+
+// ── CELDA COLAPSABLE: fecha proyectada de pago ────────────────────
+function toggleProyEdit(rowId) {
+  const wrap = document.getElementById('proy-' + rowId);
+  if (!wrap) return;
+  const abrir = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', abrir);
+  if (abrir) {
+    const input = wrap.querySelector('input');
+    if (input) input.focus();
+  }
+}
+
+// ── SELECCIÓN DE FACTURAS (checkboxes) ────────────────────────────
+function mostrarProyFila(rowId, mostrar) {
+  const wrap = document.getElementById('proy-' + rowId);
+  const ph   = document.getElementById('proyph-' + rowId);
+  if (wrap) wrap.style.display = mostrar ? '' : 'none';
+  if (ph)   ph.style.display   = mostrar ? 'none' : '';
+}
+
+function toggleSeleccionFila(numero, kiosko, marcado, rowId) {
+  const clave = claveF(numero, kiosko);
+  if (marcado) seleccionadas.add(clave); else seleccionadas.delete(clave);
+  if (rowId) mostrarProyFila(rowId, marcado);
+  actualizarBarraSeleccion();
+}
+
+function toggleSeleccionarTodos(marcado) {
+  const claves = window._paginaActualClaves || [];
+  claves.forEach(k => { if (marcado) seleccionadas.add(k); else seleccionadas.delete(k); });
+  document.querySelectorAll('.chk-fila').forEach(chk => {
+    chk.checked = marcado;
+    if (chk.dataset.rowid) mostrarProyFila(chk.dataset.rowid, marcado);
+  });
+  actualizarBarraSeleccion();
+}
+
+function limpiarSeleccion() {
+  seleccionadas.clear();
+  document.querySelectorAll('.chk-fila').forEach(chk => {
+    chk.checked = false;
+    if (chk.dataset.rowid) mostrarProyFila(chk.dataset.rowid, false);
+  });
+  const chkAll = document.getElementById('chk-all');
+  if (chkAll) chkAll.checked = false;
+  actualizarBarraSeleccion();
+}
+
+function actualizarBarraSeleccion() {
+  const bar = document.getElementById('seleccion-bar');
+  if (!bar) return;
+  if (!seleccionadas.size) { bar.style.display = 'none'; return; }
+  const total = facturasAP
+    .filter(f => seleccionadas.has(claveF(f.numero, f.kiosko)))
+    .reduce((a,f) => a + (f.montoColones||0), 0);
+  document.getElementById('sel-count').textContent = seleccionadas.size;
+  document.getElementById('sel-total').textContent = fmt(total);
+  bar.style.display = 'flex';
+}
+
+// ── RENDER PROYECCIÓN (línea de tiempo: columnas = fechas, filas = proveedor/factura) ──
+function renderProyeccion() {
+  const pendientes = datasetActual().filter(f => f.estado !== 'Cancelada');
+  const conFecha = pendientes.filter(f => f.fechaProyectada);
+
+  if (!conFecha.length) {
+    document.getElementById('tabla-proyeccion').innerHTML = '<div class="empty">Ninguna factura pendiente tiene fecha proyectada todavía.</div>';
+    document.getElementById('proyeccion-resumen').innerHTML = '';
+  } else {
+    const fechas = [...new Set(conFecha.map(f => f.fechaProyectada))].sort();
+
+    const filas = [...conFecha].sort((a,b) =>
+      a.proveedor.localeCompare(b.proveedor) || a.numero.localeCompare(b.numero));
+
+    const totalesPorDia = {};
+    const cantidadPorDia = {};
+    fechas.forEach(fecha => {
+      const deEseDia = conFecha.filter(f => f.fechaProyectada === fecha);
+      totalesPorDia[fecha] = deEseDia.reduce((a,f) => a + f.saldoPendiente, 0);
+      cantidadPorDia[fecha] = deEseDia.length;
+    });
+    const totalGeneral = fechas.reduce((a,fecha) => a + totalesPorDia[fecha], 0);
+
+    const colFija = 'position:sticky;left:0;z-index:1;';
+
+    const headFechas = fechas.map(fecha => {
+      const d = new Date(fecha + 'T00:00:00');
+      const corto = d.toLocaleDateString('es-CR', { day:'2-digit', month:'short' });
+      return `<th style="text-align:center;min-width:100px;">${corto}<br><span style="font-weight:400;font-size:9px;color:var(--subtle);text-transform:none;letter-spacing:0;">${fecha}</span></th>`;
+    }).join('');
+
+    const filasHtml = filas.map(f => {
+      const celdas = fechas.map(fecha => f.fechaProyectada === fecha
+        ? `<td class="num" style="font-weight:600;">${fmt(f.saldoPendiente)}</td>`
+        : `<td class="num" style="color:var(--subtle);">·</td>`
+      ).join('');
+      return `<tr>
+        <td style="${colFija}background:var(--card);white-space:nowrap;">
+          <div style="font-weight:500;">${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span></div>
+          <div style="font-size:11px;color:var(--muted);">${f.numero}</div>
+        </td>
+        ${celdas}
+        <td style="white-space:nowrap;">
+          <button class="btn-mini pago" onclick="abrirModalPago('${f.numero}','${f.kiosko}')">Pago total</button>
+          <button class="btn-mini abono" onclick="abrirModalAbono('${f.numero}','${f.kiosko}')">Abono</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const filaCantidad = `
+      <tr style="background:var(--surface);">
+        <td style="${colFija}background:var(--surface);font-weight:700;">Cantidad de facturas</td>
+        ${fechas.map(fecha => `<td class="num" style="font-weight:700;">${cantidadPorDia[fecha]}</td>`).join('')}
+        <td style="background:var(--surface);"></td>
+      </tr>`;
+
+    const filaTotal = `
+      <tr style="background:var(--surface);">
+        <td style="${colFija}background:var(--surface);font-weight:700;">Total por día</td>
+        ${fechas.map(fecha => `<td class="num" style="font-weight:700;color:var(--green);">${fmt(totalesPorDia[fecha])}</td>`).join('')}
+        <td style="background:var(--surface);"></td>
+      </tr>`;
+
+    const filaWhatsapp = `
+      <tr style="background:var(--surface);">
+        <td style="${colFija}background:var(--surface);font-weight:700;">Aviso de pago</td>
+        ${fechas.map(fecha => `
+          <td style="text-align:center;">
+            <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppDia('${fecha}')">WhatsApp</button>
+          </td>`).join('')}
+        <td style="background:var(--surface);"></td>
+      </tr>`;
+
+    document.getElementById('tabla-proyeccion').innerHTML = `
+      <table>
+        <thead><tr>
+          <th style="${colFija}background:var(--surface);">Proveedor / Factura</th>
+          ${headFechas}
+          <th style="background:var(--surface);">Acción</th>
+        </tr></thead>
+        <tbody>${filasHtml}${filaCantidad}${filaTotal}${filaWhatsapp}</tbody>
+      </table>`;
+
+    document.getElementById('proyeccion-resumen').innerHTML = `
+      ${fechas.length} fecha${fechas.length!==1?'s':''} proyectada${fechas.length!==1?'s':''} ·
+      ${conFecha.length} factura${conFecha.length!==1?'s':''} · Total: <strong style="color:var(--green);">${fmt(totalGeneral)}</strong>`;
+  }
+}
+
+// Arma el mensaje de WhatsApp con las facturas proyectadas para una fecha
+// (dentro del kiosko actual) y abre el chat (sin destinatario fijo).
+function enviarWhatsAppDia(fecha) {
+  const facturasDia = datasetActual()
+    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada === fecha)
+    .sort((a,b) => a.proveedor.localeCompare(b.proveedor));
+  if (!facturasDia.length) { showToast('No hay facturas proyectadas para esa fecha.', 'error'); return; }
+
+  const totalDia = facturasDia.reduce((a,f) => a + f.saldoPendiente, 0);
+  const lineas = facturasDia.map(f => `• ${f.proveedor} [${f.kiosko}] (${f.numero}): ${fmt(f.saldoPendiente)}`).join('\n');
+  const mensaje = `Estas facturas ya están listas para ser canceladas el ${fecha}:\n\n${lineas}\n\nTotal: ${fmt(totalDia)}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(mensaje), '_blank');
+}
+
+// ── RENDER HISTORIAL (pagos registrados) ──────────────────────────
+function renderHistorial() {
+  const dataset = datasetActual();
+  const pagos = dataset.filter(f => f.fechaRealPago).map(f => ({
+    fecha: f.fechaRealPago, tipo: 'Pago total', numero: f.numero, kiosko: f.kiosko, proveedor: f.proveedor,
+    monto: (f.montoColones||0) - (f.totalAbonado||0), referencia: f.referenciaPago || '—', medio: f.medioPago || '—'
+  }));
+  const abonos = abonosVisibles().map(a => ({
+    fecha: isoDate(a['Fecha de abono']), tipo: 'Abono', numero: a['Factura'], kiosko: a['Kiosko'] || '',
+    proveedor: (facturaPorNumero(a['Factura'], a['Kiosko'])||{}).proveedor || '—',
+    monto: parseFloat(a['Monto abonado'])||0, referencia: a['Referencia'] || '—', medio: a['Medio de pago'] || '—'
+  }));
+
+  const todos = [...pagos, ...abonos].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+
+  if (!todos.length) {
+    document.getElementById('tabla-historial').innerHTML = '<div class="empty">Aún no se han registrado pagos ni abonos.</div>';
+    return;
+  }
+
+  const filas = todos.map(r => `
+    <tr>
+      <td style="color:var(--muted);font-size:12px;">${r.fecha||'—'}</td>
+      <td><span class="kiosko-tag" style="margin-left:0;">${r.kiosko||'—'}</span></td>
+      <td>${r.tipo === 'Pago total' ? '<span class="badge b-cancelada"><span class="b-dot"></span>Pago total</span>' : '<span class="badge b-abono"><span class="b-dot"></span>Abono</span>'}</td>
+      <td style="font-size:12px;color:var(--muted);">${r.numero}</td>
+      <td>${r.proveedor}</td>
+      <td style="color:var(--muted);">${r.medio}</td>
+      <td style="color:var(--muted);">${r.referencia}</td>
+      <td class="num" style="font-weight:600;">${fmt(r.monto)}</td>
+    </tr>`).join('');
+
+  document.getElementById('tabla-historial').innerHTML = `
+    <table>
+      <thead><tr><th>Fecha</th><th>Kiosko</th><th>Tipo</th><th>Factura</th><th>Proveedor</th><th>Medio de pago</th><th>Referencia</th><th style="text-align:right;">Monto</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+}
+
+// ── DUPLICADOS ─────────────────────────────────────────────────────
+// Agrupa por clave compuesta kiosko+numero (una factura solo es "la misma"
+// dentro de un mismo kiosko).
+function obtenerDuplicados() {
+  const grupos = {};
+  datasetActual().forEach(f => {
+    if (!f.duplicada) return;
+    const k = claveF(f.numero, f.kiosko);
+    if (!grupos[k]) grupos[k] = [];
+    grupos[k].push(f);
+  });
+  return grupos;
+}
+
+// Agrupa por clave kiosko+proveedor+fecha+monto los registros marcados como
+// "posible duplicado": mismo kiosko, proveedor, fecha y monto, número distinto.
+function obtenerDuplicadosPorMonto() {
+  const grupos = {};
+  datasetActual().forEach(f => {
+    if (!f.duplicadaMonto) return;
+    const clave = claveDupMontoDeCampos(f.kiosko, f.proveedor, f.fechaFactura, f.moneda, f.monto);
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push(f);
+  });
+  return grupos;
+}
+
+function renderDuplicados() {
+  renderDuplicadosExactos();
+  renderDuplicadosPorMonto();
+}
+
+function renderDuplicadosExactos() {
+  const grupos = obtenerDuplicados();
+  const claves = Object.keys(grupos);
+  const cont = document.getElementById('lista-duplicados');
+  if (!cont) return;
+
+  if (!claves.length) {
+    cont.innerHTML = '<div class="empty">No hay facturas con kiosko, número y fecha duplicados. Todo en orden.</div>';
+    return;
+  }
+
+  cont.innerHTML = claves.map(clave => {
+    const grupo = grupos[clave];
+    const numero = grupo[0].numero, kiosko = grupo[0].kiosko;
+    const filas = grupo.map(o => `
+      <tr>
+        <td style="font-size:12px;color:var(--muted);">Copia ${o.ordinal}</td>
+        <td style="color:var(--muted);">${o.fechaFactura||'—'}</td>
+        <td>${o.proveedor}</td>
+        <td style="color:var(--muted);font-size:12px;">${o.moneda}${o.moneda==='USD'?' (US$'+fmtN(o.monto)+')':''}</td>
+        <td>${badgeEstado(o.estado)}</td>
+        <td class="num" style="font-weight:600;">${o.montoColones!=null ? fmt(o.montoColones) : '(falta TC)'}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="btn-mini" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);"
+            onclick="eliminarFacturaDuplicada('${numero}','${kiosko}', ${o.ordinal})">Eliminar esta copia</button>
+        </td>
+      </tr>`).join('');
+
+    return `
+      <div class="card">
+        <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div>
+            <span style="font-family:var(--font-d);font-weight:700;font-size:14px;">${numero}</span>
+            <span class="kiosko-tag">${kiosko}</span>
+            <span class="badge b-dup" style="margin-left:8px;">${grupo.length} copias</span>
+          </div>
+          <button class="btn-mini" onclick="aceptarDuplicadoGrupo('${numero}','${kiosko}')">Aceptar duplicado</button>
+        </div>
+        <div class="tabla-wrap">
+          <table>
+            <thead><tr>
+              <th></th><th>Fecha factura</th><th>Proveedor</th><th>Moneda</th><th>Estado</th>
+              <th style="text-align:right;">Total</th><th>Acción</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderDuplicadosPorMonto() {
+  const grupos = obtenerDuplicadosPorMonto();
+  const claves = Object.keys(grupos);
+  const cont = document.getElementById('lista-duplicados-monto');
+  if (!cont) return;
+
+  if (!claves.length) {
+    cont.innerHTML = '<div class="empty">No hay posibles duplicados por kiosko, proveedor, fecha y monto. Todo en orden.</div>';
+    return;
+  }
+
+  cont.innerHTML = claves.map(clave => {
+    const grupo = grupos[clave];
+    const filas = grupo.map(o => `
+      <tr>
+        <td style="font-family:var(--font-d);font-weight:600;">${o.numero}</td>
+        <td style="color:var(--muted);">${o.fechaFactura||'—'}</td>
+        <td style="color:var(--muted);font-size:12px;">${o.moneda}${o.moneda==='USD'?' (US$'+fmtN(o.monto)+')':''}</td>
+        <td>${badgeEstado(o.estado)}</td>
+        <td class="num" style="font-weight:600;">${o.montoColones!=null ? fmt(o.montoColones) : '(falta TC)'}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="btn-mini" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);"
+            onclick="eliminarFacturaDuplicada('${o.numero}','${o.kiosko}', ${o.ordinal})">Eliminar esta copia</button>
+        </td>
+      </tr>`).join('');
+
+    return `
+      <div class="card">
+        <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div>
+            <span style="font-family:var(--font-d);font-weight:700;font-size:14px;">${grupo[0].proveedor}</span>
+            <span class="kiosko-tag">${grupo[0].kiosko}</span>
+            <span style="color:var(--muted);font-size:12px;margin-left:8px;">${grupo[0].fechaFactura||'—'}</span>
+            <span class="badge b-dup-monto" style="margin-left:8px;">${grupo.length} facturas, distinto número</span>
+          </div>
+          <button class="btn-mini" onclick="aceptarDuplicadoGrupoMonto('${clave.replace(/'/g,"\\'")}')">Aceptar duplicado</button>
+        </div>
+        <div class="tabla-wrap">
+          <table>
+            <thead><tr>
+              <th>Factura</th><th>Fecha factura</th><th>Moneda</th><th>Estado</th>
+              <th style="text-align:right;">Total</th><th>Acción</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function irATabDuplicados() {
+  const btn = document.getElementById('tab-btn-duplicados');
+  switchTab('duplicados', btn);
+}
+
+// Busca la copia exacta (numero + kiosko + ordinal) en el dataset completo.
+async function eliminarFacturaDuplicada(numero, kiosko, ordinal) {
+  const copia = facturasAP.find(o => o.numero === numero && o.kiosko === kiosko && o.ordinal === ordinal);
+  const detalle = copia ? `${copia.fechaFactura} · ${copia.proveedor} [${copia.kiosko}] · ${copia.montoColones!=null ? fmt(copia.montoColones) : 'US$'+fmtN(copia.monto)}` : numero;
+  if (!confirm(`¿Eliminar esta copia de la factura ${numero}?\n\n${detalle}\n\nSe borrará de la hoja Registro Facturas, junto con sus líneas de producto asociadas en Desglose_IA (si las tiene). Esta acción no se puede deshacer.`)) return;
+
+  try {
+    const res = await postAP({ modulo: 'eliminar_factura', numero_factura: numero, kiosko: kiosko, ordinal: ordinal });
+    const extra = res && res.lineas_desglose_eliminadas ? ` (+ ${res.lineas_desglose_eliminadas} línea(s) de Desglose_IA)` : '';
+    showToast('Copia eliminada' + extra + '. Actualizando datos…', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo eliminar: ' + e.message, 'error');
+  }
+}
+
+async function aceptarDuplicadoGrupo(numero, kiosko) {
+  const grupo = obtenerDuplicados()[claveF(numero, kiosko)] || [];
+  if (!grupo.length) return;
+  if (!confirm(`¿Aceptar que estas ${grupo.length} facturas de "${kiosko}" con número ${numero} son registros legítimos (no un error de carga duplicada)?\n\nDejarán de aparecer en el control de duplicados.`)) return;
+
+  try {
+    await postAP({ modulo: 'aceptar_duplicado', numero_factura: numero, kiosko: kiosko, ordinales: grupo.map(o => o.ordinal) });
+    showToast('Duplicado aceptado. Actualizando datos…', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo aceptar: ' + e.message, 'error');
+  }
+}
+
+// Como cada grupo de "posible duplicado por monto" ya está acotado a un solo
+// kiosko (la clave lo incluye), agrupar por número dentro de ese mismo grupo
+// siempre corresponde a ese único kiosko.
+async function aceptarDuplicadoGrupoMonto(clave) {
+  const grupo = obtenerDuplicadosPorMonto()[clave] || [];
+  if (!grupo.length) return;
+
+  const kiosko = grupo[0].kiosko;
+  const resumen = grupo.map(o => `${o.numero} (${o.fechaFactura||'—'})`).join(', ');
+  const montoTxt = grupo[0].moneda === 'USD' ? 'US$'+fmtN(grupo[0].monto) : fmt(grupo[0].monto);
+  if (!confirm(`¿Aceptar que estas ${grupo.length} facturas de ${grupo[0].proveedor} [${kiosko}] con fecha ${grupo[0].fechaFactura||'—'} y monto ${montoTxt} son registros legítimos (no una carga duplicada)?\n\nFacturas: ${resumen}\n\nDejarán de aparecer en el control de duplicados.`)) return;
+
+  const porNumero = {};
+  grupo.forEach(o => { (porNumero[o.numero] = porNumero[o.numero] || []).push(o.ordinal); });
+
+  try {
+    for (const numero of Object.keys(porNumero)) {
+      await postAP({ modulo: 'aceptar_duplicado', numero_factura: numero, kiosko: kiosko, ordinales: porNumero[numero] });
+    }
+    showToast('Duplicado aceptado. Actualizando datos…', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo aceptar: ' + e.message, 'error');
+  }
+}
+
+// Elimina, en cada grupo de duplicados actual, la fila marcada como "Copia 2".
+async function eliminarTodasCopias2() {
+  const grupos = obtenerDuplicados();
+  const objetivos = Object.keys(grupos).map(clave => {
+    const copia2 = grupos[clave].find(o => o.ordinal === 2);
+    return copia2 ? { numero: copia2.numero, kiosko: copia2.kiosko, ordinal: 2, detalle: `${copia2.fechaFactura||'—'} · ${copia2.proveedor} [${copia2.kiosko}] · ${copia2.montoColones!=null ? fmt(copia2.montoColones) : 'US$'+fmtN(copia2.monto)}` } : null;
+  }).filter(Boolean);
+
+  if (!objetivos.length) { showToast('No hay copias 2 para eliminar.', 'error'); return; }
+
+  const confirmMsg = `¿Eliminar la "Copia 2" de ${objetivos.length} factura${objetivos.length!==1?'s':''} duplicada${objetivos.length!==1?'s':''}?\n\n` +
+    objetivos.slice(0,10).map(o => `• ${o.numero} — ${o.detalle}`).join('\n') +
+    (objetivos.length > 10 ? `\n… y ${objetivos.length - 10} más` : '') +
+    `\n\nSe borrarán de la hoja Registro Facturas, junto con sus líneas de producto asociadas en Desglose_IA (si las tienen). Esta acción no se puede deshacer.`;
+  if (!confirm(confirmMsg)) return;
+
+  let ok = 0, fail = 0, lineasDesglose = 0;
+  for (const o of objetivos) {
+    try {
+      const res = await postAP({ modulo: 'eliminar_factura', numero_factura: o.numero, kiosko: o.kiosko, ordinal: o.ordinal });
+      ok++;
+      lineasDesglose += (res && res.lineas_desglose_eliminadas) || 0;
+    } catch(e) {
+      fail++;
+    }
+  }
+  const extra = lineasDesglose ? ` (+ ${lineasDesglose} línea(s) de Desglose_IA)` : '';
+  showToast(`${ok} copia(s) eliminada(s)${extra}${fail ? `, ${fail} con error` : ''}. Actualizando datos…`, fail ? 'error' : 'success');
+  await cargarDatos();
+}
+
+// ── PAGINACIÓN ────────────────────────────────────────────────────
+function renderPaginacion(id, total, pag, cb) {
+  const pagEl   = document.getElementById(id);
+  const totalPag = Math.ceil(total / POR_PAGINA);
+  if (totalPag <= 1) { pagEl.style.display = 'none'; return; }
+
+  pagEl.style.display = 'flex';
+  const desde = (pag-1)*POR_PAGINA + 1;
+  const hasta = Math.min(pag*POR_PAGINA, total);
+
+  let btns = '';
+  for (let i = 1; i <= totalPag; i++) {
+    if (i === 1 || i === totalPag || Math.abs(i - pag) <= 1) {
+      btns += `<button class="pag-btn${i===pag?' active':''}" onclick="(${cb.toString()})(${i})">${i}</button>`;
+    } else if (Math.abs(i - pag) === 2) {
+      btns += `<span style="padding:4px;">…</span>`;
+    }
+  }
+
+  pagEl.innerHTML = `
+    <span>${desde}–${hasta} de ${total}</span>
+    <div class="pag-btns">
+      <button class="pag-btn" onclick="(${cb.toString()})(${pag-1})" ${pag<=1?'disabled':''}>← Anterior</button>
+      ${btns}
+      <button class="pag-btn" onclick="(${cb.toString()})(${pag+1})" ${pag>=totalPag?'disabled':''}>Siguiente →</button>
+    </div>`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  ['facturas','proyeccion','historial','duplicados','proveedores'].forEach(t =>
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── ACCIONES: guardar en Apps Script ──────────────────────────────
+async function postAP(payload) {
+  const resp = await fetch(APPS_SCRIPT_AP, {
+    method: 'POST',
+    body: new URLSearchParams({ data: JSON.stringify(payload) })
+  });
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar');
+  return json.result;
+}
+
+// Salta a la pestaña Proveedores con el nombre ya prellenado, para completar
+// ahí toda la información (categoría, contacto, condición de pago, etc.).
+function agregarProveedorRapido(nombre) {
+  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[4]);
+  cancelarEdicionProveedor();
+  document.getElementById('pv-nombre-juridico').value = nombre;
+}
+
+function facturaPorNumero(numero, kiosko) { return facturasAP.find(f => f.numero === numero && f.kiosko === kiosko); }
+
+async function guardarProyeccionFactura(numero, kiosko, fecha, rowId) {
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  try {
+    await postAP({
+      modulo: 'guardar_proyeccion',
+      numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
+      monto: f.monto, fecha_proyectada: fecha
+    });
+    f.fechaProyectada = fecha;
+    showToast('Fecha proyectada guardada ✓', 'success');
+    if (rowId) {
+      const wrap = document.getElementById('proy-' + rowId);
+      if (wrap) {
+        wrap.classList.remove('open');
+        const txt = wrap.querySelector('.proy-txt');
+        if (txt) txt.textContent = fecha || 'Sin definir';
+      }
+    }
+    renderProyeccion();
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  }
+}
+
+// ── TIPO DE CAMBIO (solo facturas en USD) ─────────────────────────
+async function guardarTipoCambio(numero, kiosko, valor) {
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  const tc = parseFloat(valor);
+  if (!tc || tc <= 0) { showToast('Ingresá un tipo de cambio válido.', 'error'); return; }
+  try {
+    await postAP({
+      modulo: 'guardar_tc',
+      numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
+      monto: f.monto, tipo_cambio: tc
+    });
+    f.tipoCambio    = tc;
+    f.montoColones  = Math.round(f.monto * tc * 100) / 100;
+    if (f.estado !== 'Cancelada') f.saldoPendiente = Math.round((f.montoColones - (f.totalAbonado||0)) * 100) / 100;
+    showToast('Tipo de cambio guardado ✓', 'success');
+    inicializar();
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  }
+}
+
+async function guardarNotaFactura(numero, kiosko, ordinal, valor, rowId) {
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  try {
+    await postAP({ modulo: 'guardar_nota', numero_factura: numero, kiosko: kiosko, ordinal: ordinal, nota: valor });
+    f.nota = valor;
+    showToast('Nota guardada ✓', 'success');
+    _renderFacturas();
+  } catch(e) {
+    showToast('No se pudo guardar la nota: ' + e.message, 'error');
+  }
+}
+
+// Muestra/oculta los campos condicionales según el medio de pago elegido.
+function actualizarCamposMedioPago(prefix) {
+  const medio = document.getElementById(prefix + '-medio').value;
+  document.getElementById(prefix + '-campo-reembolso').style.display = medio === 'Reembolso' ? '' : 'none';
+  document.getElementById(prefix + '-campo-notacredito').style.display = medio === 'Nota de crédito' ? '' : 'none';
+}
+
+// ── MODAL PAGO TOTAL ───────────────────────────────────────────────
+function abrirModalPago(numero, kiosko) {
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  document.getElementById('pago-numero').value = numero;
+  document.getElementById('pago-kiosko').value = kiosko;
+  document.getElementById('pago-sub').innerHTML = `${numero} [${kiosko}] · ${f.proveedor} <span style="color:var(--muted);">(Cta: ${f.cuentaProveedor||'sin registrar'})</span> · ${fmt(f.saldoPendiente)}`;
+  document.getElementById('pago-fecha').value = hoyISO;
+  document.getElementById('pago-medio').value = 'Transferencia';
+  document.getElementById('pago-reembolso-a').value = '';
+  document.getElementById('pago-nota-credito').value = '';
+  document.getElementById('pago-referencia').value = '';
+  actualizarCamposMedioPago('pago');
+  document.getElementById('modal-pago').classList.add('open');
+}
+
+async function guardarPago() {
+  const numero = document.getElementById('pago-numero').value;
+  const kiosko = document.getElementById('pago-kiosko').value;
+  const fecha  = document.getElementById('pago-fecha').value;
+  const medio  = document.getElementById('pago-medio').value;
+  const reembolsoA  = document.getElementById('pago-reembolso-a').value.trim();
+  const notaCredito = document.getElementById('pago-nota-credito').value.trim();
+  const referencia = document.getElementById('pago-referencia').value.trim();
+  if (!fecha) { showToast('Ingresá la fecha de pago.', 'error'); return; }
+  if (medio === 'Reembolso' && !reembolsoA) { showToast('Ingresá a quién se reembolsa.', 'error'); return; }
+  if (medio === 'Nota de crédito' && !notaCredito) { showToast('Ingresá la nota de crédito asociada.', 'error'); return; }
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  try {
+    await postAP({
+      modulo: 'registrar_pago',
+      numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
+      monto: f.monto, fecha_pago: fecha, medio_pago: medio, referencia: referencia,
+      reembolso_a: reembolsoA, nota_credito: notaCredito
+    });
+    f.fechaRealPago = fecha;
+    f.medioPago = medio;
+    f.referenciaPago = referencia;
+    f.estado = 'Cancelada';
+    f.saldoPendiente = 0;
+    cerrarModal('modal-pago');
+    showToast('Pago registrado. Factura marcada como Cancelada ✓', 'success');
+    inicializar();
+  } catch(e) {
+    showToast('No se pudo registrar el pago: ' + e.message, 'error');
+  }
+}
+
+// ── MODAL ABONO PARCIAL ────────────────────────────────────────────
+function abrirModalAbono(numero, kiosko) {
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  document.getElementById('abono-numero').value = numero;
+  document.getElementById('abono-kiosko').value = kiosko;
+  document.getElementById('abono-sub').innerHTML = `${numero} [${kiosko}] · ${f.proveedor} <span style="color:var(--muted);">(Cta: ${f.cuentaProveedor||'sin registrar'})</span>`;
+  document.getElementById('abono-fecha').value = hoyISO;
+  document.getElementById('abono-monto').value = '';
+  document.getElementById('abono-monto').max = f.saldoPendiente;
+  document.getElementById('abono-medio').value = 'Transferencia';
+  document.getElementById('abono-reembolso-a').value = '';
+  document.getElementById('abono-nota-credito').value = '';
+  document.getElementById('abono-referencia').value = '';
+  document.getElementById('abono-saldo-hint').textContent = `Saldo pendiente: ${fmt(f.saldoPendiente)}`;
+  actualizarCamposMedioPago('abono');
+  document.getElementById('modal-abono').classList.add('open');
+}
+
+async function guardarAbono() {
+  const numero = document.getElementById('abono-numero').value;
+  const kiosko = document.getElementById('abono-kiosko').value;
+  const fecha  = document.getElementById('abono-fecha').value;
+  const monto  = parseFloat(document.getElementById('abono-monto').value);
+  const medio  = document.getElementById('abono-medio').value;
+  const reembolsoA  = document.getElementById('abono-reembolso-a').value.trim();
+  const notaCredito = document.getElementById('abono-nota-credito').value.trim();
+  const referencia = document.getElementById('abono-referencia').value.trim();
+  if (!fecha) { showToast('Ingresá la fecha del abono.', 'error'); return; }
+  if (!monto || monto <= 0) { showToast('Ingresá un monto de abono válido.', 'error'); return; }
+  if (medio === 'Reembolso' && !reembolsoA) { showToast('Ingresá a quién se reembolsa.', 'error'); return; }
+  if (medio === 'Nota de crédito' && !notaCredito) { showToast('Ingresá la nota de crédito asociada.', 'error'); return; }
+
+  const f = facturaPorNumero(numero, kiosko);
+  if (!f) return;
+  try {
+    const result = await postAP({
+      modulo: 'registrar_abono',
+      numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, fecha_factura: f.fechaFactura,
+      fecha_abono: fecha, monto_abono: monto, medio_pago: medio, referencia: referencia,
+      reembolso_a: reembolsoA, nota_credito: notaCredito
+    });
+    dataAbonos.push({ 'Factura': numero, 'Kiosko': kiosko, 'Fecha de abono': fecha, 'Monto abonado': monto, 'Medio de pago': medio, 'Referencia': referencia });
+    f.totalAbonado = result.total_abonado != null ? result.total_abonado : (f.totalAbonado||0) + monto;
+    f.saldoPendiente = Math.round(((f.montoColones||0) - f.totalAbonado) * 100) / 100;
+    f.estado = f.saldoPendiente > 0.01 ? 'Abono' : 'Cancelada';
+    cerrarModal('modal-abono');
+    showToast('Abono registrado ✓', 'success');
+    inicializar();
+  } catch(e) {
+    showToast('No se pudo registrar el abono: ' + e.message, 'error');
+  }
+}
+
+function cerrarModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── PROVEEDORES (tab autocontenido) ────────────────────────────────
+function limpiarFormProveedor() {
+  document.getElementById('pv-id').value = '';
+  document.getElementById('pv-nombre-juridico').value = '';
+  document.getElementById('pv-nombre-comercial').value = '';
+  document.getElementById('pv-categoria').value = '';
+  document.getElementById('pv-contacto').value = '';
+  document.getElementById('pv-telefono').value = '';
+  document.getElementById('pv-correo').value = '';
+  document.getElementById('pv-dias-pedido').value = '';
+  document.getElementById('pv-notas-contacto').value = '';
+  document.getElementById('pv-cuenta').value = '';
+  document.getElementById('pv-condicion-pago').value = '0';
+  document.getElementById('pv-notas-pago').value = '';
+}
+
+function cancelarEdicionProveedor() {
+  limpiarFormProveedor();
+  document.getElementById('prov-form-titulo').textContent = 'Nuevo proveedor';
+  document.getElementById('prov-cancelar').style.display = 'none';
+}
+
+function editarProveedor(id) {
+  const p = proveedores.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('pv-id').value = p.id;
+  document.getElementById('pv-nombre-juridico').value = p.nombre_juridico || '';
+  document.getElementById('pv-nombre-comercial').value = p.nombre_comercial || '';
+  document.getElementById('pv-categoria').value = p.categoria || '';
+  document.getElementById('pv-contacto').value = p.contacto || '';
+  document.getElementById('pv-telefono').value = p.telefono || '';
+  document.getElementById('pv-correo').value = p.correo || '';
+  document.getElementById('pv-dias-pedido').value = p.dias_pedido || '';
+  document.getElementById('pv-notas-contacto').value = p.notas_contacto || '';
+  document.getElementById('pv-cuenta').value = p.cuenta || '';
+  document.getElementById('pv-condicion-pago').value = p.condicion_pago || '0';
+  document.getElementById('pv-notas-pago').value = p.notas_pago || '';
+  document.getElementById('prov-form-titulo').textContent = 'Editar proveedor';
+  document.getElementById('prov-cancelar').style.display = 'inline';
+  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[4]);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function guardarProveedorForm() {
+  const nombreJuridico = document.getElementById('pv-nombre-juridico').value.trim();
+  if (!nombreJuridico) { showToast('Ingresá el nombre jurídico del proveedor.', 'error'); return; }
+  try {
+    await postAP({
+      modulo: 'guardar_proveedor',
+      id: document.getElementById('pv-id').value || undefined,
+      nombre_juridico: nombreJuridico,
+      nombre_comercial: document.getElementById('pv-nombre-comercial').value.trim(),
+      categoria: document.getElementById('pv-categoria').value,
+      contacto: document.getElementById('pv-contacto').value.trim(),
+      telefono: document.getElementById('pv-telefono').value.trim(),
+      correo: document.getElementById('pv-correo').value.trim(),
+      dias_pedido: document.getElementById('pv-dias-pedido').value.trim(),
+      notas_contacto: document.getElementById('pv-notas-contacto').value.trim(),
+      cuenta: document.getElementById('pv-cuenta').value.trim(),
+      condicion_pago: document.getElementById('pv-condicion-pago').value || '0',
+      notas_pago: document.getElementById('pv-notas-pago').value.trim()
+    });
+    showToast('Proveedor guardado ✓', 'success');
+    cancelarEdicionProveedor();
+    const dP = await gvizLoad('proveedores', 'ID').catch(() => []);
+    proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
+    construirFacturasAP();
+    inicializar();
+    renderProveedoresTab();
+  } catch(e) {
+    showToast('No se pudo guardar el proveedor: ' + e.message, 'error');
+  }
+}
+
+async function eliminarProveedorForm(id, nombre) {
+  if (!confirm(`¿Eliminar el proveedor "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  try {
+    await postAP({ modulo: 'eliminar_proveedor', id: id });
+    showToast('Proveedor eliminado ✓', 'success');
+    const dP = await gvizLoad('proveedores', 'ID').catch(() => []);
+    proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
+    renderProveedoresTab();
+  } catch(e) {
+    showToast('No se pudo eliminar: ' + e.message, 'error');
+  }
+}
+
+function renderProveedoresTab() {
+  const cont = document.getElementById('prov-lista');
+  if (!cont) return;
+  if (!proveedores.length) {
+    cont.innerHTML = '<div class="empty">Todavía no hay proveedores registrados.</div>';
+    return;
+  }
+  const ordenados = [...proveedores].sort((a,b) => (a.nombre_juridico||'').localeCompare(b.nombre_juridico||''));
+  cont.innerHTML = ordenados.map(p => `
+    <div class="prov-row">
+      <div style="min-width:0;">
+        <div style="font-weight:500;">${p.nombre_comercial || p.nombre_juridico}</div>
+        <div style="font-size:12px;color:var(--muted);">${p.nombre_juridico}${p.categoria?' · '+p.categoria:''}${p.condicion_pago!=null&&p.condicion_pago!==''?' · '+p.condicion_pago+' día(s) de crédito':''}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn-mini" onclick="editarProveedor('${p.id}')">Editar</button>
+        <button class="btn-mini" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);" onclick="eliminarProveedorForm('${p.id}','${(p.nombre_comercial||p.nombre_juridico).replace(/'/g,"\\'")}')">Eliminar</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type==='success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+cargarKioskos().then(cargarDatos);
+</script>
+</body>
+</html>
