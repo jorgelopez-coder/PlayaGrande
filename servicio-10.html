@@ -540,10 +540,19 @@ async function calcularReparto() {
     detalleTodos = rDetalle.registros || [];
     recalcularPendientes();
 
-    // Control de fechas repetidas: cualquier fecha ya cubierta por un
-    // reparto cerrado del mismo kiosko se omite del cálculo nuevo.
-    const fechasYaCubiertas = new Set(
-      detalleTodos.filter(d => mismoKiosko(d['Kiosko'], kioskoActual)).map(d => soloFecha(d['Fecha']))
+    // Control de fechas repetidas — SOLO para el Servicio 10%: una fecha
+    // cuenta como "ya cubierta" si algún reparto cerrado anterior de este
+    // kiosko ya le asignó servicio (Monto Servicio ₡ > 0) ese día. Los tips
+    // se rastrean aparte por ID de cierre en TipsPagos (ver
+    // obtenerTipsPendientesPorFecha), así que una fecha con servicio ya
+    // repartido puede seguir trayendo sus tips pendientes si todavía no se
+    // incluyeron en ningún reparto — antes se omitía la fecha ENTERA y sus
+    // tips quedaban invisibles para siempre.
+    const fechasConServicioCubierto = new Set(
+      detalleTodos
+        .filter(d => mismoKiosko(d['Kiosko'], kioskoActual))
+        .filter(d => (Number(d['Monto Servicio ₡']) || 0) > 0)
+        .map(d => soloFecha(d['Fecha']))
     );
 
     // Quién tuvo turno "Trabajo" cada fecha (sugerencia de check por
@@ -571,17 +580,16 @@ async function calcularReparto() {
 
     let fechasOmitidas = 0;
     diasCalculados = listaFechas(fi, ff)
-      .filter(f => {
-        if (fechasYaCubiertas.has(f)) { fechasOmitidas++; return false; }
-        return true;
-      })
       .map(f => {
+        const servicioCubierto = fechasConServicioCubierto.has(f);
         // CORREGIDO: "Venta Neta" es el monto tal cual queda registrado en
         // Cierres (sin dividir) — la división por 1.1 es solo un paso
         // interno de la fórmula del monto de servicio, no un valor a
-        // mostrar como "venta neta".
+        // mostrar como "venta neta". Si el servicio de esa fecha ya se
+        // repartió antes, el monto de servicio queda en 0 (no se duplica),
+        // pero la venta neta se sigue mostrando de referencia.
         const ventaNeta = ventasPorFecha.get(f) || 0;
-        const montoServicio = (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
+        const montoServicio = servicioCubierto ? 0 : (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
         const tipsInfo = tipsPorFecha.get(f) || { monto: 0, ids: [] };
         const trabajaron = colaboradoresPorFecha.get(f) || new Map();
         const colaboradores = personalActivo.map(p => ({
@@ -597,15 +605,28 @@ async function calcularReparto() {
         // Tips pendientes de ese día (control-tips.html) se distribuyen con
         // la misma lógica equitativa que el 10% de servicio, entre los
         // mismos colaboradores tildados ese día — ver diaResumenTexto().
-        return { fecha: f, ventaNeta, montoServicio, tipsMonto: tipsInfo.monto, tipsIds: tipsInfo.ids, colaboradores };
+        // Independientes del servicio: si el servicio ya se repartió pero
+        // quedan tips sin cubrir, el día se sigue mostrando (solo para tips).
+        return { fecha: f, ventaNeta, montoServicio, tipsMonto: tipsInfo.monto, tipsIds: tipsInfo.ids, colaboradores, servicioCubierto };
+      })
+      .filter(d => {
+        // Se omite del todo solo si el servicio ya estaba cubierto Y no
+        // quedan tips pendientes ese día — no hay nada más que hacer ahí.
+        if (d.servicioCubierto && d.tipsMonto <= 0.5) { fechasOmitidas++; return false; }
+        return true;
       });
 
     renderDiasReparto();
     actualizarLabels();
     document.getElementById('sv-resultado').style.display = 'block';
 
-    if (fechasOmitidas > 0) {
-      showToast(`${fechasOmitidas} fecha(s) ya estaban en un reparto cerrado y se omitieron`, 'error');
+    const fechasSoloTips = diasCalculados.filter(d => d.servicioCubierto).length;
+    if (fechasOmitidas > 0 && fechasSoloTips > 0) {
+      showToast(`${fechasOmitidas} fecha(s) sin nada pendiente se omitieron · ${fechasSoloTips} fecha(s) con servicio ya repartido traen solo tips pendientes`, 'success');
+    } else if (fechasOmitidas > 0) {
+      showToast(`${fechasOmitidas} fecha(s) ya estaban completamente cubiertas (servicio y tips) y se omitieron`, 'error');
+    } else if (fechasSoloTips > 0) {
+      showToast(`${fechasSoloTips} fecha(s) con servicio ya repartido traen solo tips pendientes — revisalas`, 'success');
     } else {
       showToast('Cálculo listo — abrí cada fecha para marcar quién recibe', 'success');
     }
@@ -654,6 +675,8 @@ function renderDiasReparto() {
     const { seleccionados, total, montoCU, totalDia } = diaResumenTexto(i);
     const aviso = (!seleccionados && totalDia > 0.5) ? '<span class="badge b-pend">⚠ sin asignar</span>' : '';
     const tipsTxt = d.tipsMonto > 0 ? ` · Tips pendientes: ${fmtCRC(d.tipsMonto)}` : '';
+    const servicioTxt = d.servicioCubierto ? 'Servicio ya repartido en otro cálculo' : `Servicio: ${fmtCRC(d.montoServicio)}`;
+    const servicioBadge = d.servicioCubierto ? '<span class="badge b-ok">solo tips</span>' : '';
     return `<div class="hist-card" onclick="toggleDia(${i})">
       <div class="hist-head">
         <div>
@@ -662,7 +685,7 @@ function renderDiasReparto() {
         </div>
         <div class="hist-total">${fmtCRC(totalDia)}</div>
       </div>
-      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)} · Servicio: ${fmtCRC(d.montoServicio)}${tipsTxt}</span>${aviso}</div>
+      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)} · ${servicioTxt}${tipsTxt}</span>${servicioBadge}${aviso}</div>
     </div>
     <div class="hist-detail" id="dia-detalle-${i}">
       <div class="toolbar">

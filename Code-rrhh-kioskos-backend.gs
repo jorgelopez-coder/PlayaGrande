@@ -237,21 +237,31 @@ function guardarServicioReparto(p) {
     throw new Error('Falta el detalle de colaboradores por fecha.');
   }
 
+  // Control de fechas repetidas — SOLO para el Servicio 10%: una fecha con
+  // Monto Servicio ₡ > 0 ya guardado antes para este kiosko no puede volver
+  // a traer servicio (se duplicaría el pago). Los tips no bloquean nada acá
+  // porque se rastrean aparte por ID de cierre en TipsPagos — sin este
+  // matiz, una fecha con servicio ya cerrado pero tips todavía pendientes
+  // quedaría imposible de cerrar nunca más (ver servicio-10.html).
   const hojaDetExistente = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
-  const fechasExistentes = {};
+  const fechasConServicioExistente = {};
   const kioskoNorm = String(p.kiosko || '').trim().toLowerCase();
   filasComoObjetos(hojaDetExistente).forEach(function (d) {
-    if (String(d['Kiosko'] || '').trim().toLowerCase() === kioskoNorm) {
-      fechasExistentes[valorComoTexto(d['Fecha']).slice(0, 10)] = true;
+    if (String(d['Kiosko'] || '').trim().toLowerCase() === kioskoNorm && (Number(d['Monto Servicio ₡']) || 0) > 0) {
+      fechasConServicioExistente[valorComoTexto(d['Fecha']).slice(0, 10)] = true;
     }
   });
   const fechasNuevas = [];
   p.asignaciones.forEach(function (a) {
     if (fechasNuevas.indexOf(a.fecha) === -1) fechasNuevas.push(a.fecha);
   });
-  const fechasRepetidas = fechasNuevas.filter(function (f) { return fechasExistentes[f]; });
+  const fechasServicioNuevas = [];
+  p.asignaciones.forEach(function (a) {
+    if ((Number(a.monto_servicio) || 0) > 0 && fechasServicioNuevas.indexOf(a.fecha) === -1) fechasServicioNuevas.push(a.fecha);
+  });
+  const fechasRepetidas = fechasServicioNuevas.filter(function (f) { return fechasConServicioExistente[f]; });
   if (fechasRepetidas.length) {
-    throw new Error('Estas fechas ya fueron incluidas en otro reparto cerrado de ' + p.kiosko + ': ' + fechasRepetidas.join(', '));
+    throw new Error('El servicio de estas fechas ya fue incluido en otro reparto cerrado de ' + p.kiosko + ': ' + fechasRepetidas.join(', '));
   }
 
   const idReparto = p.id || Date.now();
