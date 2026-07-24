@@ -25,11 +25,23 @@
  * opcional del producto, igual que en Lorito). El tipo de cambio USD solo
  * sirve como ayuda de conversión en el formulario — igual que en Lorito, el
  * precio siempre se guarda ya convertido a colones, no se persiste la
- * moneda original. Fuera de alcance (igual que en v1/v2): "aplica para
- * recetas", conversión automática unidad de compra → unidad de receta,
- * "peso de botella vacía" e historial de compras — esas viven del lado de
- * facturas/compras o, en el caso del peso de botella, ya tienen su propio
- * flujo con tara en mermas.html.
+ * moneda original. Fuera de alcance (igual que en v1/v2): conversión
+ * automática unidad de compra → unidad de receta, "peso de botella vacía" e
+ * historial de compras — esas viven del lado de facturas/compras o, en el
+ * caso del peso de botella, ya tienen su propio flujo con tara en
+ * mermas.html.
+ *
+ * v4 (2026-07-24, mismo día): se copia la sección "Información para
+ * recetas" de costos-productos.html (Lorito) al formulario de "Nuevo
+ * producto" — toggle "Aplica para recetas" (para excluir del futuro módulo
+ * de recetas cosas como limpieza/empaques/servicios) y checkbox "Usar este
+ * precio manual en las recetas" (para que, más adelante, un módulo de
+ * recetas pueda usar el "Costo real por unidad" de acá en vez de recalcular
+ * solo). Se agregan las columnas "Aplica receta" y "Usar precio manual" a
+ * ENCABEZADOS_PRODUCTOS. Todavía no existe un módulo de recetas propio en
+ * Kioskos — estos dos campos solo quedan guardados en el catálogo,
+ * preparados para cuando se construya ese módulo (ver Inventario v2 /
+ * Base de Productos en las notas del proyecto).
  *
  * Agregado propio de Kioskos (no existe en Lorito, que es un solo local):
  * columna "Kioskos" — en qué kioskos se vende/usa cada producto. Valor
@@ -72,7 +84,8 @@ const ENCABEZADOS_PRODUCTOS = [
   'Tamaño', 'Precio sin IVA', 'IVA (%)', 'Cantidad presentación',
   'Costo por unidad', 'Rendimiento (%)', 'Proveedor', 'Stock mínimo',
   'Kioskos', 'Nota', 'Activo', 'Actualizado',
-  'Familia', 'Subfamilia' // v3 — siempre al FINAL, ver nota de migración arriba
+  'Familia', 'Subfamilia', // v3
+  'Aplica receta', 'Usar precio manual' // v4 — siempre al FINAL, ver nota de migración arriba
 ];
 
 // ── CONFIGURACIÓN (catálogos editables, pestaña "Configuracion") ──────
@@ -286,7 +299,9 @@ function valoresProducto(p, id) {
     'Activo': p.activo === false || p.activo === 'false' ? false : true,
     'Actualizado': new Date().toISOString(),
     'Familia': p.familia || '',
-    'Subfamilia': p.subfamilia || ''
+    'Subfamilia': p.subfamilia || '',
+    'Aplica receta': p.aplica_receta === false || p.aplica_receta === 'false' ? false : true,
+    'Usar precio manual': p.usar_precio_manual === true || p.usar_precio_manual === 'true' ? true : false
   };
 }
 

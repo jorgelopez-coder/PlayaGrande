@@ -294,16 +294,53 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <input type="number" id="mp-cantidad" min="0" step="any" placeholder="Ej. 6" oninput="actualizarCostoPreview()"/>
         </div>
         <div class="field">
-          <label>Rendimiento (%)</label>
-          <input type="number" id="mp-rendimiento" min="0" step="any" placeholder="100" oninput="actualizarCostoPreview()"/>
+          <label>Stock mínimo esperado</label>
+          <input type="number" id="mp-stock-minimo" min="0" step="any" placeholder="0"/>
         </div>
       </div>
+
+      <div class="section-label">Información para recetas</div>
       <div class="field">
-        <div class="costo-preview" id="mp-costo-preview">Completá precio y cantidad para calcular el costo por unidad.</div>
+        <label style="margin-bottom:8px;">Aplica para recetas</label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="mp-toggle-aplica-si" onclick="setAplicaReceta(true)"
+            style="padding:8px 20px;border-radius:8px;border:2px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">
+            ✓ Sí
+          </button>
+          <button type="button" id="mp-toggle-aplica-no" onclick="setAplicaReceta(false)"
+            style="padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;">
+            ✕ No
+          </button>
+        </div>
+        <div class="field-hint">Si es "No", no aparece como ingrediente al armar recetas (ej. limpieza, empaques, servicios).</div>
+        <input type="hidden" id="mp-aplica-receta" value="true"/>
       </div>
-      <div class="field">
-        <label>Stock mínimo esperado</label>
-        <input type="number" id="mp-stock-minimo" min="0" step="any" placeholder="0"/>
+
+      <div id="mp-seccion-datos-receta">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1rem;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Costo por unidad de medida</label>
+            <div id="mp-costo-display" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text);">₡0.00</div>
+            <div class="field-hint">Precio sin IVA ÷ cantidad</div>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Rendimiento (%)</label>
+            <input type="number" id="mp-rendimiento" min="0" step="any" placeholder="100" oninput="actualizarCostoPreview()"/>
+            <div class="field-hint">% utilizable tras limpieza/merma</div>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Costo real por unidad</label>
+            <div id="mp-costo-real-display" style="background:var(--green-bg);border:1px solid var(--green-lt);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--green);">₡0.00</div>
+            <div class="field-hint">Costo/u ÷ rendimiento</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--surface);border-radius:8px;">
+          <input type="checkbox" id="mp-usar-precio-manual" style="width:auto;margin-top:3px;"/>
+          <label for="mp-usar-precio-manual" style="margin-bottom:0;">
+            Usar este precio manual en las recetas
+            <div class="field-hint" style="margin-top:2px;">Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en vez del costo calculado automáticamente — útil para corregir un producto puntual.</div>
+          </label>
+        </div>
       </div>
 
       <div class="section-label">Dónde aplica</div>
@@ -579,7 +616,9 @@ async function cargarDatos() {
       nota: r['Nota'] || '',
       activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false',
       familia: r['Familia'] || '',
-      subfamilia: r['Subfamilia'] || ''
+      subfamilia: r['Subfamilia'] || '',
+      aplicaReceta: r['Aplica receta'] !== false && r['Aplica receta'] !== 'FALSE' && r['Aplica receta'] !== 'false',
+      usarPrecioManual: r['Usar precio manual'] === true || r['Usar precio manual'] === 'TRUE' || r['Usar precio manual'] === 'true'
     })).sort((a,b) => a.nombre.localeCompare(b.nombre));
     if (out.categoriasSugeridas && out.categoriasSugeridas.length) categoriasSugeridas = out.categoriasSugeridas;
     if (out.areasSugeridas && out.areasSugeridas.length) areasSugeridas = out.areasSugeridas;
@@ -923,15 +962,38 @@ function actualizarCostoPreview() {
   const cantidad = Number(document.getElementById('mp-cantidad').value) || 0;
   const rendimientoInput = document.getElementById('mp-rendimiento').value;
   const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
-  const el = document.getElementById('mp-costo-preview');
-  if (!(cantidad > 0)) {
-    el.innerHTML = 'Completá el precio y la cantidad en la presentación para calcular el costo por unidad.';
-    return;
-  }
-  const costo = precio / cantidad;
+
+  const costo = cantidad > 0 ? precio / cantidad : 0;
   const costoReal = rendimiento > 0 ? costo / (rendimiento/100) : costo;
-  el.innerHTML = `Costo por unidad: <b>${fmtColones(costo)}</b>` +
-    (rendimiento !== 100 ? ` · Costo real (con rendimiento): <b>${fmtColones(costoReal)}</b>` : '');
+
+  document.getElementById('mp-costo-display').textContent = fmtColones(costo);
+  document.getElementById('mp-costo-real-display').textContent = fmtColones(costoReal);
+}
+
+// ── APLICA PARA RECETAS ─────────────────────────────────────────────
+// Copiado de la sección "Información para recetas" de costos-productos.html
+// (Lorito). Si el producto no aplica para recetas (ej. limpieza, empaques,
+// servicios), se deshabilita la sección para que no confunda ni bloquee el
+// guardado — pero no es obligatorio, el catálogo de Kioskos sigue sin tener
+// un módulo de recetas propio todavía.
+function setAplicaReceta(activo) {
+  document.getElementById('mp-aplica-receta').value = activo ? 'true' : 'false';
+  const btnSi = document.getElementById('mp-toggle-aplica-si');
+  const btnNo = document.getElementById('mp-toggle-aplica-no');
+  if (activo) {
+    btnSi.style.cssText = 'padding:8px 20px;border-radius:8px;border:2px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;';
+    btnNo.style.cssText = 'padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;';
+  } else {
+    btnSi.style.cssText = 'padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;';
+    btnNo.style.cssText = 'padding:8px 20px;border-radius:8px;border:2px solid var(--red);background:var(--red);color:#fff;font-size:13px;font-weight:600;cursor:pointer;';
+  }
+  actualizarSeccionDatosReceta(activo);
+}
+function actualizarSeccionDatosReceta(activo) {
+  const seccion = document.getElementById('mp-seccion-datos-receta');
+  seccion.style.opacity = activo ? '1' : '.45';
+  seccion.style.pointerEvents = activo ? '' : 'none';
+  seccion.querySelectorAll('input').forEach(el => { el.disabled = !activo; });
 }
 
 // ── KIOSKOS (checkboxes del modal) ───────────────────────────────
@@ -983,6 +1045,8 @@ function abrirModalProducto(idx) {
   document.getElementById('mp-stock-minimo').value = p && p.stockMinimo ? p.stockMinimo : '';
   document.getElementById('mp-nota').value = p ? p.nota : '';
   document.getElementById('mp-activo').checked = p ? p.activo : true;
+  setAplicaReceta(p ? p.aplicaReceta : true);
+  document.getElementById('mp-usar-precio-manual').checked = p ? !!p.usarPrecioManual : false;
   marcarKioskosEnModal(p ? p.kioskos : 'Todos');
   actualizarCostoPreview();
 
@@ -1019,7 +1083,9 @@ async function guardarProducto() {
       stock_minimo: document.getElementById('mp-stock-minimo').value,
       kioskos: leerKioskosDeModal(),
       nota: document.getElementById('mp-nota').value.trim(),
-      activo: document.getElementById('mp-activo').checked
+      activo: document.getElementById('mp-activo').checked,
+      aplica_receta: document.getElementById('mp-aplica-receta').value === 'true',
+      usar_precio_manual: document.getElementById('mp-usar-precio-manual').checked
     };
     if (productoEnEdicion) payload.id = productoEnEdicion;
 
