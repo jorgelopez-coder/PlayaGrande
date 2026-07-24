@@ -16,7 +16,7 @@
   --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
   --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
   --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
-  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
 }
 body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
 header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
@@ -26,20 +26,16 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 .date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
-
-.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border)}
-.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
 .tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
 .tab-btn:hover:not(.active){color:var(--text)}
-
-main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+main{max-width:960px;margin:0 auto;padding:2rem 2rem 5rem}
 .page{display:none}.page.active{display:block}
-
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
 .card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
 .card-title-row .card-title{margin-bottom:0}
-
 .field{margin-bottom:1rem}
 .field:last-child{margin-bottom:0}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
@@ -53,11 +49,9 @@ input[type=text],input[type=date],input[type=number],input[type=password],select
 }
 input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
 input::placeholder{color:var(--subtle)}
-input[readonly],input:disabled{background:var(--green-bg);color:var(--muted);cursor:not-allowed}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 .checkbox-row{display:flex;align-items:center;gap:8px}
 .checkbox-row input{width:auto}
-
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 .btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.9}
@@ -68,20 +62,18 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
 .btn-sm:hover{border-color:var(--border-h)}
 .btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
-
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
 .toast.error{border-color:var(--red);color:var(--red)}
 .toast svg{width:16px;height:16px;flex-shrink:0}
-
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
 .badge-ok{background:var(--green-bg);color:var(--green)}
 .badge-bajo{background:var(--red-bg);color:var(--red)}
+.badge-peso{background:var(--blue-bg);color:var(--blue)}
+.badge-unitario{background:var(--surface);color:var(--muted)}
 .badge-inactivo{background:var(--surface);color:var(--subtle)}
-
-/* Productos */
 .cat-section{margin-bottom:1.5rem}
 .cat-section:last-child{margin-bottom:0}
 .cat-header{font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
@@ -89,51 +81,49 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .prod-row:last-child{border-bottom:none}
 .prod-nombre{font-weight:600;font-size:13.5px}
 .prod-alias{font-size:11.5px;color:var(--muted)}
-.prod-min{font-size:11.5px;color:var(--muted);white-space:nowrap}
-.prod-actions{flex-shrink:0}
-
-/* Toma de inventario */
-.toma-kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
-.toma-kiosko-row select{width:200px}
-.toma-header-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.toma-header-info{font-size:12.5px;color:var(--muted)}
-.toma-header-info b{color:var(--text)}
-.conteo-row{display:grid;grid-template-columns:1fr 90px 110px 90px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
-.conteo-row:last-child{border-bottom:none}
-.conteo-row input[type=number]{text-align:right}
-.conteo-guardado{font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;white-space:nowrap}
-.conteo-guardado.show{opacity:1}
-.conteo-col-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:2px}
-.conteo-cols{display:grid;grid-template-columns:1fr 90px 110px 90px;gap:10px}
-
-/* Historial / stock */
-.stock-table-wrap,.hist-table-wrap{overflow-x:auto}
+.kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.kiosko-row select{width:220px}
+.stock-table-wrap{overflow-x:auto}
 .stock-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .stock-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
 .stock-table td{padding:.6rem .9rem;border-bottom:1px solid var(--border);white-space:nowrap}
 .stock-table tbody tr:last-child td{border-bottom:none}
-.stock-table tbody tr:hover{background:var(--surface);cursor:pointer}
+.stock-table tbody tr:hover{background:var(--surface)}
 .mov-panel{background:var(--surface);border-radius:8px;padding:10px 12px;margin:6px 0 10px;font-size:12px}
 .mov-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}
 .mov-item:last-child{border-bottom:none}
-
+.toma-header-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.toma-header-info{font-size:12.5px;color:var(--muted)}
+.toma-header-info b{color:var(--text)}
+.conteo-linea{padding:12px 0;border-bottom:1px solid var(--border)}
+.conteo-linea:last-child{border-bottom:none}
+.conteo-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.conteo-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;align-items:end}
+.conteo-inputs .mini-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}
+.conteo-calc{font-size:12px;color:var(--muted);margin-top:6px}
+.conteo-calc b{color:var(--text)}
+.conteo-guardado{font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;white-space:nowrap}
+.conteo-guardado.show{opacity:1}
+.foto-chip{font-size:11px;color:var(--blue);text-decoration:none}
+.btn-foto{font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--blue-lt);background:var(--blue-bg);color:var(--blue);cursor:pointer;font-weight:600;position:relative;overflow:hidden}
+.btn-foto input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.btn-ia{font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--amber-lt);background:var(--amber-bg);color:var(--amber);cursor:pointer;font-weight:600}
+.btn-ia:disabled{opacity:.5;cursor:wait}
 .toma-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
 .toma-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
 .toma-card-title{font-weight:700;font-size:13.5px;font-family:var(--font-d)}
 .toma-card-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
 .toma-card-body{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .toma-card.abierta .toma-card-body{display:block}
-
-/* Modal PIN */
+.dif-pos{color:var(--green);font-weight:600}
+.dif-neg{color:var(--red);font-weight:600}
+.min-input{width:80px !important;text-align:right;padding:6px 8px !important;font-size:13px !important}
 .modal-overlay{position:fixed;inset:0;background:rgba(20,40,30,.45);display:flex;align-items:center;justify-content:center;z-index:200}
-.modal-card{background:var(--card);border-radius:var(--radius);padding:1.5rem;max-width:380px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.modal-card{background:var(--card);border-radius:var(--radius);padding:1.5rem;max-width:400px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.2)}
 .modal-error{font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-lt);border-radius:8px;padding:8px 10px;margin-top:10px;display:none}
-
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row3{grid-template-columns:1fr}
-  .conteo-row,.conteo-cols{grid-template-columns:1fr 70px 90px}
-  .conteo-col-min{display:none}
 }
 </style>
 </head>
@@ -145,21 +135,57 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Inicio
     </a>
-    <span class="page-title">📦 Inventario</span>
+    <span class="page-title">📦 Inventario v2</span>
   </div>
   <span class="date-chip" id="date-chip"></span>
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('productos',this)">Productos</button>
+  <button class="tab-btn active" onclick="showTab('stock',this)">Stock</button>
   <button class="tab-btn" onclick="showTab('toma',this)">Toma de Inventario</button>
-  <button class="tab-btn" onclick="showTab('historial',this)">Historial y Stock</button>
+  <button class="tab-btn" onclick="showTab('resultados',this)">Resultados</button>
+  <button class="tab-btn" onclick="showTab('catalogo',this)">Catálogo</button>
 </div>
 
 <main>
 
-<!-- ── TAB PRODUCTOS ── -->
-<div class="page active" id="tab-productos">
+<!-- ── TAB STOCK ── -->
+<div class="page active" id="tab-stock">
+  <div class="kiosko-row">
+    <select id="stock-kiosko" onchange="alCambiarKiosko('stock')"><option value="" disabled selected>Cargando…</option></select>
+    <button class="btn-sm" onclick="cargarStock()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+  <div class="card">
+    <div class="card-title-row">
+      <p class="card-title">Stock actual</p>
+      <button class="btn-sm" onclick="abrirModalAjuste()">± Ajuste / Merma</button>
+    </div>
+    <div class="stock-table-wrap"><div id="stock-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
+  </div>
+</div>
+
+<!-- ── TAB TOMA ── -->
+<div class="page" id="tab-toma">
+  <div class="kiosko-row">
+    <select id="toma-kiosko" onchange="alCambiarKiosko('toma')"><option value="" disabled selected>Cargando…</option></select>
+  </div>
+  <div id="toma-contenido"><div class="empty-state">Seleccioná un kiosko.</div></div>
+</div>
+
+<!-- ── TAB RESULTADOS ── -->
+<div class="page" id="tab-resultados">
+  <div class="kiosko-row">
+    <select id="res-kiosko" onchange="alCambiarKiosko('res')"><option value="" disabled selected>Cargando…</option></select>
+    <button class="btn-sm" onclick="cargarResultados()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+  <div class="card">
+    <p class="card-title">Tomas cerradas · teórico vs. físico</p>
+    <div id="res-lista"><div class="empty-state">Seleccioná un kiosko.</div></div>
+  </div>
+</div>
+
+<!-- ── TAB CATÁLOGO ── -->
+<div class="page" id="tab-catalogo">
   <div class="card">
     <div class="card-title-row">
       <p class="card-title" id="prod-form-title">Nuevo producto</p>
@@ -169,42 +195,53 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="field-row">
       <div class="field">
         <label for="prod-nombre-interno">Nombre interno <span class="req">*</span></label>
-        <input type="text" id="prod-nombre-interno" placeholder="Ej. Ron blanco 750ml"/>
+        <input type="text" id="prod-nombre-interno" placeholder="Ej. Ron blanco Bacardí 750ml"/>
       </div>
       <div class="field">
         <label for="prod-categoria">Categoría</label>
         <select id="prod-categoria"></select>
-        <div style="margin-top:6px" id="nueva-cat-toggle">
-          <button class="btn-link" onclick="mostrarNuevaCategoria()">+ Nueva categoría</button>
-        </div>
+        <div style="margin-top:6px" id="nueva-cat-toggle"><button class="btn-link" onclick="mostrarNuevaCategoria()">+ Nueva categoría</button></div>
         <div class="field-row" id="nueva-cat-form" style="display:none;margin-top:8px">
           <input type="text" id="nueva-cat-nombre" placeholder="Nombre de la categoría"/>
-          <button class="btn-sm" onclick="guardarCategoria()">Agregar</button>
+          <button class="btn-sm" onclick="guardarCategoriaNueva()">Agregar</button>
         </div>
       </div>
     </div>
-    <div class="field-row3">
+    <div class="field-row">
       <div class="field">
-        <label for="prod-nombre-facturacion">Nombre de facturación</label>
-        <input type="text" id="prod-nombre-facturacion" placeholder="Como aparece en la factura del proveedor"/>
+        <label for="prod-tipo">Tipo de control <span class="req">*</span></label>
+        <select id="prod-tipo" onchange="alCambiarTipoProducto()">
+          <option value="unitario">Unitario — conteo (botellas cerradas, latas, gaseosas…)</option>
+          <option value="peso">Peso — báscula (sifón, destilados; stock en ml)</option>
+        </select>
       </div>
       <div class="field">
-        <label for="prod-nombre-compra">Nombre de compra</label>
-        <input type="text" id="prod-nombre-compra" placeholder="Como se pide/ordena al proveedor"/>
+        <label for="prod-proveedor">Proveedor habitual</label>
+        <select id="prod-proveedor"><option value="">Sin proveedor</option></select>
+      </div>
+    </div>
+    <div class="field-row3" id="prod-campos-peso" style="display:none">
+      <div class="field">
+        <label for="prod-contenido">Contenido envase (ml) <span class="req">*</span></label>
+        <input type="number" id="prod-contenido" placeholder="750" min="0" step="any"/>
       </div>
       <div class="field">
-        <label for="prod-nombre-venta">Nombre de venta</label>
-        <input type="text" id="prod-nombre-venta" placeholder="Como aparece vendido en Square/menú"/>
+        <label for="prod-tara">Tara envase vacío (g) <span class="req">*</span></label>
+        <input type="number" id="prod-tara" placeholder="Pesá un envase vacío" min="0" step="any"/>
+      </div>
+      <div class="field">
+        <label for="prod-densidad">Densidad (g/ml) <span class="req">*</span></label>
+        <input type="number" id="prod-densidad" placeholder="0.94" min="0" step="any"/>
       </div>
     </div>
     <div class="field-row3">
       <div class="field">
-        <label for="prod-unidad">Unidad</label>
-        <input type="text" id="prod-unidad" placeholder="unidad, botella, oz, mL, kg…" value="unidad"/>
+        <label for="prod-costo">Costo por <span id="prod-costo-unidad">unidad</span> (₡)</label>
+        <input type="number" id="prod-costo" placeholder="0" min="0" step="any"/>
       </div>
       <div class="field">
-        <label for="prod-minimo">Mínimo recomendado</label>
-        <input type="number" id="prod-minimo" placeholder="0" min="0" step="any"/>
+        <label for="prod-nombre-venta">Nombre de venta directa (Square)</label>
+        <input type="text" id="prod-nombre-venta" placeholder="Solo si se vende 1:1 sin receta"/>
       </div>
       <div class="field">
         <label>Estado</label>
@@ -223,46 +260,58 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Catálogo</p>
     <div id="prod-lista"><div class="empty-state">Cargando productos…</div></div>
   </div>
-</div><!-- /tab-productos -->
-
-
-<!-- ── TAB TOMA DE INVENTARIO ── -->
-<div class="page" id="tab-toma">
-  <div class="toma-kiosko-row">
-    <select id="toma-kiosko" onchange="alCambiarKioskoToma()"><option value="" disabled selected>Cargando…</option></select>
-  </div>
-  <div id="toma-contenido"><div class="empty-state">Seleccioná un kiosko.</div></div>
-</div><!-- /tab-toma -->
-
-
-<!-- ── TAB HISTORIAL Y STOCK ── -->
-<div class="page" id="tab-historial">
-  <div class="toma-kiosko-row">
-    <select id="hist-kiosko" onchange="alCambiarKioskoHistorial()"><option value="" disabled selected>Cargando…</option></select>
-    <button class="btn-sm" onclick="cargarHistorial()" style="margin-left:auto">↻ Actualizar</button>
-  </div>
 
   <div class="card">
-    <p class="card-title">Stock actual</p>
-    <div class="stock-table-wrap"><div id="stock-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
+    <div class="card-title-row">
+      <p class="card-title">Mínimos por kiosko</p>
+      <select id="min-kiosko" style="width:200px" onchange="renderMinimos()"><option value="" disabled selected>Kiosko…</option></select>
+    </div>
+    <div class="stock-table-wrap"><div id="min-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
   </div>
-
-  <div class="card">
-    <p class="card-title">Tomas cerradas</p>
-    <div id="toma-historial-lista"><div class="empty-state">Seleccioná un kiosko.</div></div>
-  </div>
-</div><!-- /tab-historial -->
+</div>
 
 </main>
 
-<!-- Modal PIN admin para cerrar toma -->
+<!-- Modal ajuste/merma -->
+<div class="modal-overlay" id="ajuste-modal" style="display:none">
+  <div class="modal-card">
+    <p class="card-title">Ajuste de stock</p>
+    <div class="field">
+      <label for="aj-producto">Producto</label>
+      <select id="aj-producto"></select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="aj-tipo">Tipo</label>
+        <select id="aj-tipo">
+          <option value="Ajuste Manual">Ajuste manual</option>
+          <option value="Merma">Merma</option>
+          <option value="Traslado">Traslado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="aj-cantidad">Cantidad ± (unidad base)</label>
+        <input type="number" id="aj-cantidad" step="any" placeholder="-500 = quita, 500 = suma"/>
+      </div>
+    </div>
+    <div class="field">
+      <label for="aj-nota">Nota</label>
+      <input type="text" id="aj-nota" placeholder="Motivo del ajuste"/>
+    </div>
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="document.getElementById('ajuste-modal').style.display='none'">Cancelar</button>
+      <button class="btn-primary" onclick="guardarAjuste()">Aplicar ajuste</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal PIN admin -->
 <div class="modal-overlay" id="pin-modal" style="display:none">
   <div class="modal-card">
     <p class="card-title">Código de administrador</p>
     <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-      Cerrar la toma aplica los ajustes de stock por conteo y bloquea cualquier
-      cambio posterior — no se puede reabrir. Ingresá el código de administrador
-      para confirmar.
+      Cerrar la toma ajusta el stock al valor contado y bloquea cualquier
+      cambio posterior — no se puede reabrir.
     </p>
     <input type="password" id="pin-input" placeholder="Código de administrador" autocomplete="off"
       onkeydown="if(event.key==='Enter')confirmarCierreToma()"/>
@@ -280,10 +329,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────
-// Mismo backend de RRHH usado en el resto del ecosistema: trae la lista de
-// kioskos activos (?modulo=kioskos).
-// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+// ── CONTROL DE ACCESO (mismo patrón del ecosistema) ────────────────
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
   localStorage.removeItem('portal_sesion');
@@ -293,27 +339,46 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
   alert('Tu usuario no tiene acceso a este módulo.');
   window.location.href = 'index.html';
 }
-// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+
+// ── CONFIG ────────────────────────────────────────────────────────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-const INVENTARIO_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar):
+const INVENTARIO_V2_URL = '';
+// Extractor de peso con IA (mismo Web App de mermas — Code-mermas-extractor.gs):
+const EXTRACTOR_URL = 'https://script.google.com/macros/s/AKfycbyYwRDE6Y8vW79x1ad-i2hWFXRq9jP0jkPmiWwRf8gmRNp8KD5_CacpjC69Xys_ocp1HQ/exec';
 
-// Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let PRODUCTOS = [], CATEGORIAS = [], PROVEEDORES = [], MINIMOS = [];
+let tomaActivaActual = null;
+let stockActual = [];
+let fotosLinea = {};   // productoId → dataUrl (foto de báscula pendiente de guardar)
 
-let PRODUCTOS = [];
-let CATEGORIAS = [];
-let tomaActivaActual = null;   // { toma, detalle } para el kiosko de la pestaña Toma
-let stockActualHist = [];
-let movimientosAbiertos = new Set();
+async function fetchConTimeout(url, options = {}, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+async function postInv(payload) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+async function getInv(params) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
 
-// PIN de administrador: mismo mecanismo de login.html (roles guardados en
-// localStorage 'portal_roles'; ADMIN_DEFAULT si todavía no se configuró
-// ninguno). El backend valida además su propio ADMIN_PIN (Script
-// Properties) como segunda barrera — mantenelos iguales si cambiás el PIN.
 const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos' };
 function getRoles() {
   try { return JSON.parse(localStorage.getItem('portal_roles')||'null') || [ADMIN_DEFAULT]; }
@@ -324,52 +389,15 @@ function rolAdminPorPin(pin) {
   return (rol && rol.modulos === 'todos') ? rol : null;
 }
 
-// fetch con límite de tiempo — sin esto, en redes móviles lentas un botón
-// "Guardando…" puede quedarse colgado indefinidamente.
-async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function postInventario(payload) {
-  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  });
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
-}
-
-async function getInventario(params) {
-  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_URL + '?' + new URLSearchParams(params).toString());
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
-}
-
-// ── TABS ──────────────────────────────────────────────────────────
 function showTab(tab, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   el.classList.add('active');
+  if (tab === 'stock') cargarStock();
   if (tab === 'toma') cargarTomaActiva();
-  if (tab === 'historial') cargarHistorial();
+  if (tab === 'resultados') cargarResultados();
 }
-
-// ── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
   document.getElementById('toast-icon').innerHTML = type === 'success'
@@ -380,106 +408,92 @@ function showToast(msg, type='success') {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => t.classList.remove('show'), 3500);
 }
-
-function escHtml(s) {
-  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function hoy() { return new Date().toISOString().slice(0,10); }
+function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function hoy(){ return new Date().toISOString().slice(0,10); }
+function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
+function fmtCant(n, unidad){ return fmtNum(Math.round(Number(n)||0)) + ' ' + (unidad === 'ml' ? 'ml' : 'ud'); }
 
 // ── KIOSKOS ───────────────────────────────────────────────────────
 async function cargarKioskos() {
   try {
     const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     const data = await resp.json();
-    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-      KIOSKOS = kioskosPermitidos(data.kioskos);
-    } else if (data.registros && data.registros.length) {
-      const activos = data.registros
-        .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
-        .map(k => k['Kiosko']).filter(Boolean);
-      if (activos.length) KIOSKOS = activos;
-    }
-  } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
-  poblarKioskos();
-}
-
-function poblarKioskos() {
-  const opciones = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
-    + KIOSKOS.map(k => `<option>${k}</option>`).join('');
-  document.getElementById('toma-kiosko').innerHTML = opciones;
-  document.getElementById('hist-kiosko').innerHTML = opciones;
-
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  } catch(e) { /* respaldo */ }
+  const opciones = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  ['stock-kiosko','toma-kiosko','res-kiosko','min-kiosko'].forEach(id => document.getElementById(id).innerHTML = opciones);
   const ultimo = localStorage.getItem('kiosko_actual');
   if (ultimo && KIOSKOS.includes(ultimo)) {
-    document.getElementById('toma-kiosko').value = ultimo;
-    document.getElementById('hist-kiosko').value = ultimo;
+    ['stock-kiosko','toma-kiosko','res-kiosko','min-kiosko'].forEach(id => document.getElementById(id).value = ultimo);
+    cargarStock();
   }
 }
-
-function alCambiarKioskoToma() {
-  const k = document.getElementById('toma-kiosko').value;
+function alCambiarKiosko(origen) {
+  const mapa = { stock:'stock-kiosko', toma:'toma-kiosko', res:'res-kiosko' };
+  const k = document.getElementById(mapa[origen]).value;
   if (k) localStorage.setItem('kiosko_actual', k);
-  cargarTomaActiva();
-}
-function alCambiarKioskoHistorial() {
-  const k = document.getElementById('hist-kiosko').value;
-  if (k) localStorage.setItem('kiosko_actual', k);
-  cargarHistorial();
+  if (origen === 'stock') cargarStock();
+  if (origen === 'toma') cargarTomaActiva();
+  if (origen === 'res') cargarResultados();
 }
 
-// ── PRODUCTOS Y CATEGORÍAS ─────────────────────────────────────────
-async function cargarProductos() {
-  document.getElementById('prod-lista').innerHTML = '<div class="empty-state">Cargando productos…</div>';
+// ── CATÁLOGO ──────────────────────────────────────────────────────
+async function cargarCatalogo() {
   try {
-    const [prodResp, catResp] = await Promise.all([
-      getInventario({ modulo: 'productos' }),
-      getInventario({ modulo: 'categorias' })
+    const [prodResp, catResp, provResp, minResp] = await Promise.all([
+      getInv({ modulo:'productos' }), getInv({ modulo:'categorias' }),
+      getInv({ modulo:'proveedores' }), getInv({ modulo:'minimos' })
     ]);
     PRODUCTOS = prodResp.registros || [];
-    CATEGORIAS = (catResp.registros || []).sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0));
+    CATEGORIAS = (catResp.registros || []).sort((a,b) => (Number(a['Orden'])||0)-(Number(b['Orden'])||0));
+    PROVEEDORES = provResp.registros || [];
+    MINIMOS = minResp.registros || [];
     poblarSelectCategorias();
+    poblarSelectProveedores();
     renderProductos();
+    renderMinimos();
   } catch(e) {
     document.getElementById('prod-lista').innerHTML = `<div class="empty-state">No se pudo cargar el catálogo (${escHtml(e.message)}).</div>`;
   }
 }
-
 function poblarSelectCategorias() {
   const sel = document.getElementById('prod-categoria');
   const actual = sel.value;
-  sel.innerHTML = '<option value="">Sin categoría</option>'
-    + CATEGORIAS.filter(c => c['Activo'] !== false).map(c => `<option>${escHtml(c['Nombre'])}</option>`).join('');
+  sel.innerHTML = '<option value="">Sin categoría</option>' + CATEGORIAS.filter(c => c['Activo'] !== false).map(c => `<option>${escHtml(c['Nombre'])}</option>`).join('');
   if (actual) sel.value = actual;
 }
-
+function poblarSelectProveedores() {
+  const sel = document.getElementById('prod-proveedor');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Sin proveedor</option>' + PROVEEDORES.filter(p => p['Activo'] !== false).map(p => `<option value="${escHtml(p['Nombre'])}">${escHtml(p['Nombre'])}</option>`).join('');
+  if (actual) sel.value = actual;
+}
 function mostrarNuevaCategoria() {
   document.getElementById('nueva-cat-form').style.display = 'flex';
   document.getElementById('nueva-cat-toggle').style.display = 'none';
   document.getElementById('nueva-cat-nombre').focus();
 }
-
-async function guardarCategoria() {
+async function guardarCategoriaNueva() {
   const nombre = document.getElementById('nueva-cat-nombre').value.trim();
-  if (!nombre) { showToast('Escribí el nombre de la categoría', 'error'); return; }
+  if (!nombre) { showToast('Escribí el nombre de la categoría','error'); return; }
   try {
-    await postInventario({ accion: 'categoria_guardar', nombre, orden: CATEGORIAS.length + 1 });
+    await postInv({ accion:'categoria_guardar', nombre, orden: CATEGORIAS.length + 1 });
     showToast('Categoría agregada ✓');
     document.getElementById('nueva-cat-nombre').value = '';
     document.getElementById('nueva-cat-form').style.display = 'none';
     document.getElementById('nueva-cat-toggle').style.display = 'block';
-    const catResp = await getInventario({ modulo: 'categorias' });
-    CATEGORIAS = (catResp.registros || []).sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0));
-    poblarSelectCategorias();
+    await cargarCatalogo();
     document.getElementById('prod-categoria').value = nombre;
-  } catch(e) {
-    showToast('No se pudo guardar la categoría — ' + e.message, 'error');
-  }
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
 }
-
+function alCambiarTipoProducto() {
+  const esPeso = document.getElementById('prod-tipo').value === 'peso';
+  document.getElementById('prod-campos-peso').style.display = esPeso ? 'grid' : 'none';
+  document.getElementById('prod-costo-unidad').textContent = esPeso ? 'ml' : 'unidad';
+}
 function renderProductos() {
   const cont = document.getElementById('prod-lista');
   if (!PRODUCTOS.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay productos. Agregá el primero arriba.</div>'; return; }
-
   const nombresCat = CATEGORIAS.map(c => c['Nombre']);
   const grupos = {};
   PRODUCTOS.forEach(p => {
@@ -487,123 +501,244 @@ function renderProductos() {
     (grupos[cat] = grupos[cat] || []).push(p);
   });
   const ordenCats = [...nombresCat.filter(c => grupos[c]), ...(grupos['Sin categoría'] ? ['Sin categoría'] : [])];
-
   cont.innerHTML = ordenCats.map(cat => `
     <div class="cat-section">
       <div class="cat-header">${escHtml(cat)}</div>
-      ${grupos[cat].map(p => `
+      ${grupos[cat].map(p => {
+        const esPeso = p['Tipo Control'] === 'peso';
+        return `
         <div class="prod-row">
           <div style="flex:1">
-            <div class="prod-nombre">${escHtml(p['Nombre Interno'])} ${p['Activo'] === false ? '<span class="badge badge-inactivo">Inactivo</span>' : ''}</div>
+            <div class="prod-nombre">${escHtml(p['Nombre Interno'])}
+              <span class="badge ${esPeso?'badge-peso':'badge-unitario'}">${esPeso?'⚖ peso':'# unitario'}</span>
+              ${p['Activo'] === false ? '<span class="badge badge-inactivo">Inactivo</span>' : ''}
+            </div>
             <div class="prod-alias">
-              ${p['Nombre Venta'] ? 'Venta: ' + escHtml(p['Nombre Venta']) + ' · ' : ''}
-              ${p['Nombre Compra'] ? 'Compra: ' + escHtml(p['Nombre Compra']) + ' · ' : ''}
-              ${p['Nombre Facturación'] ? 'Facturación: ' + escHtml(p['Nombre Facturación']) : ''}
+              ${esPeso ? `Envase ${fmtNum(p['Contenido Envase (ml)'])} ml · tara ${fmtNum(p['Tara (g)'])} g · densidad ${p['Densidad (g/ml)']}` : 'Conteo por unidad'}
+              ${p['Costo Unidad Base'] ? ` · ₡${fmtNum(p['Costo Unidad Base'])}/${esPeso?'ml':'ud'}` : ''}
+              ${p['Proveedor'] ? ' · ' + escHtml(p['Proveedor']) : ''}
             </div>
           </div>
-          <div class="prod-min">Mín. ${p['Mínimo Recomendado'] || 0} ${escHtml(p['Unidad']||'')}</div>
-          <div class="prod-actions"><button class="btn-sm" onclick="editarProducto('${p['ID']}')">✎ Editar</button></div>
-        </div>
-      `).join('')}
+          <div><button class="btn-sm" onclick="editarProducto('${p['ID']}')">✎ Editar</button></div>
+        </div>`;
+      }).join('')}
     </div>
   `).join('');
 }
-
 function editarProducto(id) {
   const p = PRODUCTOS.find(x => String(x['ID']) === String(id));
   if (!p) return;
   document.getElementById('prod-id').value = p['ID'];
   document.getElementById('prod-nombre-interno').value = p['Nombre Interno'] || '';
-  document.getElementById('prod-nombre-facturacion').value = p['Nombre Facturación'] || '';
-  document.getElementById('prod-nombre-compra').value = p['Nombre Compra'] || '';
-  document.getElementById('prod-nombre-venta').value = p['Nombre Venta'] || '';
   document.getElementById('prod-categoria').value = p['Categoría'] || '';
-  document.getElementById('prod-unidad').value = p['Unidad'] || 'unidad';
-  document.getElementById('prod-minimo').value = p['Mínimo Recomendado'] || 0;
+  document.getElementById('prod-tipo').value = p['Tipo Control'] === 'peso' ? 'peso' : 'unitario';
+  alCambiarTipoProducto();
+  document.getElementById('prod-contenido').value = p['Contenido Envase (ml)'] || '';
+  document.getElementById('prod-tara').value = p['Tara (g)'] !== '' ? p['Tara (g)'] : '';
+  document.getElementById('prod-densidad').value = p['Densidad (g/ml)'] || '';
+  document.getElementById('prod-costo').value = p['Costo Unidad Base'] || '';
+  document.getElementById('prod-proveedor').value = p['Proveedor'] || '';
+  document.getElementById('prod-nombre-venta').value = p['Nombre Venta'] || '';
   document.getElementById('prod-activo').checked = p['Activo'] !== false;
   document.getElementById('prod-form-title').textContent = 'Editar producto';
   document.getElementById('prod-cancelar-edicion').style.display = 'inline';
   document.getElementById('btn-prod-guardar').textContent = 'Guardar cambios';
+  document.querySelectorAll('.tab-btn')[3].click();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
 function cancelarEdicionProducto() {
   document.getElementById('prod-id').value = '';
-  ['prod-nombre-interno','prod-nombre-facturacion','prod-nombre-compra','prod-nombre-venta'].forEach(id => document.getElementById(id).value = '');
+  ['prod-nombre-interno','prod-contenido','prod-tara','prod-densidad','prod-costo','prod-nombre-venta'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('prod-categoria').value = '';
-  document.getElementById('prod-unidad').value = 'unidad';
-  document.getElementById('prod-minimo').value = '';
+  document.getElementById('prod-proveedor').value = '';
+  document.getElementById('prod-tipo').value = 'unitario';
+  alCambiarTipoProducto();
   document.getElementById('prod-activo').checked = true;
   document.getElementById('prod-form-title').textContent = 'Nuevo producto';
   document.getElementById('prod-cancelar-edicion').style.display = 'none';
   document.getElementById('btn-prod-guardar').textContent = 'Guardar producto';
 }
-
 async function guardarProducto() {
   const nombreInterno = document.getElementById('prod-nombre-interno').value.trim();
-  if (!nombreInterno) { showToast('Escribí el nombre interno del producto', 'error'); return; }
-
+  if (!nombreInterno) { showToast('Escribí el nombre interno','error'); return; }
+  const tipo = document.getElementById('prod-tipo').value;
   const payload = {
     accion: 'producto_guardar',
     id: document.getElementById('prod-id').value || undefined,
     nombreInterno,
-    nombreFacturacion: document.getElementById('prod-nombre-facturacion').value.trim(),
-    nombreCompra: document.getElementById('prod-nombre-compra').value.trim(),
-    nombreVenta: document.getElementById('prod-nombre-venta').value.trim(),
     categoria: document.getElementById('prod-categoria').value,
-    unidad: document.getElementById('prod-unidad').value.trim() || 'unidad',
-    minimoRecomendado: Number(document.getElementById('prod-minimo').value) || 0,
+    tipoControl: tipo,
+    contenidoMl: document.getElementById('prod-contenido').value,
+    taraG: document.getElementById('prod-tara').value,
+    densidad: document.getElementById('prod-densidad').value,
+    costo: document.getElementById('prod-costo').value,
+    proveedor: document.getElementById('prod-proveedor').value,
+    nombreVenta: document.getElementById('prod-nombre-venta').value.trim(),
     activo: document.getElementById('prod-activo').checked
   };
-
   const btn = document.getElementById('btn-prod-guardar');
   btn.disabled = true;
   try {
-    await postInventario(payload);
+    await postInv(payload);
     showToast('Producto guardado ✓');
     cancelarEdicionProducto();
-    await cargarProductos();
-  } catch(e) {
-    showToast('No se pudo guardar — ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-  }
+    await cargarCatalogo();
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
+  finally { btn.disabled = false; }
 }
 
-// ── TOMA DE INVENTARIO ─────────────────────────────────────────────
+// ── MÍNIMOS POR KIOSKO ────────────────────────────────────────────
+function minimoDe(productoId, kiosko) {
+  return MINIMOS.find(m => String(m['Producto ID']) === String(productoId) && String(m['Kiosko']) === String(kiosko)) || {};
+}
+function renderMinimos() {
+  const kiosko = document.getElementById('min-kiosko').value;
+  const cont = document.getElementById('min-lista');
+  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
+  const activos = PRODUCTOS.filter(p => p['Activo'] !== false);
+  if (!activos.length) { cont.innerHTML = '<div class="empty-state">Sin productos.</div>'; return; }
+  cont.innerHTML = `
+    <table class="stock-table">
+      <thead><tr><th>Producto</th><th>Unidad</th><th>Mínimo</th><th>Nivel objetivo</th><th></th></tr></thead>
+      <tbody>
+        ${activos.map(p => {
+          const m = minimoDe(p['ID'], kiosko);
+          return `<tr>
+            <td>${escHtml(p['Nombre Interno'])}</td>
+            <td>${p['Unidad Base'] === 'ml' ? 'ml' : 'ud'}</td>
+            <td><input type="number" class="min-input" id="min-${p['ID']}" value="${m['Mínimo'] !== undefined && m['Mínimo'] !== '' ? m['Mínimo'] : ''}" step="any" min="0"/></td>
+            <td><input type="number" class="min-input" id="obj-${p['ID']}" value="${m['Nivel Objetivo'] !== undefined && m['Nivel Objetivo'] !== '' ? m['Nivel Objetivo'] : ''}" step="any" min="0"/></td>
+            <td><button class="btn-sm" onclick="guardarMinimoLinea('${p['ID']}')">Guardar</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+async function guardarMinimoLinea(productoId) {
+  const kiosko = document.getElementById('min-kiosko').value;
+  try {
+    await postInv({
+      accion: 'minimo_guardar', productoId, kiosko,
+      minimo: document.getElementById('min-' + productoId).value,
+      nivelObjetivo: document.getElementById('obj-' + productoId).value
+    });
+    showToast('Mínimo guardado ✓');
+    const minResp = await getInv({ modulo:'minimos' });
+    MINIMOS = minResp.registros || [];
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
+}
+
+// ── STOCK ─────────────────────────────────────────────────────────
+async function cargarStock() {
+  const kiosko = document.getElementById('stock-kiosko').value;
+  const cont = document.getElementById('stock-lista');
+  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const data = await getInv({ modulo:'stock', kiosko });
+    stockActual = data.registros || [];
+    renderStock();
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
+}
+function renderStock() {
+  const cont = document.getElementById('stock-lista');
+  if (!stockActual.length) { cont.innerHTML = '<div class="empty-state">Sin productos activos. Agregalos en Catálogo.</div>'; return; }
+  cont.innerHTML = `
+    <table class="stock-table">
+      <thead><tr><th>Producto</th><th>Tipo</th><th>Stock</th><th>≈ Envases</th><th>Mínimo</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${stockActual.map(s => {
+          const envases = (s.tipoControl === 'peso' && s.contenidoMl > 0) ? (s.cantidadActual / s.contenidoMl).toFixed(1) : '—';
+          return `
+          <tr onclick="toggleMovimientos('${s.productoId}')" style="cursor:pointer">
+            <td>${escHtml(s.nombre)}</td>
+            <td>${s.tipoControl === 'peso' ? '<span class="badge badge-peso">⚖</span>' : '<span class="badge badge-unitario">#</span>'}</td>
+            <td>${fmtCant(s.cantidadActual, s.unidadBase)}</td>
+            <td>${envases}</td>
+            <td>${s.minimo ? fmtCant(s.minimo, s.unidadBase) : '—'}</td>
+            <td>${s.bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : (s.minimo ? '<span class="badge badge-ok">OK</span>' : '')}</td>
+          </tr>
+          <tr id="mov-row-${s.productoId}" style="display:none"><td colspan="6"><div class="mov-panel" id="mov-panel-${s.productoId}">Cargando…</div></td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+async function toggleMovimientos(productoId) {
+  const row = document.getElementById('mov-row-' + productoId);
+  if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+  row.style.display = 'table-row';
+  const panel = document.getElementById('mov-panel-' + productoId);
+  try {
+    const kiosko = document.getElementById('stock-kiosko').value;
+    const data = await getInv({ modulo:'movimientos', kiosko, producto: productoId });
+    const movs = (data.registros || []).slice(0, 15);
+    panel.innerHTML = movs.length
+      ? movs.map(m => `<div class="mov-item"><span>${escHtml(m['Fecha'])} · ${escHtml(m['Tipo'])}${m['Referencia']?' · '+escHtml(m['Referencia']):''}</span><span>${m['Cantidad'] > 0 ? '+' : ''}${fmtNum(m['Cantidad'])}</span></div>`).join('')
+      : 'Sin movimientos registrados.';
+  } catch(e) { panel.textContent = 'No se pudieron cargar los movimientos.'; }
+}
+function abrirModalAjuste() {
+  const kiosko = document.getElementById('stock-kiosko').value;
+  if (!kiosko) { showToast('Seleccioná un kiosko primero','error'); return; }
+  const sel = document.getElementById('aj-producto');
+  sel.innerHTML = PRODUCTOS.filter(p => p['Activo'] !== false)
+    .map(p => `<option value="${p['ID']}">${escHtml(p['Nombre Interno'])} (${p['Unidad Base']==='ml'?'ml':'ud'})</option>`).join('');
+  document.getElementById('aj-cantidad').value = '';
+  document.getElementById('aj-nota').value = '';
+  document.getElementById('ajuste-modal').style.display = 'flex';
+}
+async function guardarAjuste() {
+  const kiosko = document.getElementById('stock-kiosko').value;
+  const productoId = document.getElementById('aj-producto').value;
+  const cantidad = document.getElementById('aj-cantidad').value;
+  if (!cantidad) { showToast('Ingresá la cantidad','error'); return; }
+  const prod = PRODUCTOS.find(p => String(p['ID']) === String(productoId)) || {};
+  try {
+    await postInv({
+      accion:'stock_ajustar', kiosko, productoId,
+      productoNombre: prod['Nombre Interno'] || '',
+      cantidad: Number(cantidad),
+      tipo: document.getElementById('aj-tipo').value,
+      nota: document.getElementById('aj-nota').value,
+      registrado_por: (PORTAL_SESION||{}).nombre || ''
+    });
+    document.getElementById('ajuste-modal').style.display = 'none';
+    showToast('Ajuste aplicado ✓');
+    cargarStock();
+  } catch(e) { showToast('No se pudo aplicar — ' + e.message,'error'); }
+}
+
+// ── TOMA DE INVENTARIO ────────────────────────────────────────────
 async function cargarTomaActiva() {
   const kiosko = document.getElementById('toma-kiosko').value;
   const cont = document.getElementById('toma-contenido');
   if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
   cont.innerHTML = '<div class="empty-state">Cargando…</div>';
   try {
-    const data = await getInventario({ modulo: 'toma_activa', kiosko });
+    const data = await getInv({ modulo:'toma_activa', kiosko });
     tomaActivaActual = data;
+    fotosLinea = {};
     renderToma(kiosko);
-  } catch(e) {
-    cont.innerHTML = `<div class="empty-state">No se pudo cargar la toma de inventario (${escHtml(e.message)}).</div>`;
-  }
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
 }
-
 function renderToma(kiosko) {
   const cont = document.getElementById('toma-contenido');
   if (!tomaActivaActual || !tomaActivaActual.toma) {
     cont.innerHTML = `
       <div class="card">
         <p class="card-title">Iniciar nueva toma</p>
-        <div class="field">
-          <label for="toma-fecha">Fecha</label>
-          <input type="date" id="toma-fecha" value="${hoy()}"/>
-        </div>
-        <div class="submit-area">
-          <button class="btn-primary" onclick="iniciarToma()">Iniciar toma de inventario</button>
-        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Al iniciar, se congela el stock teórico de este momento. Unitarios se
+          cuentan; sifón y destilados se pesan con foto de la báscula.
+        </p>
+        <div class="field"><label for="toma-fecha">Fecha</label><input type="date" id="toma-fecha" value="${hoy()}"/></div>
+        <div class="submit-area"><button class="btn-primary" onclick="iniciarToma()">Iniciar toma de inventario</button></div>
       </div>`;
     return;
   }
-
   const toma = tomaActivaActual.toma;
-  const detalle = [...(tomaActivaActual.detalle || [])].sort((a,b) => String(a['Categoría']).localeCompare(String(b['Categoría'])) || String(a['Producto Nombre']).localeCompare(String(b['Producto Nombre'])));
+  const detalle = [...(tomaActivaActual.detalle || [])].sort((a,b) =>
+    String(a['Categoría']).localeCompare(String(b['Categoría'])) || String(a['Producto Nombre']).localeCompare(String(b['Producto Nombre'])));
   const grupos = {};
   detalle.forEach(d => { (grupos[d['Categoría'] || 'Sin categoría'] = grupos[d['Categoría'] || 'Sin categoría'] || []).push(d); });
 
@@ -618,88 +753,173 @@ function renderToma(kiosko) {
     ${Object.keys(grupos).sort().map(cat => `
       <div class="card">
         <p class="card-title">${escHtml(cat)}</p>
-        <div class="conteo-cols">
-          <div class="conteo-col-label">Producto</div>
-          <div class="conteo-col-label conteo-col-min">Mínimo</div>
-          <div class="conteo-col-label">Cantidad contada</div>
-          <div class="conteo-col-label"></div>
-        </div>
-        ${grupos[cat].map(d => {
-          const minimo = Number(d['Mínimo Recomendado']) || 0;
-          const contada = d['Cantidad Contada'];
-          const bajoMinimo = (contada !== '' && contada !== undefined && contada !== null ? Number(contada) : Number(d['Stock Esperado'])||0) < minimo;
-          return `
-          <div class="conteo-row">
-            <div>
-              ${escHtml(d['Producto Nombre'])}
-              ${bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : ''}
-              <div class="prod-alias">Esperado: ${d['Stock Esperado']}</div>
-            </div>
-            <div class="prod-min conteo-col-min">${minimo}</div>
-            <input type="number" step="any" value="${contada !== '' && contada !== undefined && contada !== null ? contada : ''}"
-              id="conteo-${d['Producto ID']}" onchange="guardarConteoLinea('${d['Producto ID']}')"/>
-            <span class="conteo-guardado" id="conteo-guardado-${d['Producto ID']}">✓ Guardado</span>
-          </div>`;
-        }).join('')}
+        ${grupos[cat].map(d => d['Tipo Control'] === 'peso' ? lineaPeso(d) : lineaUnitaria(d)).join('')}
       </div>
     `).join('')}
   `;
 }
-
+function lineaUnitaria(d) {
+  const pid = d['Producto ID'];
+  const contada = d['Total Contado'];
+  return `
+  <div class="conteo-linea">
+    <div class="conteo-top">
+      <b style="flex:1">${escHtml(d['Producto Nombre'])}</b>
+      <span class="prod-alias">Teórico: ${fmtNum(d['Stock Teórico'])} ud</span>
+      <span class="conteo-guardado" id="ok-${pid}">✓ Guardado</span>
+    </div>
+    <div class="conteo-inputs">
+      <div><span class="mini-label">Cantidad contada</span>
+        <input type="number" step="any" min="0" id="cont-${pid}" value="${contada !== '' && contada !== undefined && contada !== null ? contada : ''}" onchange="guardarLinea('${pid}')"/>
+      </div>
+    </div>
+  </div>`;
+}
+function lineaPeso(d) {
+  const pid = d['Producto ID'];
+  const prod = PRODUCTOS.find(p => String(p['ID']) === String(pid)) || {};
+  return `
+  <div class="conteo-linea">
+    <div class="conteo-top">
+      <b style="flex:1">${escHtml(d['Producto Nombre'])} <span class="badge badge-peso">⚖ peso</span></b>
+      <span class="prod-alias">Teórico: ${fmtNum(d['Stock Teórico'])} ml · tara ${fmtNum(prod['Tara (g)'])} g</span>
+      <span class="conteo-guardado" id="ok-${pid}">✓ Guardado</span>
+    </div>
+    <div class="conteo-inputs">
+      <div><span class="mini-label">Envases cerrados</span>
+        <input type="number" step="1" min="0" id="cerr-${pid}" value="${d['Envases Cerrados'] !== '' && d['Envases Cerrados'] !== undefined ? d['Envases Cerrados'] : ''}" onchange="guardarLinea('${pid}')"/>
+      </div>
+      <div><span class="mini-label">Peso abierto (g)</span>
+        <input type="number" step="any" min="0" id="peso-${pid}" value="${d['Peso Bruto (g)'] !== '' && d['Peso Bruto (g)'] !== undefined ? d['Peso Bruto (g)'] : ''}" onchange="guardarLinea('${pid}')"/>
+      </div>
+      <div>
+        <button class="btn-foto">📷 Foto báscula<input type="file" accept="image/*" capture="environment" onchange="onFotoLinea(event,'${pid}')"/></button>
+      </div>
+      <div>
+        <button class="btn-ia" id="ia-${pid}" onclick="extraerPesoIA('${pid}')">✨ Leer peso con IA</button>
+      </div>
+    </div>
+    <div class="conteo-calc" id="calc-${pid}">${calcTexto(d)}</div>
+  </div>`;
+}
+function calcTexto(d) {
+  const fotoLink = d['Foto URL'] ? ` · <a class="foto-chip" href="${d['Foto URL']}" target="_blank">ver foto ↗</a>` : (fotosLinea[d['Producto ID']] ? ' · 📷 foto lista' : '');
+  if (d['Total Contado'] === '' || d['Total Contado'] === undefined || d['Total Contado'] === null) return 'Sin conteo todavía.' + fotoLink;
+  const dif = Number(d['Diferencia']) || 0;
+  const cls = dif < 0 ? 'dif-neg' : 'dif-pos';
+  return `Neto abierto: <b>${fmtNum(d['Neto (ml)'])} ml</b> · Total: <b>${fmtNum(d['Total Contado'])} ml</b> · Diferencia: <span class="${cls}">${dif>0?'+':''}${fmtNum(dif)} ml (₡${fmtNum(d['Diferencia Colones'])})</span>${fotoLink}`;
+}
 async function iniciarToma() {
   const kiosko = document.getElementById('toma-kiosko').value;
   const fecha = document.getElementById('toma-fecha').value || hoy();
-  const usuario = (JSON.parse(localStorage.getItem('portal_sesion')||'null')||{}).nombre || '';
   try {
-    await postInventario({ accion: 'toma_iniciar', kiosko, fecha, usuario });
-    showToast('Toma de inventario iniciada ✓');
+    await postInv({ accion:'toma_iniciar', kiosko, fecha, usuario: (PORTAL_SESION||{}).nombre || '' });
+    showToast('Toma iniciada ✓');
     await cargarTomaActiva();
-  } catch(e) {
-    showToast('No se pudo iniciar la toma — ' + e.message, 'error');
-  }
+  } catch(e) { showToast('No se pudo iniciar — ' + e.message,'error'); }
 }
-
-async function guardarConteoLinea(productoId) {
-  const input = document.getElementById('conteo-' + productoId);
-  const cantidadContada = input.value === '' ? '' : Number(input.value);
+function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function onFotoLinea(event, pid) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { showToast('La foto supera 8 MB','error'); return; }
+  comprimirFoto(file).then(dataUrl => {
+    fotosLinea[pid] = dataUrl;
+    const linea = tomaActivaActual.detalle.find(d => String(d['Producto ID']) === String(pid));
+    document.getElementById('calc-' + pid).innerHTML = calcTexto(linea || {'Producto ID': pid});
+    showToast('Foto lista — leé el peso con IA o escribilo, y se guarda con evidencia ✓');
+  }).catch(() => showToast('No se pudo procesar la foto','error'));
+}
+async function extraerPesoIA(pid) {
+  const foto = fotosLinea[pid];
+  if (!foto) { showToast('Tomá la foto de la báscula primero','error'); return; }
+  if (!EXTRACTOR_URL) { showToast('Falta configurar EXTRACTOR_URL','error'); return; }
+  const btn = document.getElementById('ia-' + pid);
+  btn.disabled = true; btn.textContent = 'Leyendo…';
   try {
-    await postInventario({
-      accion: 'toma_guardar_conteo',
-      tomaId: tomaActivaActual.toma['ID'],
-      lineas: [{ productoId, cantidadContada }]
-    });
-    const marca = document.getElementById('conteo-guardado-' + productoId);
+    const resp = await fetchConTimeout(EXTRACTOR_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ foto, tipo:'inventario' })
+    }, 30000);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'No se pudo leer la báscula');
+    document.getElementById('peso-' + pid).value = Math.round(data.peso);
+    showToast('Peso extraído: ' + Math.round(data.peso) + ' g ✓');
+    await guardarLinea(pid);
+  } catch(e) { showToast(e.message || 'Error al extraer con IA','error'); }
+  finally { btn.disabled = false; btn.textContent = '✨ Leer peso con IA'; }
+}
+async function guardarLinea(pid) {
+  const linea = tomaActivaActual.detalle.find(d => String(d['Producto ID']) === String(pid));
+  if (!linea) return;
+  const esPeso = linea['Tipo Control'] === 'peso';
+  const payloadLinea = { productoId: pid };
+  if (esPeso) {
+    payloadLinea.envasesCerrados = document.getElementById('cerr-' + pid).value;
+    payloadLinea.pesoBrutoG = document.getElementById('peso-' + pid).value;
+    if (fotosLinea[pid]) payloadLinea.foto = fotosLinea[pid];
+  } else {
+    payloadLinea.cantidadContada = document.getElementById('cont-' + pid).value;
+  }
+  try {
+    const out = await postInv({ accion:'toma_guardar_conteo', tomaId: tomaActivaActual.toma['ID'], lineas: [payloadLinea] });
+    const r = (out.resultados || [])[0];
+    if (r) {
+      linea['Total Contado'] = r.total;
+      linea['Neto (ml)'] = r.neto;
+      linea['Diferencia'] = r.diferencia;
+      const prod = PRODUCTOS.find(p => String(p['ID']) === String(pid)) || {};
+      linea['Diferencia Colones'] = r.diferencia === '' ? '' : Math.round(r.diferencia * (Number(prod['Costo Unidad Base'])||0));
+      if (esPeso) {
+        linea['Envases Cerrados'] = payloadLinea.envasesCerrados;
+        linea['Peso Bruto (g)'] = payloadLinea.pesoBrutoG;
+      }
+      if (fotosLinea[pid]) { delete fotosLinea[pid]; linea['Foto URL'] = linea['Foto URL'] || '#guardada'; }
+      const calc = document.getElementById('calc-' + pid);
+      if (calc) calc.innerHTML = calcTexto(linea);
+    }
+    const marca = document.getElementById('ok-' + pid);
     marca.classList.add('show');
     setTimeout(() => marca.classList.remove('show'), 1500);
-    const linea = tomaActivaActual.detalle.find(d => String(d['Producto ID']) === String(productoId));
-    if (linea) linea['Cantidad Contada'] = cantidadContada;
-  } catch(e) {
-    showToast('No se pudo guardar el conteo — ' + e.message, 'error');
-  }
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
 }
-
-// ── CIERRE DE TOMA (PIN admin) ─────────────────────────────────────
 function abrirModalPin() {
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('pin-modal').style.display = 'flex';
   document.getElementById('pin-input').focus();
 }
-function cerrarModalPin() {
-  document.getElementById('pin-modal').style.display = 'none';
-}
-
+function cerrarModalPin() { document.getElementById('pin-modal').style.display = 'none'; }
 async function confirmarCierreToma() {
   const pin = document.getElementById('pin-input').value;
   const rol = rolAdminPorPin(pin);
-  if (!rol) {
-    document.getElementById('pin-error').style.display = 'block';
-    return;
-  }
+  if (!rol) { document.getElementById('pin-error').style.display = 'block'; return; }
   try {
-    await postInventario({ accion: 'toma_cerrar', tomaId: tomaActivaActual.toma['ID'], pin, usuario: rol.nombre });
+    await postInv({ accion:'toma_cerrar', tomaId: tomaActivaActual.toma['ID'], pin, usuario: rol.nombre });
     cerrarModalPin();
-    showToast('Toma de inventario cerrada ✓');
+    showToast('Toma cerrada ✓');
     await cargarTomaActiva();
   } catch(e) {
     document.getElementById('pin-error').textContent = e.message;
@@ -707,105 +927,65 @@ async function confirmarCierreToma() {
   }
 }
 
-// ── HISTORIAL Y STOCK ───────────────────────────────────────────────
-async function cargarHistorial() {
-  const kiosko = document.getElementById('hist-kiosko').value;
-  const stockCont = document.getElementById('stock-lista');
-  const histCont = document.getElementById('toma-historial-lista');
-  if (!kiosko) {
-    stockCont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>';
-    histCont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>';
-    return;
-  }
-  stockCont.innerHTML = '<div class="empty-state">Cargando…</div>';
-  histCont.innerHTML = '<div class="empty-state">Cargando…</div>';
+// ── RESULTADOS ────────────────────────────────────────────────────
+async function cargarResultados() {
+  const kiosko = document.getElementById('res-kiosko').value;
+  const cont = document.getElementById('res-lista');
+  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
   try {
-    const [stockResp, histResp] = await Promise.all([
-      getInventario({ modulo: 'stock', kiosko }),
-      getInventario({ modulo: 'toma_historial', kiosko })
-    ]);
-    stockActualHist = stockResp.registros || [];
-    renderStock();
-    renderHistorialTomas(histResp.registros || []);
-  } catch(e) {
-    stockCont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`;
-    histCont.innerHTML = '';
-  }
+    const data = await getInv({ modulo:'toma_historial', kiosko });
+    renderResultados(data.registros || []);
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
 }
-
-function renderStock() {
-  const cont = document.getElementById('stock-lista');
-  if (!stockActualHist.length) { cont.innerHTML = '<div class="empty-state">Sin productos activos.</div>'; return; }
-  cont.innerHTML = `
-    <table class="stock-table">
-      <thead><tr><th>Producto</th><th>Categoría</th><th>Cantidad actual</th><th>Mínimo</th><th>Estado</th></tr></thead>
-      <tbody>
-        ${stockActualHist.map(s => `
-          <tr onclick="toggleMovimientos('${s.productoId}')">
-            <td>${escHtml(s.nombre)}</td>
-            <td>${escHtml(s.categoria||'—')}</td>
-            <td>${s.cantidadActual} ${escHtml(s.unidad||'')}</td>
-            <td>${s.minimoRecomendado}</td>
-            <td>${s.bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : '<span class="badge badge-ok">OK</span>'}</td>
-          </tr>
-          <tr id="mov-row-${s.productoId}" style="display:none"><td colspan="5"><div class="mov-panel" id="mov-panel-${s.productoId}">Cargando movimientos…</div></td></tr>
-        `).join('')}
-      </tbody>
-    </table>`;
-}
-
-async function toggleMovimientos(productoId) {
-  const row = document.getElementById('mov-row-' + productoId);
-  const abierto = row.style.display !== 'none';
-  if (abierto) { row.style.display = 'none'; return; }
-  row.style.display = 'table-row';
-  const panel = document.getElementById('mov-panel-' + productoId);
-  try {
-    const kiosko = document.getElementById('hist-kiosko').value;
-    const data = await getInventario({ modulo: 'movimientos', kiosko, producto: productoId });
-    const movs = (data.registros || []).slice(0, 15);
-    panel.innerHTML = movs.length
-      ? movs.map(m => `<div class="mov-item"><span>${escHtml(m['Fecha'])} · ${escHtml(m['Tipo'])}</span><span>${m['Cantidad'] > 0 ? '+' : ''}${m['Cantidad']}</span></div>`).join('')
-      : 'Sin movimientos registrados.';
-  } catch(e) {
-    panel.textContent = 'No se pudieron cargar los movimientos.';
-  }
-}
-
-function renderHistorialTomas(tomas) {
-  const cont = document.getElementById('toma-historial-lista');
-  if (!tomas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay tomas cerradas para este kiosko.</div>'; return; }
-  cont.innerHTML = tomas.map(t => `
-    <div class="toma-card" id="hist-toma-${t['ID']}">
-      <div class="toma-card-head" onclick="toggleHistorialToma('${t['ID']}')">
+function renderResultados(tomas) {
+  const cont = document.getElementById('res-lista');
+  if (!tomas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay tomas cerradas.</div>'; return; }
+  cont.innerHTML = tomas.map(t => {
+    const difTotal = Number(t.diferenciaColonesTotal) || 0;
+    const detalleOrdenado = [...(t.detalle||[])]
+      .filter(d => d['Total Contado'] !== '' && d['Total Contado'] !== undefined && d['Total Contado'] !== null)
+      .sort((a,b) => (Number(a['Diferencia Colones'])||0) - (Number(b['Diferencia Colones'])||0));
+    return `
+    <div class="toma-card" id="res-toma-${t['ID']}">
+      <div class="toma-card-head" onclick="document.getElementById('res-toma-${t['ID']}').classList.toggle('abierta')">
         <div>
           <div class="toma-card-title">${escHtml(t['Fecha'])}</div>
-          <div class="toma-card-sub">Abierta por ${escHtml(t['Abierta por']||'—')} · Cerrada por ${escHtml(t['Cerrada por']||'—')}</div>
+          <div class="toma-card-sub">Cerrada por ${escHtml(t['Cerrada por']||'—')} · Diferencia total:
+            <span class="${difTotal < 0 ? 'dif-neg' : 'dif-pos'}">₡${fmtNum(difTotal)}</span>
+          </div>
         </div>
         <span>▾</span>
       </div>
       <div class="toma-card-body">
         <div class="stock-table-wrap">
           <table class="stock-table">
-            <thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead>
+            <thead><tr><th>Producto</th><th>Teórico</th><th>Contado</th><th>Diferencia</th><th>₡</th><th>Evidencia</th></tr></thead>
             <tbody>
-              ${(t.detalle||[]).map(d => `<tr><td>${escHtml(d['Producto Nombre'])}</td><td>${d['Stock Esperado']}</td><td>${d['Cantidad Contada']}</td><td>${d['Diferencia']}</td></tr>`).join('')}
+              ${detalleOrdenado.map(d => {
+                const dif = Number(d['Diferencia']) || 0;
+                return `<tr>
+                  <td>${escHtml(d['Producto Nombre'])}</td>
+                  <td>${fmtNum(d['Stock Teórico'])}</td>
+                  <td>${fmtNum(d['Total Contado'])}</td>
+                  <td class="${dif < 0 ? 'dif-neg' : (dif > 0 ? 'dif-pos' : '')}">${dif>0?'+':''}${fmtNum(dif)}</td>
+                  <td class="${(Number(d['Diferencia Colones'])||0) < 0 ? 'dif-neg' : ''}">₡${fmtNum(d['Diferencia Colones']||0)}</td>
+                  <td>${d['Foto URL'] && d['Foto URL'] !== '#guardada' ? `<a class="foto-chip" href="${d['Foto URL']}" target="_blank">foto ↗</a>` : '—'}</td>
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
       </div>
-    </div>
-  `).join('');
-}
-function toggleHistorialToma(id) {
-  document.getElementById('hist-toma-' + id).classList.toggle('abierta');
+    </div>`;
+  }).join('');
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.getElementById('date-chip').textContent =
   new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 cargarKioskos();
-cargarProductos();
+cargarCatalogo();
 </script>
 </body>
 </html>

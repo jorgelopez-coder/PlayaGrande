@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Compras · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+main{max-width:960px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:10px;flex-wrap:wrap}
+.card-title-row .card-title{margin-bottom:0}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+input[type=text],input[type=date],input[type=number],select{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge-pendiente{background:var(--amber-bg);color:var(--amber)}
+.badge-aplicada{background:var(--green-bg);color:var(--green)}
+.badge-borrador{background:var(--surface);color:var(--muted)}
+.badge-enviada{background:var(--blue-bg);color:var(--blue)}
+.badge-recibida{background:var(--green-bg);color:var(--green)}
+.badge-cancelada{background:var(--red-bg);color:var(--red)}
+.badge-bajo{background:var(--red-bg);color:var(--red)}
+.stock-table-wrap{overflow-x:auto}
+.stock-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.stock-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+.stock-table td{padding:.6rem .9rem;border-bottom:1px solid var(--border)}
+.stock-table tbody tr:last-child td{border-bottom:none}
+.compra-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
+.compra-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;cursor:pointer}
+.compra-title{font-weight:700;font-size:13.5px;font-family:var(--font-d)}
+.compra-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.compra-body{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.compra-card.abierta .compra-body{display:block}
+.linea-mapeo{display:grid;grid-template-columns:2fr 1fr 90px auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.linea-mapeo:last-child{border-bottom:none}
+.linea-ok{color:var(--green);font-size:12px}
+.linea-falta{color:var(--amber);font-size:12px;font-weight:600}
+.oc-input{width:90px !important;text-align:right;padding:6px 8px !important;font-size:13px !important}
+.kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.kiosko-row select{width:220px}
+.compra-linea-form{display:grid;grid-template-columns:2fr 90px 110px auto;gap:8px;align-items:center;margin-bottom:8px}
+@media(max-width:640px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .field-row,.field-row3{grid-template-columns:1fr}
+  .linea-mapeo{grid-template-columns:1fr}
+  .compra-linea-form{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">🧾 Compras</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('compras',this)">Compras</button>
+  <button class="tab-btn" onclick="showTab('oc',this)">Órdenes de Compra</button>
+  <button class="tab-btn" onclick="showTab('mapeos',this)">Mapeos de Factura</button>
+  <button class="tab-btn" onclick="showTab('proveedores',this)">Proveedores</button>
+</div>
+
+<main>
+
+<!-- ── TAB COMPRAS ── -->
+<div class="page active" id="tab-compras">
+  <div class="card">
+    <div class="card-title-row">
+      <p class="card-title">Facturas electrónicas (Gmail)</p>
+      <button class="btn-sm" id="btn-gmail" onclick="procesarGmail()">📥 Buscar facturas en Gmail ahora</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted)">
+      El lector revisa el correo cada hora y trae los XML de Hacienda como
+      compras <b>pendientes</b>. Mapeá las líneas nuevas una vez — la próxima
+      factura del mismo proveedor entra sola.
+    </p>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Compras pendientes de aplicar</p>
+    <div id="pend-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title-row">
+      <p class="card-title">Compra manual</p>
+      <button class="btn-link" onclick="agregarLineaManual()">+ Agregar línea</button>
+    </div>
+    <div class="field-row3">
+      <div class="field"><label>Kiosko</label><select id="cm-kiosko"></select></div>
+      <div class="field"><label>Proveedor</label><select id="cm-proveedor"><option value="">Sin proveedor</option></select></div>
+      <div class="field"><label>Nº factura / referencia</label><input type="text" id="cm-factura" placeholder="Opcional"/></div>
+    </div>
+    <div id="cm-lineas"></div>
+    <div class="submit-area">
+      <button class="btn-primary" id="btn-cm-guardar" onclick="guardarCompraManual()">Registrar compra y sumar al stock</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Historial de compras aplicadas</p>
+    <div id="hist-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+</div>
+
+<!-- ── TAB ÓRDENES DE COMPRA ── -->
+<div class="page" id="tab-oc">
+  <div class="kiosko-row">
+    <select id="oc-kiosko"><option value="" disabled selected>Cargando…</option></select>
+    <button class="btn-sm" onclick="generarSugerido()">⚡ Generar sugerido por mínimos</button>
+  </div>
+  <div class="card" id="oc-sugerido-card" style="display:none">
+    <p class="card-title">Sugerido — productos bajo mínimo</p>
+    <div class="stock-table-wrap"><div id="oc-sugerido"></div></div>
+    <div class="submit-area">
+      <button class="btn-primary" onclick="guardarOCs()">Guardar orden(es) de compra</button>
+    </div>
+  </div>
+  <div class="card">
+    <p class="card-title">Órdenes de compra</p>
+    <div id="oc-lista"><div class="empty-state">Seleccioná un kiosko y actualizá.</div></div>
+  </div>
+</div>
+
+<!-- ── TAB MAPEOS ── -->
+<div class="page" id="tab-mapeos">
+  <div class="card">
+    <p class="card-title">Mapeos aprendidos (texto de factura → producto)</p>
+    <div class="stock-table-wrap"><div id="mapeos-lista"><div class="empty-state">Cargando…</div></div></div>
+  </div>
+</div>
+
+<!-- ── TAB PROVEEDORES ── -->
+<div class="page" id="tab-proveedores">
+  <div class="card">
+    <div class="card-title-row">
+      <p class="card-title" id="prov-form-title">Nuevo proveedor</p>
+      <button class="btn-link" id="prov-cancelar" style="display:none" onclick="cancelarEdicionProveedor()">Cancelar edición</button>
+    </div>
+    <input type="hidden" id="prov-id"/>
+    <div class="field-row">
+      <div class="field"><label>Nombre <span style="color:var(--red)">*</span></label><input type="text" id="prov-nombre" placeholder="Distribuidora XYZ"/></div>
+      <div class="field"><label>Cédula jurídica</label><input type="text" id="prov-cedula" placeholder="3-101-XXXXXX (matchea las facturas XML)"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Correo de pedidos</label><input type="text" id="prov-correo" placeholder="pedidos@proveedor.com"/></div>
+      <div class="field"><label>Teléfono</label><input type="text" id="prov-telefono"/></div>
+    </div>
+    <div class="submit-area"><button class="btn-primary" onclick="guardarProveedor()">Guardar proveedor</button></div>
+  </div>
+  <div class="card">
+    <p class="card-title">Proveedores</p>
+    <div id="prov-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO ─────────────────────────────────────────────
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('compras')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// ── CONFIG (misma URL que inventario.html) ────────────────────────
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const INVENTARIO_V2_URL = '';
+
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let PRODUCTOS = [], PROVEEDORES = [], COMPRAS = [], MAPEOS = [];
+let sugeridoActual = [];
+
+async function fetchConTimeout(url, options = {}, timeoutMs = 60000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+async function postInv(payload) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+async function getInv(params) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'compras') cargarCompras();
+  if (tab === 'oc') cargarOCs();
+  if (tab === 'mapeos') cargarMapeos();
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
+function usuario(){ return (PORTAL_SESION||{}).nombre || ''; }
+
+// ── CARGA INICIAL ─────────────────────────────────────────────────
+async function cargarKioskos() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  } catch(e) {}
+  const opciones = KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  document.getElementById('cm-kiosko').innerHTML = '<option value="" disabled selected>Kiosko…</option>' + opciones;
+  document.getElementById('oc-kiosko').innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + opciones;
+  const ultimo = localStorage.getItem('kiosko_actual');
+  if (ultimo && KIOSKOS.includes(ultimo)) {
+    document.getElementById('cm-kiosko').value = ultimo;
+    document.getElementById('oc-kiosko').value = ultimo;
+  }
+}
+async function cargarBase() {
+  try {
+    const [prodResp, provResp] = await Promise.all([getInv({ modulo:'productos' }), getInv({ modulo:'proveedores' })]);
+    PRODUCTOS = (prodResp.registros || []).filter(p => p['Activo'] !== false);
+    PROVEEDORES = provResp.registros || [];
+    poblarProveedores();
+    renderProveedores();
+    agregarLineaManual();
+    cargarCompras();
+  } catch(e) { showToast('No se pudo cargar (' + e.message + ')','error'); }
+}
+function poblarProveedores() {
+  const sel = document.getElementById('cm-proveedor');
+  sel.innerHTML = '<option value="">Sin proveedor</option>' +
+    PROVEEDORES.filter(p => p['Activo'] !== false).map(p => `<option value="${escHtml(p['Nombre'])}">${escHtml(p['Nombre'])}</option>`).join('');
+}
+function selectProductos(id, valor) {
+  return `<select id="${id}">${valor ? '' : '<option value="" disabled selected>Producto…</option>'}${
+    PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(valor)?'selected':''}>${escHtml(p['Nombre Interno'])} (${p['Unidad Base']==='ml'?'ml':'ud'})</option>`).join('')
+  }</select>`;
+}
+
+// ── COMPRAS: pendientes + historial ───────────────────────────────
+async function cargarCompras() {
+  try {
+    const data = await getInv({ modulo:'compras' });
+    COMPRAS = data.registros || [];
+    renderPendientes();
+    renderHistorial();
+  } catch(e) {
+    document.getElementById('pend-lista').innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`;
+  }
+}
+async function procesarGmail() {
+  const btn = document.getElementById('btn-gmail');
+  btn.disabled = true; btn.textContent = 'Buscando…';
+  try {
+    const out = await postInv({ accion:'compra_procesar_gmail' });
+    showToast(`${out.facturasNuevas} factura(s) nueva(s), ${out.lineasSinMapear} línea(s) por mapear`);
+    await cargarCompras();
+  } catch(e) { showToast('Error — ' + e.message,'error'); }
+  finally { btn.disabled = false; btn.textContent = '📥 Buscar facturas en Gmail ahora'; }
+}
+function renderPendientes() {
+  const cont = document.getElementById('pend-lista');
+  const pendientes = COMPRAS.filter(c => c['Estado'] === 'pendiente');
+  if (!pendientes.length) { cont.innerHTML = '<div class="empty-state">No hay compras pendientes. 🎉</div>'; return; }
+  cont.innerHTML = pendientes.map(c => `
+    <div class="compra-card abierta">
+      <div class="compra-head">
+        <div>
+          <div class="compra-title">${escHtml(c['Proveedor']||'Proveedor desconocido')} · ₡${fmtNum(c['Total'])}</div>
+          <div class="compra-sub">${escHtml(c['Fecha'])} · Factura ${escHtml(c['Nº Factura']||'—')} · <span class="badge badge-pendiente">pendiente</span></div>
+        </div>
+      </div>
+      <div class="compra-body">
+        ${(c.detalle||[]).map(d => d['Producto ID'] ? `
+          <div class="linea-mapeo">
+            <span>${escHtml(d['Línea Original'])} × ${fmtNum(d['Cantidad Factura'])}</span>
+            <span class="linea-ok">→ ${escHtml(d['Producto Nombre'])}</span>
+            <span>${fmtNum(d['Cantidad Base'])}</span>
+            <span class="linea-ok">✓</span>
+          </div>` : `
+          <div class="linea-mapeo">
+            <span><span class="linea-falta">Sin mapear:</span> ${escHtml(d['Línea Original'])} × ${fmtNum(d['Cantidad Factura'])}</span>
+            ${selectProductos(`map-prod-${c['ID']}-${d['Línea Nº']}`)}
+            <input type="number" id="map-factor-${c['ID']}-${d['Línea Nº']}" placeholder="Factor" step="any" min="0" title="Unidades base por 1 unidad de factura (caja de 24 → 24; caja 12×750ml → 9000)"/>
+            <button class="btn-sm" onclick="mapearLinea('${c['ID']}','${d['Línea Nº']}')">Mapear</button>
+          </div>`).join('')}
+        <div class="submit-area">
+          <select id="aplicar-kiosko-${c['ID']}" style="max-width:220px">
+            <option value="" disabled selected>Kiosko destino…</option>
+            ${KIOSKOS.map(k => `<option>${k}</option>`).join('')}
+          </select>
+          <button class="btn-primary" style="flex:0;min-width:auto" onclick="aplicarCompra('${c['ID']}')">Aplicar al stock</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+async function mapearLinea(compraId, lineaNumero) {
+  const prodSel = document.getElementById(`map-prod-${compraId}-${lineaNumero}`);
+  const factor = document.getElementById(`map-factor-${compraId}-${lineaNumero}`).value;
+  if (!prodSel.value) { showToast('Elegí el producto','error'); return; }
+  if (!factor || Number(factor) <= 0) { showToast('Ingresá el factor (unidades base por unidad de factura)','error'); return; }
+  try {
+    await postInv({ accion:'compra_mapear_linea', compraId, lineaNumero, productoId: prodSel.value, factor: Number(factor), guardarMapeo: true });
+    showToast('Línea mapeada y aprendida ✓');
+    await cargarCompras();
+  } catch(e) { showToast('No se pudo mapear — ' + e.message,'error'); }
+}
+async function aplicarCompra(compraId) {
+  const kiosko = document.getElementById('aplicar-kiosko-' + compraId).value;
+  if (!kiosko) { showToast('Elegí el kiosko destino','error'); return; }
+  try {
+    const out = await postInv({ accion:'compra_aplicar', compraId, kiosko, usuario: usuario() });
+    showToast(`Compra aplicada: ${out.lineasAplicadas} línea(s) ✓`);
+    await cargarCompras();
+  } catch(e) {
+    if (e.message.includes('sin mapear') && confirm(e.message + '\n\n¿Aplicar de todas formas omitiendo las líneas sin mapear?')) {
+      try {
+        const out = await postInv({ accion:'compra_aplicar', compraId, kiosko, usuario: usuario(), omitirSinMapear: true });
+        showToast(`Compra aplicada: ${out.lineasAplicadas} línea(s), ${out.lineasOmitidas} omitida(s)`);
+        await cargarCompras();
+      } catch(e2) { showToast('No se pudo aplicar — ' + e2.message,'error'); }
+    } else if (!e.message.includes('sin mapear')) {
+      showToast('No se pudo aplicar — ' + e.message,'error');
+    }
+  }
+}
+function renderHistorial() {
+  const cont = document.getElementById('hist-lista');
+  const aplicadas = COMPRAS.filter(c => c['Estado'] === 'aplicada').slice(0, 25);
+  if (!aplicadas.length) { cont.innerHTML = '<div class="empty-state">Sin compras aplicadas todavía.</div>'; return; }
+  cont.innerHTML = aplicadas.map(c => `
+    <div class="compra-card" id="hist-c-${c['ID']}">
+      <div class="compra-head" onclick="document.getElementById('hist-c-${c['ID']}').classList.toggle('abierta')">
+        <div>
+          <div class="compra-title">${escHtml(c['Proveedor']||'—')} · ₡${fmtNum(c['Total'])}</div>
+          <div class="compra-sub">${escHtml(c['Fecha'])} · ${escHtml(c['Kiosko']||'—')} · ${escHtml(c['Origen'])} · <span class="badge badge-aplicada">aplicada</span></div>
+        </div>
+        <span>▾</span>
+      </div>
+      <div class="compra-body">
+        ${(c.detalle||[]).map(d => `
+          <div class="linea-mapeo">
+            <span>${escHtml(d['Producto Nombre']||d['Línea Original'])}</span>
+            <span>${fmtNum(d['Cantidad Base'])} base</span>
+            <span>₡${fmtNum(d['Costo Línea'])}</span>
+            <span></span>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── COMPRA MANUAL ─────────────────────────────────────────────────
+let lineaManualN = 0;
+function agregarLineaManual() {
+  const id = ++lineaManualN;
+  const div = document.createElement('div');
+  div.className = 'compra-linea-form';
+  div.id = 'cm-linea-' + id;
+  div.innerHTML = `
+    ${selectProductos('cm-prod-' + id)}
+    <input type="number" id="cm-cant-${id}" placeholder="Envases" step="any" min="0" title="Cantidad de envases/unidades compradas"/>
+    <input type="number" id="cm-costo-${id}" placeholder="Costo ₡" step="any" min="0"/>
+    <button class="btn-sm" onclick="document.getElementById('cm-linea-${id}').remove()">✕</button>`;
+  document.getElementById('cm-lineas').appendChild(div);
+}
+async function guardarCompraManual() {
+  const kiosko = document.getElementById('cm-kiosko').value;
+  if (!kiosko) { showToast('Elegí el kiosko','error'); return; }
+  const lineas = [];
+  document.querySelectorAll('#cm-lineas .compra-linea-form').forEach(div => {
+    const id = div.id.replace('cm-linea-','');
+    const prodId = document.getElementById('cm-prod-' + id).value;
+    const cant = Number(document.getElementById('cm-cant-' + id).value);
+    if (!prodId || !cant) return;
+    const prod = PRODUCTOS.find(p => String(p['ID']) === String(prodId)) || {};
+    const esPeso = prod['Tipo Control'] === 'peso';
+    lineas.push({
+      productoId: prodId,
+      cantidad: cant,
+      cantidadBase: esPeso ? cant * (Number(prod['Contenido Envase (ml)']) || 1) : cant,
+      costo: Number(document.getElementById('cm-costo-' + id).value) || 0,
+      descripcion: prod['Nombre Interno'] || ''
+    });
+  });
+  if (!lineas.length) { showToast('Agregá al menos una línea con producto y cantidad','error'); return; }
+  const provNombre = document.getElementById('cm-proveedor').value;
+  const prov = PROVEEDORES.find(p => p['Nombre'] === provNombre) || {};
+  const btn = document.getElementById('btn-cm-guardar');
+  btn.disabled = true;
+  try {
+    await postInv({
+      accion:'compra_manual', kiosko,
+      proveedor: provNombre, proveedorCedula: prov['Cédula'] || '',
+      facturaNumero: document.getElementById('cm-factura').value.trim(),
+      lineas, usuario: usuario()
+    });
+    showToast('Compra registrada y sumada al stock ✓');
+    document.getElementById('cm-lineas').innerHTML = '';
+    document.getElementById('cm-factura').value = '';
+    agregarLineaManual();
+    await cargarCompras();
+  } catch(e) { showToast('No se pudo registrar — ' + e.message,'error'); }
+  finally { btn.disabled = false; }
+}
+
+// ── ÓRDENES DE COMPRA ─────────────────────────────────────────────
+async function generarSugerido() {
+  const kiosko = document.getElementById('oc-kiosko').value;
+  if (!kiosko) { showToast('Elegí el kiosko','error'); return; }
+  localStorage.setItem('kiosko_actual', kiosko);
+  const card = document.getElementById('oc-sugerido-card');
+  const cont = document.getElementById('oc-sugerido');
+  card.style.display = 'block';
+  cont.innerHTML = '<div class="empty-state">Calculando…</div>';
+  try {
+    const data = await getInv({ modulo:'oc_sugerido', kiosko });
+    sugeridoActual = data.registros || [];
+    if (!sugeridoActual.length) { cont.innerHTML = '<div class="empty-state">Nada bajo mínimo — no hay nada que pedir. 🎉</div>'; return; }
+    cont.innerHTML = `
+      <table class="stock-table">
+        <thead><tr><th></th><th>Producto</th><th>Proveedor</th><th>Stock</th><th>Mínimo</th><th>Sugerido</th><th>Pedir (unidad base)</th></tr></thead>
+        <tbody>
+          ${sugeridoActual.map((s,i) => `
+            <tr>
+              <td><input type="checkbox" id="oc-inc-${i}" checked/></td>
+              <td>${escHtml(s.nombre)} ${s.envasesSugeridos ? `<div class="compra-sub">≈ ${s.envasesSugeridos} envase(s)</div>` : ''}</td>
+              <td>${escHtml(s.proveedor||'—')}</td>
+              <td><span class="badge badge-bajo">${fmtNum(s.cantidadActual)}</span></td>
+              <td>${fmtNum(s.minimo)}</td>
+              <td>${fmtNum(s.sugerido)}</td>
+              <td><input type="number" class="oc-input" id="oc-cant-${i}" value="${s.sugerido}" step="any" min="0"/></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo calcular (${escHtml(e.message)}).</div>`; }
+}
+async function guardarOCs() {
+  const kiosko = document.getElementById('oc-kiosko').value;
+  const porProveedor = {};
+  sugeridoActual.forEach((s, i) => {
+    if (!document.getElementById('oc-inc-' + i).checked) return;
+    const cant = Number(document.getElementById('oc-cant-' + i).value) || 0;
+    if (cant <= 0) return;
+    const prov = s.proveedor || 'Sin proveedor';
+    (porProveedor[prov] = porProveedor[prov] || []).push({
+      productoId: s.productoId, productoNombre: s.nombre,
+      stock: s.cantidadActual, minimo: s.minimo, sugerido: s.sugerido, cantidadFinal: cant
+    });
+  });
+  const proveedores = Object.keys(porProveedor);
+  if (!proveedores.length) { showToast('No hay líneas seleccionadas','error'); return; }
+  try {
+    for (const prov of proveedores) {
+      await postInv({ accion:'oc_guardar', kiosko, proveedor: prov === 'Sin proveedor' ? '' : prov, lineas: porProveedor[prov], usuario: usuario() });
+    }
+    showToast(`${proveedores.length} orden(es) de compra guardada(s) ✓`);
+    document.getElementById('oc-sugerido-card').style.display = 'none';
+    await cargarOCs();
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
+}
+async function cargarOCs() {
+  const kiosko = document.getElementById('oc-kiosko').value;
+  const cont = document.getElementById('oc-lista');
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const data = await getInv(kiosko ? { modulo:'ordenes', kiosko } : { modulo:'ordenes' });
+    renderOCs(data.registros || []);
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
+}
+function renderOCs(ordenes) {
+  const cont = document.getElementById('oc-lista');
+  if (!ordenes.length) { cont.innerHTML = '<div class="empty-state">Sin órdenes de compra todavía.</div>'; return; }
+  cont.innerHTML = ordenes.map(o => `
+    <div class="compra-card" id="oc-c-${o['ID']}">
+      <div class="compra-head" onclick="document.getElementById('oc-c-${o['ID']}').classList.toggle('abierta')">
+        <div>
+          <div class="compra-title">OC ${escHtml(String(o['ID']).slice(-6))} · ${escHtml(o['Proveedor']||'Sin proveedor')}</div>
+          <div class="compra-sub">${escHtml(o['Fecha'])} · ${escHtml(o['Kiosko'])} · <span class="badge badge-${escHtml(o['Estado'])}">${escHtml(o['Estado'])}</span></div>
+        </div>
+        <span>▾</span>
+      </div>
+      <div class="compra-body">
+        ${(o.detalle||[]).map(d => `
+          <div class="linea-mapeo">
+            <span>${escHtml(d['Producto Nombre'])}</span>
+            <span>Stock ${fmtNum(d['Stock al Generar'])} / mín ${fmtNum(d['Mínimo'])}</span>
+            <span><b>${fmtNum(d['Cantidad Final'])}</b></span>
+            <span></span>
+          </div>`).join('')}
+        <div class="submit-area">
+          ${o['Estado'] === 'borrador' ? `<button class="btn-sm" onclick="cambiarEstadoOC('${o['ID']}','enviada')">Marcar enviada</button>` : ''}
+          ${o['Estado'] === 'enviada' ? `<button class="btn-sm" onclick="cambiarEstadoOC('${o['ID']}','recibida')">Marcar recibida</button>` : ''}
+          ${o['Estado'] !== 'cancelada' && o['Estado'] !== 'recibida' ? `<button class="btn-sm" onclick="cambiarEstadoOC('${o['ID']}','cancelada')">Cancelar</button>` : ''}
+          <button class="btn-sm" onclick='exportarOC(${JSON.stringify(String(o["ID"]))})'>⬇ CSV</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  window._ocCache = ordenes;
+}
+async function cambiarEstadoOC(ocId, estado) {
+  try {
+    await postInv({ accion:'oc_estado', ocId, estado });
+    showToast('Orden ' + estado + ' ✓');
+    await cargarOCs();
+  } catch(e) { showToast('No se pudo — ' + e.message,'error'); }
+}
+function exportarOC(ocId) {
+  const o = (window._ocCache||[]).find(x => String(x['ID']) === String(ocId));
+  if (!o) return;
+  const filas = [['Producto','Cantidad','Stock al generar','Minimo'],
+    ...(o.detalle||[]).map(d => [d['Producto Nombre'], d['Cantidad Final'], d['Stock al Generar'], d['Mínimo']])];
+  const csv = filas.map(f => f.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `OC_${(o['Proveedor']||'proveedor').replace(/\s+/g,'_')}_${o['Fecha']}.csv`;
+  a.click();
+}
+
+// ── MAPEOS ────────────────────────────────────────────────────────
+async function cargarMapeos() {
+  const cont = document.getElementById('mapeos-lista');
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const data = await getInv({ modulo:'mapeos' });
+    MAPEOS = data.registros || [];
+    if (!MAPEOS.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay mapeos aprendidos. Se crean al mapear líneas de facturas pendientes.</div>'; return; }
+    cont.innerHTML = `
+      <table class="stock-table">
+        <thead><tr><th>Proveedor (cédula)</th><th>Texto en factura</th><th>Producto</th><th>Factor</th><th></th></tr></thead>
+        <tbody>
+          ${MAPEOS.map((m,i) => {
+            const prod = PRODUCTOS.find(p => String(p['ID']) === String(m['Producto ID'])) || {};
+            return `<tr>
+              <td>${escHtml(m['Proveedor Cédula']||'—')}</td>
+              <td>${escHtml(m['Texto Línea'])}</td>
+              <td>${escHtml(prod['Nombre Interno']||m['Producto ID'])}</td>
+              <td>×${fmtNum(m['Factor'])}</td>
+              <td><button class="btn-sm" onclick="eliminarMapeo(${i})">✕</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
+}
+async function eliminarMapeo(i) {
+  const m = MAPEOS[i];
+  if (!m || !confirm('¿Eliminar este mapeo? Las próximas facturas con esta línea quedarán sin mapear.')) return;
+  try {
+    await postInv({ accion:'mapeo_eliminar', cedula: m['Proveedor Cédula'], textoLinea: m['Texto Línea'] });
+    showToast('Mapeo eliminado ✓');
+    await cargarMapeos();
+  } catch(e) { showToast('No se pudo eliminar — ' + e.message,'error'); }
+}
+
+// ── PROVEEDORES ───────────────────────────────────────────────────
+function renderProveedores() {
+  const cont = document.getElementById('prov-lista');
+  if (!PROVEEDORES.length) { cont.innerHTML = '<div class="empty-state">Sin proveedores todavía.</div>'; return; }
+  cont.innerHTML = PROVEEDORES.map(p => `
+    <div class="linea-mapeo">
+      <span><b>${escHtml(p['Nombre'])}</b>${p['Activo'] === false ? ' <span class="badge badge-cancelada">inactivo</span>' : ''}<div class="compra-sub">${escHtml(p['Cédula']||'')} ${p['Correo Pedidos'] ? '· ' + escHtml(p['Correo Pedidos']) : ''}</div></span>
+      <span>${escHtml(p['Teléfono']||'')}</span>
+      <span></span>
+      <button class="btn-sm" onclick="editarProveedor('${p['ID']}')">✎</button>
+    </div>`).join('');
+}
+function editarProveedor(id) {
+  const p = PROVEEDORES.find(x => String(x['ID']) === String(id));
+  if (!p) return;
+  document.getElementById('prov-id').value = p['ID'];
+  document.getElementById('prov-nombre').value = p['Nombre'] || '';
+  document.getElementById('prov-cedula').value = p['Cédula'] || '';
+  document.getElementById('prov-correo').value = p['Correo Pedidos'] || '';
+  document.getElementById('prov-telefono').value = p['Teléfono'] || '';
+  document.getElementById('prov-form-title').textContent = 'Editar proveedor';
+  document.getElementById('prov-cancelar').style.display = 'inline';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function cancelarEdicionProveedor() {
+  ['prov-id','prov-nombre','prov-cedula','prov-correo','prov-telefono'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('prov-form-title').textContent = 'Nuevo proveedor';
+  document.getElementById('prov-cancelar').style.display = 'none';
+}
+async function guardarProveedor() {
+  const nombre = document.getElementById('prov-nombre').value.trim();
+  if (!nombre) { showToast('Escribí el nombre','error'); return; }
+  try {
+    await postInv({
+      accion:'proveedor_guardar',
+      id: document.getElementById('prov-id').value || undefined,
+      nombre,
+      cedula: document.getElementById('prov-cedula').value.trim(),
+      correo: document.getElementById('prov-correo').value.trim(),
+      telefono: document.getElementById('prov-telefono').value.trim()
+    });
+    showToast('Proveedor guardado ✓');
+    cancelarEdicionProveedor();
+    const provResp = await getInv({ modulo:'proveedores' });
+    PROVEEDORES = provResp.registros || [];
+    poblarProveedores();
+    renderProveedores();
+  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('date-chip').textContent =
+  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+cargarKioskos().then(cargarBase);
+</script>
+</body>
+</html>

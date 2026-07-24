@@ -38,6 +38,7 @@ main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
 .field:last-child{margin-bottom:0}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .req{color:var(--red);margin-left:2px}
 input[type=text],input[type=number],select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
@@ -50,7 +51,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .checkbox-row{display:flex;align-items:center;gap:8px}
 .checkbox-row input{width:auto}
 
-.ingrediente-row{display:grid;grid-template-columns:2fr 90px 90px 32px;gap:8px;margin-bottom:8px;align-items:center}
+.ingrediente-row{display:grid;grid-template-columns:2fr 90px 34px 32px;gap:8px;margin-bottom:8px;align-items:center}
+.ingrediente-unidad{font-size:12px;color:var(--muted);text-align:center}
 .ingrediente-quitar{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;line-height:1}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
@@ -91,8 +93,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
-  .field-row{grid-template-columns:1fr}
-  .ingrediente-row{grid-template-columns:1fr 70px 70px 28px}
+  .field-row,.field-row3{grid-template-columns:1fr}
+  .ingrediente-row{grid-template-columns:1fr 70px 28px 28px}
 }
 </style>
 </head>
@@ -115,11 +117,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <p class="card-title">Consumo automático desde ventas</p>
   <p style="font-size:13px;color:var(--muted);margin-bottom:0">
     Trae las ventas nuevas de Square (última semana) y descuenta el stock de
-    cada kiosko según la receta que matchee el nombre de venta, o 1:1 si es un
-    producto de venta directa. Corre sola cada hora si se configuró el
-    trigger — este botón la fuerza al momento.
+    cada kiosko según la receta que matchee el <b>Nombre de Venta</b>, o 1:1
+    si el nombre matchea directo el campo "Nombre Venta" de un producto (venta
+    directa, sin receta). Corre sola cada hora si se configuró el trigger —
+    este botón la fuerza al momento.
   </p>
-  <button class="btn-sync" style="margin-top:14px" id="btn-sync" onclick="sincronizarVentas()">Sincronizar ventas ahora</button>
+  <div class="field-row" style="margin-top:14px">
+    <div class="field" style="margin-bottom:0">
+      <label>Kiosko</label>
+      <select id="sync-kiosko"><option value="">Todos los kioskos con Square configurado</option></select>
+    </div>
+    <div class="field" style="margin-bottom:0;display:flex;align-items:flex-end">
+      <button class="btn-sync" id="btn-sync" onclick="sincronizarVentas()">Sincronizar ventas ahora</button>
+    </div>
+  </div>
   <div id="sync-result"></div>
 </div>
 
@@ -140,7 +151,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
   <div class="field">
-    <label>Ingredientes <span class="req">*</span></label>
+    <label>Ingredientes <span class="req">*</span> <span style="font-weight:400;color:var(--muted)">— cantidad en la unidad base del producto (ml para productos por peso, unidades para el resto)</span></label>
     <div id="ingredientes-lista"></div>
     <button class="btn-link" onclick="agregarFilaIngrediente()">+ Agregar ingrediente</button>
   </div>
@@ -168,7 +179,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────
 // ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
@@ -184,41 +194,33 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+
+// ── CONFIG (mismo Web App que inventario.html y compras.html) ──────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-const INVENTARIO_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar):
+const INVENTARIO_V2_URL = '';
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 let PRODUCTOS = [];
 let RECETAS = [];
 
-async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+async function fetchConTimeout(url, options = {}, timeoutMs = 60000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
 }
-
-async function postInventario(payload) {
-  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  }, 45000);
+async function postInv(payload) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
   const out = await resp.json();
   if (!out.ok) throw new Error(out.error || 'Error desconocido');
   return out;
 }
-
-async function getInventario(params) {
-  if (!INVENTARIO_URL) throw new Error('Falta configurar INVENTARIO_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_URL + '?' + new URLSearchParams(params).toString());
+async function getInv(params) {
+  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
+  const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
   const out = await resp.json();
   if (!out.ok) throw new Error(out.error || 'Error desconocido');
   return out;
@@ -252,42 +254,44 @@ async function cargarKioskos() {
       if (activos.length) KIOSKOS = activos;
     }
   } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
-  document.getElementById('receta-kiosko').innerHTML =
-    '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
+  const opciones = KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
+  document.getElementById('receta-kiosko').innerHTML = '<option value="">Todos los kioskos</option>' + opciones;
+  document.getElementById('sync-kiosko').innerHTML = '<option value="">Todos los kioskos con Square configurado</option>' + opciones;
 }
 
 // ── PRODUCTOS (para el selector de ingredientes) ───────────────────
 async function cargarProductos() {
   try {
-    const data = await getInventario({ modulo: 'productos' });
+    const data = await getInv({ modulo: 'productos' });
     PRODUCTOS = (data.registros || []).filter(p => p['Activo'] !== false);
   } catch(e) {
     PRODUCTOS = [];
   }
 }
-
+function unidadProducto(p) {
+  return (p && p['Unidad Base'] === 'ml') ? 'ml' : 'ud';
+}
 function opcionesProductos(seleccionadoId) {
   return '<option value="" disabled ' + (seleccionadoId ? '' : 'selected') + '>Elegí un producto…</option>'
-    + PRODUCTOS.map(p => `<option value="${p['ID']}" data-unidad="${escHtml(p['Unidad']||'')}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre Interno'])}</option>`).join('');
+    + PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre Interno'])} (${unidadProducto(p)})</option>`).join('');
 }
 
 // ── INGREDIENTES (filas dinámicas) ─────────────────────────────────
-function agregarFilaIngrediente(productoId, cantidad, unidad) {
+function agregarFilaIngrediente(productoId, cantidad) {
   const div = document.createElement('div');
   div.className = 'ingrediente-row';
   div.innerHTML = `
     <select class="ing-producto" onchange="alCambiarIngProducto(this)">${opcionesProductos(productoId)}</select>
     <input type="number" class="ing-cantidad" step="any" min="0" placeholder="Cant." value="${cantidad !== undefined ? cantidad : ''}"/>
-    <input type="text" class="ing-unidad" placeholder="Unidad" value="${escHtml(unidad || '')}"/>
+    <span class="ingrediente-unidad" data-role="unidad">${productoId ? unidadProducto(PRODUCTOS.find(p => String(p['ID'])===String(productoId))) : ''}</span>
     <button class="ingrediente-quitar" onclick="this.closest('.ingrediente-row').remove()" title="Quitar">×</button>
   `;
   document.getElementById('ingredientes-lista').appendChild(div);
 }
 function alCambiarIngProducto(select) {
   const row = select.closest('.ingrediente-row');
-  const unidad = select.selectedOptions[0]?.dataset.unidad || '';
-  const unidadInput = row.querySelector('.ing-unidad');
-  if (!unidadInput.value) unidadInput.value = unidad;
+  const producto = PRODUCTOS.find(p => String(p['ID']) === String(select.value));
+  row.querySelector('[data-role="unidad"]').textContent = producto ? unidadProducto(producto) : '';
 }
 
 function leerIngredientes() {
@@ -297,17 +301,16 @@ function leerIngredientes() {
     return {
       productoId,
       productoNombre: producto ? producto['Nombre Interno'] : '',
-      cantidad: Number(row.querySelector('.ing-cantidad').value) || 0,
-      unidad: row.querySelector('.ing-unidad').value.trim()
+      cantidad: Number(row.querySelector('.ing-cantidad').value) || 0
     };
-  }).filter(i => i.productoId);
+  }).filter(i => i.productoId && i.cantidad > 0);
 }
 
 // ── RECETAS ────────────────────────────────────────────────────────
 async function cargarRecetas() {
   document.getElementById('recetas-lista').innerHTML = '<div class="empty-state">Cargando recetas…</div>';
   try {
-    const data = await getInventario({ modulo: 'recetas' });
+    const data = await getInv({ modulo: 'recetas' });
     RECETAS = data.registros || [];
     renderRecetas();
   } catch(e) {
@@ -331,7 +334,10 @@ function renderRecetas() {
           <button class="btn-sm btn-danger-outline" onclick="eliminarReceta('${r['ID']}')">Eliminar</button>
         </div>
       </div>
-      <div class="receta-ing">${(r.ingredientes||[]).map(i => `${escHtml(i['Producto Nombre'])} × ${i['Cantidad por Unidad Vendida']} ${escHtml(i['Unidad']||'')}`).join(' · ') || 'Sin ingredientes'}</div>
+      <div class="receta-ing">${(r.ingredientes||[]).map(i => {
+        const prod = PRODUCTOS.find(p => String(p['ID']) === String(i['Producto ID']));
+        return `${escHtml(i['Producto Nombre'])} × ${i['Cantidad por Unidad Vendida']} ${prod ? unidadProducto(prod) : ''}`;
+      }).join(' · ') || 'Sin ingredientes'}</div>
     </div>
   `).join('');
 }
@@ -344,7 +350,7 @@ function editarReceta(id) {
   document.getElementById('receta-kiosko').value = r['Kiosko'] || '';
   document.getElementById('receta-activo').checked = r['Activo'] !== false;
   document.getElementById('ingredientes-lista').innerHTML = '';
-  (r.ingredientes || []).forEach(i => agregarFilaIngrediente(i['Producto ID'], i['Cantidad por Unidad Vendida'], i['Unidad']));
+  (r.ingredientes || []).forEach(i => agregarFilaIngrediente(i['Producto ID'], i['Cantidad por Unidad Vendida']));
   if (!(r.ingredientes || []).length) agregarFilaIngrediente();
   document.getElementById('receta-form-title').textContent = 'Editar receta';
   document.getElementById('receta-cancelar-edicion').style.display = 'inline';
@@ -368,7 +374,7 @@ async function guardarReceta() {
   const nombreVenta = document.getElementById('receta-nombre-venta').value.trim();
   if (!nombreVenta) { showToast('Escribí el nombre de venta', 'error'); return; }
   const ingredientes = leerIngredientes();
-  if (!ingredientes.length) { showToast('Agregá al menos un ingrediente', 'error'); return; }
+  if (!ingredientes.length) { showToast('Agregá al menos un ingrediente con cantidad', 'error'); return; }
 
   const payload = {
     accion: 'receta_guardar',
@@ -382,7 +388,7 @@ async function guardarReceta() {
   const btn = document.getElementById('btn-receta-guardar');
   btn.disabled = true;
   try {
-    await postInventario(payload);
+    await postInv(payload);
     showToast('Receta guardada ✓');
     cancelarEdicionReceta();
     await cargarRecetas();
@@ -396,7 +402,7 @@ async function guardarReceta() {
 async function eliminarReceta(id) {
   if (!confirm('¿Eliminar esta receta? Deja de aplicarse a nuevas ventas.')) return;
   try {
-    await postInventario({ accion: 'receta_eliminar', id });
+    await postInv({ accion: 'receta_eliminar', id });
     showToast('Receta eliminada ✓');
     await cargarRecetas();
   } catch(e) {
@@ -408,13 +414,14 @@ async function eliminarReceta(id) {
 async function sincronizarVentas() {
   const btn = document.getElementById('btn-sync');
   const result = document.getElementById('sync-result');
+  const kiosko = document.getElementById('sync-kiosko').value;
   btn.disabled = true; btn.textContent = 'Sincronizando…';
   result.innerHTML = '';
   try {
-    const out = await postInventario({ accion: 'sincronizar_ventas' });
-    let html = `<div class="sync-result">Procesadas <b>${out.lineasProcesadas}</b> línea(s) nuevas de ${out.totalLineasRecibidas} recibidas de Square.</div>`;
+    const out = await postInv({ accion: 'sincronizar_ventas', kiosko: kiosko || undefined });
+    let html = `<div class="sync-result">Procesada(s) <b>${out.lineasProcesadas}</b> línea(s) nueva(s) de venta${kiosko ? ' — ' + escHtml(kiosko) : ' — todos los kioskos con Square configurado'}.</div>`;
     if (out.sinMapear && out.sinMapear.length) {
-      html += `<div class="sync-sinmapear">⚠️ Sin receta ni producto de venta directa asociado: ${out.sinMapear.map(escHtml).join(', ')}. Creá una receta o completá el "Nombre de venta" del producto correspondiente.</div>`;
+      html += `<div class="sync-sinmapear">⚠️ Sin receta ni producto de venta directa asociado: ${out.sinMapear.map(escHtml).join(', ')}. Creá una receta arriba, o completá el campo "Nombre Venta" del producto correspondiente en el Catálogo de inventario.html.</div>`;
     }
     result.innerHTML = html;
     showToast('Sincronización completa ✓');

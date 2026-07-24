@@ -1,6 +1,6 @@
 # Diseño — Inventario Kioskos v2
 
-**Fecha:** 2026-07-24 · **Estado:** Borrador para aprobación de Jorge
+**Fecha:** 2026-07-24 · **Estado:** Aprobado por Jorge, implementación de código completa (2026-07-24) — pendiente el despliegue manual del Sheet nuevo (ver README.md, sección "5. Inventario v2, Compras y Recetas")
 **Reemplaza:** módulo actual `inventario.html` + `recetas.html` + `Code-inventario-kioskos-backend.gs` (rediseño desde cero, decidido 2026-07-24)
 
 ---
@@ -57,7 +57,12 @@ La **unidad base** de cada producto es en la que se lleva el stock y se escriben
 
 ## 3. Base de datos
 
-Google Sheet nuevo: **"Inventario Kioskos v2"**, con backend Apps Script propio (`Code-inventario-v2-backend.gs`), mismo patrón del ecosistema (Web App JSON, `configurarHoja()`, PIN admin, log append-only).
+Google Sheet: **"Inventario - Kioskos"** (el mismo Sheet v1, reutilizado —
+`1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA`, decidido 2026-07-24; sus 9
+pestañas v1 se borran antes de desplegar v2, ver README.md sección 5), con
+backend Apps Script propio (`Code-inventario-v2-backend.gs`), mismo patrón
+del ecosistema (Web App JSON, `configurarHoja()`, PIN admin, log
+append-only).
 
 | Pestaña | Contenido (columnas clave) |
 |---|---|
