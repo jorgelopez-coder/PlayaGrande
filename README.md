@@ -245,6 +245,28 @@ tipo de control/tara/densidad de licores y sifones después).
 (`inventario.html`), **Compras** (`compras.html`) y **Recetas**
 (`recetas.html`).
 
+Octavo módulo: **Base de Productos**, `productos.html` — catálogo básico de
+productos, **independiente** de la pestaña "Productos" de Inventario v2
+(esa sigue siendo la fuente para stock/mínimos/recetas). Adaptado de
+"Maestro_Productos" de Ecosistema Lorito (`maestro-productos.html`), pero
+simplificado: sin Alias_Productos ni Costo_Promedio (esas dos hojas viven
+del lado de facturas/compras en Lorito y acá todavía no aplican). Un solo
+CRUD: nombre, categoría, unidad (texto libre — botella, litro, caja de 24,
+etc.), nota opcional y activo/inactivo, con búsqueda y filtro por
+categoría/estado.
+
+Backend (`Code-productos-backend.gs`, Sheet nuevo **"Base de Productos -
+Kioskos"**, pestaña "Productos"): CRUD simple (`producto_guardar`,
+`producto_eliminar`), sin conexión a facturas, compras ni Square. Categorías
+sugeridas para kioskos de cerveza y cocteles precargadas en el selector
+(Cerveza, Licores y Destilados, Insumos de Coctelería, Bebidas No
+Alcohólicas, Hielo, Vasos y Desechables, Snacks, Limpieza e Higiene, Equipo
+y Utensilios, Otros) pero editables libremente — no restringen lo ya
+guardado.
+
+`index.html` agrega el tile **Base de Productos**, junto a Compras y
+Recetas.
+
 Módulo de **Planilla**, `planilla.html` — cálculo de planilla quincenal por
 kiosko según la legislación laboral de Costa Rica, reutilizando Personal
 (salario, estado, kiosko) y Vacaciones (solicitudes aprobadas) del mismo
@@ -378,6 +400,8 @@ Archivos:
   ver detalle arriba.
 - `recetas.html` — recetas de venta y sincronización de consumo automático
   desde Square — ver detalle arriba.
+- `productos.html` — catálogo básico de productos (módulo independiente,
+  Sheet propio) — ver detalle arriba.
 - `admin-accesos.html` — CRUD de roles de acceso (PIN, color, módulos y
   kioskos permitidos por rol) — ver detalle en "Login / control de accesos"
   más abajo.
@@ -412,6 +436,9 @@ Archivos:
   leer facturas y guardar fotos de toma. **Reemplaza**
   `Code-inventario-kioskos-backend.gs` (backend v1, conservado en el repo
   solo como referencia/fuente de `importarDesdeV1()`).
+- `Code-productos-backend.gs` — backend del Sheet nuevo "Base de Productos -
+  Kioskos" (pestaña "Productos"): catálogo básico independiente, alimenta
+  `productos.html` (ver detalle arriba).
 
 ## Pendiente de conexión (todo manual, vía script.google.com)
 
@@ -654,6 +681,25 @@ el resto del módulo (catálogo, mínimos, stock manual, compra manual, toma de
 inventario, órdenes de compra, recetas) funciona igual — solo quedan
 inactivos el descuento automático por venta, la lectura automática de
 facturas de Gmail y la migración de datos viejos.
+
+### 6. Base de Productos (módulo independiente)
+
+Sheet nuevo, **no reutiliza ningún Sheet existente** — este módulo es
+intencionalmente independiente de Inventario v2.
+
+1. Creá un Google Sheet nuevo, ej. **"Base de Productos - Kioskos"**.
+2. Extensiones → Apps Script, pegá **todo** el contenido de
+   `Code-productos-backend.gs`.
+3. Corré **una vez** `configurarHoja()` desde el editor para crear la
+   pestaña "Productos" con sus encabezados.
+4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquiera**
+5. Copiá la URL `/exec` resultante y pegala en `productos.html`, constante
+   `PRODUCTOS_URL` (arriba del todo en el `<script>`).
+
+Sin el paso 5, `productos.html` muestra "Falta configurar PRODUCTOS_URL" al
+cargar. No requiere carpeta de Drive (no maneja fotos) ni Script Properties.
 
 ## Kioskos activos — sección de Configuración
 

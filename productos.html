@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Base de Productos · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
+.page-header{margin-bottom:1.5rem;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-header h1{font-family:var(--font-d);font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.page-header p{font-size:13px;color:var(--muted)}
+.btn-primary{font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 18px;border-radius:9px;border:none;background:var(--green);color:#fff;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.kpi-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-d);font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.kpi-val.ambar{color:var(--amber)}
+
+.toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--subtle);pointer-events:none}
+.search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 12px 8px 32px;outline:none}
+.search-input:focus{border-color:var(--green)}
+.filter-sel{font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.tabla-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-off{background:var(--surface);color:var(--muted)}
+.b-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+.btn-mini{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.btn-mini:hover{border-color:var(--border-h);color:var(--text)}
+.btn-mini.rojo:hover{border-color:var(--red-lt);color:var(--red);background:var(--red-bg)}
+.fila-acciones{display:flex;gap:6px;flex-wrap:wrap}
+
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.pag-btns{display:flex;gap:4px}
+.pag-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
+.pag-btn:hover:not(:disabled){background:var(--surface);color:var(--text)}
+.pag-btn:disabled{opacity:.4;cursor:default}
+.pag-btn.active{background:var(--green);color:#fff;border-color:var(--green)}
+
+.empty{text-align:center;padding:3rem;color:var(--subtle);font-size:13px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-carga{font-size:12px;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.conn-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.conn-dot.off{background:var(--red)}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:50;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);max-width:440px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-head h3{font-family:var(--font-d);font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:2px}
+.modal-body{padding:1.25rem 1.5rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+input[type=text],select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder,textarea::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.check-row input{width:auto}
+.modal-foot{padding:1.1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.btn-sec{padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-save{font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 20px;border-radius:9px;border:none;background:var(--green);color:#fff;cursor:pointer}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+@media (max-width:640px){
+  .kpi-strip{grid-template-columns:1fr}
+  main{padding:1.25rem 1.25rem 4rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">📦 Base de Productos</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<main>
+  <div class="page-header">
+    <div>
+      <h1>Base de Productos</h1>
+      <p>Catálogo único de productos — nombre, categoría y unidad. Independiente de Inventario/Compras.</p>
+    </div>
+    <button class="btn-primary" onclick="abrirModalProducto(null)">+ Nuevo producto</button>
+  </div>
+
+  <div class="status-carga" id="status-carga"><span class="spinner"></span> Conectando…</div>
+
+  <div class="kpi-strip">
+    <div class="kpi-box"><div class="kpi-val" id="kpi-total">—</div><div class="kpi-lbl">Productos</div></div>
+    <div class="kpi-box"><div class="kpi-val" id="kpi-categorias">—</div><div class="kpi-lbl">Categorías en uso</div></div>
+    <div class="kpi-box"><div class="kpi-val ambar" id="kpi-inactivos">—</div><div class="kpi-lbl">Inactivos</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="s-prod" placeholder="Buscar por nombre…" oninput="renderTabla()"/>
+    </div>
+    <select class="filter-sel" id="f-cat" onchange="renderTabla()"><option value="">Todas las categorías</option></select>
+    <select class="filter-sel" id="f-estado" onchange="renderTabla()">
+      <option value="activos" selected>Solo activos</option>
+      <option value="todos">Todos</option>
+      <option value="inactivos">Solo inactivos</option>
+    </select>
+    <div class="conn-row"><span class="conn-dot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
+  </div>
+
+  <div class="card">
+    <div class="tabla-wrap" id="tabla-productos"><div class="empty">Cargando…</div></div>
+    <div class="pagination" id="pag-productos" style="display:none"></div>
+  </div>
+</main>
+
+<!-- ── MODAL PRODUCTO ── -->
+<div class="modal-overlay" id="modal-producto">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-producto-titulo">Nuevo producto</h3>
+      <button class="modal-close" onclick="cerrarModalProducto()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nombre <span style="color:var(--red)">*</span></label>
+        <input type="text" id="mp-nombre" placeholder="Ej. Cerveza IPA 355ml"/>
+      </div>
+      <div class="field">
+        <label>Categoría</label>
+        <select id="mp-categoria"></select>
+      </div>
+      <div class="field">
+        <label>Unidad</label>
+        <input type="text" id="mp-unidad" placeholder="Ej. botella, litro, caja de 24, unidad"/>
+      </div>
+      <div class="field">
+        <label>Nota (opcional)</label>
+        <textarea id="mp-nota" rows="2" placeholder="Marca, tamaño, presentación…"></textarea>
+      </div>
+      <label class="check-row"><input type="checkbox" id="mp-activo" checked/> Producto activo</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModalProducto()">Cancelar</button>
+      <button class="btn-save" id="mp-btn-guardar" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO ─────────────────────────────────────────────
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('productos')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────
+// URL /exec del Web App de Code-productos-backend.gs (pegar al desplegar —
+// Sheet propio "Base de Productos - Kioskos", independiente de Inventario v2):
+const PRODUCTOS_URL = '';
+
+const CATEGORIAS_DEFAULT = [
+  'Cerveza', 'Licores y Destilados', 'Insumos de Coctelería',
+  'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
+  'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
+];
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+let productos = [];
+let categoriasSugeridas = CATEGORIAS_DEFAULT.slice();
+let pagActual = 1;
+const POR_PAGINA = 20;
+
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+async function getProd(params) {
+  if (!PRODUCTOS_URL) throw new Error('Falta configurar PRODUCTOS_URL en el código.');
+  const resp = await fetchConTimeout(PRODUCTOS_URL + '?' + new URLSearchParams(params).toString());
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+async function postProd(payload) {
+  if (!PRODUCTOS_URL) throw new Error('Falta configurar PRODUCTOS_URL en el código.');
+  const resp = await fetchConTimeout(PRODUCTOS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
+}
+
+async function cargarDatos() {
+  if (!PRODUCTOS_URL) {
+    document.getElementById('status-carga').innerHTML =
+      '<span style="color:var(--amber);">●</span> Falta configurar PRODUCTOS_URL en el código.';
+    document.getElementById('conn-dot').classList.add('off');
+    document.getElementById('conn-label').textContent = 'Sin configurar';
+    document.getElementById('tabla-productos').innerHTML =
+      '<div class="empty">Configurá PRODUCTOS_URL primero (ver README.md, sección de despliegue).</div>';
+    return;
+  }
+  document.getElementById('status-carga').innerHTML = '<span class="spinner"></span> Conectando con el catálogo…';
+  try {
+    const out = await getProd({ modulo:'productos' });
+    productos = (out.registros||[]).map(r => ({
+      id: r['ID'],
+      nombre: r['Nombre'] || '',
+      categoria: r['Categoría'] || '',
+      unidad: r['Unidad'] || '',
+      nota: r['Nota'] || '',
+      activo: r['Activo'] !== false && r['Activo'] !== 'FALSE' && r['Activo'] !== 'false'
+    })).sort((a,b) => a.nombre.localeCompare(b.nombre));
+    if (out.categoriasSugeridas && out.categoriasSugeridas.length) categoriasSugeridas = out.categoriasSugeridas;
+
+    document.getElementById('conn-dot').classList.remove('off');
+    document.getElementById('conn-label').textContent = 'Conectado';
+    document.getElementById('status-carga').innerHTML = productos.length
+      ? '<span style="color:var(--green);">✓</span> ' + productos.length + ' productos en el catálogo'
+      : '<span style="color:var(--amber);">●</span> El catálogo todavía está vacío';
+
+    inicializar();
+  } catch(e) {
+    console.error('Error cargando productos:', e.message);
+    document.getElementById('conn-dot').classList.add('off');
+    document.getElementById('conn-label').textContent = 'Error de conexión';
+    document.getElementById('status-carga').innerHTML =
+      '<span style="color:var(--red);">✕</span> ' + e.message;
+    document.getElementById('tabla-productos').innerHTML =
+      '<div class="empty">No se pudo conectar con PRODUCTOS_URL.</div>';
+  }
+}
+
+function todasLasCategorias() {
+  const enUso = productos.map(p => p.categoria).filter(Boolean);
+  return [...new Set([...categoriasSugeridas, ...enUso])].sort();
+}
+
+function inicializar() {
+  const activos = productos.filter(p => p.activo);
+  const inactivos = productos.length - activos.length;
+  const catsEnUso = [...new Set(activos.map(p => p.categoria).filter(Boolean))];
+
+  document.getElementById('kpi-total').textContent      = productos.length;
+  document.getElementById('kpi-categorias').textContent = catsEnUso.length;
+  document.getElementById('kpi-inactivos').textContent  = inactivos;
+
+  const selCat = document.getElementById('f-cat');
+  const valCat = selCat.value;
+  const cats = todasLasCategorias();
+  selCat.innerHTML = '<option value="">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}"${c===valCat?' selected':''}>${c}</option>`).join('');
+
+  renderTabla();
+}
+
+function opcionesCategoria(valorActual) {
+  const opciones = todasLasCategorias();
+  const lista = valorActual && !opciones.includes(valorActual) ? [valorActual, ...opciones] : opciones;
+  return '<option value=""' + (!valorActual?' selected':'') + '>Sin categoría</option>' +
+    lista.map(c => `<option value="${c}"${c===valorActual?' selected':''}>${c}</option>`).join('');
+}
+
+function renderTabla() { pagActual = 1; _renderTabla(); }
+
+function _renderTabla() {
+  const busq = document.getElementById('s-prod').value.toLowerCase();
+  const cat  = document.getElementById('f-cat').value;
+  const estado = document.getElementById('f-estado').value;
+
+  const lista = productos.filter(p => {
+    const matchBusq = !busq || p.nombre.toLowerCase().includes(busq);
+    const matchCat  = !cat || p.categoria === cat;
+    const matchEstado = estado === 'todos' ? true : (estado === 'activos' ? p.activo : !p.activo);
+    return matchBusq && matchCat && matchEstado;
+  });
+
+  const total  = lista.length;
+  const inicio = (pagActual-1) * POR_PAGINA;
+  const pagina = lista.slice(inicio, inicio + POR_PAGINA);
+
+  if (!lista.length) {
+    document.getElementById('tabla-productos').innerHTML = '<div class="empty">' +
+      (productos.length ? 'Sin resultados.' : 'Todavía no hay productos. Creá uno con "+ Nuevo producto".') +
+      '</div>';
+    document.getElementById('pag-productos').style.display = 'none';
+    return;
+  }
+
+  window._listaFiltrada = lista;
+
+  const filas = pagina.map((p, idx) => {
+    const rowIdx = inicio + idx;
+    const badgeEstado = p.activo
+      ? `<span class="badge b-ok"><span class="b-dot"></span>Activo</span>`
+      : `<span class="badge b-off"><span class="b-dot"></span>Inactivo</span>`;
+    return `
+      <tr>
+        <td style="font-weight:500;max-width:240px;">${p.nombre}</td>
+        <td style="color:var(--muted);">${p.categoria || '—'}</td>
+        <td style="color:var(--muted);">${p.unidad || '—'}</td>
+        <td style="color:var(--muted);max-width:220px;">${p.nota || '—'}</td>
+        <td>${badgeEstado}</td>
+        <td>
+          <div class="fila-acciones">
+            <button class="btn-mini" onclick="abrirModalProducto(${rowIdx})">Editar</button>
+            <button class="btn-mini rojo" onclick="eliminarProductoUI(${rowIdx})">Eliminar</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('tabla-productos').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Nombre</th><th>Categoría</th><th>Unidad</th><th>Nota</th><th>Estado</th><th>Acciones</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+
+  renderPaginacion('pag-productos', total, pagActual, p => { pagActual = p; _renderTabla(); });
+}
+
+// ── MODAL CREAR / EDITAR ─────────────────────────────────────────
+let productoEnEdicion = null;
+
+function abrirModalProducto(idx) {
+  const p = idx != null ? window._listaFiltrada[idx] : null;
+  productoEnEdicion = p ? p.id : null;
+
+  document.getElementById('modal-producto-titulo').textContent = p ? 'Editar producto' : 'Nuevo producto';
+  document.getElementById('mp-nombre').value = p ? p.nombre : '';
+  document.getElementById('mp-categoria').innerHTML = opcionesCategoria(p ? p.categoria : '');
+  document.getElementById('mp-unidad').value = p ? p.unidad : '';
+  document.getElementById('mp-nota').value = p ? p.nota : '';
+  document.getElementById('mp-activo').checked = p ? p.activo : true;
+
+  document.getElementById('modal-producto').classList.add('open');
+}
+function cerrarModalProducto() { document.getElementById('modal-producto').classList.remove('open'); }
+document.getElementById('modal-producto').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-producto')) cerrarModalProducto();
+});
+
+async function guardarProducto() {
+  const nombre = document.getElementById('mp-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre del producto.', 'error'); return; }
+
+  const btn = document.getElementById('mp-btn-guardar');
+  btn.disabled = true;
+  try {
+    const payload = {
+      accion: 'producto_guardar',
+      nombre,
+      categoria: document.getElementById('mp-categoria').value,
+      unidad: document.getElementById('mp-unidad').value.trim(),
+      nota: document.getElementById('mp-nota').value.trim(),
+      activo: document.getElementById('mp-activo').checked
+    };
+    if (productoEnEdicion) payload.id = productoEnEdicion;
+
+    await postProd(payload);
+    showToast(productoEnEdicion ? 'Producto actualizado ✓' : 'Producto creado ✓', 'success');
+    cerrarModalProducto();
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── ELIMINAR ───────────────────────────────────────────────────────
+async function eliminarProductoUI(idx) {
+  const p = window._listaFiltrada[idx];
+  if (!confirm(`¿Eliminar "${p.nombre}" del catálogo? Esta acción no se puede deshacer.\n\nSi solo querés dejar de usarlo, mejor editalo y desmarcá "Producto activo".`)) return;
+
+  try {
+    await postProd({ accion:'producto_eliminar', id: p.id });
+    showToast(`"${p.nombre}" eliminado ✓`, 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function renderPaginacion(id, total, pag, cb) {
+  const pagEl = document.getElementById(id);
+  const totalPag = Math.ceil(total / POR_PAGINA);
+  if (totalPag <= 1) { pagEl.style.display = 'none'; return; }
+
+  pagEl.style.display = 'flex';
+  const desde = (pag-1)*POR_PAGINA + 1;
+  const hasta = Math.min(pag*POR_PAGINA, total);
+
+  let btns = '';
+  for (let i = 1; i <= totalPag; i++) {
+    if (i === 1 || i === totalPag || Math.abs(i - pag) <= 1) {
+      btns += `<button class="pag-btn${i===pag?' active':''}" onclick="(${cb.toString()})(${i})">${i}</button>`;
+    } else if (Math.abs(i - pag) === 2) {
+      btns += `<span style="padding:4px;">…</span>`;
+    }
+  }
+
+  pagEl.innerHTML = `
+    <span>${desde}–${hasta} de ${total}</span>
+    <div class="pag-btns">
+      <button class="pag-btn" onclick="(${cb.toString()})(${pag-1})" ${pag<=1?'disabled':''}>← Anterior</button>
+      ${btns}
+      <button class="pag-btn" onclick="(${cb.toString()})(${pag+1})" ${pag>=totalPag?'disabled':''}>Siguiente →</button>
+    </div>`;
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type==='success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+cargarDatos();
+</script>
+</body>
+</html>
