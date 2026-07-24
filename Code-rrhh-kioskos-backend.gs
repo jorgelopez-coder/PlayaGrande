@@ -62,6 +62,22 @@ const ENCABEZADOS_CAMBIOS_SALARIO = [
 const ENCABEZADOS_LIQUIDACIONES = [
   'Colaborador', 'Fecha pago', 'Confirmado por', 'Total pagado', 'Preaviso', 'Cesantía', 'Vacaciones', 'Aguinaldo', 'Motivo', 'Registrado'
 ];
+
+// ── AGUINALDO (rrhh-aguinaldo.html) ────────────────────────────────
+// Periodo legal (Ley 1788): 1 de diciembre al 30 de noviembre del año
+// siguiente. Se identifica un periodo por su año de CIERRE (ej. el periodo
+// que va del 1-dic-2025 al 30-nov-2026 se identifica con anio=2026).
+// El monto es la suma de "Base CCSS utilizada" (Total de ingresos
+// calculados en cada planilla APROBADA para el cálculo de la CCSS) de todas
+// las quincenas del periodo, dividido entre 12 — ver calcularAguinaldo().
+// Una fila por Periodo aguinaldo + Kiosko + Colaborador (upsert, mismo
+// patrón que Liquidaciones/Servicio 10%).
+const HOJA_AGUINALDOS = 'Aguinaldos';
+const ENCABEZADOS_AGUINALDOS = [
+  'ID', 'Periodo aguinaldo', 'Colaborador', 'Kiosko', 'Puesto',
+  'Base CCSS acumulada', 'Quincenas incluidas', 'Monto aguinaldo',
+  'Fecha pago', 'Confirmado por', 'Notas', 'Registrado'
+];
 // "Kiosko" agregado después de "Departamento" (Lorito no lo tiene, un solo PDV).
 const ENCABEZADOS_HORARIOS = [
   'Semana inicio', 'Fecha', 'Colaborador', 'Departamento', 'Kiosko', 'Puesto',
@@ -85,7 +101,9 @@ const ENCABEZADOS_HORARIO_KIOSKO = DIAS_SEMANA.map(function (d) { return 'Horari
 // de texto libre.
 const ENCABEZADOS_CONFIGURACION = [
   'Kiosko', 'Activo', 'Ubicación', 'Encargado', 'Contacto', 'WhatsApp'
-].concat(ENCABEZADOS_HORARIO_KIOSKO).concat(['Registrado']);
+].concat(ENCABEZADOS_HORARIO_KIOSKO).concat([
+  'Registrado', 'Cédula Jurídica', 'Nombre Jurídico', 'Correo Facturas', 'Actividad Económica'
+]);
 // Kioskos con los que arranca el sistema — solo se usan para sembrar la
 // pestaña "Configuracion" la primera vez (si ya tiene filas, no se tocan).
 const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -424,6 +442,7 @@ function configurarHojas() {
   prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES);
   prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO);
   prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES);
+  prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS);
   prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS);
   prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
   prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
@@ -574,6 +593,13 @@ function doGet(e) {
       case 'terminaciones':   hoja = prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES); break;
       case 'cambios_salario': hoja = prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO); break;
       case 'liquidaciones':   hoja = prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES); break;
+      case 'aguinaldos':      hoja = prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS); break;
+      case 'aguinaldo_calcular':
+        // Preview del acumulado del periodo — misma función que usa
+        // confirmarAguinaldo() para validar, así el preview y lo guardado
+        // nunca se desincronizan. e.parameter.anio = año de CIERRE del
+        // periodo (ej. 2026 para el periodo 1-dic-2025 a 30-nov-2026).
+        return jsonOut({ ok: true, resultado: calcularAguinaldo(e.parameter.anio, e.parameter.kiosko) });
       case 'horarios':        hoja = prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS); break;
       case 'horarios_estado': hoja = prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO); break;
       case 'feriados':          hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS); break;
@@ -664,6 +690,7 @@ function doPost(e) {
       case 'terminacion':           result = registrarTerminacion(payload); break;
       case 'cambio_salario':        result = registrarCambioSalario(payload); break;
       case 'confirmar_liquidacion': result = confirmarLiquidacion(payload); break;
+      case 'aguinaldo_confirmar':   result = confirmarAguinaldo(payload); break;
       case 'horario_semana':        result = registrarHorarioSemana(payload); break;
       case 'cerrar_horario':        result = cambiarEstadoHorarioSemana(payload, 'Sí'); break;
       case 'reabrir_horario':       result = cambiarEstadoHorarioSemana(payload, 'No'); break;
@@ -1012,6 +1039,137 @@ function confirmarLiquidacion(p) {
   return { fila: fila };
 }
 
+// ── AGUINALDO (rrhh-aguinaldo.html) ───────────────────────────────
+// Devuelve las fechas límite (strings "yyyy-MM-dd") del periodo de
+// aguinaldo que CIERRA en `anioFin` — Ley 1788: del 1 de diciembre del año
+// anterior al 30 de noviembre de `anioFin`.
+function rangoAguinaldo(anioFin) {
+  const anio = Number(anioFin);
+  if (!anio) throw new Error('Falta el año de cierre del periodo de aguinaldo.');
+  return {
+    anio: anio,
+    fechaInicio: (anio - 1) + '-12-01',
+    fechaFin: anio + '-11-30',
+    periodo: (anio - 1) + '-12-01_a_' + anio + '-11-30'
+  };
+}
+
+// Acumula, por Kiosko + Colaborador, la "Base CCSS utilizada" de cada
+// quincena de planilla APROBADA cuyo rango cae dentro del periodo de
+// aguinaldo — esa base es, por definición, "el total de ingresos calculados
+// en la planilla para el cálculo de la CCSS" que pidió el usuario (ver
+// calcularPlanilla() en el módulo de Planilla: es el total de ingresos menos
+// los montos que no cotizan CCSS — subsidios e incapacidades). El monto de
+// aguinaldo es esa suma entre 12 (Ley 1788: doceava parte de lo devengado en
+// el periodo). Si `kioskoFiltro` viene vacío, trae todos los kioskos.
+// También asegura que aparezca cada colaborador ACTIVO del kiosko con
+// asignación fija aunque todavía no tenga ninguna planilla aprobada en el
+// periodo (monto en 0, para que no quede invisible en el listado), y cruza
+// contra "Aguinaldos" para marcar si ese periodo ya se confirmó como pagado.
+function calcularAguinaldo(anioFin, kioskoFiltro) {
+  const r = rangoAguinaldo(anioFin);
+  const kioskoNorm = kioskoFiltro ? String(kioskoFiltro).trim().toLowerCase() : '';
+
+  const hojaPlanillas = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
+  const idsPlanillasDelPeriodo = {}; // ID Planilla -> Kiosko
+  filasComoObjetos(hojaPlanillas).forEach(function (row) {
+    if (String(row['Estado']) !== 'Aprobada') return;
+    const ini = valorComoTexto(row['Fecha inicio']).slice(0, 10);
+    const fin = valorComoTexto(row['Fecha fin']).slice(0, 10);
+    if (ini < r.fechaInicio || fin > r.fechaFin) return;
+    const kiosko = String(row['Kiosko'] || '').trim();
+    if (kioskoNorm && kiosko.toLowerCase() !== kioskoNorm) return;
+    idsPlanillasDelPeriodo[row['ID']] = kiosko;
+  });
+
+  const acumulado = {}; // key "Kiosko||Colaborador" -> { kiosko, colaborador, puesto, baseCcss, quincenas }
+  const hojaDetalle = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
+  filasComoObjetos(hojaDetalle).forEach(function (d) {
+    const kiosko = idsPlanillasDelPeriodo[d['ID Planilla']];
+    if (kiosko === undefined) return;
+    const colaborador = String(d['Colaborador'] || '').trim();
+    if (!colaborador) return;
+    const key = kiosko + '||' + colaborador;
+    if (!acumulado[key]) acumulado[key] = { kiosko: kiosko, colaborador: colaborador, puesto: d['Puesto'] || '', baseCcss: 0, quincenas: 0 };
+    acumulado[key].baseCcss += Number(d['Base CCSS utilizada']) || 0;
+    acumulado[key].quincenas += 1;
+    if (d['Puesto']) acumulado[key].puesto = d['Puesto'];
+  });
+
+  const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
+  filasComoObjetos(hojaPersonal).forEach(function (p) {
+    if (String(p['Estado'] || '').toUpperCase() !== 'ACTIVO') return;
+    const kiosko = String(p['Kiosko'] || '').trim();
+    if (!kiosko) return; // rotativo sin kiosko fijo: no se puede ubicar en la tabla por kiosko
+    if (kioskoNorm && kiosko.toLowerCase() !== kioskoNorm) return;
+    const colaborador = String(p['Nombre completo'] || '').trim();
+    if (!colaborador) return;
+    const key = kiosko + '||' + colaborador;
+    if (!acumulado[key]) acumulado[key] = { kiosko: kiosko, colaborador: colaborador, puesto: p['Puesto'] || '', baseCcss: 0, quincenas: 0 };
+  });
+
+  const hojaAguinaldos = prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS);
+  const yaConfirmados = {};
+  filasComoObjetos(hojaAguinaldos).forEach(function (a) {
+    if (String(a['Periodo aguinaldo']) !== r.periodo) return;
+    yaConfirmados[String(a['Kiosko'] || '').trim() + '||' + String(a['Colaborador'] || '').trim()] = a;
+  });
+
+  const colaboradores = Object.keys(acumulado).map(function (key) {
+    const c = acumulado[key];
+    const confirmado = yaConfirmados[key];
+    return {
+      kiosko: c.kiosko,
+      colaborador: c.colaborador,
+      puesto: c.puesto,
+      base_ccss_acumulada: c.baseCcss,
+      quincenas_incluidas: c.quincenas,
+      monto_aguinaldo: c.baseCcss / 12,
+      pagado: !!confirmado,
+      monto_pagado: confirmado ? Number(confirmado['Monto aguinaldo']) || 0 : 0,
+      fecha_pago: confirmado ? confirmado['Fecha pago'] || '' : '',
+      confirmado_por: confirmado ? confirmado['Confirmado por'] || '' : ''
+    };
+  }).sort(function (a, b) {
+    return a.kiosko.localeCompare(b.kiosko) || a.colaborador.localeCompare(b.colaborador);
+  });
+
+  return { periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin, colaboradores: colaboradores };
+}
+
+// Registra el pago de aguinaldo confirmado para un colaborador de un
+// periodo (upsert por Periodo aguinaldo + Kiosko + Colaborador, mismo
+// patrón que guardarPlanilla/guardarServicioReparto). Guarda un snapshot de
+// la base y el monto usados al momento de confirmar, para que quede
+// histórico aunque después se recalculen o corrijan planillas del periodo.
+function confirmarAguinaldo(p) {
+  if (!p.colaborador) throw new Error('Falta el colaborador.');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.periodo) throw new Error('Falta el periodo de aguinaldo.');
+  if (!p.fecha_pago) throw new Error('Falta la fecha de pago.');
+  if (!p.confirmado_por) throw new Error('Falta quién confirma el pago.');
+
+  const hoja = prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS);
+  eliminarFilasPorCriterios(hoja, { 'Periodo aguinaldo': p.periodo, 'Kiosko': p.kiosko, 'Colaborador': p.colaborador });
+
+  const id = 'agu_' + Date.now();
+  agregarFilaPorEncabezado(hoja, ENCABEZADOS_AGUINALDOS, {
+    'ID': id,
+    'Periodo aguinaldo': p.periodo,
+    'Colaborador': p.colaborador,
+    'Kiosko': p.kiosko,
+    'Puesto': p.puesto || '',
+    'Base CCSS acumulada': Number(p.base_ccss_acumulada) || 0,
+    'Quincenas incluidas': Number(p.quincenas_incluidas) || 0,
+    'Monto aguinaldo': Number(p.monto_aguinaldo) || 0,
+    'Fecha pago': p.fecha_pago,
+    'Confirmado por': p.confirmado_por,
+    'Notas': p.notas || '',
+    'Registrado': new Date().toISOString()
+  });
+  return { id: id };
+}
+
 // ── HORARIOS (compartido con horarios.html / horarios-historial.html) ──
 
 // Busca la fila (1-indexada) donde una columna (por nombre de encabezado) tiene cierto valor.
@@ -1167,7 +1325,11 @@ function guardarKiosko(p) {
     'Encargado': p.encargado || '',
     'Contacto': p.contacto || '',
     'WhatsApp': p.whatsapp || '',
-    'Registrado': p.registrado_en || new Date().toISOString()
+    'Registrado': p.registrado_en || new Date().toISOString(),
+    'Cédula Jurídica': p.cedula_juridica || '',
+    'Nombre Jurídico': p.nombre_juridico || '',
+    'Correo Facturas': p.correo_facturas || '',
+    'Actividad Económica': p.actividad_economica || ''
   };
   // p.horarios: { Lun: 'HH:MM-HH:MM', Mar: '', ... } — un día cerrado o sin
   // definir se guarda vacío. configuracion.html siempre manda los 7 días.

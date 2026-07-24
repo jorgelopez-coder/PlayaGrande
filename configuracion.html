@@ -200,6 +200,28 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <p class="field-hint">Marcá los días que abre el kiosko y definí su hora de apertura y cierre. Un día sin marcar queda como "Cerrado".</p>
     </div>
 
+    <div class="field" style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.25rem">
+      <p class="card-title" style="margin-bottom:1rem">Datos de facturación</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-cedula-juridica">Cédula jurídica</label>
+          <input type="text" id="f-cedula-juridica" placeholder="Ej: 3-101-123456"/>
+        </div>
+        <div class="field">
+          <label for="f-nombre-juridico">Nombre jurídico</label>
+          <input type="text" id="f-nombre-juridico" placeholder="Ej: Casa Aguizotes S.A."/>
+        </div>
+        <div class="field">
+          <label for="f-correo-facturas">Correo de facturas</label>
+          <input type="text" id="f-correo-facturas" placeholder="Ej: facturas@casaaguizotes.com"/>
+        </div>
+        <div class="field">
+          <label for="f-actividad-economica">Actividad económica</label>
+          <input type="text" id="f-actividad-economica" placeholder="Ej: Venta de bebidas y cocteles"/>
+        </div>
+      </div>
+    </div>
+
     <div class="submit-area">
       <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
       <button class="btn-primary" id="btn-guardar" onclick="guardarKiosko()">Guardar kiosko ✓</button>
@@ -507,9 +529,14 @@ function renderLista() {
     const encargado = k['Encargado'] || '';
     const contacto = k['Contacto'] || '';
     const whatsapp = k['WhatsApp'] || '';
+    const cedulaJuridica = k['Cédula Jurídica'] || '';
+    const nombreJuridico = k['Nombre Jurídico'] || '';
+    const correoFacturas = k['Correo Facturas'] || '';
+    const actividadEconomica = k['Actividad Económica'] || '';
+    const tieneFacturacion = cedulaJuridica || nombreJuridico || correoFacturas || actividadEconomica;
     const horarios = horariosDeRegistro(k);
     const tieneHorario = DIAS_SEMANA.some(d => horarios[d]);
-    const tieneDetalle = ubicacion || encargado || contacto || whatsapp || tieneHorario;
+    const tieneDetalle = ubicacion || encargado || contacto || whatsapp || tieneHorario || tieneFacturacion;
 
     const linkMaps = linkGoogleMaps(ubicacion);
     const horarioHoy = tieneHorario ? fmtRangoHorario(horarios[DIAS_SEMANA[hoyIdx]]) : '';
@@ -533,6 +560,10 @@ function renderLista() {
         ${contacto ? `<div class="kc-detail-item"><span>Contacto</span><span class="v">${contacto}</span></div>` : ''}
         ${whatsapp ? `<div class="kc-detail-item"><span>WhatsApp</span><span class="v">${whatsapp}</span></div>` : ''}
         ${tieneHorario ? `<div class="kc-detail-item"><span>Hoy</span><span class="v">${horarioHoy}</span></div>` : ''}
+        ${cedulaJuridica ? `<div class="kc-detail-item"><span>Cédula jurídica</span><span class="v">${cedulaJuridica}</span></div>` : ''}
+        ${nombreJuridico ? `<div class="kc-detail-item"><span>Nombre jurídico</span><span class="v">${nombreJuridico}</span></div>` : ''}
+        ${correoFacturas ? `<div class="kc-detail-item"><span>Correo facturas</span><span class="v">${correoFacturas}</span></div>` : ''}
+        ${actividadEconomica ? `<div class="kc-detail-item"><span>Actividad económica</span><span class="v">${actividadEconomica}</span></div>` : ''}
       </div>` : '<div class="kc-empty">Sin información general cargada todavía.</div>'}
       ${tieneHorario ? `
       <button type="button" class="horario-semanal-toggle" onclick="toggleHorarioSemanal(${i})">▾ Ver horario semanal</button>
@@ -564,6 +595,10 @@ function abrirForm() {
   document.getElementById('f-contacto').value = '';
   document.getElementById('f-whatsapp').value = '';
   document.getElementById('f-activo').value = 'Sí';
+  document.getElementById('f-cedula-juridica').value = '';
+  document.getElementById('f-nombre-juridico').value = '';
+  document.getElementById('f-correo-facturas').value = '';
+  document.getElementById('f-actividad-economica').value = '';
   setHorarioForm({});
   document.getElementById('form-card').classList.add('open');
   document.getElementById('f-nombre').focus();
@@ -581,6 +616,10 @@ function editarKiosko(nombre) {
   document.getElementById('f-contacto').value = k['Contacto'] || '';
   document.getElementById('f-whatsapp').value = k['WhatsApp'] || '';
   document.getElementById('f-activo').value = String(k['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
+  document.getElementById('f-cedula-juridica').value = k['Cédula Jurídica'] || '';
+  document.getElementById('f-nombre-juridico').value = k['Nombre Jurídico'] || '';
+  document.getElementById('f-correo-facturas').value = k['Correo Facturas'] || '';
+  document.getElementById('f-actividad-economica').value = k['Actividad Económica'] || '';
   setHorarioForm(horariosDeRegistro(k));
   document.getElementById('form-card').classList.add('open');
   window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
@@ -605,7 +644,11 @@ async function guardarKiosko() {
     whatsapp: document.getElementById('f-whatsapp').value.trim(),
     horarios: leerHorarioForm(),
     activo: document.getElementById('f-activo').value,
-    registrado_en: new Date().toISOString()
+    registrado_en: new Date().toISOString(),
+    cedula_juridica: document.getElementById('f-cedula-juridica').value.trim(),
+    nombre_juridico: document.getElementById('f-nombre-juridico').value.trim(),
+    correo_facturas: document.getElementById('f-correo-facturas').value.trim(),
+    actividad_economica: document.getElementById('f-actividad-economica').value.trim()
   };
 
   const btn = document.getElementById('btn-guardar');
