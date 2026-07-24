@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Servicio 10% · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.kiosko-bar{display:flex;align-items:center;gap:10px;padding:.65rem 2rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:19}
+.kiosko-bar label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.kiosko-bar select{max-width:260px;background:var(--card)}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.card-note{font-size:12px;color:var(--muted);margin-bottom:1rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+input[type=number]{font-family:var(--font-m)}
+.field-hint{font-size:11.5px;color:var(--muted);margin-top:5px}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:11px 22px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:11px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-mini{font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+.btn-mini:hover{border-color:var(--border-h);color:var(--text)}
+.submit-area{display:flex;gap:10px;margin-top:1.25rem;flex-wrap:wrap}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tfoot td{border-top:2px solid var(--border-h);border-bottom:none;font-weight:700}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-m)}
+.th-chk,.td-chk{width:34px;text-align:center}
+.empty{text-align:center;padding:2.5rem;color:var(--subtle);font-size:13px}
+.table-wrap{overflow-x:auto}
+.kiosko-tag{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.dias-input{width:72px;padding:6px 8px;text-align:right;font-family:var(--font-m)}
+
+.kpi-pendiente-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:24px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-pend{background:var(--amber-bg);color:var(--amber)}
+
+.sel-bar{position:sticky;bottom:1rem;background:var(--card);border:1px solid var(--border-h);border-radius:var(--radius);padding:.9rem 1.25rem;margin-top:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.sel-bar .sel-count{font-size:12px;color:var(--muted)}
+.sel-bar .sel-val{font-family:var(--font-m);font-size:16px;font-weight:700;color:var(--text)}
+
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+
+.hist-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.hist-card:hover{border-color:var(--border-h)}
+.hist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px;flex-wrap:wrap}
+.hist-fecha{font-weight:600;font-size:13px}
+.hist-ref{font-size:12px;color:var(--muted);font-family:var(--font-m)}
+.hist-total{font-family:var(--font-m);font-size:15px;font-weight:700;color:var(--amber);text-align:right}
+.hist-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.hist-detail{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1rem 1.25rem;margin-top:-9px;margin-bottom:8px;font-size:12px;display:none}
+.hist-detail.open{display:block}
+.hist-detail-title{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.detalle-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.detalle-row:last-child{border-bottom:none}
+
+.aviso{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:.85rem 1rem;font-size:12.5px;margin-bottom:1rem}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .kiosko-bar{padding:.65rem 1rem}
+  .field-row,.field-row3{grid-template-columns:1fr}
+  .sel-bar{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Servicio 10%</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="kiosko-bar">
+  <label for="servicio-kiosko">🏖️ Kiosko</label>
+  <select id="servicio-kiosko" onchange="alCambiarKiosko()"></select>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('nuevo',this)">Nuevo reparto</button>
+  <button class="tab-btn" onclick="showTab('pendientes',this)">Pendientes de pago</button>
+  <button class="tab-btn" onclick="showTab('historial',this)">Historial de repartos</button>
+</div>
+
+<main>
+
+<!-- ── TAB 1: NUEVO REPARTO ── -->
+<div class="page active" id="tab-nuevo">
+
+  <div class="card">
+    <p class="card-title">Periodo a repartir</p>
+    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. El sistema suma las Ventas Netas ₡ de los cierres de caja de ese periodo/kiosko y calcula el 10%, y sugiere los días trabajados de cada colaborador según Horarios (turnos con estado "Trabajo") — todo editable antes de guardar.</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="sv-fecha-inicio">Fecha inicio <span class="req">*</span></label>
+        <input type="date" id="sv-fecha-inicio"/>
+      </div>
+      <div class="field">
+        <label for="sv-fecha-fin">Fecha fin <span class="req">*</span></label>
+        <input type="date" id="sv-fecha-fin"/>
+      </div>
+    </div>
+    <div class="submit-area">
+      <button class="btn-primary" id="btn-calcular" onclick="calcularReparto()">Calcular reparto</button>
+    </div>
+  </div>
+
+  <div id="sv-resultado" style="display:none">
+
+    <div class="card">
+      <p class="card-title">Monto a repartir</p>
+      <div class="field-row3">
+        <div class="field">
+          <label>Ventas Netas ₡ del periodo</label>
+          <div class="kpi-box" style="padding:.6rem .9rem"><div class="kpi-val" id="sv-ventas-netas" style="font-size:18px">₡0</div></div>
+        </div>
+        <div class="field">
+          <label for="sv-porcentaje">Porcentaje</label>
+          <input type="number" id="sv-porcentaje" value="10" min="0" max="100" step="0.5" oninput="alCambiarPorcentaje()"/>
+        </div>
+        <div class="field">
+          <label for="sv-monto">Monto a repartir ₡</label>
+          <input type="number" id="sv-monto" min="0" step="1" oninput="alCambiarMonto()"/>
+        </div>
+      </div>
+      <p class="field-hint">El monto se prellena con el 10% de las ventas netas y se reparte proporcional a los días trabajados de cada colaborador. Se puede ajustar a mano si hace falta (ej. si parte del servicio ya se descontó por otro medio).</p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Colaboradores y días trabajados — <span id="sv-kiosko-lbl"></span></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Colaborador</th><th>Puesto</th><th style="text-align:right">Días</th>
+            <th style="text-align:right">Monto ₡</th><th></th>
+          </tr></thead>
+          <tbody id="sv-tabla-body"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
+          <tfoot><tr>
+            <td colspan="2">Total</td>
+            <td class="num" id="sv-total-dias">0</td>
+            <td class="num" id="sv-total-monto">₡0</td>
+            <td></td>
+          </tr></tfoot>
+        </table>
+      </div>
+
+      <div class="toolbar" style="margin-top:1rem">
+        <select id="sv-agregar-select" onchange="toggleAgregarOtro()" style="max-width:280px"></select>
+        <button class="btn-mini" onclick="agregarColaborador()">+ Agregar colaborador</button>
+      </div>
+      <div class="field-row" id="sv-agregar-otro" style="display:none;margin-top:.5rem">
+        <div class="field"><label for="sv-agregar-nombre">Nombre</label><input type="text" id="sv-agregar-nombre" placeholder="Nombre completo"/></div>
+        <div class="field"><label for="sv-agregar-puesto">Puesto</label><input type="text" id="sv-agregar-puesto" placeholder="Ej: Mesero, Barra…"/></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Notas (opcional)</p>
+      <textarea id="sv-notas" rows="2" placeholder="Observaciones sobre este cálculo…"></textarea>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="limpiarFormReparto()">Descartar</button>
+      <button class="btn-primary" id="btn-guardar-reparto" onclick="guardarReparto()" disabled>Guardar reparto ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB 2: PENDIENTES DE PAGO ── -->
+<div class="page" id="tab-pendientes">
+  <div class="card">
+    <p class="card-title">Servicio pendiente de pago</p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-sv-pend-crc">₡0</div>
+        <div class="kpi-lbl">Total pendiente de pagar</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-sv-pend-count">0</div>
+        <div class="kpi-lbl">Colaboradores con pago pendiente</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Colaboradores por pagar — <span id="pend-kiosko-lbl"></span></p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Cada fila es la parte de servicio de un colaborador en un reparto ya calculado. Marcá los que ya se pagaron y asigná abajo fecha y referencia — se pueden cubrir varios de una vez, incluso de distintos periodos.</p>
+    <div class="toolbar">
+      <button class="btn-mini" onclick="seleccionarTodoServicio()">Seleccionar todo</button>
+      <button class="btn-mini" onclick="limpiarSeleccionServicio()">Limpiar selección</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-chk"></th><th>Colaborador</th><th>Kiosko</th><th>Periodo</th>
+          <th>Puesto</th><th style="text-align:right">Monto ₡</th>
+        </tr></thead>
+        <tbody id="tabla-pend-body"><tr><td colspan="6" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Datos del pago</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="sv-fecha-pago">Fecha de pago <span class="req">*</span></label>
+        <input type="date" id="sv-fecha-pago" onchange="actualizarBotonPagarServicio()"/>
+      </div>
+      <div class="field">
+        <label for="sv-referencia">Número de referencia <span class="req">*</span></label>
+        <input type="text" id="sv-referencia" placeholder="Ej: SINPE 000123456" oninput="actualizarBotonPagarServicio()"/>
+      </div>
+    </div>
+    <div class="field">
+      <label for="sv-notas-pago">Notas (opcional)</label>
+      <input type="text" id="sv-notas-pago" placeholder="Observaciones del pago…"/>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-secondary" onclick="limpiarFormPagoServicio()">Limpiar</button>
+    <button class="btn-primary" id="btn-pagar-servicio" onclick="marcarComoPagadoServicio()" disabled>Marcar como pagado ✓</button>
+  </div>
+
+  <div class="sel-bar">
+    <span class="sel-count" id="sv-sel-count">0 seleccionados</span>
+    <div><span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Total seleccionado</span><br><span class="sel-val" id="sv-sel-total">₡0</span></div>
+  </div>
+</div>
+
+<!-- ── TAB 3: HISTORIAL ── -->
+<div class="page" id="tab-historial">
+  <div class="card" style="padding-bottom:.5rem">
+    <p class="card-title" style="margin-bottom:.75rem">Repartos calculados — <span id="historial-kiosko-lbl"></span></p>
+    <div id="sv-hist-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismo Sheet de ventas (Cierres, para leer Ventas Netas ₡) que cierres.html/
+// control-tips.html, y mismo Web App de RRHH (Horarios/Personal para los
+// días trabajados, y las hojas nuevas ServicioRepartos/ServicioRepartoDetalle)
+// que el resto de pantallas de RRHH — ver README.md.
+const SHEETS_URL       = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('servicio-10')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// Respaldo si todavía no hay conexión con Configuración.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+// Índices de columnas en `records` de la hoja "Cierres" (ver
+// Code-cierres-kioskos-backend.gs → HEADERS).
+const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_TOTAL_VENTAS = 10;
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+const hoyISO = hoy.toISOString().slice(0,10);
+const hace7 = new Date(hoy); hace7.setDate(hace7.getDate() - 6);
+const hace7ISO = hace7.toISOString().slice(0,10);
+
+const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const soloFecha = f => f ? String(f).slice(0,10) : '';
+function fechaLbl(iso) {
+  iso = soloFecha(iso);
+  if (!iso) return '—';
+  return new Date(iso+'T12:00:00').toLocaleDateString('es-CR',{day:'2-digit',month:'short',year:'numeric'});
+}
+function escHtml(s) {
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+function postRRHH(payload) {
+  return fetchConTimeout(APPS_SCRIPT_RRHH, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) })
+    .then(r => r.json());
+}
+
+// ── ESTADO ────────────────────────────────────────────────────────
+let kioskoActual = localStorage.getItem('kiosko_actual_servicio') ?? '';
+let ventasNetasActuales = 0;
+let filasReparto = [];     // [{colaborador, puesto, dias, monto}] — tab "Nuevo reparto"
+let personalActivo = [];   // [{nombre, puesto}] del kiosko elegido, para "+ Agregar colaborador"
+let detalleTodos = [];     // registros de ServicioRepartoDetalle (todos los kioskos/periodos)
+let detallePendientes = [];
+let repartosTodos = [];    // registros de ServicioRepartos (maestro)
+const seleccionServicio = new Set();
+
+// ── KIOSKO ────────────────────────────────────────────────────────
+async function cargarKioskos() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos').then(r => r.json());
+    if (resp.ok && Array.isArray(resp.kioskos) && resp.kioskos.length) {
+      KIOSKOS = kioskosPermitidos(resp.kioskos);
+    }
+  } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  poblarKioskosSelect();
+}
+
+function poblarKioskosSelect() {
+  const sel = document.getElementById('servicio-kiosko');
+  sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('');
+  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  kioskoActual = sel.value;
+  actualizarLabels();
+}
+
+function actualizarLabels() {
+  const lbl = kioskoActual || 'Todos los kioskos';
+  document.getElementById('sv-kiosko-lbl').textContent = kioskoActual || '—';
+  document.getElementById('pend-kiosko-lbl').textContent = lbl;
+  document.getElementById('historial-kiosko-lbl').textContent = lbl;
+}
+
+function alCambiarKiosko() {
+  kioskoActual = document.getElementById('servicio-kiosko').value;
+  localStorage.setItem('kiosko_actual_servicio', kioskoActual);
+  actualizarLabels();
+  limpiarFormReparto();
+  recalcularPendientes();
+  renderHistorialServicio();
+}
+
+// ── TAB 1: NUEVO REPARTO ──────────────────────────────────────────
+async function calcularReparto() {
+  if (!kioskoActual) { showToast('Seleccioná un kiosko específico arriba para calcular', 'error'); return; }
+  const fi = document.getElementById('sv-fecha-inicio').value;
+  const ff = document.getElementById('sv-fecha-fin').value;
+  if (!fi || !ff) { showToast('Completá el periodo (fecha inicio y fin)', 'error'); return; }
+  if (fi > ff) { showToast('La fecha inicio no puede ser posterior a la fecha fin', 'error'); return; }
+
+  const btn = document.getElementById('btn-calcular');
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando…';
+  try {
+    const [rCierres, rHorarios, rPersonal] = await Promise.all([
+      fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json()),
+      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=horarios').then(r => r.json()),
+      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json())
+    ]);
+
+    const cierres = rCierres.records || [];
+    ventasNetasActuales = cierres
+      .filter(r => (r[COL_KIOSKO] || '') === kioskoActual)
+      .filter(r => { const f = soloFecha(r[COL_FECHA]); return f && f >= fi && f <= ff; })
+      .reduce((s, r) => s + (Number(r[COL_TOTAL_VENTAS]) || 0), 0);
+
+    const horarios = rHorarios.registros || [];
+    const diasPorColaborador = new Map(); // nombre -> {puesto, fechas:Set}
+    horarios.forEach(h => {
+      if ((h['Kiosko'] || '') !== kioskoActual) return;
+      if ((h['Estado'] || 'trabajo') !== 'trabajo') return;
+      const nombre = String(h['Colaborador'] || '').trim();
+      if (!nombre) return;
+      const fecha = soloFecha(h['Fecha']);
+      if (!fecha || fecha < fi || fecha > ff) return;
+      if (!diasPorColaborador.has(nombre)) diasPorColaborador.set(nombre, { puesto: h['Puesto'] || '', fechas: new Set() });
+      diasPorColaborador.get(nombre).fechas.add(fecha);
+      if (h['Puesto']) diasPorColaborador.get(nombre).puesto = h['Puesto'];
+    });
+
+    filasReparto = Array.from(diasPorColaborador.entries())
+      .map(([colaborador, info]) => ({ colaborador, puesto: info.puesto, dias: info.fechas.size, monto: 0 }))
+      .sort((a, b) => b.dias - a.dias || a.colaborador.localeCompare(b.colaborador));
+
+    personalActivo = (rPersonal.registros || [])
+      .filter(p => String(p['Estado'] || '').toUpperCase() === 'ACTIVO')
+      .filter(p => !p['Kiosko'] || p['Kiosko'] === kioskoActual)
+      .map(p => ({ nombre: p['Nombre completo'] || '', puesto: p['Puesto'] || '' }))
+      .filter(p => p.nombre);
+
+    document.getElementById('sv-ventas-netas').textContent = fmtCRC(ventasNetasActuales);
+    const pct = Number(document.getElementById('sv-porcentaje').value) || 10;
+    document.getElementById('sv-monto').value = Math.round(ventasNetasActuales * pct / 100);
+
+    recalcularMontos();
+    renderTablaColaboradores();
+    poblarSelectAgregar();
+    actualizarLabels();
+    document.getElementById('sv-resultado').style.display = 'block';
+
+    showToast(filasReparto.length
+      ? 'Cálculo listo — revisá los días antes de guardar'
+      : 'No se encontraron turnos "Trabajo" en Horarios para este periodo — agregá colaboradores manualmente', 'success');
+  } catch (e) {
+    showToast('Error al calcular: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+// Reparte "Monto a repartir" proporcional a los días de cada fila, ajustando
+// el redondeo en la última fila con días > 0 para que la suma cierre exacto.
+function recalcularMontos() {
+  const monto = Number(document.getElementById('sv-monto').value) || 0;
+  const totalDias = filasReparto.reduce((s, f) => s + (Number(f.dias) || 0), 0);
+  filasReparto.forEach(f => f.monto = 0);
+  if (!totalDias || !monto) return;
+  let acumulado = 0, ultimoConDias = -1;
+  filasReparto.forEach((f, i) => { if ((Number(f.dias) || 0) > 0) ultimoConDias = i; });
+  filasReparto.forEach((f, i) => {
+    if (!((Number(f.dias) || 0) > 0)) return;
+    if (i === ultimoConDias) { f.monto = monto - acumulado; }
+    else { f.monto = Math.round(monto * f.dias / totalDias); acumulado += f.monto; }
+  });
+}
+
+function renderTablaColaboradores() {
+  const tbody = document.getElementById('sv-tabla-body');
+  if (!filasReparto.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Sin colaboradores — agregá manualmente abajo.</td></tr>';
+  } else {
+    tbody.innerHTML = filasReparto.map((f, i) => `<tr>
+      <td>${escHtml(f.colaborador)}</td>
+      <td>${escHtml(f.puesto) || '—'}</td>
+      <td class="num"><input type="number" min="0" step="0.5" class="dias-input" value="${f.dias}" oninput="actualizarDias(${i}, this.value)"/></td>
+      <td class="num" id="sv-monto-${i}">${fmtCRC(f.monto)}</td>
+      <td class="td-chk"><button type="button" class="btn-mini" onclick="quitarColaborador(${i})">Quitar</button></td>
+    </tr>`).join('');
+  }
+  actualizarFooterReparto();
+}
+
+function actualizarDias(i, val) {
+  filasReparto[i].dias = Number(val) || 0;
+  recalcularMontos();
+  filasReparto.forEach((f, idx) => { const el = document.getElementById('sv-monto-' + idx); if (el) el.textContent = fmtCRC(f.monto); });
+  actualizarFooterReparto();
+}
+
+function quitarColaborador(i) {
+  filasReparto.splice(i, 1);
+  recalcularMontos();
+  renderTablaColaboradores();
+  poblarSelectAgregar();
+}
+
+function alCambiarPorcentaje() {
+  const pct = Number(document.getElementById('sv-porcentaje').value) || 0;
+  document.getElementById('sv-monto').value = Math.round(ventasNetasActuales * pct / 100);
+  recalcularMontos();
+  filasReparto.forEach((f, idx) => { const el = document.getElementById('sv-monto-' + idx); if (el) el.textContent = fmtCRC(f.monto); });
+  actualizarFooterReparto();
+}
+
+function alCambiarMonto() {
+  recalcularMontos();
+  filasReparto.forEach((f, idx) => { const el = document.getElementById('sv-monto-' + idx); if (el) el.textContent = fmtCRC(f.monto); });
+  actualizarFooterReparto();
+}
+
+function actualizarFooterReparto() {
+  const totalDias = filasReparto.reduce((s, f) => s + (Number(f.dias) || 0), 0);
+  const totalMonto = filasReparto.reduce((s, f) => s + (Number(f.monto) || 0), 0);
+  document.getElementById('sv-total-dias').textContent = totalDias;
+  document.getElementById('sv-total-monto').textContent = fmtCRC(totalMonto);
+  actualizarBotonGuardar();
+}
+
+function actualizarBotonGuardar() {
+  const monto = Number(document.getElementById('sv-monto').value) || 0;
+  const hayColaboradores = filasReparto.some(f => (Number(f.dias) || 0) > 0);
+  const fi = document.getElementById('sv-fecha-inicio').value;
+  const ff = document.getElementById('sv-fecha-fin').value;
+  document.getElementById('btn-guardar-reparto').disabled = !(kioskoActual && fi && ff && monto > 0 && hayColaboradores);
+}
+
+function poblarSelectAgregar() {
+  const sel = document.getElementById('sv-agregar-select');
+  const yaAgregados = new Set(filasReparto.map(f => f.colaborador.toLowerCase()));
+  const disponibles = personalActivo.filter(p => !yaAgregados.has(p.nombre.toLowerCase()));
+  sel.innerHTML = '<option value="">Seleccionar colaborador…</option>'
+    + disponibles.map(p => `<option value="${escHtml(p.nombre)}" data-puesto="${escHtml(p.puesto)}">${escHtml(p.nombre)}</option>`).join('')
+    + '<option value="__otro__">Otro / escribir nombre…</option>';
+  document.getElementById('sv-agregar-otro').style.display = 'none';
+}
+
+function toggleAgregarOtro() {
+  const sel = document.getElementById('sv-agregar-select');
+  document.getElementById('sv-agregar-otro').style.display = sel.value === '__otro__' ? 'grid' : 'none';
+}
+
+function agregarColaborador() {
+  const sel = document.getElementById('sv-agregar-select');
+  let nombre, puesto;
+  if (sel.value === '__otro__') {
+    nombre = document.getElementById('sv-agregar-nombre').value.trim();
+    puesto = document.getElementById('sv-agregar-puesto').value.trim();
+    if (!nombre) { showToast('Escribí el nombre del colaborador', 'error'); return; }
+  } else {
+    if (!sel.value) { showToast('Seleccioná un colaborador o "Otro / escribir nombre…"', 'error'); return; }
+    nombre = sel.value;
+    puesto = (sel.selectedOptions[0] && sel.selectedOptions[0].dataset.puesto) || '';
+  }
+  if (filasReparto.some(f => f.colaborador.toLowerCase() === nombre.toLowerCase())) {
+    showToast('Ese colaborador ya está en la tabla', 'error'); return;
+  }
+  filasReparto.push({ colaborador: nombre, puesto, dias: 0, monto: 0 });
+  filasReparto.sort((a, b) => b.dias - a.dias || a.colaborador.localeCompare(b.colaborador));
+  recalcularMontos();
+  renderTablaColaboradores();
+  poblarSelectAgregar();
+  document.getElementById('sv-agregar-nombre').value = '';
+  document.getElementById('sv-agregar-puesto').value = '';
+  sel.value = '';
+}
+
+async function guardarReparto() {
+  const fi = document.getElementById('sv-fecha-inicio').value;
+  const ff = document.getElementById('sv-fecha-fin').value;
+  const monto = Number(document.getElementById('sv-monto').value) || 0;
+  const pct = Number(document.getElementById('sv-porcentaje').value) || 10;
+  const notas = document.getElementById('sv-notas').value.trim();
+  const colaboradores = filasReparto.filter(f => (Number(f.dias) || 0) > 0);
+
+  if (!kioskoActual || !fi || !ff || monto <= 0 || !colaboradores.length) {
+    showToast('Completá periodo, monto y al menos un colaborador con días', 'error'); return;
+  }
+
+  const payload = {
+    modulo: 'servicio_guardar', id: Date.now(),
+    kiosko: kioskoActual, fecha_inicio: fi, fecha_fin: ff,
+    calculado_por: (PORTAL_SESION && PORTAL_SESION.nombre) || '',
+    ventas_netas: ventasNetasActuales, porcentaje: pct, monto_servicio: monto, notas,
+    colaboradores: colaboradores.map(c => ({ colaborador: c.colaborador, puesto: c.puesto, dias: c.dias, monto: c.monto }))
+  };
+
+  const btn = document.getElementById('btn-guardar-reparto');
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Guardando…';
+  try {
+    const resp = await postRRHH(payload);
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    showToast(`Reparto guardado ✓ (${colaboradores.length} colaborador${colaboradores.length === 1 ? '' : 'es'} · ${fmtCRC(monto)})`, 'success');
+    limpiarFormReparto();
+    cargarPendientes();
+    cargarHistorial();
+  } catch (e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  } finally {
+    btn.textContent = original;
+    actualizarBotonGuardar();
+  }
+}
+
+function limpiarFormReparto() {
+  filasReparto = []; ventasNetasActuales = 0; personalActivo = [];
+  document.getElementById('sv-resultado').style.display = 'none';
+  document.getElementById('sv-notas').value = '';
+  document.getElementById('sv-porcentaje').value = 10;
+}
+
+// ── TAB 2: PENDIENTES DE PAGO ──────────────────────────────────────
+async function cargarPendientes() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json());
+    detalleTodos = resp.registros || [];
+    recalcularPendientes();
+  } catch (e) {
+    document.getElementById('tabla-pend-body').innerHTML = '<tr><td colspan="6" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
+    showToast('Error de conexión: ' + e.message, 'error');
+  }
+}
+
+function esPagado(d) {
+  const v = String(d['Pagado'] || '').trim().toLowerCase();
+  return v === 'sí' || v === 'si';
+}
+
+function recalcularPendientes() {
+  detallePendientes = detalleTodos
+    .filter(d => !esPagado(d))
+    .filter(d => !kioskoActual || d['Kiosko'] === kioskoActual)
+    .sort((a, b) => String(b['Fecha fin'] || '').localeCompare(String(a['Fecha fin'] || '')));
+  seleccionServicio.clear();
+  renderKpiPendientes();
+  renderTablaPendientes();
+  actualizarSeleccionServicio();
+}
+
+function renderKpiPendientes() {
+  const total = detallePendientes.reduce((s, d) => s + (Number(d['Monto ₡']) || 0), 0);
+  document.getElementById('kpi-sv-pend-crc').textContent = fmtCRC(total);
+  document.getElementById('kpi-sv-pend-count').textContent = detallePendientes.length;
+}
+
+function renderTablaPendientes() {
+  const body = document.getElementById('tabla-pend-body');
+  if (!detallePendientes.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty">No hay pagos pendientes' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
+    return;
+  }
+  body.innerHTML = detallePendientes.map(d => `<tr>
+    <td class="td-chk"><input type="checkbox" class="chk-servicio" value="${escHtml(d['ID Detalle'])}" ${seleccionServicio.has(String(d['ID Detalle'])) ? 'checked' : ''} onchange="actualizarSeleccionServicio()"></td>
+    <td>${escHtml(d['Colaborador']) || '—'}</td>
+    <td><span class="kiosko-tag">${escHtml(d['Kiosko']) || '—'}</span></td>
+    <td>${fechaLbl(d['Fecha inicio'])} – ${fechaLbl(d['Fecha fin'])}</td>
+    <td>${escHtml(d['Puesto']) || '—'}</td>
+    <td class="num">${fmtCRC(d['Monto ₡'])}</td>
+  </tr>`).join('');
+}
+
+function actualizarSeleccionServicio() {
+  seleccionServicio.clear();
+  document.querySelectorAll('.chk-servicio:checked').forEach(chk => seleccionServicio.add(chk.value));
+  const total = detallePendientes.filter(d => seleccionServicio.has(String(d['ID Detalle']))).reduce((s, d) => s + (Number(d['Monto ₡']) || 0), 0);
+  document.getElementById('sv-sel-count').textContent = seleccionServicio.size + ' seleccionado' + (seleccionServicio.size === 1 ? '' : 's');
+  document.getElementById('sv-sel-total').textContent = fmtCRC(total);
+  actualizarBotonPagarServicio();
+}
+
+function seleccionarTodoServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = true); actualizarSeleccionServicio(); }
+function limpiarSeleccionServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = false); actualizarSeleccionServicio(); }
+
+function actualizarBotonPagarServicio() {
+  const fecha = document.getElementById('sv-fecha-pago').value;
+  const referencia = document.getElementById('sv-referencia').value.trim();
+  document.getElementById('btn-pagar-servicio').disabled = !(fecha && referencia && seleccionServicio.size > 0);
+}
+
+async function marcarComoPagadoServicio() {
+  const fecha_pago = document.getElementById('sv-fecha-pago').value;
+  const referencia = document.getElementById('sv-referencia').value.trim();
+  const notas = document.getElementById('sv-notas-pago').value.trim();
+  const ids_detalle = Array.from(seleccionServicio);
+
+  if (!fecha_pago || !referencia || !ids_detalle.length) { showToast('Completá fecha, referencia y al menos un colaborador seleccionado', 'error'); return; }
+
+  const btn = document.getElementById('btn-pagar-servicio');
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Guardando…';
+  try {
+    const resp = await postRRHH({ modulo: 'servicio_pago', ids_detalle, fecha_pago, referencia, notas });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    showToast(`Pago registrado ✓ (${ids_detalle.length} colaborador${ids_detalle.length === 1 ? '' : 'es'})`, 'success');
+    limpiarFormPagoServicio();
+    await cargarPendientes();
+    await cargarHistorial();
+  } catch (e) {
+    showToast('No se pudo registrar el pago: ' + e.message, 'error');
+  } finally {
+    btn.textContent = original;
+    actualizarBotonPagarServicio();
+  }
+}
+
+function limpiarFormPagoServicio() {
+  document.getElementById('sv-referencia').value = '';
+  document.getElementById('sv-notas-pago').value = '';
+  limpiarSeleccionServicio();
+}
+
+// ── TAB 3: HISTORIAL DE REPARTOS ───────────────────────────────────
+async function cargarHistorial() {
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_repartos').then(r => r.json());
+    repartosTodos = (resp.registros || []).sort((a, b) => String(b['Fecha cálculo'] || '').localeCompare(String(a['Fecha cálculo'] || '')));
+    renderHistorialServicio();
+  } catch (e) {
+    document.getElementById('sv-hist-lista').innerHTML = '<div class="empty-state">No se pudo cargar. Revisá la conexión.</div>';
+  }
+}
+
+function renderHistorialServicio() {
+  const cont = document.getElementById('sv-hist-lista');
+  const lista = repartosTodos.filter(r => !kioskoActual || r['Kiosko'] === kioskoActual);
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay repartos calculados' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</div>';
+    return;
+  }
+  cont.innerHTML = lista.map((r, i) => {
+    const detalle = detalleTodos.filter(d => String(d['ID Reparto']) === String(r['ID']));
+    const pagados = detalle.filter(esPagado).length;
+    const badge = !detalle.length ? ''
+      : pagados === detalle.length ? '<span class="badge b-ok">Pagado completo</span>'
+      : pagados > 0 ? `<span class="badge b-pend">Parcial (${pagados}/${detalle.length})</span>`
+      : '<span class="badge b-pend">Pendiente</span>';
+    return `<div class="hist-card" onclick="toggleDetalleReparto(${i})">
+      <div class="hist-head">
+        <div>
+          <div class="hist-fecha">${fechaLbl(r['Fecha inicio'])} – ${fechaLbl(r['Fecha fin'])}</div>
+          <div class="hist-ref">${escHtml(r['Kiosko']) || '—'} · calculado ${fechaLbl(r['Fecha cálculo'])}</div>
+        </div>
+        <div class="hist-total">${fmtCRC(r['Monto Servicio ₡'])}</div>
+      </div>
+      <div class="hist-row">
+        <span>${r['Colaboradores'] || 0} colaborador${(r['Colaboradores'] || 0) == 1 ? '' : 'es'} · ${r['Total días'] || 0} días</span>
+        ${badge}
+      </div>
+    </div>
+    <div class="hist-detail" id="sv-hist-detail-${i}">${renderDetalleReparto(detalle)}</div>`;
+  }).join('');
+}
+
+function toggleDetalleReparto(i) {
+  const el = document.getElementById('sv-hist-detail-' + i);
+  if (el) el.classList.toggle('open');
+}
+
+function renderDetalleReparto(detalle) {
+  if (!detalle.length) return '<div class="hist-detail-title">Sin colaboradores</div>';
+  const filas = detalle.map(d => {
+    const pagado = esPagado(d);
+    return `<div class="detalle-row">
+      <span>${escHtml(d['Colaborador']) || '—'}${d['Puesto'] ? ' · ' + escHtml(d['Puesto']) : ''} (${d['Días trabajados'] || 0} días)</span>
+      <span>${fmtCRC(d['Monto ₡'])} ${pagado ? '<span class="badge b-ok" style="margin-left:6px">Pagado</span>' : '<span class="badge b-pend" style="margin-left:6px">Pendiente</span>'}</span>
+    </div>`;
+  }).join('');
+  return `<div class="hist-detail-title">Detalle por colaborador</div>${filas}`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('sv-fecha-inicio').value = hace7ISO;
+document.getElementById('sv-fecha-fin').value = hoyISO;
+document.getElementById('sv-fecha-pago').value = hoyISO;
+cargarKioskos().then(() => { cargarPendientes(); cargarHistorial(); });
+</script>
+</body>
+</html>

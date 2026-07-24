@@ -156,13 +156,136 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   'Incapacidad CCSS monto', 'Incapacidad INS monto', 'Incapacidad interna monto', 'Vacaciones monto',
   'Subsidio monto', 'Días no trabajados monto', 'Total ingresos',
   'Base CCSS utilizada', 'CCSS obrera monto', 'Adelanto salario', 'Compras aprobadas', 'Otras deducciones',
-  'Embargo salarial', 'Pensión alimenticia', 'Total deducciones', 'Neto a pagar'
+  'Embargo salarial', 'Pensión alimenticia', 'Total deducciones', 'Neto a pagar',
+  // Si estaba marcado 'CCSS' en el expediente (Personal) al momento del
+  // cálculo — deja registro de por qué el rebajo dio 0 cuando corresponde.
+  'CCSS registrado'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
 // deducción de ley automática, no aparece en la lista de deducciones
 // manuales porque no se ingresa a mano.
 const PORCENTAJE_CCSS_OBRERA = 0.1067;
+
+// ── SERVICIO 10% (servicio-10.html) ───────────────────────────────
+// Cálculo y repartición del 10% de servicio entre el equipo, por kiosko y
+// por un rango de fechas libre (no atado a la quincena de Planilla). El
+// monto a repartir se calcula del lado del cliente (servicio-10.html trae
+// las Ventas Netas ₡ de "Cierres" del Sheet de ventas para el kiosko y
+// rango elegidos — 10% no aplicaba antes a los kioskos, ver README) y se
+// reparte por días trabajados: sugerido automáticamente contando los días
+// con Estado="trabajo" en "Horarios" para ese kiosko+rango, pero editable a
+// mano fila por fila antes de guardar (agregar/quitar colaboradores,
+// ajustar días) — por eso el reparto final se guarda como snapshot, igual
+// que Planillas/PlanillasDetalle, en vez de recalcularse siempre en vivo.
+//
+// Maestro (uno por cálculo guardado) + Detalle (uno por colaborador en ese
+// cálculo, con su propio estado de pago — cada colaborador puede cobrar su
+// parte en un momento distinto, a diferencia de TipsPagos que paga varios
+// cierres de una sola vez con una única referencia).
+const HOJA_SERVICIO_REPARTOS = 'ServicioRepartos';
+const ENCABEZADOS_SERVICIO_REPARTOS = [
+  'ID', 'Kiosko', 'Fecha inicio', 'Fecha fin', 'Fecha cálculo', 'Calculado por',
+  'Ventas Netas ₡', 'Porcentaje', 'Monto Servicio ₡', 'Total días', 'Colaboradores', 'Notas'
+];
+const HOJA_SERVICIO_DETALLE = 'ServicioRepartoDetalle';
+const ENCABEZADOS_SERVICIO_DETALLE = [
+  'ID Detalle', 'ID Reparto', 'Kiosko', 'Fecha inicio', 'Fecha fin',
+  'Colaborador', 'Puesto', 'Días trabajados', 'Monto ₡',
+  'Pagado', 'Fecha pago', 'Referencia pago', 'Notas pago'
+];
+
+// Guarda un cálculo de reparto del 10% de servicio: una fila maestra en
+// ServicioRepartos y una fila de detalle por colaborador en
+// ServicioRepartoDetalle (todas arrancan "Pagado"="No"). data:
+// { id, kiosko, fecha_inicio, fecha_fin, calculado_por, ventas_netas,
+//   porcentaje, monto_servicio, notas,
+//   colaboradores: [{ colaborador, puesto, dias, monto }, ...] }
+function guardarServicioReparto(p) {
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.fecha_inicio || !p.fecha_fin) throw new Error('Falta el periodo (fecha inicio/fin).');
+  if (!Array.isArray(p.colaboradores) || !p.colaboradores.length) {
+    throw new Error('Falta el detalle de colaboradores del reparto.');
+  }
+
+  const hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
+  const idReparto = p.id || Date.now();
+  const fila = hoja.getLastRow() + 1;
+  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_SERVICIO_REPARTOS, {
+    'ID': idReparto,
+    'Kiosko': p.kiosko,
+    'Fecha inicio': p.fecha_inicio,
+    'Fecha fin': p.fecha_fin,
+    'Fecha cálculo': new Date().toISOString(),
+    'Calculado por': p.calculado_por || '',
+    'Ventas Netas ₡': Number(p.ventas_netas) || 0,
+    'Porcentaje': Number(p.porcentaje) || 10,
+    'Monto Servicio ₡': Number(p.monto_servicio) || 0,
+    'Total días': p.colaboradores.reduce(function (s, c) { return s + (Number(c.dias) || 0); }, 0),
+    'Colaboradores': p.colaboradores.length,
+    'Notas': p.notas || ''
+  });
+
+  const hojaDet = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
+  p.colaboradores.forEach(function (c, i) {
+    agregarFilaPorEncabezado(hojaDet, ENCABEZADOS_SERVICIO_DETALLE, {
+      'ID Detalle': idReparto + '-' + i,
+      'ID Reparto': idReparto,
+      'Kiosko': p.kiosko,
+      'Fecha inicio': p.fecha_inicio,
+      'Fecha fin': p.fecha_fin,
+      'Colaborador': c.colaborador || '',
+      'Puesto': c.puesto || '',
+      'Días trabajados': Number(c.dias) || 0,
+      'Monto ₡': Number(c.monto) || 0,
+      'Pagado': 'No',
+      'Fecha pago': '',
+      'Referencia pago': '',
+      'Notas pago': ''
+    });
+  });
+
+  return { id: idReparto, colaboradores: p.colaboradores.length };
+}
+
+// Marca como pagados uno o varios renglones de detalle (uno por colaborador
+// por reparto), pudiendo cubrir de una vez colaboradores de distintos
+// repartos/kioskos/periodos con una misma referencia de pago — mismo
+// espíritu que guardarPagoTips() pero a nivel de colaborador en vez de
+// cierre. data: { ids_detalle: ['<idReparto>-<i>', ...], fecha_pago,
+// referencia, notas }
+function marcarServicioPagado(p) {
+  if (!Array.isArray(p.ids_detalle) || !p.ids_detalle.length) {
+    throw new Error('Falta seleccionar al menos un colaborador a pagar.');
+  }
+  if (!p.fecha_pago) throw new Error('Falta la fecha de pago.');
+
+  const hoja = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) throw new Error('No hay repartos registrados todavía.');
+
+  const colId = colPorEncabezado(hoja, 'ID Detalle');
+  const colPagado = colPorEncabezado(hoja, 'Pagado');
+  const colFecha = colPorEncabezado(hoja, 'Fecha pago');
+  const colRef = colPorEncabezado(hoja, 'Referencia pago');
+  const colNotas = colPorEncabezado(hoja, 'Notas pago');
+  const ids = hoja.getRange(2, colId, nFilas, 1).getValues();
+  const buscados = new Set(p.ids_detalle.map(String));
+
+  let actualizados = 0;
+  for (let i = 0; i < ids.length; i++) {
+    if (buscados.has(String(ids[i][0]))) {
+      const fila = i + 2;
+      hoja.getRange(fila, colPagado).setValue('Sí');
+      hoja.getRange(fila, colFecha).setValue(p.fecha_pago);
+      hoja.getRange(fila, colRef).setValue(p.referencia || '');
+      hoja.getRange(fila, colNotas).setValue(p.notas || '');
+      actualizados++;
+    }
+  }
+  if (!actualizados) throw new Error('No se encontraron los registros a marcar como pagados.');
+  return { actualizados: actualizados };
+}
 
 // Feriados de pago obligatorio de Costa Rica para 2026 — punto de partida
 // EDITABLE desde la pestaña "Feriados" de planilla.html (solo siembra la
@@ -219,6 +342,8 @@ function configurarHojas() {
   prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS);
   prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
   prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
+  prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
+  prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
   sembrarConfiguracion();
   sembrarRoles();
   sembrarFeriados();
@@ -327,6 +452,8 @@ function prepararHoja(nombre, encabezados) {
     'Incapacidad interna fecha inicio', 'Incapacidad interna fecha fin'
   ];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_PLANILLAS] = ['Fecha inicio', 'Fecha fin'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_REPARTOS] = ['Fecha inicio', 'Fecha fin'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_DETALLE] = ['Fecha inicio', 'Fecha fin', 'Fecha pago'];
   (COLUMNAS_TEXTO_POR_HOJA[nombre] || []).forEach(function (col) {
     const idx = encabezados.indexOf(col) + 1;
     if (idx > 0) hoja.getRange(2, idx, Math.max(hoja.getMaxRows() - 1, 1), 1).setNumberFormat('@');
@@ -365,6 +492,8 @@ function doGet(e) {
       case 'incidencias':       hoja = prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS); break;
       case 'planillas':         hoja = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS); break;
       case 'planillas_detalle': hoja = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE); break;
+      case 'servicio_repartos': hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS); break;
+      case 'servicio_detalle':  hoja = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE); break;
       case 'planilla_calcular':
         // Preview sin guardar — misma función de cálculo que usa
         // planilla_guardar en doPost, para que el preview y el snapshot
@@ -466,6 +595,8 @@ function doPost(e) {
         break;
       case 'planilla_aprobar':      result = aprobarPlanilla(payload); break;
       case 'planilla_guardar_archivo': result = guardarArchivoPlanilla(payload); break;
+      case 'servicio_guardar':      result = guardarServicioReparto(payload); break;
+      case 'servicio_pago':         result = marcarServicioPagado(payload); break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -1274,14 +1405,23 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
   const detalle = incidencias.map(function (inc) {
     const nombre = inc['Colaborador'];
     const esManual = String(inc['Es manual'] || '').trim().toLowerCase().indexOf('s') === 0;
-    let salario, puesto;
+    let salario, puesto, ccssRegistrado;
     if (esManual) {
       salario = Number(inc['Salario manual']) || 0;
       puesto = inc['Puesto manual'] || '';
+      // Colaborador extra sin fila en Personal: no hay expediente contra el
+      // cual verificar, así que se asume registrado (comportamiento
+      // histórico) — si no corresponde, se ajusta a mano en Paso 3.
+      ccssRegistrado = true;
     } else {
       const persona = buscarPersonal(nombre);
       salario = persona ? (Number(persona['Salario']) || 0) : 0;
       puesto = persona ? (persona['Puesto'] || '') : '';
+      // La cuota obrera de CCSS solo se rebaja si el expediente del
+      // colaborador (Personal, columna 'CCSS') tiene ese casillero marcado.
+      // Si no está marcado, el colaborador no está registrado ante la CCSS
+      // por este patrono y no corresponde aplicarle el rebajo.
+      ccssRegistrado = persona ? !!persona['CCSS'] : false;
     }
     const salarioDiario = salario / 30;
     const salarioHora = salarioDiario / 8;
@@ -1378,7 +1518,9 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const ccssAjustada = inc['CCSS base ajustada'];
     const usaCCSSAjustada = !(ccssAjustada === '' || ccssAjustada === undefined || ccssAjustada === null);
     const baseCCSSFinal = usaCCSSAjustada ? Math.max(Number(ccssAjustada) || 0, 0) : baseCCSSAuto;
-    const ccssObreraMonto = baseCCSSFinal * PORCENTAJE_CCSS_OBRERA;
+    // Sin CCSS marcado en el expediente, no se rebaja nada aunque haya base
+    // calculada — ver ccssRegistrado más arriba.
+    const ccssObreraMonto = ccssRegistrado ? baseCCSSFinal * PORCENTAJE_CCSS_OBRERA : 0;
 
     const adelanto = Number(inc['Deducción adelanto salario']) || 0;
     const compras  = Number(inc['Deducción compras aprobadas']) || 0;
@@ -1399,6 +1541,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       diasNoTrabajadosTotal: diasNoTrabajadosTotal, diasNoTrabajadosMonto: diasNoTrabajadosMonto,
       totalIngresos: totalIngresos,
       baseCCSSAuto: baseCCSSAuto, baseCCSSFinal: baseCCSSFinal, usaCCSSAjustada: usaCCSSAjustada,
+      ccssRegistrado: ccssRegistrado,
       ccssObreraMonto: ccssObreraMonto, adelanto: adelanto, compras: compras, otras: otras,
       embargo: embargo, pension: pension, totalDeducciones: totalDeducciones, neto: neto
     };
@@ -1511,7 +1654,8 @@ function guardarPlanilla(p) {
       'Embargo salarial': c.embargo,
       'Pensión alimenticia': c.pension,
       'Total deducciones': c.totalDeducciones,
-      'Neto a pagar': c.neto
+      'Neto a pagar': c.neto,
+      'CCSS registrado': c.ccssRegistrado ? 'Sí' : 'No'
     });
   });
 

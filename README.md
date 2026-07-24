@@ -321,6 +321,9 @@ Archivos:
   depósito, historial — ver detalle arriba).
 - `control-tips.html` — control de pago de propinas de tarjeta (pendientes
   de pago, historial de pagos — ver detalle arriba).
+- `servicio-10.html` — cálculo y reparto del 10% de servicio por kiosko y
+  periodo, según días trabajados (nuevo reparto, pendientes de pago,
+  historial — ver detalle arriba).
 - `mantenimiento.html` — módulo de reportes de mantenimiento por kiosko
   (nuevo reporte + seguimiento — ver detalle arriba).
 - `mermas.html` — módulo de mermas de cerveza por peso (nueva merma +
@@ -426,10 +429,11 @@ guardar el cierre sin adjuntar ninguna.
    partida editable desde la pestaña "Feriados" de `planilla.html`;
    verificalos contra el decreto oficial del año antes de calcular planilla
    con ellos, porque Semana Santa y algunos traslados de la Ley 8442
-   cambian cada año). Si ya habías corrido `configurarHojas()` antes de
-   sumar la foto de cédula, el módulo de Accesos o el de Planilla, volvé a
-   correrla una vez más: solo agrega lo que falte, sin tocar lo que ya
-   tenías.
+   cambian cada año) y **ServicioRepartos, ServicioRepartoDetalle** (módulo
+   de Servicio 10%, ver detalle arriba). Si ya habías corrido
+   `configurarHojas()` antes de sumar la foto de cédula, el módulo de
+   Accesos, el de Planilla o el de Servicio 10%, volvé a correrla una vez
+   más: solo agrega lo que falte, sin tocar lo que ya tenías.
 4. Implementar → Gestionar implementaciones → Editar → **Nueva versión**
    (si ya tenías el Web App desplegado, la URL `/exec` no cambia — no hace
    falta tocar ningún `.html`). Si es la primera vez: Implementar → Nueva
@@ -601,6 +605,7 @@ hardcodeado como respaldo si no hay conexión):
 - `inventario.html`
 - `recetas.html`
 - `planilla.html`
+- `servicio-10.html`
 
 Backend (`Code-rrhh-kioskos-backend.gs`): `configurarHojas()` crea la
 pestaña "Configuracion" y, si está vacía, la siembra con los 4 kioskos
@@ -705,6 +710,49 @@ no se usa se desactiva, igual que los kioskos.
 `index.html` agrega el tile **Accesos** (junto a Configuración) para entrar a
 `admin-accesos.html` — como cualquier otro módulo, solo aparece si el rol
 logueado tiene permiso sobre `accesos`.
+
+Noveno módulo: **Servicio 10%**, `servicio-10.html` — cálculo y repartición
+del 10% de servicio entre el equipo, por kiosko y por un rango de fechas
+libre (no atado a la quincena de Planilla, a diferencia de esta). A
+diferencia de Control de Tips (propina voluntaria de tarjeta, ya cobrada
+suelta por cierre), acá el monto a repartir se **calcula**: 10% (editable)
+de las Ventas Netas ₡ sumadas de los cierres de caja del kiosko en el rango
+elegido. Tres pestañas:
+
+- **Nuevo reparto**: elegís el kiosko (arriba) y el periodo (fecha inicio/
+  fin), "Calcular reparto" trae el total de Ventas Netas ₡ de "Cierres" para
+  ese kiosko+rango y sugiere el monto (10%, editable) y la tabla de
+  colaboradores con sus **días trabajados**, contados automáticamente desde
+  "Horarios" (días con Estado="trabajo" en ese kiosko+rango — vacaciones,
+  incapacidad, permiso y días libres no cuentan). Cada fila es editable
+  (ajustar días a mano) y se puede agregar un colaborador que no salió en
+  Horarios (selector de Personal activo del kiosko, o "Otro / escribir
+  nombre…" para alguien sin ficha). El monto de cada colaborador se
+  recalcula en vivo, proporcional a sus días sobre el total, con el
+  redondeo ajustado en la última fila para que la suma cierre exacta.
+  "Guardar reparto" archiva el cálculo como snapshot (no se recalcula solo
+  después) — si hace falta corregirlo, se guarda un reparto nuevo.
+- **Pendientes de pago**: cada colaborador de cada reparto guardado es una
+  fila independiente con su propio estado de pago (a diferencia de
+  TipsPagos, que paga varios cierres de una sola vez) — se puede seleccionar
+  y pagar de a uno o varios juntos (incluso de distintos periodos/kioskos)
+  con una fecha y referencia común, igual que control-tips.html.
+- **Historial de repartos**: lista de cálculos guardados por kiosko, con
+  badge de Pagado completo/Parcial/Pendiente y detalle desplegable por
+  colaborador (días, monto, estado de pago).
+
+Backend: mismo Web App de RRHH (`Code-rrhh-kioskos-backend.gs`), extendido
+con 2 pestañas nuevas — **ServicioRepartos** (maestro, uno por cálculo
+guardado: kiosko, periodo, ventas netas, porcentaje, monto total) y
+**ServicioRepartoDetalle** (uno por colaborador de cada reparto, con su
+propio Pagado/Fecha pago/Referencia pago — mismo patrón maestro/detalle que
+Planillas/PlanillasDetalle). `servicio-10.html` además lee directamente el
+Web App de ventas (`SHEETS_URL`, mismo que cierres.html/control-tips.html)
+para sumar Ventas Netas ₡ de "Cierres", y `?modulo=horarios`/`?modulo=personal`
+del Web App de RRHH para sugerir días trabajados y ofrecer el selector de
+"+ Agregar colaborador" — no hace falta ningún despliegue nuevo, solo correr
+`configurarHojas()` una vez más en el Sheet de RRHH (ver paso 2 más abajo)
+para que cree las 2 pestañas nuevas.
 
 ## Próximos módulos (sugeridos, sin construir todavía)
 
