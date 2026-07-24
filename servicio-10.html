@@ -169,7 +169,7 @@ tr:last-child td{border-bottom:none}
 
   <div class="card">
     <p class="card-title">Periodo a repartir</p>
-    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%) y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Los días que ya quedaron incluidos en un reparto cerrado anterior se omiten automáticamente para no pagarlos dos veces.</p>
+    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%), suma los Tips ₡ pendientes de ese día que todavía no se pagaron por Control de Tips, y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Servicio y tips se reparten juntos, en partes iguales entre los tildados de cada fecha. Los días que ya quedaron incluidos en un reparto cerrado anterior se omiten automáticamente para no pagarlos dos veces, y los tips incluidos acá se marcan como cubiertos para que no aparezcan también en Control de Tips.</p>
     <div class="field-row">
       <div class="field">
         <label for="sv-fecha-inicio">Fecha inicio <span class="req">*</span></label>
@@ -200,7 +200,9 @@ tr:last-child td{border-bottom:none}
     <div class="card">
       <p class="card-title">Resumen del cálculo</p>
       <div class="resumen-row"><span>Venta Neta total del periodo</span><span id="sv-ventas-netas">₡0</span></div>
-      <div class="resumen-row total"><span>Monto Servicio 10% a repartir</span><span id="sv-monto-total">₡0</span></div>
+      <div class="resumen-row"><span>Monto Servicio 10%</span><span id="sv-monto-total">₡0</span></div>
+      <div class="resumen-row" id="sv-tips-row" style="display:none"><span>Tips pendientes incluidos</span><span id="sv-tips-total">₡0</span></div>
+      <div class="resumen-row total"><span>Total a repartir (Servicio + Tips)</span><span id="sv-total-general">₡0</span></div>
       <div class="resumen-row"><span>Total repartido (según asignación por día)</span><span id="sv-total-repartido">₡0</span></div>
       <div class="resumen-row aviso" id="sv-sin-asignar-row" style="display:none"><span>Sin asignar (días sin colaboradores o diferencia de redondeo)</span><span id="sv-sin-asignar">₡0</span></div>
 
@@ -363,7 +365,7 @@ let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
 // Índices de columnas en `records` de la hoja "Cierres" (ver
 // Code-cierres-kioskos-backend.gs → HEADERS).
-const COL_FECHA = 1, COL_KIOSKO = 3, COL_TOTAL_VENTAS = 10;
+const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_TOTAL_VENTAS = 10, COL_TIPS = 43;
 
 // "Total Ventas ₡" de Cierres ya incluye el 10% de servicio cobrado al
 // cliente: Venta Neta = Total Ventas ₡ ÷ 1.1, Servicio = Venta Neta × 10%.
@@ -428,6 +430,48 @@ async function obtenerVentasPorFecha(kiosko, fi, ff) {
   return map;
 }
 
+// IDs de cierre cuyo tip ya está cubierto por algún pago registrado en
+// "TipsPagos" (control-tips.html) — mismo criterio que control-tips.html
+// usa para su propia lista de pendientes, sin filtrar por kiosko (un cierre
+// pagado deja de estar pendiente sin importar el filtro activo).
+async function obtenerIdsTipsCubiertos() {
+  const resp = await fetchConTimeout(SHEETS_URL + '?action=tipspagos').then(r => r.json());
+  const registros = resp.records || [];
+  const ids = new Set();
+  registros.forEach(r => {
+    let arr = [];
+    try { arr = JSON.parse(r[4] || '[]'); } catch (e) { arr = []; }
+    if (Array.isArray(arr)) arr.forEach(id => ids.add(String(id)));
+  });
+  return ids;
+}
+
+// Trae, para un kiosko y rango de fechas, los Tips ₡ pendientes (cierres con
+// tip > 0 cuyo ID no está en "TipsPagos") sumados por fecha, junto con los
+// IDs de cierre que los componen — para poder marcarlos como incluidos en
+// TipsPagos al cerrar el reparto (ver cerrarCalculo()) y que no se dupliquen
+// con control-tips.html.
+async function obtenerTipsPendientesPorFecha(kiosko, fi, ff) {
+  const [resp, idsCubiertos] = await Promise.all([
+    fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json()),
+    obtenerIdsTipsCubiertos()
+  ]);
+  const cierres = resp.records || [];
+  const map = new Map(); // fecha -> { monto, ids:[...] }
+  cierres.filter(r => mismoKiosko(r[COL_KIOSKO], kiosko)).forEach(r => {
+    const f = soloFecha(r[COL_FECHA]);
+    if (!f || f < fi || f > ff) return;
+    const monto = Number(r[COL_TIPS]) || 0;
+    const id = String(r[COL_ID]);
+    if (monto <= 0 || idsCubiertos.has(id)) return;
+    if (!map.has(f)) map.set(f, { monto: 0, ids: [] });
+    const t = map.get(f);
+    t.monto += monto;
+    t.ids.push(id);
+  });
+  return map;
+}
+
 // ── ESTADO ────────────────────────────────────────────────────────
 let kioskoActual = localStorage.getItem('kiosko_actual_servicio') ?? '';
 let diasCalculados = [];   // [{fecha, ventaTotal, ventaNeta, montoServicio, colaboradores:[{colaborador,puesto}]}]
@@ -485,8 +529,9 @@ async function calcularReparto() {
   const btn = document.getElementById('btn-calcular');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando…';
   try {
-    const [ventasPorFecha, rHorarios, rPersonal, rDetalle] = await Promise.all([
+    const [ventasPorFecha, tipsPorFecha, rHorarios, rPersonal, rDetalle] = await Promise.all([
       obtenerVentasPorFecha(kioskoActual, fi, ff),
+      obtenerTipsPendientesPorFecha(kioskoActual, fi, ff),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=horarios').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
@@ -537,6 +582,7 @@ async function calcularReparto() {
         // mostrar como "venta neta".
         const ventaNeta = ventasPorFecha.get(f) || 0;
         const montoServicio = (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
+        const tipsInfo = tipsPorFecha.get(f) || { monto: 0, ids: [] };
         const trabajaron = colaboradoresPorFecha.get(f) || new Map();
         const colaboradores = personalActivo.map(p => ({
           colaborador: p.nombre, puesto: p.puesto, recibe: trabajaron.has(p.nombre.toLowerCase())
@@ -548,7 +594,10 @@ async function calcularReparto() {
             colaboradores.push({ colaborador: info.colaborador, puesto: info.puesto, recibe: true });
           }
         });
-        return { fecha: f, ventaNeta, montoServicio, colaboradores };
+        // Tips pendientes de ese día (control-tips.html) se distribuyen con
+        // la misma lógica equitativa que el 10% de servicio, entre los
+        // mismos colaboradores tildados ese día — ver diaResumenTexto().
+        return { fecha: f, ventaNeta, montoServicio, tipsMonto: tipsInfo.monto, tipsIds: tipsInfo.ids, colaboradores };
       });
 
     renderDiasReparto();
@@ -568,13 +617,15 @@ async function calcularReparto() {
 }
 
 // Cantidad de colaboradores tildados ese día y el monto que le toca a cada
-// uno (Monto Servicio del día ÷ cantidad de tildados).
+// uno — Servicio 10% + Tips pendientes de ese día (misma repartición
+// equitativa entre los mismos tildados) ÷ cantidad de tildados.
 function diaResumenTexto(i) {
   const d = diasCalculados[i];
   const seleccionados = d.colaboradores.filter(c => c.recibe).length;
   const total = d.colaboradores.length;
-  const montoCU = seleccionados ? Math.round(d.montoServicio / seleccionados) : 0;
-  return { seleccionados, total, montoCU };
+  const totalDia = d.montoServicio + (d.tipsMonto || 0);
+  const montoCU = seleccionados ? Math.round(totalDia / seleccionados) : 0;
+  return { seleccionados, total, montoCU, totalDia };
 }
 
 function checklistHtml(i) {
@@ -600,17 +651,18 @@ function renderDiasReparto() {
     return;
   }
   cont.innerHTML = diasCalculados.map((d, i) => {
-    const { seleccionados, total, montoCU } = diaResumenTexto(i);
-    const aviso = (!seleccionados && d.montoServicio > 0.5) ? '<span class="badge b-pend">⚠ sin asignar</span>' : '';
+    const { seleccionados, total, montoCU, totalDia } = diaResumenTexto(i);
+    const aviso = (!seleccionados && totalDia > 0.5) ? '<span class="badge b-pend">⚠ sin asignar</span>' : '';
+    const tipsTxt = d.tipsMonto > 0 ? ` · Tips pendientes: ${fmtCRC(d.tipsMonto)}` : '';
     return `<div class="hist-card" onclick="toggleDia(${i})">
       <div class="hist-head">
         <div>
           <div class="hist-fecha">${fechaLbl(d.fecha)}</div>
           <div class="hist-ref" id="dia-sub-${i}">${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}</div>
         </div>
-        <div class="hist-total">${fmtCRC(d.montoServicio)}</div>
+        <div class="hist-total">${fmtCRC(totalDia)}</div>
       </div>
-      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)}</span>${aviso}</div>
+      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)} · Servicio: ${fmtCRC(d.montoServicio)}${tipsTxt}</span>${aviso}</div>
     </div>
     <div class="hist-detail" id="dia-detalle-${i}">
       <div class="toolbar">
@@ -699,11 +751,16 @@ function actualizarResumenReparto() {
 
   const totalVentaNeta = diasCalculados.reduce((s, d) => s + d.ventaNeta, 0);
   const totalServicio = diasCalculados.reduce((s, d) => s + d.montoServicio, 0);
+  const totalTips = diasCalculados.reduce((s, d) => s + (d.tipsMonto || 0), 0);
+  const totalGeneral = totalServicio + totalTips;
   const totalRepartido = resumen.reduce((s, r) => s + r.monto, 0);
   document.getElementById('sv-ventas-netas').textContent = fmtCRC(totalVentaNeta);
   document.getElementById('sv-monto-total').textContent = fmtCRC(totalServicio);
+  document.getElementById('sv-tips-row').style.display = totalTips > 0 ? 'flex' : 'none';
+  document.getElementById('sv-tips-total').textContent = fmtCRC(totalTips);
+  document.getElementById('sv-total-general').textContent = fmtCRC(totalGeneral);
   document.getElementById('sv-total-repartido').textContent = fmtCRC(totalRepartido);
-  const sinAsignar = totalServicio - totalRepartido;
+  const sinAsignar = totalGeneral - totalRepartido;
   document.getElementById('sv-sin-asignar').textContent = fmtCRC(sinAsignar);
   document.getElementById('sv-sin-asignar-row').style.display = sinAsignar > 1 ? 'flex' : 'none';
 
@@ -717,39 +774,56 @@ function actualizarBotonCerrar() {
 
 async function cerrarCalculo() {
   const asignaciones = [];
+  const tipsIdsCubiertos = [];
   diasCalculados.forEach((d, i) => {
-    const { montoCU } = diaResumenTexto(i);
-    d.colaboradores.filter(c => c.recibe).forEach(c => asignaciones.push({ fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || '', monto: montoCU }));
+    const seleccionados = d.colaboradores.filter(c => c.recibe);
+    if (!seleccionados.length) return; // día sin asignar: sus tips (si tenía) siguen pendientes
+    const montoServicioCU = Math.round(d.montoServicio / seleccionados.length);
+    const montoTipsCU = d.tipsMonto ? Math.round(d.tipsMonto / seleccionados.length) : 0;
+    seleccionados.forEach(c => asignaciones.push({
+      fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || '',
+      monto_servicio: montoServicioCU, monto_tips: montoTipsCU, monto: montoServicioCU + montoTipsCU
+    }));
+    if (d.tipsIds && d.tipsIds.length) tipsIdsCubiertos.push(...d.tipsIds);
   });
   if (!asignaciones.length) { showToast('No hay colaboradores marcados en ningún día', 'error'); return; }
 
   const fi = document.getElementById('sv-fecha-inicio').value;
   const ff = document.getElementById('sv-fecha-fin').value;
   const totalVentaNeta = diasCalculados.reduce((s, d) => s + d.ventaNeta, 0);
-  const totalServicio = diasCalculados.reduce((s, d) => s + d.montoServicio, 0);
+  const totalServicio = asignaciones.reduce((s, a) => s + a.monto_servicio, 0);
+  const totalTips = asignaciones.reduce((s, a) => s + a.monto_tips, 0);
   const notas = document.getElementById('sv-notas').value.trim();
   const resumen = calcularResumenColaboradores();
 
   const btn = document.getElementById('btn-cerrar-reparto');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Generando PDF…';
   let pdfBase64 = '';
-  try { pdfBase64 = await generarPDFReparto(fi, ff, totalVentaNeta, totalServicio, resumen); }
+  try { pdfBase64 = await generarPDFReparto(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen); }
   catch (e) { console.warn('No se pudo generar el PDF del reparto', e); }
 
   btn.textContent = 'Cerrando…';
+  const idReparto = Date.now();
   try {
     const payload = {
-      modulo: 'servicio_guardar', id: Date.now(),
+      modulo: 'servicio_guardar', id: idReparto,
       kiosko: kioskoActual, fecha_inicio: fi, fecha_fin: ff,
       calculado_por: (PORTAL_SESION && PORTAL_SESION.nombre) || '',
-      ventas_netas: totalVentaNeta, monto_servicio: totalServicio, notas,
+      ventas_netas: totalVentaNeta, monto_servicio: totalServicio, monto_tips: totalTips, notas,
       pdf_base64: pdfBase64 || undefined,
       asignaciones
     };
     const resp = await postRRHH(payload);
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     const pdfOk = resp.result && resp.result.pdf_url;
-    showToast(`Cálculo cerrado ✓ (${diasCalculados.length} fecha${diasCalculados.length === 1 ? '' : 's'} · ${fmtCRC(totalServicio)})${pdfOk ? ' · PDF archivado' : ''}`, 'success');
+
+    // Marca en TipsPagos (Sheet de ventas, control-tips.html) los cierres
+    // cuyo tip quedó incluido en este reparto, para que no se dupliquen
+    // como pendientes en Control de Tips ni en un próximo cálculo.
+    if (tipsIdsCubiertos.length) await marcarTipsComoIncluidos(idReparto, tipsIdsCubiertos, totalTips, fi, ff);
+
+    const tipsTxt = totalTips > 0 ? ` + ${fmtCRC(totalTips)} de tips` : '';
+    showToast(`Cálculo cerrado ✓ (${diasCalculados.length} fecha${diasCalculados.length === 1 ? '' : 's'} · ${fmtCRC(totalServicio)}${tipsTxt})${pdfOk ? ' · PDF archivado' : ''}`, 'success');
     limpiarFormReparto();
     await Promise.all([cargarPendientes(), cargarHistorial()]);
   } catch (e) {
@@ -760,6 +834,30 @@ async function cerrarCalculo() {
   }
 }
 
+// Registra en "TipsPagos" (mismo Web App/Sheet de Cierres que
+// control-tips.html) los cierres cuyo tip se repartió acá, con la
+// referencia al reparto de Servicio 10% — mismo endpoint que usa
+// control-tips.html al "Marcar como pagado", así que la respuesta queda
+// opaca (mode:'no-cors'); si falla, no bloquea el cierre del reparto (los
+// montos ya quedaron guardados), solo avisa en consola.
+async function marcarTipsComoIncluidos(idReparto, idsCubiertos, montoTotal, fi, ff) {
+  const payload = {
+    type: 'tipsPago', id: idReparto + 1,
+    fechaPago: hoyISO, referencia: 'Servicio 10% #' + idReparto,
+    idsCubiertos, kioskos: [kioskoActual], montoTotal,
+    notas: `Tips incluidos automáticamente en el reparto de Servicio 10% del ${fi} al ${ff}.`
+  };
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.warn('No se pudo marcar los tips como incluidos en Control de Tips', e);
+  }
+}
+
 function limpiarFormReparto() {
   diasCalculados = []; personalActivo = [];
   document.getElementById('sv-resultado').style.display = 'none';
@@ -767,11 +865,12 @@ function limpiarFormReparto() {
 }
 
 // ── PDF DEL REPARTO (html2canvas + jsPDF) ──────────────────────────
-function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, resumen) {
+function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen) {
   const filasDias = diasCalculados.map(d => `<tr>
       <td style="padding:5px;border:1px solid #c8ddd0">${fechaLbl(d.fecha)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.ventaNeta)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.montoServicio)}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${d.tipsMonto ? fmtCRC(d.tipsMonto) : '—'}</td>
       <td style="padding:5px;border:1px solid #c8ddd0">${d.colaboradores.filter(c => c.recibe).map(c => escHtml(c.colaborador)).join(', ') || '—'}</td>
     </tr>`).join('');
   const filasResumen = resumen.map(r => `<tr>
@@ -780,15 +879,16 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, resumen) {
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${r.dias}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>
     </tr>`).join('');
+  const tipsLinea = totalTips > 0 ? ` · Tips pendientes: ${fmtCRC(totalTips)}` : '';
   return `<div style="font-family:Arial,sans-serif;padding:24px;width:1000px;color:#1c3a28">
     <h2 style="margin-bottom:4px">Reparto de Servicio 10% — ${escHtml(kioskoActual)}</h2>
-    <p style="margin-bottom:16px;color:#5a8a6a;font-size:13px">Periodo: ${fechaLbl(fi)} – ${fechaLbl(ff)} · Venta Neta: ${fmtCRC(totalVentaNeta)} · Monto Servicio 10%: ${fmtCRC(totalServicio)}</p>
+    <p style="margin-bottom:16px;color:#5a8a6a;font-size:13px">Periodo: ${fechaLbl(fi)} – ${fechaLbl(ff)} · Venta Neta: ${fmtCRC(totalVentaNeta)} · Servicio 10%: ${fmtCRC(totalServicio)}${tipsLinea} · Total: ${fmtCRC(totalServicio + totalTips)}</p>
     <h3 style="margin-bottom:8px;font-size:14px">Detalle por fecha</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
-      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Fecha</th><th style="padding:5px;border:1px solid #c8ddd0">Venta Neta ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Servicio ₡</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaboradores</th></tr></thead>
+      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Fecha</th><th style="padding:5px;border:1px solid #c8ddd0">Venta Neta ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Servicio ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ₡</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaboradores</th></tr></thead>
       <tbody>${filasDias}</tbody>
     </table>
-    <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador</h3>
+    <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador (Servicio + Tips)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">Monto ₡</th></tr></thead>
       <tbody>${filasResumen}</tbody>
@@ -796,11 +896,11 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, resumen) {
   </div>`;
 }
 
-async function generarPDFReparto(fi, ff, totalVentaNeta, totalServicio, resumen) {
+async function generarPDFReparto(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen) {
   if (!window.html2canvas || !window.jspdf) return '';
   const holder = document.createElement('div');
   holder.style.position = 'fixed'; holder.style.left = '-99999px'; holder.style.top = '0';
-  holder.innerHTML = buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, resumen);
+  holder.innerHTML = buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen);
   document.body.appendChild(holder);
   await new Promise(r => setTimeout(r, 60));
   let canvas;
@@ -974,13 +1074,16 @@ function renderHistorialServicio() {
       : pagados > 0 ? `<span class="badge b-pend">Parcial (${pagados}/${detalle.length})</span>`
       : '<span class="badge b-pend">Pendiente</span>';
     const pdfLink = r['PDF URL'] ? `<a href="${escHtml(r['PDF URL'])}" target="_blank" class="btn-mini" onclick="event.stopPropagation()">Ver PDF ↗</a>` : '';
+    const montoTips = Number(r['Monto Tips ₡']) || 0;
+    const montoTotal = r['Monto Total ₡'] != null ? Number(r['Monto Total ₡']) || 0 : (Number(r['Monto Servicio ₡']) || 0) + montoTips;
+    const tipsTxt = montoTips > 0 ? ` · Servicio ${fmtCRC(r['Monto Servicio ₡'])} + Tips ${fmtCRC(montoTips)}` : '';
     return `<div class="hist-card" onclick="toggleDetalleReparto(${i})">
       <div class="hist-head">
         <div>
           <div class="hist-fecha">${fechaLbl(r['Fecha inicio'])} – ${fechaLbl(r['Fecha fin'])}</div>
-          <div class="hist-ref">${escHtml(r['Kiosko']) || '—'} · calculado ${fechaLbl(r['Fecha cálculo'])}</div>
+          <div class="hist-ref">${escHtml(r['Kiosko']) || '—'} · calculado ${fechaLbl(r['Fecha cálculo'])}${tipsTxt}</div>
         </div>
-        <div class="hist-total">${fmtCRC(r['Monto Servicio ₡'])}</div>
+        <div class="hist-total">${fmtCRC(montoTotal)}</div>
       </div>
       <div class="hist-row">
         <span>${r['Colaboradores'] || 0} colaborador${(r['Colaboradores'] || 0) == 1 ? '' : 'es'} · ${r['Total días'] || 0} días</span>
@@ -1004,9 +1107,10 @@ function renderDetalleReparto(detalleReparto) {
   const map = new Map();
   detalleReparto.forEach(d => {
     const key = d['Colaborador'];
-    if (!map.has(key)) map.set(key, { colaborador: key, puesto: d['Puesto'], dias: 0, monto: 0, pagados: 0 });
+    if (!map.has(key)) map.set(key, { colaborador: key, puesto: d['Puesto'], dias: 0, monto: 0, tips: 0, pagados: 0 });
     const e = map.get(key);
     e.dias += 1; e.monto += Number(d['Monto ₡']) || 0;
+    e.tips += Number(d['Monto Tips ₡']) || 0;
     if (esPagado(d)) e.pagados += 1;
   });
   const filas = Array.from(map.values()).sort((a, b) => b.monto - a.monto).map(e => {
@@ -1014,7 +1118,8 @@ function renderDetalleReparto(detalleReparto) {
       ? '<span class="badge b-ok" style="margin-left:6px">Pagado</span>'
       : e.pagados > 0 ? `<span class="badge b-pend" style="margin-left:6px">Parcial ${e.pagados}/${e.dias}</span>`
       : '<span class="badge b-pend" style="margin-left:6px">Pendiente</span>';
-    return `<div class="detalle-row"><span>${escHtml(e.colaborador)}${e.puesto ? ' · ' + escHtml(e.puesto) : ''} (${e.dias} día${e.dias === 1 ? '' : 's'})</span><span>${fmtCRC(e.monto)} ${estado}</span></div>`;
+    const tipsTxt = e.tips > 0 ? ` (incl. ${fmtCRC(e.tips)} de tips)` : '';
+    return `<div class="detalle-row"><span>${escHtml(e.colaborador)}${e.puesto ? ' · ' + escHtml(e.puesto) : ''} (${e.dias} día${e.dias === 1 ? '' : 's'})</span><span>${fmtCRC(e.monto)}${tipsTxt} ${estado}</span></div>`;
   }).join('');
   return `<div class="hist-detail-title">Resumen por colaborador</div>${filas}`;
 }

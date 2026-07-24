@@ -190,15 +190,26 @@ const PORCENTAJE_CCSS_OBRERA = 0.1067;
 // pdf_base64 y FOLDER_ID_SERVICIO está configurado) y guarda maestro+detalle
 // de una vez — no existe un estado "borrador" editable después de cerrado.
 const HOJA_SERVICIO_REPARTOS = 'ServicioRepartos';
+// 'Monto Tips ₡'/'Monto Total ₡' agregadas al final (nunca insertar en medio,
+// ver prepararHoja): propinas pendientes (columna "Tips ₡" de Cierres, no
+// cubiertas todavía en "TipsPagos") que se incluyen en el mismo reparto y se
+// distribuyen con la misma lógica equitativa por fecha que el 10% de
+// servicio — ver guardarServicioReparto() y servicio-10.html.
 const ENCABEZADOS_SERVICIO_REPARTOS = [
   'ID', 'Kiosko', 'Fecha inicio', 'Fecha fin', 'Fecha cálculo', 'Calculado por',
   'Ventas Netas ₡', 'Monto Servicio ₡', 'Total días', 'Colaboradores',
-  'Estado', 'PDF URL', 'Notas'
+  'Estado', 'PDF URL', 'Notas',
+  'Monto Tips ₡', 'Monto Total ₡'
 ];
 const HOJA_SERVICIO_DETALLE = 'ServicioRepartoDetalle';
+// 'Monto ₡' sigue siendo el TOTAL por colaborador+fecha (servicio + tips) —
+// es lo que usan Pendientes de pago/Historial para agrupar y pagar, sin
+// cambios. 'Monto Servicio ₡'/'Monto Tips ₡' (al final) son el desglose,
+// solo para auditoría.
 const ENCABEZADOS_SERVICIO_DETALLE = [
   'ID Detalle', 'ID Reparto', 'Kiosko', 'Fecha', 'Colaborador', 'Puesto', 'Monto ₡',
-  'Pagado', 'Fecha pago', 'Referencia pago', 'Notas pago'
+  'Pagado', 'Fecha pago', 'Referencia pago', 'Notas pago',
+  'Monto Servicio ₡', 'Monto Tips ₡'
 ];
 
 // Carpeta de Drive donde se archiva el PDF de cada cálculo de Servicio 10%
@@ -253,6 +264,9 @@ function guardarServicioReparto(p) {
   const colaboradoresUnicos = {};
   p.asignaciones.forEach(function (a) { colaboradoresUnicos[a.colaborador] = true; });
 
+  const montoServicioTotal = Number(p.monto_servicio) || 0;
+  const montoTipsTotal = Number(p.monto_tips) || 0;
+
   const hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
   const fila = hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_SERVICIO_REPARTOS, {
@@ -263,16 +277,20 @@ function guardarServicioReparto(p) {
     'Fecha cálculo': new Date().toISOString(),
     'Calculado por': p.calculado_por || '',
     'Ventas Netas ₡': Number(p.ventas_netas) || 0,
-    'Monto Servicio ₡': Number(p.monto_servicio) || 0,
+    'Monto Servicio ₡': montoServicioTotal,
     'Total días': fechasNuevas.length,
     'Colaboradores': Object.keys(colaboradoresUnicos).length,
     'Estado': 'Cerrado',
     'PDF URL': pdfUrl,
-    'Notas': p.notas || ''
+    'Notas': p.notas || '',
+    'Monto Tips ₡': montoTipsTotal,
+    'Monto Total ₡': montoServicioTotal + montoTipsTotal
   });
 
   const hojaDet = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
   p.asignaciones.forEach(function (a, i) {
+    const montoServicio = Number(a.monto_servicio) || 0;
+    const montoTips = Number(a.monto_tips) || 0;
     agregarFilaPorEncabezado(hojaDet, ENCABEZADOS_SERVICIO_DETALLE, {
       'ID Detalle': idReparto + '-' + i,
       'ID Reparto': idReparto,
@@ -280,11 +298,13 @@ function guardarServicioReparto(p) {
       'Fecha': a.fecha,
       'Colaborador': a.colaborador || '',
       'Puesto': a.puesto || '',
-      'Monto ₡': Number(a.monto) || 0,
+      'Monto ₡': a.monto != null ? (Number(a.monto) || 0) : (montoServicio + montoTips),
       'Pagado': 'No',
       'Fecha pago': '',
       'Referencia pago': '',
-      'Notas pago': ''
+      'Notas pago': '',
+      'Monto Servicio ₡': montoServicio,
+      'Monto Tips ₡': montoTips
     });
   });
 
