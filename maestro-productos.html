@@ -71,9 +71,35 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .mp-bulkbar.show{display:flex}
 .mp-bulkbar b{color:var(--green)}
 .mp-chk{width:15px;height:15px;cursor:pointer;accent-color:var(--green)}
+.mp-ficha-btn{white-space:nowrap}
+.mp-ficha-ok{color:var(--green);font-weight:600}
+.mp-ficha-pend{color:var(--subtle)}
+
+/* ── Modal "Ficha de producto" ─────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:200;align-items:flex-start;justify-content:center;padding:3rem 1rem;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)}
+.modal-head h3{font-family:var(--font-d);font-size:16px}
+.modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:1.25rem 1.5rem;max-height:70vh;overflow-y:auto}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:1rem 1.5rem;border-top:1px solid var(--border)}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 .6rem}
+.section-label:first-child{margin-top:0}
+.field-hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.kiosko-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.btn-primary{font-size:13px;padding:9px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;cursor:pointer;font-weight:600}
+.btn-primary:hover{opacity:.92}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.suggest-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--amber);margin-bottom:1rem;flex-wrap:wrap}
+.suggest-box b{font-family:var(--font-d)}
+.costo-display{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
+  .kiosko-check-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -102,7 +128,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     La <b>propuesta automática</b> es el nombre que ya generó la IA al leer la factura (o una limpieza básica
     si esa factura no trajo ninguna); ajustala si hace falta y guardá el <b>Nombre Estándar</b> que se va a
     usar de acá en adelante para ese producto en toda la operación. "Sincronizar" trae los productos nuevos
-    sin tocar los que ya confirmaste.
+    sin tocar los que ya confirmaste. Esta pantalla también es el catálogo de productos: abrí la
+    <b>🏷️ Ficha</b> de cada uno para cargar precio, costo y en qué kioskos se vende.
   </p>
   <div class="mp-counts">
     <span>Pendientes: <b id="mp-count-pendientes" style="color:var(--amber)">0</b></span>
@@ -170,6 +197,91 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 </main>
 
+<div class="modal-overlay" id="modal-ficha">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="ficha-titulo">Ficha de producto</h3>
+      <button class="modal-close" onclick="cerrarFicha()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Producto</label>
+        <div class="costo-display" id="ficha-nombre" style="font-size:13px;font-weight:600">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0"><label>Proveedor</label>
+          <div class="costo-display" id="ficha-proveedor" style="font-size:13px;font-weight:500">—</div>
+          <div class="field-hint">Viene del Maestro (Proveedor + producto homologados). No se edita acá.</div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Categoría</label>
+          <div class="costo-display" id="ficha-categoria" style="font-size:13px;font-weight:500">—</div>
+        </div>
+      </div>
+
+      <div class="section-label">Clasificación</div>
+      <div class="field-row">
+        <div class="field"><label>Área de negocio</label>
+          <input type="text" id="fi-area" list="fi-area-list" placeholder="ej: Bar, Cocina, Cava"/>
+          <datalist id="fi-area-list"></datalist>
+        </div>
+        <div class="field"><label>Presentación del proveedor</label>
+          <input type="text" id="fi-presentacion" list="fi-presentacion-list" placeholder="ej: Caja, Six pack, Barril"/>
+          <datalist id="fi-presentacion-list"></datalist>
+        </div>
+      </div>
+      <div class="field"><label>Tamaño</label>
+        <input type="text" id="fi-tamano" placeholder="ej: 355 ml, 750 ml"/>
+      </div>
+
+      <div class="section-label">Compra y costo</div>
+      <div class="suggest-box" id="ficha-sugerencia" style="display:none">
+        <span>💡 Costo sugerido: <b id="ficha-sugerencia-txt">—</b></span>
+        <button class="btn-sm" type="button" onclick="usarSugerenciaCosto()">Usar esta sugerencia</button>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Moneda del precio</label>
+          <select id="fi-moneda" onchange="onFichaMonedaChange()">
+            <option value="CRC">Colones (₡)</option>
+            <option value="USD">Dólares (US$)</option>
+          </select>
+        </div>
+        <div class="field" id="fi-wrap-tc" style="display:none"><label>Tipo de cambio (₡ por US$)</label>
+          <input type="number" id="fi-tc" min="0" step="0.01" placeholder="ej: 520" oninput="actualizarCostoFichaPreview()"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label id="fi-lbl-precio">Precio sin IVA (₡)</label>
+          <input type="number" id="fi-precio" min="0" step="any" placeholder="0" oninput="actualizarCostoFichaPreview()"/>
+        </div>
+        <div class="field"><label>IVA (%)</label>
+          <input type="number" id="fi-iva" min="0" step="any" placeholder="13"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Cantidad en la presentación</label>
+          <input type="number" id="fi-cantidad" min="0" step="any" placeholder="ej: 6" oninput="actualizarCostoFichaPreview()"/>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Costo por unidad</label>
+          <div class="costo-display" id="fi-costo-display">₡0.00</div>
+          <div class="field-hint">Precio sin IVA ÷ cantidad</div>
+        </div>
+      </div>
+
+      <div class="section-label">Dónde se vende</div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="fi-kioskos-todos" checked onchange="toggleFichaKioskosTodos()"/> Todos los kioskos (incluye los que abran después)</label>
+        <div class="kiosko-check-grid" id="fi-kioskos-lista" style="display:none"></div>
+      </div>
+
+      <label class="check-row"><input type="checkbox" id="fi-activo" checked/> Producto activo</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" onclick="cerrarFicha()">Cancelar</button>
+      <button class="btn-primary" id="btn-ficha-guardar" onclick="guardarFicha()">Guardar ficha</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -192,6 +304,16 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
 const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4gy_cHh0A9Seqi3Jgwwx1yzjdGdzbLrwdpyb_s0HtJp5HSinxbMX9Q/exec';
 
+// Mismo Web App de RRHH (pestaña "Configuracion") que usan compras.html,
+// mermas.html, recetas.html e inventario.html — para traer la lista real de
+// kioskos en vez de tenerla hardcodeada.
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
@@ -199,6 +321,7 @@ document.getElementById('date-chip').textContent =
 let MAESTRO = [];
 let FILTRADOS = [];
 let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de filtro/búsqueda
+let FICHA_EN_EDICION = null; // clave del producto abierto en el modal de ficha
 
 // ── GVIZ: leer hoja pública del Sheet (igual que cuentas-por-pagar.html) ──
 function gvizLoad(hoja, expectedCol) {
@@ -260,7 +383,21 @@ async function cargarMaestro() {
       propuesta: r['Propuesta automática'] || '',
       nombreEstandar: r['Nombre Estándar'] || '',
       estado: r['Estado'] || 'Pendiente',
-      aplica: r['Aplica'] === 'No' ? 'No' : 'Sí'
+      aplica: r['Aplica'] === 'No' ? 'No' : 'Sí',
+      // ── Ficha de producto (ex Base de Productos, fusionado acá) ──
+      costoSugerido: Number(r['Costo sugerido (última compra)']) || 0,
+      monedaSugerida: r['Moneda sugerida'] || '',
+      fechaUltimaCompra: r['Fecha última compra'] || '',
+      area: r['Área de negocio'] || '',
+      presentacion: r['Presentación'] || '',
+      tamano: r['Tamaño'] || '',
+      precioSinIva: Number(r['Precio sin IVA']) || 0,
+      iva: (r['IVA (%)'] !== '' && r['IVA (%)'] != null) ? Number(r['IVA (%)']) : '',
+      cantidadPresentacion: Number(r['Cantidad presentación']) || 0,
+      costoPorUnidad: Number(r['Costo por unidad']) || 0,
+      kioskosFicha: r['Kioskos'] || '',
+      activo: r['Activo'] === false ? false : true,
+      fichaActualizada: r['Ficha actualizada'] || ''
     }));
     renderMaestro();
   } catch (e) {
@@ -302,7 +439,7 @@ function renderMaestro() {
       <thead><tr>
         <th><input type="checkbox" class="mp-chk" id="mp-chk-all" ${todosVisiblesSeleccionados?'checked':''} onchange="toggleTodos(this.checked)"/></th>
         <th>Proveedor</th><th>Nombre en factura</th><th>Veces</th>
-        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th></th>
+        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th>Ficha</th><th></th>
       </tr></thead>
       <tbody>
         ${FILTRADOS.map((m, idx) => `
@@ -320,6 +457,9 @@ function renderMaestro() {
                 <option value="No" ${m.aplica==='No'?'selected':''}>No, es servicio</option>
               </select>
             </td>
+            <td>${m.aplica==='No' ? '<span class="mp-ficha-pend">—</span>' :
+              `<button class="btn-sm mp-ficha-btn" onclick="abrirFicha(${idx})">🏷️ ${m.fichaActualizada?'Editar':'Ficha'}</button>
+               ${m.fichaActualizada?'<div class="mp-ficha-ok" style="font-size:11px;margin-top:3px">✓ completa</div>':''}`}</td>
             <td style="white-space:nowrap"><button class="btn-sm" onclick="guardarFila(${idx})">Guardar</button></td>
           </tr>`).join('')}
       </tbody>
@@ -448,6 +588,154 @@ async function guardarManual() {
   }
 }
 
+// ── FICHA DE PRODUCTO (ex Base de Productos, fusionado acá) ───────
+async function cargarKioskosDisponibles() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+      KIOSKOS = kioskosPermitidos(data.kioskos);
+    }
+  } catch (e) { /* se queda con el respaldo de 4 kioskos */ }
+  document.getElementById('fi-kioskos-lista').innerHTML = KIOSKOS.map(k =>
+    `<label class="check-row"><input type="checkbox" class="fi-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
+  ).join('');
+}
+
+function toggleFichaKioskosTodos() {
+  const todos = document.getElementById('fi-kioskos-todos').checked;
+  document.getElementById('fi-kioskos-lista').style.display = todos ? 'none' : 'grid';
+}
+function marcarFichaKioskosEnModal(kioskosStr) {
+  const k = kioskosStr && kioskosStr.trim() && kioskosStr.trim().toLowerCase() !== 'todos'
+    ? kioskosStr.split(',').map(s=>s.trim()).filter(Boolean)
+    : null; // null = "Todos"
+  document.getElementById('fi-kioskos-todos').checked = !k;
+  document.getElementById('fi-kioskos-lista').style.display = k ? 'grid' : 'none';
+  document.querySelectorAll('.fi-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+}
+function leerFichaKioskos() {
+  if (document.getElementById('fi-kioskos-todos').checked) return 'Todos';
+  const marcados = Array.from(document.querySelectorAll('.fi-kiosko-chk:checked')).map(c => c.value);
+  return marcados.length ? marcados.join(',') : 'Todos';
+}
+
+function poblarDatalistsFicha() {
+  const areas = Array.from(new Set(MAESTRO.map(m => m.area).filter(Boolean))).sort();
+  const presentaciones = Array.from(new Set(MAESTRO.map(m => m.presentacion).filter(Boolean))).sort();
+  document.getElementById('fi-area-list').innerHTML = areas.map(a => `<option value="${escapeAttr(a)}"/>`).join('');
+  document.getElementById('fi-presentacion-list').innerHTML = presentaciones.map(p => `<option value="${escapeAttr(p)}"/>`).join('');
+}
+
+function onFichaMonedaChange() {
+  const esUSD = document.getElementById('fi-moneda').value === 'USD';
+  document.getElementById('fi-wrap-tc').style.display = esUSD ? '' : 'none';
+  document.getElementById('fi-lbl-precio').textContent = esUSD ? 'Precio sin IVA (US$)' : 'Precio sin IVA (₡)';
+  actualizarCostoFichaPreview();
+}
+function precioFichaEnCRC() {
+  const ingresado = Number(document.getElementById('fi-precio').value) || 0;
+  if (document.getElementById('fi-moneda').value !== 'USD') return ingresado;
+  const tc = Number(document.getElementById('fi-tc').value) || 0;
+  return ingresado * tc;
+}
+function actualizarCostoFichaPreview() {
+  const precio = precioFichaEnCRC();
+  const cantidad = Number(document.getElementById('fi-cantidad').value) || 0;
+  const costo = cantidad > 0 ? precio / cantidad : 0;
+  document.getElementById('fi-costo-display').textContent = fmtColones(costo);
+}
+
+// Costo sugerido: viene calculado por el sync (última línea de Desglose_IA
+// vista para esa clave, ver sincronizarMaestro() en el backend). Acá solo se
+// muestra y, si el usuario acepta, se copia al campo Precio + Moneda.
+function mostrarSugerenciaFicha(m) {
+  const box = document.getElementById('ficha-sugerencia');
+  if (!m.costoSugerido) { box.style.display = 'none'; return; }
+  const moneda = m.monedaSugerida === 'USD' ? 'US$' : '₡';
+  const fecha = m.fechaUltimaCompra ? new Date(m.fechaUltimaCompra).toLocaleDateString('es-CR') : '';
+  document.getElementById('ficha-sugerencia-txt').textContent =
+    `${moneda}${Number(m.costoSugerido).toLocaleString('es-CR',{maximumFractionDigits:2})}` +
+    (fecha ? ` — última factura del ${fecha}` : '');
+  box.style.display = 'flex';
+}
+function usarSugerenciaCosto() {
+  const item = MAESTRO.find(m => m.clave === FICHA_EN_EDICION);
+  if (!item || !item.costoSugerido) return;
+  document.getElementById('fi-moneda').value = item.monedaSugerida === 'USD' ? 'USD' : 'CRC';
+  onFichaMonedaChange();
+  document.getElementById('fi-precio').value = item.costoSugerido;
+  actualizarCostoFichaPreview();
+}
+
+function abrirFicha(idx) {
+  const m = FILTRADOS[idx];
+  if (!m) return;
+  FICHA_EN_EDICION = m.clave;
+  poblarDatalistsFicha();
+
+  document.getElementById('ficha-titulo').textContent = m.nombreEstandar || m.nombreFactura;
+  document.getElementById('ficha-nombre').textContent = m.nombreEstandar || m.nombreFactura || '—';
+  document.getElementById('ficha-proveedor').textContent = m.proveedor || '—';
+  document.getElementById('ficha-categoria').textContent = m.categoria || '—';
+
+  document.getElementById('fi-area').value = m.area || '';
+  document.getElementById('fi-presentacion').value = m.presentacion || '';
+  document.getElementById('fi-tamano').value = m.tamano || '';
+  document.getElementById('fi-moneda').value = 'CRC';
+  document.getElementById('fi-tc').value = '';
+  document.getElementById('fi-wrap-tc').style.display = 'none';
+  document.getElementById('fi-lbl-precio').textContent = 'Precio sin IVA (₡)';
+  document.getElementById('fi-precio').value = m.precioSinIva || '';
+  document.getElementById('fi-iva').value = m.iva !== '' ? m.iva : '';
+  document.getElementById('fi-cantidad').value = m.cantidadPresentacion || '';
+  document.getElementById('fi-activo').checked = m.activo !== false;
+  marcarFichaKioskosEnModal(m.kioskosFicha || 'Todos');
+  mostrarSugerenciaFicha(m);
+  actualizarCostoFichaPreview();
+
+  document.getElementById('modal-ficha').classList.add('open');
+}
+function cerrarFicha() {
+  document.getElementById('modal-ficha').classList.remove('open');
+  FICHA_EN_EDICION = null;
+}
+document.getElementById('modal-ficha').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-ficha')) cerrarFicha();
+});
+
+async function guardarFicha() {
+  if (!FICHA_EN_EDICION) return;
+  const btn = document.getElementById('btn-ficha-guardar');
+  btn.disabled = true;
+  try {
+    const payload = {
+      modulo: 'maestro_guardar_ficha',
+      clave: FICHA_EN_EDICION,
+      area: document.getElementById('fi-area').value.trim(),
+      presentacion: document.getElementById('fi-presentacion').value.trim(),
+      tamano: document.getElementById('fi-tamano').value.trim(),
+      precio_sin_iva: precioFichaEnCRC(),
+      iva: document.getElementById('fi-iva').value,
+      cantidad_presentacion: document.getElementById('fi-cantidad').value,
+      kioskos: leerFichaKioskos(),
+      activo: document.getElementById('fi-activo').checked
+    };
+    await postAP(payload);
+    showToast('Ficha guardada ✓');
+    cerrarFicha();
+    await cargarMaestro();
+  } catch (e) {
+    showToast('No se pudo guardar la ficha — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function fmtColones(n) {
+  return '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
 async function sincronizarAhora() {
   const btn = document.getElementById('btn-sync');
   btn.disabled = true; btn.textContent = 'Sincronizando…';
@@ -477,6 +765,7 @@ function escapeAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,
 function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
 
 cargarMaestro();
+cargarKioskosDisponibles();
 </script>
 </body>
 </html>

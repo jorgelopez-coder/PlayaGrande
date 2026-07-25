@@ -245,6 +245,12 @@ tipo de control/tara/densidad de licores y sifones después).
 (`inventario.html`), **Compras** (`compras.html`) y **Recetas**
 (`recetas.html`).
 
+⚠️ **DESCONTINUADO (2026-07-25):** este módulo nunca se desplegó y se
+fusionó dentro de **Maestro de Productos** (`maestro-productos.html`) — ver
+la sección "Maestro de Productos" más abajo. Se deja el resto de esta
+sección como referencia del diseño de campos, pero `productos.html` /
+`Code-productos-backend.gs` ya no están enlazados desde `index.html`.
+
 Octavo módulo: **Base de Productos**, `productos.html` — catálogo de
 productos, **independiente** de la pestaña "Productos" de Inventario v2
 (esa sigue siendo la fuente para stock/mínimos/recetas). Adaptado de "Base
@@ -316,8 +322,41 @@ comentario al inicio de `Code-productos-backend.gs`). Reemplazá la fila 1
 de encabezados del Sheet a mano antes de seguir usando el módulo — si la
 pestaña estaba vacía no hace falta hacer nada especial.
 
-`index.html` agrega el tile **Base de Productos**, junto a Compras y
-Recetas.
+`index.html` ya no tiene un tile aparte para este módulo (ver más abajo).
+
+**Maestro de Productos**, `maestro-productos.html` — pantalla de
+homologación de nombres de producto vistos en facturas (Desglose_IA):
+agrupa por Proveedor + texto de producto (clave normalizada, sin
+acentos/mayúsculas), propone un Nombre Estándar (moda del "Nombre
+normalizado" que ya calculó la IA, o una limpieza básica si no hay
+ninguno) y deja confirmarlo. Campo "Aplica" (Sí/No) para descartar líneas
+que son servicios (fletes, comisiones) en vez de producto, con selección
+múltiple para marcarlas en lote. Botón "+ Agregar producto" para dar de
+alta uno a mano sin esperar a que aparezca en una factura. Backend:
+`Code-cuentas-por-pagar-kioskos-backend.gs`, hoja "Maestro_Productos" del
+Sheet "Cuentas por Pagar - Kioskos" (ya desplegado).
+
+**Fusión con Base de Productos (2026-07-25):** cada fila confirmada del
+Maestro ahora ES también el catálogo de producto — botón **"🏷️ Ficha"**
+por fila abre un modal con los mismos campos que iba a tener el módulo
+descontinuado de arriba (Área de negocio, Presentación, Tamaño, Precio sin
+IVA, IVA%, Cantidad presentación, Costo por unidad calculado, moneda ₡/US$
+con conversión antes de guardar, Kioskos donde se vende vía la lista real
+de RRHH, Activo). No hay Sheet ni ID aparte: los campos nuevos son
+columnas dinámicas de "Maestro_Productos" (mismo mecanismo de
+`columnaPorNombre()` que ya usaba "Aplica"), identificadas por la misma
+Clave. Acción de backend nueva: `maestro_guardar_ficha`.
+
+**Sugerencia de costo desde Desglose_IA**: en cada corrida de
+"Sincronizar", `sincronizarMaestro()` también busca la línea de factura
+más reciente de esa clave y guarda "Costo sugerido (última compra)" +
+"Moneda sugerida" + "Fecha última compra" (columnas dinámicas, se
+recalculan siempre, el usuario no las edita). El modal de ficha muestra esa
+sugerencia con un botón "Usar esta sugerencia" que la copia al campo
+Precio (ajustando la moneda). El Proveedor de la ficha no se pide aparte:
+ya es el mismo Proveedor de la clave homologada.
+
+`index.html` tiene un solo tile para este módulo: **Maestro de Productos**.
 
 Módulo de **Planilla**, `planilla.html` — cálculo de planilla quincenal por
 kiosko según la legislación laboral de Costa Rica, reutilizando Personal
@@ -452,8 +491,12 @@ Archivos:
   ver detalle arriba.
 - `recetas.html` — recetas de venta y sincronización de consumo automático
   desde Square — ver detalle arriba.
-- `productos.html` — catálogo básico de productos (módulo independiente,
-  Sheet propio) — ver detalle arriba.
+- `productos.html` — catálogo básico de productos (**descontinuado**, nunca
+  se desplegó; fusionado dentro de `maestro-productos.html` — ver detalle
+  arriba).
+- `maestro-productos.html` — homologación de nombres de factura a Nombre
+  Estándar **y** ficha de producto (precio, costo, kioskos) por fila — ver
+  detalle arriba.
 - `admin-accesos.html` — CRUD de roles de acceso (PIN, color, módulos y
   kioskos permitidos por rol) — ver detalle en "Login / control de accesos"
   más abajo.
@@ -734,7 +777,13 @@ inventario, órdenes de compra, recetas) funciona igual — solo quedan
 inactivos el descuento automático por venta, la lectura automática de
 facturas de Gmail y la migración de datos viejos.
 
-### 6. Base de Productos (módulo independiente)
+### 6. Base de Productos (módulo independiente) — DESCONTINUADO
+
+⚠️ **No hace falta desplegar este Sheet.** Este módulo se fusionó dentro de
+Maestro de Productos (2026-07-25) — los mismos campos ahora viven como
+columnas dinámicas de la hoja "Maestro_Productos" ya desplegada (ver sección
+"Maestro de Productos" arriba). Se deja este instructivo como referencia por
+si algún día se necesita un catálogo verdaderamente aparte.
 
 Sheet nuevo, **no reutiliza ningún Sheet existente** — este módulo es
 intencionalmente independiente de Inventario v2.

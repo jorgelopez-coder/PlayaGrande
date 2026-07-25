@@ -116,12 +116,27 @@ const MAESTRO_COL = {
 const MAESTRO_ENCABEZADOS = [
   'Clave', 'Proveedor', 'Nombre en Factura', 'Categoría', 'Unidad',
   'Veces visto', 'Primera vez', 'Última vez', 'Propuesta automática',
-  'Nombre Estándar', 'Estado', 'Actualizado', 'Aplica'
+  'Nombre Estándar', 'Estado', 'Actualizado', 'Aplica',
+  'Costo sugerido (última compra)', 'Moneda sugerida', 'Fecha última compra',
+  'Área de negocio', 'Presentación', 'Tamaño', 'Precio sin IVA', 'IVA (%)',
+  'Cantidad presentación', 'Costo por unidad', 'Kioskos', 'Activo', 'Ficha actualizada'
 ];
 // "Aplica" (Sí/No) queda fuera de MAESTRO_COL a propósito: se resuelve con
 // columnaPorNombre() en vez de una posición fija, para que se pueda crear
 // sola en un Sheet que ya tenga filas (líneas de servicios/conceptos que no
 // hace falta homologar como producto se marcan en "No").
+//
+// Desde acá en adelante ('Costo sugerido…' hasta 'Ficha actualizada') son las
+// columnas de la "ficha de producto" — lo que antes iba a ser un módulo
+// aparte ("Base de Productos" / productos.html, nunca desplegado) y se
+// fusionó directo acá: cada fila del Maestro YA ES el catálogo de producto,
+// no hace falta un Sheet ni un ID distinto. Igual que 'Aplica', todas se
+// resuelven con columnaPorNombre() (nunca un índice fijo en MAESTRO_COL) para
+// no romper el Sheet ya desplegado en producción. 'Costo sugerido (última
+// compra)', 'Moneda sugerida' y 'Fecha última compra' las llena solo
+// sincronizarMaestro() en cada corrida (dato derivado de Desglose_IA, se
+// pisa siempre, el usuario no las edita); el resto las llena el usuario
+// desde el modal "Ficha de producto" vía guardarFichaMaestro().
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -198,6 +213,9 @@ function doPost(e) {
         break;
       case 'maestro_agregar_manual':
         result = agregarManualMaestro(payload);
+        break;
+      case 'maestro_guardar_ficha':
+        result = guardarFichaMaestro(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
@@ -601,7 +619,7 @@ function sincronizarMaestro() {
   if (nFilas <= 0) return { nuevos: 0, actualizados: 0, total: 0 };
 
   const datos = hojaDesglose.getRange(2, 1, nFilas, DESGLOSE_COL.KIOSKO).getValues();
-  const grupos = {}; // clave -> { proveedor, producto, categorias:[], unidades:[], normalizados:[], fechas:[] }
+  const grupos = {}; // clave -> { proveedor, producto, categorias:[], unidades:[], normalizados:[], fechas:[], ultimaFecha, costoUltimo, monedaUltima }
 
   datos.forEach(function(fila) {
     const proveedor = fila[DESGLOSE_COL.PROVEEDOR - 1];
@@ -609,14 +627,28 @@ function sincronizarMaestro() {
     if (!proveedor && !producto) return;
     const clave = claveMaestro_(proveedor, producto);
     if (!grupos[clave]) {
-      grupos[clave] = { proveedor: proveedor, producto: producto, categorias: [], unidades: [], normalizados: [], fechas: [] };
+      grupos[clave] = {
+        proveedor: proveedor, producto: producto, categorias: [], unidades: [],
+        normalizados: [], fechas: [], ultimaFecha: null, costoUltimo: '', monedaUltima: ''
+      };
     }
     const g = grupos[clave];
     g.categorias.push(fila[DESGLOSE_COL.CATEGORIA - 1]);
     g.unidades.push(fila[DESGLOSE_COL.UNIDAD_MEDIDA - 1]);
     g.normalizados.push(fila[DESGLOSE_COL.NOMBRE_NORMALIZADO - 1]);
     const f = fila[DESGLOSE_COL.FECHA_FACTURA - 1];
-    if (f) g.fechas.push(f instanceof Date ? f : new Date(f));
+    const fecha = f ? (f instanceof Date ? f : new Date(f)) : null;
+    if (fecha && !isNaN(fecha.getTime())) {
+      g.fechas.push(fecha);
+      // Costo sugerido = Precio unitario + Moneda de la línea de Desglose_IA
+      // MÁS RECIENTE de esta clave (no un promedio) — al completar la ficha
+      // de producto interesa el último precio pagado, no un histórico.
+      if (!g.ultimaFecha || fecha > g.ultimaFecha) {
+        g.ultimaFecha = fecha;
+        g.costoUltimo = fila[DESGLOSE_COL.PRECIO_UNITARIO - 1];
+        g.monedaUltima = fila[DESGLOSE_COL.MONEDA - 1];
+      }
+    }
   });
 
   const hojaMaestro = getHojaMaestro();
@@ -626,6 +658,14 @@ function sincronizarMaestro() {
     const clavesExistentes = hojaMaestro.getRange(2, MAESTRO_COL.CLAVE, nExistentes, 1).getValues();
     clavesExistentes.forEach(function(r, i) { if (r[0]) existentes[r[0]] = i + 2; });
   }
+
+  // Columnas dinámicas que este sync también refresca en cada corrida (dato
+  // derivado de Desglose_IA, igual criterio que Categoría/Unidad/Propuesta:
+  // se recalcula siempre, sin importar si el usuario ya confirmó la fila).
+  const colAplica = columnaPorNombre(hojaMaestro, 'Aplica');
+  const colCostoSugerido = columnaPorNombre(hojaMaestro, 'Costo sugerido (última compra)');
+  const colMonedaSugerida = columnaPorNombre(hojaMaestro, 'Moneda sugerida');
+  const colFechaUltimaCompra = columnaPorNombre(hojaMaestro, 'Fecha última compra');
 
   let nuevos = 0, actualizados = 0;
   const ahora = new Date();
@@ -638,6 +678,9 @@ function sincronizarMaestro() {
     const categoria = modaGS_(g.categorias);
     const unidad = modaGS_(g.unidades);
     const propuesta = modaGS_(g.normalizados) || proponerNombreGS_(g.producto);
+    const costoSugerido = (g.costoUltimo !== '' && g.costoUltimo != null) ? (Number(g.costoUltimo) || '') : '';
+    const monedaSugerida = g.monedaUltima || '';
+    const fechaUltimaCompra = g.ultimaFecha || '';
 
     if (existentes[clave]) {
       const fila = existentes[clave];
@@ -648,6 +691,9 @@ function sincronizarMaestro() {
       hojaMaestro.getRange(fila, MAESTRO_COL.ULTIMA_VEZ).setValue(ultima);
       hojaMaestro.getRange(fila, MAESTRO_COL.PROPUESTA).setValue(propuesta);
       hojaMaestro.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+      hojaMaestro.getRange(fila, colCostoSugerido).setValue(costoSugerido);
+      hojaMaestro.getRange(fila, colMonedaSugerida).setValue(monedaSugerida);
+      hojaMaestro.getRange(fila, colFechaUltimaCompra).setValue(fechaUltimaCompra);
       actualizados++;
     } else {
       hojaMaestro.appendRow([
@@ -659,7 +705,10 @@ function sincronizarMaestro() {
       // por defecto. Si ya existía, no se toca (igual que Nombre Estándar/
       // Estado) para no pisar una fila que el usuario ya marcó "No" a mano.
       const filaNueva = hojaMaestro.getLastRow();
-      hojaMaestro.getRange(filaNueva, columnaPorNombre(hojaMaestro, 'Aplica')).setValue('Sí');
+      hojaMaestro.getRange(filaNueva, colAplica).setValue('Sí');
+      hojaMaestro.getRange(filaNueva, colCostoSugerido).setValue(costoSugerido);
+      hojaMaestro.getRange(filaNueva, colMonedaSugerida).setValue(monedaSugerida);
+      hojaMaestro.getRange(filaNueva, colFechaUltimaCompra).setValue(fechaUltimaCompra);
       nuevos++;
     }
   });
@@ -753,4 +802,38 @@ function agregarManualMaestro(p) {
   hoja.getRange(fila, columnaPorNombre(hoja, 'Aplica')).setValue(aplica);
 
   return { clave: clave, fila: fila };
+}
+
+// Guarda los campos de "ficha de producto" (ex módulo Base de Productos,
+// fusionado acá — ver comentario en MAESTRO_ENCABEZADOS): precio/costo,
+// presentación, kioskos donde se vende, activo. Requiere que la fila ya
+// exista en el Maestro (por sync o por alta manual) — no crea filas nuevas,
+// a propósito, para no duplicar el mecanismo de claveMaestro_/sync.
+// El precio siempre llega ya convertido a colones desde el cliente (mismo
+// criterio que tenía Code-productos-backend.gs: la moneda original elegida
+// en el modal no se persiste, solo el monto ya en ₡).
+function guardarFichaMaestro(p) {
+  if (!p.clave) throw new Error('Falta la clave del producto.');
+  const hoja = getHojaMaestro();
+  const fila = filaMaestroPorClave_(hoja, p.clave);
+  if (fila === -1) throw new Error('No se encontró ese producto en el Maestro (sincronizá de nuevo).');
+
+  const precio = Number(p.precio_sin_iva) || 0;
+  const cantidad = Number(p.cantidad_presentacion) || 0;
+  const costoUnidad = cantidad > 0 ? Number((precio / cantidad).toFixed(4)) : 0;
+  const ahora = new Date();
+
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Área de negocio')).setValue(p.area || '');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Presentación')).setValue(p.presentacion || '');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Tamaño')).setValue(p.tamano || '');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Precio sin IVA')).setValue(precio);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'IVA (%)')).setValue(Number(p.iva) || 0);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Cantidad presentación')).setValue(cantidad);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Costo por unidad')).setValue(costoUnidad);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Kioskos')).setValue(p.kioskos || 'Todos');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Activo')).setValue(p.activo === false ? false : true);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Ficha actualizada')).setValue(ahora);
+  hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+
+  return { fila: fila, costoPorUnidad: costoUnidad };
 }

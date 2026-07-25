@@ -1,4 +1,11 @@
 /**
+ * DESCONTINUADO (2026-07-25): este módulo nunca se desplegó y se fusionó
+ * dentro de Maestro de Productos — ver Code-cuentas-por-pagar-kioskos-backend.gs
+ * (hoja "Maestro_Productos", acción `maestro_guardar_ficha` y los campos
+ * agregados a MAESTRO_ENCABEZADOS). Se deja este archivo como referencia del
+ * diseño de campos (Área de negocio, Presentación, Tamaño, etc.), no hace
+ * falta desplegar este Sheet aparte.
+ *
  * Backend Apps Script para el Sheet "Base de Productos - Kioskos" —
  * módulo INDEPENDIENTE de catálogo de productos, separado del Sheet e
  * implementación de Inventario v2 (Code-inventario-v2-backend.gs, que tiene
