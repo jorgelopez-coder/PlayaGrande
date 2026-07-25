@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Análisis de Compras · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --purple:#6a3a9a;--purple-bg:#f3eefb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+.sync-btn{font-family:var(--font-m);font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:8px}
+.sync-btn:hover{border-color:var(--border-h);color:var(--text)}
+.sync-btn svg{width:12px;height:12px}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.card-sub{font-size:12px;color:var(--muted);margin-bottom:1rem}
+
+/* ── FILTROS ─────────────────────────────────────────────── */
+.filtro-row{display:flex;flex-wrap:wrap;gap:22px;margin-bottom:1rem}
+.filtro-row:last-child{margin-bottom:0}
+.filtro-group label.grp-lbl{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px}
+.filtro-dates{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filtro-dates input[type=date]{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none}
+.filtro-dates input[type=date]:focus{border-color:var(--green)}
+.filtro-dates span{font-size:12px;color:var(--subtle)}
+.preset-btn{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.preset-btn:hover{border-color:var(--border-h);color:var(--text)}
+.chk-pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:6px 11px;border-radius:20px;border:1px solid var(--border);background:var(--surface);cursor:pointer;white-space:nowrap}
+.chk-pill input{cursor:pointer}
+.chk-wrap{display:flex;flex-wrap:wrap;gap:7px}
+.chk-wrap.scroll{max-height:150px;overflow-y:auto;padding-right:4px}
+.filtro-resumen{font-size:11.5px;color:var(--subtle);border-top:1px solid var(--border);padding-top:.85rem;margin-top:.25rem}
+.filtro-nota{font-size:11px;color:var(--subtle);margin-top:.5rem}
+
+input[type=text],input[type=number]{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s
+}
+input[type=text]:focus,input[type=number]:focus{border-color:var(--green)}
+input::placeholder{color:var(--subtle)}
+select{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);
+  font-family:var(--font-b);font-size:13px;padding:8px 32px 8px 11px;outline:none;appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+select:focus{border-color:var(--green)}
+
+/* ── KPIs ────────────────────────────────────────────────── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:1rem}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.kpi-sub{font-size:11px;margin-top:6px}
+
+/* ── CONFIG / METAS (colapsable) ─────────────────────────── */
+.metas-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.metas-toggle{font-size:12px;color:var(--muted);font-weight:500}
+.metas-body{margin-top:1rem}
+.meta-field-label{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.meta-field{max-width:200px}
+.meta-status{font-size:11px;color:var(--green);margin-left:10px;font-weight:500}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+
+/* ── TABLAS TIPO COMPARATIVO ─────────────────────────────── */
+.compare-wrap{overflow-x:auto}
+.compare-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px}
+.compare-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.7rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+.compare-table td{padding:.65rem 1rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.compare-table tbody tr:last-child td{border-bottom:none}
+.compare-table tbody tr:hover{background:var(--surface)}
+.compare-kiosko{display:flex;align-items:center;gap:8px;font-weight:600}
+.compare-val{font-family:var(--font-m);font-weight:600}
+.compare-sub{font-size:10.5px;color:var(--muted);margin-top:1px}
+.compare-dash{color:var(--subtle);font-family:var(--font-m)}
+.compare-row.clickable{cursor:pointer}
+.compare-row.clickable:hover{background:var(--surface)}
+.no-alerts{padding:1.5rem 1.25rem;text-align:center;font-size:12px;color:var(--subtle)}
+.spinner{display:inline-block;width:10px;height:10px;border:1.5px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── ESTADO (chip toggle) ────────────────────────────────── */
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip-btn{font-size:12px;padding:6px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-weight:500;transition:all .15s;font-family:var(--font-b)}
+.chip-btn:hover{border-color:var(--border-h);color:var(--text)}
+.chip-btn.active{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:600}
+
+/* ── SELECTOR DE PRODUCTO + GRÁFICO ──────────────────────── */
+.chart-selector{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem}
+.chart-wrap{padding:.25rem 0 .5rem}
+.chart-wrap svg{width:100%;height:auto;display:block}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .tabs{padding:0 1rem}
+  .filtro-row{gap:14px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Análisis de Compras</span>
+  </div>
+  <div style="display:flex;align-items:center;">
+    <span class="date-chip" id="date-chip"></span>
+    <button class="sync-btn" onclick="cargarTodo()" title="Actualizar datos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Actualizar
+    </button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('resumen',this)">Resumen · Compras vs Ventas</button>
+  <button class="tab-btn" onclick="showTab('precios',this)">Cambios de precio</button>
+  <button class="tab-btn" onclick="showTab('cantidades',this)">Cantidades</button>
+</div>
+
+<main>
+
+  <!-- ── FILTROS (aplican a las 3 pestañas) ── -->
+  <div class="card">
+    <p class="card-title">Filtros</p>
+    <div class="filtro-row">
+      <div class="filtro-group">
+        <label class="grp-lbl">Rango de fechas</label>
+        <div class="filtro-dates">
+          <input type="date" id="filtro-desde" onchange="renderAll()">
+          <span>→</span>
+          <input type="date" id="filtro-hasta" onchange="renderAll()">
+        </div>
+      </div>
+      <div class="filtro-group">
+        <label class="grp-lbl">Atajos</label>
+        <div class="chk-wrap">
+          <button class="preset-btn" onclick="setPreset('hoy')">Hoy</button>
+          <button class="preset-btn" onclick="setPreset('7d')">Últimos 7 días</button>
+          <button class="preset-btn" onclick="setPreset('30d')">Últimos 30 días</button>
+          <button class="preset-btn" onclick="setPreset('mes')">Este mes</button>
+          <button class="preset-btn" onclick="setPreset('mes-pasado')">Mes pasado</button>
+          <button class="preset-btn" onclick="setPreset('anio')">Este año</button>
+        </div>
+      </div>
+      <div class="filtro-group">
+        <label class="grp-lbl">Estado de la compra</label>
+        <div class="chip-row" id="filtro-estado">
+          <button type="button" class="chip-btn active" data-estado="aplicada" onclick="setEstado('aplicada')">Aplicadas (en stock)</button>
+          <button type="button" class="chip-btn" data-estado="todas" onclick="setEstado('todas')">Todas (incl. pendientes)</button>
+        </div>
+      </div>
+    </div>
+    <div class="filtro-row">
+      <div class="filtro-group" style="flex:1;min-width:220px;">
+        <label class="grp-lbl">Kioskos</label>
+        <div class="chk-wrap" id="filtro-kioskos-body">
+          <span class="compare-dash">Cargando…</span>
+        </div>
+      </div>
+    </div>
+    <div class="filtro-row">
+      <div class="filtro-group" style="flex:1;min-width:280px;">
+        <label class="grp-lbl">Categorías
+          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
+          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
+        </label>
+        <div class="chk-wrap scroll" id="filtro-categoria-body">
+          <span class="compare-dash">Cargando…</span>
+        </div>
+      </div>
+      <div class="filtro-group" style="flex:1;min-width:220px;">
+        <label class="grp-lbl">Buscar producto</label>
+        <input type="text" id="filtro-producto-texto" placeholder="Nombre del producto…" oninput="renderAll()" style="width:100%;max-width:280px">
+      </div>
+    </div>
+    <p class="filtro-nota">Categorías y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha, kiosko y estado.</p>
+    <div class="filtro-resumen" id="filtro-resumen-txt">Cargando datos…</div>
+  </div>
+
+  <!-- ══════════════ TAB: RESUMEN · COMPRAS VS VENTAS ══════════════ -->
+  <div class="page active" id="tab-resumen">
+
+    <div class="card">
+      <div class="metas-head" onclick="toggleConfigMeta()">
+        <p class="card-title" style="margin-bottom:0">🎯 Objetivo de compras vs ventas</p>
+        <span class="metas-toggle" id="config-meta-toggle-icon">▾ Configurar</span>
+      </div>
+      <div class="metas-body" id="config-meta-body" style="display:none">
+        <p class="card-sub">El objetivo es que las compras del período no superen un % de las ventas <b>sin impuestos</b>. Ajustá ambos porcentajes si cambian — se guardan en este navegador.</p>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
+          <div class="meta-field">
+            <div class="meta-field-label">Meta: compras como % de ventas netas</div>
+            <input type="number" id="cfg-meta-pct" step="0.1" min="0" placeholder="35">
+          </div>
+          <div class="meta-field">
+            <div class="meta-field-label">% de impuestos incluido en las ventas</div>
+            <input type="number" id="cfg-iva-pct" step="0.1" min="0" placeholder="23">
+          </div>
+          <button class="btn-sm" onclick="guardarConfigMeta()">Guardar ✓</button>
+          <span class="meta-status" id="cfg-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-compras">₡0</div>
+        <div class="kpi-lbl">Total de compras del período (filtrado)</div>
+        <div class="kpi-sub" id="kpi-compras-sub"></div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-ventas">₡0</div>
+        <div class="kpi-lbl">Total de ventas del período (mismos kioskos/fechas)</div>
+        <div class="kpi-sub" id="kpi-ventas-sub"></div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-pct">—</div>
+        <div class="kpi-lbl">Compras como % de ventas netas</div>
+        <div class="kpi-sub" id="kpi-pct-sub"></div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="kpi-meta">35% · ₡0</div>
+        <div class="kpi-lbl">Presupuesto objetivo del período</div>
+        <div class="kpi-sub" id="kpi-meta-sub"></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Compras vs. ventas por kiosko</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr><th>Kiosko</th><th>Compras</th><th>Ventas</th><th>% s/ventas netas</th><th>vs. meta</th></tr>
+          </thead>
+          <tbody id="kiosko-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
+        Ventas: para Playa Grande y Tamarindo sale de la venta real por producto (Square); para los kioskos sin Square propio se usa "Total Ventas ₡" del cierre de caja. Compras sin kiosko asignado (facturas pendientes de aplicar) aparecen como "Sin asignar".
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: CAMBIOS DE PRECIO ══════════════ -->
+  <div class="page" id="tab-precios">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Variación de precio por producto</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr><th>Producto</th><th># Compras</th><th>Primer precio</th><th>Último precio</th><th>Variación %</th><th>Variación ₡/unidad</th><th>Precio promedio</th></tr>
+          </thead>
+          <tbody id="precio-body">
+            <tr><td colspan="7"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
+        Precio = costo de la línea de compra ÷ cantidad en unidad base. Ordenado por mayor variación (en valor absoluto) primero. Solo incluye líneas mapeadas a un producto.
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Evolución de precio en el tiempo</p>
+      <div class="chart-selector">
+        <label class="grp-lbl" style="margin-bottom:0;">Producto:</label>
+        <select id="precio-selector" onchange="renderGraficoPrecio(this.value)"><option value="">Cargando…</option></select>
+      </div>
+      <div class="chart-wrap" id="precio-chart-wrap"><div class="no-alerts"><span class="spinner"></span></div></div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Historial de compras del producto seleccionado</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Fecha</th><th>Kiosko</th><th>Proveedor</th><th>Cantidad</th><th>Precio unitario</th><th>Costo línea</th></tr></thead>
+          <tbody id="precio-detalle-body">
+            <tr><td colspan="6"><div class="no-alerts">Elegí un producto arriba.</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ TAB: CANTIDADES ══════════════ -->
+  <div class="page" id="tab-cantidades">
+    <div class="kpi-grid">
+      <div class="kpi-box">
+        <div class="kpi-val" id="cant-kpi-monto">₡0</div>
+        <div class="kpi-lbl">Monto comprado (con los filtros de arriba)</div>
+        <div class="kpi-sub" id="cant-kpi-monto-sub"></div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val" id="cant-kpi-top">—</div>
+        <div class="kpi-lbl">Producto con mayor cantidad comprada</div>
+        <div class="kpi-sub" id="cant-kpi-top-sub"></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Cantidad comprada por producto</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Producto</th><th>Cantidad</th><th>Monto</th><th># Compras</th><th>Precio prom.</th></tr></thead>
+          <tbody id="cant-producto-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+      <div style="padding:1.1rem 1.25rem .5rem;">
+        <p class="card-title" style="margin-bottom:0;">Cantidad comprada por categoría</p>
+      </div>
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Categoría</th><th>Monto</th><th># Productos</th><th># Líneas</th><th>% del total</th></tr></thead>
+          <tbody id="cant-categoria-body">
+            <tr><td colspan="5"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <p class="card-title">Monto comprado por mes</p>
+      <div class="chart-wrap" id="cant-chart-monto-wrap"><div class="no-alerts"><span class="spinner"></span></div></div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Cantidad comprada por mes — por producto</p>
+      <div class="chart-selector">
+        <label class="grp-lbl" style="margin-bottom:0;">Producto:</label>
+        <select id="cant-selector" onchange="renderGraficoCantidadProducto(this.value)"><option value="">Cargando…</option></select>
+      </div>
+      <div class="chart-wrap" id="cant-chart-producto-wrap"><div class="no-alerts"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('analisis-compras')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// ── CONFIG (mismas URLs/hojas que compras.html / analisis-ventas.html — ver README) ──
+const APPS_SCRIPT_URL    = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+const INVENTARIO_V2_URL  = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+const SQUARE_KIOSKOS = {
+  'Playa Grande': {
+    sheetId: '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  },
+  'Tamarindo': {
+    sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  },
+  'Liberia': {
+    sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok',
+    resumenTab: 'Resumen_Cierre_Diario',
+    ventasTab: 'Ventas_Por_Producto'
+  }
+};
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let KIOSKOS_LISTA = [];
+
+const pad = n => String(n).padStart(2,'0');
+const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const fmtNum = n => Number(n||0).toLocaleString('es-CR', {maximumFractionDigits:2});
+const isoHoy = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const addDias = (iso, delta) => { const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+delta); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const fmtFechaCorta = iso => { const [y,m,d] = String(iso||'').split('-'); return (d&&m) ? (d+'/'+m) : iso; };
+const MESES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const nombreMes = ym => { const [y,m] = ym.split('-'); return MESES_NOMBRES[parseInt(m,10)-1].slice(0,3) + ' ' + y.slice(2); };
+const agruparPorMes = fecha => String(fecha).slice(0,7);
+function escHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+// ── PESTAÑAS ──────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── DATOS CRUDOS ──────────────────────────────────────────────
+let COMPRAS_RAW = [];
+let PRODUCTOS = [], PRODUCTOS_MAP = {};
+let CATEGORIAS_LISTA = [];
+let LINEAS = [];
+let CIERRES_ROWS = [];
+let SQUARE_PRODUCT_ROWS = {};
+let VENTAS_ROWS = [];
+
+async function cargarKioskosLista() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await resp.json();
+    const registros = (data.registros && data.registros.length) ? data.registros : null;
+    let activos = [];
+    if (registros) {
+      activos = registros.filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no').map(k => k['Kiosko']).filter(Boolean);
+    } else if (Array.isArray(data.kioskos) && data.kioskos.length) {
+      activos = data.kioskos;
+    }
+    if (activos.length) KIOSKOS = kioskosPermitidos(activos);
+  } catch(e) { /* usa el respaldo hardcodeado */ }
+  const lista = KIOSKOS.slice();
+  Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!lista.includes(n)) lista.push(n); });
+  KIOSKOS_LISTA = lista;
+}
+
+async function cargarCompras() {
+  try {
+    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=compras');
+    const data = await resp.json();
+    COMPRAS_RAW = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+  } catch(e) { COMPRAS_RAW = []; }
+}
+
+async function cargarProductos() {
+  try {
+    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=productos');
+    const data = await resp.json();
+    PRODUCTOS = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+  } catch(e) { PRODUCTOS = []; }
+  PRODUCTOS_MAP = {};
+  PRODUCTOS.forEach(p => { PRODUCTOS_MAP[String(p['ID'])] = p; });
+}
+
+async function cargarCategorias() {
+  let base = [];
+  try {
+    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=categorias');
+    const data = await resp.json();
+    const regs = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+    base = regs.filter(c => c['Activo'] !== false)
+      .sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0))
+      .map(c => c['Nombre']).filter(Boolean);
+  } catch(e) { base = []; }
+  const enUso = new Set(PRODUCTOS.map(p => p['Categoría'] || 'Sin categoría'));
+  enUso.forEach(c => { if (!base.includes(c)) base.push(c); });
+  CATEGORIAS_LISTA = base;
+}
+
+async function cargarCierres() {
+  try {
+    const resp = await fetch(SHEETS_URL_CIERRES + '?action=read');
+    const data = await resp.json();
+    const raw = data.records || [];
+    CIERRES_ROWS = raw.map(r => ({
+      fecha: String(r[1]||'').slice(0,10),
+      kiosko: r[3] || '',
+      total: +r[10]||0
+    })).filter(r => r.fecha && r.kiosko);
+  } catch(e) { CIERRES_ROWS = []; }
+}
+
+async function cargarSquareProductos() {
+  const entradas = Object.entries(SQUARE_KIOSKOS);
+  await Promise.all(entradas.map(async ([nombre, cfg]) => {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
+      const resp = await fetch(url, { cache:'no-store' });
+      const texto = await resp.text();
+      const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+      const filas = json.table.rows || [];
+      SQUARE_PRODUCT_ROWS[nombre] = filas.map(fila => {
+        const c = fila.c || [];
+        const fecha = c[0] && (c[0].f || c[0].v);
+        return {
+          fecha: fecha ? String(fecha).slice(0,10) : '',
+          totalLinea: Number((c[9] && c[9].v) || 0)
+        };
+      }).filter(x => x.fecha);
+    } catch(e) { SQUARE_PRODUCT_ROWS[nombre] = null; }
+  }));
+}
+
+// Ventas unificadas por kiosko+fecha: Square real donde hay kiosko propio
+// conectado, si no "Total Ventas ₡" del cierre de caja (mismo criterio que
+// analisis-ventas.html — ver ese archivo para más detalle).
+function construirVentasUnificadas() {
+  const porKioskoFechaCierres = {};
+  CIERRES_ROWS.forEach(r => {
+    const key = r.kiosko + '|' + r.fecha;
+    porKioskoFechaCierres[key] = (porKioskoFechaCierres[key] || 0) + r.total;
+  });
+  const porKioskoFechaSquare = {};
+  Object.entries(SQUARE_PRODUCT_ROWS).forEach(([kiosko, rows]) => {
+    if (!Array.isArray(rows)) return;
+    rows.forEach(r => {
+      const key = kiosko + '|' + r.fecha;
+      porKioskoFechaSquare[key] = (porKioskoFechaSquare[key] || 0) + r.totalLinea;
+    });
+  });
+  const claves = new Set([...Object.keys(porKioskoFechaCierres), ...Object.keys(porKioskoFechaSquare)]);
+  VENTAS_ROWS = Array.from(claves).map(key => {
+    const idx = key.indexOf('|');
+    const kiosko = key.slice(0, idx), fecha = key.slice(idx + 1);
+    const total = porKioskoFechaSquare.hasOwnProperty(key) ? porKioskoFechaSquare[key] : porKioskoFechaCierres[key];
+    return { fecha, kiosko, total };
+  });
+}
+
+// Aplana Compras + ComprasDetalle en líneas, uniendo cada línea con el
+// producto vigente en el catálogo (categoría, unidad base, costo actual).
+function construirLineas() {
+  LINEAS = [];
+  COMPRAS_RAW.forEach(c => {
+    const fecha = String(c['Fecha']||'').slice(0,10);
+    const kiosko = String(c['Kiosko']||'').trim();
+    const estado = String(c['Estado']||'').trim();
+    const proveedor = c['Proveedor'] || '';
+    (c.detalle || []).forEach(d => {
+      const pid = d['Producto ID'] ? String(d['Producto ID']) : '';
+      const prod = pid ? PRODUCTOS_MAP[pid] : null;
+      const cantidadBase = Number(d['Cantidad Base']) || 0;
+      const costoLinea = Number(d['Costo Línea']) || 0;
+      LINEAS.push({
+        compraId: c['ID'], fecha, kiosko, estado, proveedor,
+        productoId: pid,
+        productoNombre: prod ? prod['Nombre Interno'] : (d['Producto Nombre'] || '(sin mapear)'),
+        categoria: prod ? (prod['Categoría'] || 'Sin categoría') : 'Sin categoría',
+        unidadBase: prod ? (prod['Unidad Base'] || '') : '',
+        costoActual: prod ? (Number(prod['Costo Unidad Base']) || 0) : null,
+        cantidadBase, costoLinea,
+        precioUnitario: cantidadBase > 0 ? costoLinea / cantidadBase : null
+      });
+    });
+  });
+}
+
+function renderFiltroKioskos() {
+  const cont = document.getElementById('filtro-kioskos-body');
+  cont.innerHTML = KIOSKOS_LISTA.map(n =>
+    `<label class="chk-pill"><input type="checkbox" value="${escHtml(n)}" checked onchange="renderAll()"> ${escHtml(n)}</label>`
+  ).join('');
+}
+function renderFiltroCategorias() {
+  const cont = document.getElementById('filtro-categoria-body');
+  if (!CATEGORIAS_LISTA.length) { cont.innerHTML = '<span class="compare-dash">Sin categorías</span>'; return; }
+  cont.innerHTML = CATEGORIAS_LISTA.map(c =>
+    `<label class="chk-pill"><input type="checkbox" value="${escHtml(c)}" checked onchange="renderAll()"> ${escHtml(c)}</label>`
+  ).join('');
+}
+function catFiltroSeleccionarTodas(marcar) {
+  document.querySelectorAll('#filtro-categoria-body input[type=checkbox]').forEach(el => { el.checked = marcar; });
+  renderAll();
+}
+function kioskosSeleccionados() {
+  return new Set(Array.from(document.querySelectorAll('#filtro-kioskos-body input:checked')).map(el => el.value));
+}
+function categoriasSeleccionadas() {
+  return new Set(Array.from(document.querySelectorAll('#filtro-categoria-body input:checked')).map(el => el.value));
+}
+function setEstado(v) {
+  document.querySelectorAll('#filtro-estado .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.estado === v));
+  renderAll();
+}
+function estadoSeleccionado() {
+  const activo = document.querySelector('#filtro-estado .chip-btn.active');
+  return activo ? activo.dataset.estado : 'aplicada';
+}
+
+async function cargarTodo() {
+  document.getElementById('filtro-resumen-txt').innerHTML = '<span class="spinner"></span> Cargando datos…';
+  await Promise.all([cargarKioskosLista(), cargarCompras(), cargarProductos(), cargarCierres(), cargarSquareProductos()]);
+  await cargarCategorias();
+  construirVentasUnificadas();
+  construirLineas();
+  renderFiltroKioskos();
+  renderFiltroCategorias();
+  cargarConfigMetaForm();
+  if (!document.getElementById('filtro-desde').value) setPreset('30d');
+  else renderAll();
+}
+
+// ── ATAJOS DE FECHA ───────────────────────────────────────────
+function setPreset(tipo) {
+  const hoy = isoHoy();
+  let desde = hoy, hasta = hoy;
+  const d = new Date(hoy + 'T00:00:00');
+  if (tipo === 'hoy') { desde = hoy; hasta = hoy; }
+  else if (tipo === '7d') { desde = addDias(hoy, -6); }
+  else if (tipo === '30d') { desde = addDias(hoy, -29); }
+  else if (tipo === 'mes') { desde = hoy.slice(0,8) + '01'; }
+  else if (tipo === 'mes-pasado') {
+    const y = d.getFullYear(), m = d.getMonth();
+    const prev = new Date(y, m - 1, 1);
+    desde = prev.getFullYear() + '-' + pad(prev.getMonth()+1) + '-01';
+    const ultimoDiaPrev = new Date(y, m, 0).getDate();
+    hasta = prev.getFullYear() + '-' + pad(prev.getMonth()+1) + '-' + pad(ultimoDiaPrev);
+  }
+  else if (tipo === 'anio') { desde = hoy.slice(0,4) + '-01-01'; }
+  document.getElementById('filtro-desde').value = desde;
+  document.getElementById('filtro-hasta').value = hasta;
+  renderAll();
+}
+
+// ── FILTRADO ────────────────────────────────────────────────
+// Base: fecha + kiosko + estado (usada por el Resumen). Una línea sin
+// kiosko (factura pendiente de aplicar) nunca puede matchear un checkbox de
+// kiosko, así que se deja pasar siempre y se agrupa aparte como "Sin asignar".
+function lineasBase(desde, hasta, kioskosSel, estado) {
+  return LINEAS.filter(l => {
+    if (l.fecha < desde || l.fecha > hasta) return false;
+    if (estado === 'aplicada' && l.estado !== 'aplicada') return false;
+    if (l.kiosko && !kioskosSel.has(l.kiosko)) return false;
+    return true;
+  });
+}
+// Detalle: además exige producto identificado (para poder analizar precio y
+// cantidad) y aplica categoría + texto de producto.
+function lineasDetalle(base, categoriasSel, textoProducto) {
+  return base.filter(l => {
+    if (!l.productoId || l.cantidadBase <= 0) return false;
+    if (!categoriasSel.has(l.categoria)) return false;
+    if (textoProducto && !l.productoNombre.toLowerCase().includes(textoProducto)) return false;
+    return true;
+  });
+}
+
+function renderAll() {
+  const desde = document.getElementById('filtro-desde').value || '2000-01-01';
+  const hasta = document.getElementById('filtro-hasta').value || isoHoy();
+  const kioskosSel = kioskosSeleccionados();
+  const estado = estadoSeleccionado();
+
+  const base = lineasBase(desde, hasta, kioskosSel, estado);
+  renderResumen(base, desde, hasta, kioskosSel);
+
+  const categoriasSel = categoriasSeleccionadas();
+  const textoProducto = (document.getElementById('filtro-producto-texto').value || '').trim().toLowerCase();
+  const detalle = lineasDetalle(base, categoriasSel, textoProducto);
+  renderCambiosPrecio(detalle);
+  renderCantidades(detalle);
+
+  const compraIds = new Set(base.map(l => l.compraId));
+  document.getElementById('filtro-resumen-txt').textContent =
+    `${compraIds.size} compra(s) · ${base.length} línea(s) · ${kioskosSel.size} kiosko(s) · estado: ${estado === 'aplicada' ? 'aplicadas' : 'todas'} · ${desde} → ${hasta}`;
+}
+
+// ── CONFIG DE META (localStorage, sin backend) ────────────────
+const CONFIG_KEY = 'analisis_compras_config_v1';
+function leerConfigMeta() {
+  let cfg = { metaPct: 35, ivaPct: 23 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
+    if (saved && typeof saved === 'object') cfg = Object.assign(cfg, saved);
+  } catch(e) {}
+  return cfg;
+}
+function cargarConfigMetaForm() {
+  const cfg = leerConfigMeta();
+  document.getElementById('cfg-meta-pct').value = cfg.metaPct;
+  document.getElementById('cfg-iva-pct').value = cfg.ivaPct;
+}
+function guardarConfigMeta() {
+  const metaPct = parseFloat(document.getElementById('cfg-meta-pct').value);
+  const ivaPct = parseFloat(document.getElementById('cfg-iva-pct').value);
+  const cfg = { metaPct: isNaN(metaPct) ? 35 : metaPct, ivaPct: isNaN(ivaPct) ? 23 : ivaPct };
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  const status = document.getElementById('cfg-status');
+  status.textContent = 'Guardado ✓';
+  setTimeout(() => { status.textContent = ''; }, 2500);
+  renderAll();
+}
+function toggleConfigMeta() {
+  const body = document.getElementById('config-meta-body');
+  const icon = document.getElementById('config-meta-toggle-icon');
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : 'block';
+  icon.textContent = abierto ? '▾ Configurar' : '▴ Ocultar';
+}
+
+// ── RESUMEN: KPI COMPRAS VS VENTAS ────────────────────────────
+function renderResumen(base, desde, hasta, kioskosSel) {
+  const cfg = leerConfigMeta();
+  const totalCompras = base.reduce((s,l) => s + l.costoLinea, 0);
+  const ventasFiltradas = VENTAS_ROWS.filter(v => v.fecha >= desde && v.fecha <= hasta && kioskosSel.has(v.kiosko));
+  const totalVentas = ventasFiltradas.reduce((s,v) => s + v.total, 0);
+  const ventasNetas = totalVentas / (1 + cfg.ivaPct/100);
+  const metaColones = ventasNetas * (cfg.metaPct/100);
+  const pct = ventasNetas > 0 ? (totalCompras/ventasNetas*100) : null;
+  const diffColones = totalCompras - metaColones;
+  const diffPct = pct != null ? pct - cfg.metaPct : null;
+  const compraIds = new Set(base.map(l => l.compraId));
+
+  document.getElementById('kpi-compras').textContent = fmtCRC(totalCompras);
+  document.getElementById('kpi-compras-sub').textContent = `${base.length} línea(s) · ${compraIds.size} compra(s)`;
+
+  document.getElementById('kpi-ventas').textContent = fmtCRC(totalVentas);
+  document.getElementById('kpi-ventas-sub').textContent = `Sin ${cfg.ivaPct}% de impuestos: ${fmtCRC(ventasNetas)}`;
+
+  document.getElementById('kpi-pct').textContent = pct != null ? pct.toFixed(1) + '%' : '—';
+  if (pct == null) {
+    document.getElementById('kpi-pct-sub').innerHTML = '<span class="compare-dash">Sin ventas en el rango</span>';
+  } else {
+    const color = pct <= cfg.metaPct ? 'var(--green)' : (pct <= cfg.metaPct + 5 ? 'var(--amber)' : 'var(--red)');
+    document.getElementById('kpi-pct-sub').innerHTML = `<span style="color:${color};font-weight:600;">${diffPct>=0?'+':''}${diffPct.toFixed(1)}pp</span> vs meta de ${cfg.metaPct}%`;
+  }
+
+  document.getElementById('kpi-meta').textContent = cfg.metaPct + '% · ' + fmtCRC(metaColones);
+  const colorMeta = diffColones <= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('kpi-meta-sub').innerHTML = `<span style="color:${colorMeta};font-weight:600;">${diffColones>=0?'+':''}${fmtCRC(diffColones)}</span> vs presupuesto`;
+
+  renderComprasPorKiosko(base, ventasFiltradas, cfg);
+}
+
+function renderComprasPorKiosko(base, ventasFiltradas, cfg) {
+  const porKiosko = {};
+  base.forEach(l => {
+    const k = l.kiosko || 'Sin asignar';
+    porKiosko[k] = (porKiosko[k] || 0) + l.costoLinea;
+  });
+  const ventasPorKiosko = {};
+  ventasFiltradas.forEach(v => { ventasPorKiosko[v.kiosko] = (ventasPorKiosko[v.kiosko] || 0) + v.total; });
+
+  const kioskosTabla = new Set([...Object.keys(porKiosko), ...Object.keys(ventasPorKiosko)]);
+  const filas = Array.from(kioskosTabla).map(k => {
+    const compras = porKiosko[k] || 0;
+    const ventas = ventasPorKiosko[k] || 0;
+    const ventasNetas = ventas / (1 + cfg.ivaPct/100);
+    const pct = ventasNetas > 0 ? (compras/ventasNetas*100) : null;
+    return { kiosko: k, compras, ventas, pct };
+  }).sort((a,b) => b.compras - a.compras);
+
+  const body = document.getElementById('kiosko-body');
+  if (!filas.length) {
+    body.innerHTML = `<tr><td colspan="5"><div class="no-alerts">Sin datos en el rango filtrado.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = filas.map(f => {
+    let vsMeta = '<span class="compare-dash">—</span>';
+    if (f.pct != null) {
+      const diff = f.pct - cfg.metaPct;
+      const color = f.pct <= cfg.metaPct ? 'var(--green)' : (f.pct <= cfg.metaPct + 5 ? 'var(--amber)' : 'var(--red)');
+      vsMeta = `<span style="color:${color};font-weight:600;">${diff>=0?'+':''}${diff.toFixed(1)}pp</span>`;
+    }
+    return `<tr>
+      <td class="compare-kiosko">${escHtml(f.kiosko)}</td>
+      <td class="compare-val">${fmtCRC(f.compras)}</td>
+      <td class="compare-val">${fmtCRC(f.ventas)}</td>
+      <td>${f.pct != null ? f.pct.toFixed(1) + '%' : '<span class="compare-dash">—</span>'}</td>
+      <td>${vsMeta}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── GRÁFICO SVG DE LÍNEA (genérico, reutilizado por precios y cantidades) ──
+function svgLineChart(labels, series, yFmt) {
+  const W = 900, H = 260, mL = 74, mR = 16, mT = 16, mB = 34;
+  const pW = W - mL - mR, pH = H - mT - mB;
+  const n = labels.length;
+  let maxVal = -Infinity, minVal = Infinity;
+  series.forEach(s => s.puntos.forEach(v => { if (v != null) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; } }));
+  if (!isFinite(minVal)) { minVal = 0; maxVal = 1; }
+  if (minVal > 0) minVal = 0;
+  if (maxVal <= minVal) maxVal = minVal + 1;
+  const span = maxVal - minVal;
+  const xAt = i => n <= 1 ? mL + pW/2 : mL + (i/(n-1))*pW;
+  const yAt = v => mT + pH - ((v-minVal)/span)*pH;
+
+  const gridLines = [0,0.25,0.5,0.75,1].map(p => {
+    const val = minVal + span*p;
+    const y = yAt(val);
+    return `<line x1="${mL}" y1="${y.toFixed(1)}" x2="${W-mR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/><text x="${mL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="9.5" font-family="var(--font-m)" fill="var(--muted)">${yFmt(val)}</text>`;
+  }).join('');
+
+  const maxLabels = Math.min(8, n);
+  const labelIdx = [];
+  if (n <= maxLabels) { for (let i=0;i<n;i++) labelIdx.push(i); }
+  else { for (let j=0;j<maxLabels;j++) labelIdx.push(Math.round(j*(n-1)/(maxLabels-1))); }
+  const xLabels = labelIdx.map(i =>
+    `<text x="${xAt(i).toFixed(1)}" y="${H-mB+16}" text-anchor="middle" font-size="9.5" font-family="var(--font-m)" fill="var(--muted)">${escHtml(labels[i])}</text>`
+  ).join('');
+
+  const lineasSvg = series.map(s => {
+    const validos = s.puntos.map((v,i) => v==null ? null : [i,v]).filter(Boolean);
+    const pts = validos.map(([i,v]) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
+    const circles = validos.map(([i,v]) =>
+      `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3" fill="${s.color}"><title>${escHtml(s.nombre)} · ${escHtml(labels[i])} · ${yFmt(v)}</title></circle>`
+    ).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"/>${circles}`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}">
+    ${gridLines}
+    <line x1="${mL}" y1="${mT}" x2="${mL}" y2="${H-mB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${mL}" y1="${H-mB}" x2="${W-mR}" y2="${H-mB}" stroke="var(--border)" stroke-width="1"/>
+    ${lineasSvg}
+    ${xLabels}
+  </svg>`;
+}
+
+// ── CAMBIOS DE PRECIO ──────────────────────────────────────────
+let PRECIO_DATA = {};
+
+function renderCambiosPrecio(detalle) {
+  const porProducto = {};
+  detalle.forEach(l => {
+    if (!porProducto[l.productoId]) porProducto[l.productoId] = { nombre: l.productoNombre, categoria: l.categoria, unidadBase: l.unidadBase, lineas: [] };
+    porProducto[l.productoId].lineas.push(l);
+  });
+  PRECIO_DATA = porProducto;
+
+  const filas = Object.entries(porProducto).map(([pid, info]) => {
+    const ord = info.lineas.slice().sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const primero = ord[0], ultimo = ord[ord.length-1];
+    const nCompras = ord.length;
+    const variacionPct = (nCompras > 1 && primero.precioUnitario > 0) ? ((ultimo.precioUnitario - primero.precioUnitario) / primero.precioUnitario * 100) : null;
+    const variacionAbs = nCompras > 1 ? (ultimo.precioUnitario - primero.precioUnitario) : null;
+    const montoTotal = ord.reduce((s,l) => s + l.costoLinea, 0);
+    const cantidadTotal = ord.reduce((s,l) => s + l.cantidadBase, 0);
+    const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : null;
+    return { pid, nombre: info.nombre, categoria: info.categoria, unidadBase: info.unidadBase, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio };
+  }).sort((a,b) => {
+    const av = a.variacionPct == null ? -1 : Math.abs(a.variacionPct);
+    const bv = b.variacionPct == null ? -1 : Math.abs(b.variacionPct);
+    return bv - av;
+  });
+
+  const body = document.getElementById('precio-body');
+  body.innerHTML = filas.length ? filas.map(f => {
+    let variacionTxt = '<span class="compare-dash">Solo 1 compra</span>';
+    if (f.variacionPct != null) {
+      const color = f.variacionPct > 0 ? 'var(--red)' : (f.variacionPct < 0 ? 'var(--green)' : 'var(--muted)');
+      variacionTxt = `<span style="color:${color};font-weight:600;">${f.variacionPct>=0?'+':''}${f.variacionPct.toFixed(1)}%</span>`;
+    }
+    return `<tr class="compare-row clickable" onclick="seleccionarProductoPrecio('${f.pid}')">
+      <td><div class="compare-kiosko">${escHtml(f.nombre)}</div><div class="compare-sub">${escHtml(f.categoria)}</div></td>
+      <td class="compare-val">${f.nCompras}</td>
+      <td class="compare-val">${fmtCRC(f.primero.precioUnitario)}<div class="compare-sub">${f.primero.fecha}</div></td>
+      <td class="compare-val">${fmtCRC(f.ultimo.precioUnitario)}<div class="compare-sub">${f.ultimo.fecha}</div></td>
+      <td>${variacionTxt}</td>
+      <td>${f.variacionAbs == null ? '<span class="compare-dash">—</span>' : fmtCRC(f.variacionAbs) + '/' + escHtml(f.unidadBase||'u')}</td>
+      <td class="compare-val">${fmtCRC(f.precioPromedio)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="no-alerts">Sin compras con producto identificado en el rango filtrado.</div></td></tr>`;
+
+  renderSelectorPrecio(filas);
+}
+
+function renderSelectorPrecio(filas) {
+  const sel = document.getElementById('precio-selector');
+  if (!filas.length) {
+    sel.innerHTML = '<option value="">Sin productos</option>';
+    document.getElementById('precio-chart-wrap').innerHTML = '<div class="no-alerts">Sin datos para graficar.</div>';
+    document.getElementById('precio-detalle-body').innerHTML = `<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>`;
+    return;
+  }
+  const previo = sel.value;
+  const actual = previo && filas.some(f => f.pid === previo) ? previo : filas[0].pid;
+  sel.innerHTML = filas.map(f => `<option value="${f.pid}" ${f.pid===actual?'selected':''}>${escHtml(f.nombre)}</option>`).join('');
+  renderGraficoPrecio(actual);
+}
+
+function seleccionarProductoPrecio(pid) {
+  showTab('precios', document.querySelector('.tab-btn[onclick*="precios"]'));
+  const sel = document.getElementById('precio-selector');
+  sel.value = pid;
+  renderGraficoPrecio(pid);
+  sel.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+function renderGraficoPrecio(pid) {
+  const info = PRECIO_DATA[pid];
+  const wrap = document.getElementById('precio-chart-wrap');
+  const detBody = document.getElementById('precio-detalle-body');
+  if (!info || !info.lineas.length) {
+    wrap.innerHTML = '<div class="no-alerts">Sin datos.</div>';
+    detBody.innerHTML = `<tr><td colspan="6"><div class="no-alerts">Elegí un producto arriba.</div></td></tr>`;
+    return;
+  }
+  const ord = info.lineas.slice().sort((a,b) => a.fecha.localeCompare(b.fecha));
+  if (ord.length < 2) {
+    wrap.innerHTML = '<div class="no-alerts">Solo hay una compra de este producto en el rango filtrado — se necesitan al menos dos para graficar la evolución.</div>';
+  } else {
+    wrap.innerHTML = svgLineChart(
+      ord.map(l => fmtFechaCorta(l.fecha)),
+      [{ nombre: info.nombre, color: 'var(--green)', puntos: ord.map(l => l.precioUnitario) }],
+      v => fmtCRC(v)
+    );
+  }
+  detBody.innerHTML = ord.slice().reverse().map(l => `
+    <tr>
+      <td>${l.fecha}</td>
+      <td>${escHtml(l.kiosko || '—')}</td>
+      <td>${escHtml(l.proveedor || '—')}</td>
+      <td class="compare-val">${fmtNum(l.cantidadBase)} ${escHtml(l.unidadBase||'')}</td>
+      <td class="compare-val">${fmtCRC(l.precioUnitario)}</td>
+      <td class="compare-val">${fmtCRC(l.costoLinea)}</td>
+    </tr>`).join('');
+}
+
+// ── CANTIDADES ──────────────────────────────────────────────
+let CANTIDAD_DATA = {};
+
+function renderCantidades(detalle) {
+  const montoTotal = detalle.reduce((s,l) => s + l.costoLinea, 0);
+  const compraIds = new Set(detalle.map(l => l.compraId));
+  document.getElementById('cant-kpi-monto').textContent = fmtCRC(montoTotal);
+  document.getElementById('cant-kpi-monto-sub').textContent = `${detalle.length} línea(s) · ${compraIds.size} compra(s)`;
+
+  const porProducto = {};
+  detalle.forEach(l => {
+    if (!porProducto[l.productoId]) porProducto[l.productoId] = { nombre: l.productoNombre, categoria: l.categoria, unidadBase: l.unidadBase, cantidad: 0, monto: 0, nCompras: 0, lineas: [] };
+    const p = porProducto[l.productoId];
+    p.cantidad += l.cantidadBase; p.monto += l.costoLinea; p.nCompras++; p.lineas.push(l);
+  });
+  CANTIDAD_DATA = porProducto;
+
+  const filasProd = Object.entries(porProducto).map(([pid,p]) => ({ pid, ...p, precioProm: p.cantidad > 0 ? p.monto/p.cantidad : 0 }));
+  const filasPorMonto = filasProd.slice().sort((a,b) => b.monto - a.monto);
+  const filasPorCantidad = filasProd.slice().sort((a,b) => b.cantidad - a.cantidad);
+
+  document.getElementById('cant-kpi-top').textContent = filasPorCantidad.length ? filasPorCantidad[0].nombre : '—';
+  document.getElementById('cant-kpi-top-sub').textContent = filasPorCantidad.length ? `${fmtNum(filasPorCantidad[0].cantidad)} ${filasPorCantidad[0].unidadBase||''}` : '';
+
+  const bodyProd = document.getElementById('cant-producto-body');
+  bodyProd.innerHTML = filasPorMonto.length ? filasPorMonto.map(p => `
+    <tr class="compare-row clickable" onclick="seleccionarProductoCantidad('${p.pid}')">
+      <td><div class="compare-kiosko">${escHtml(p.nombre)}</div><div class="compare-sub">${escHtml(p.categoria)}</div></td>
+      <td class="compare-val">${fmtNum(p.cantidad)} ${escHtml(p.unidadBase||'')}</td>
+      <td class="compare-val">${fmtCRC(p.monto)}</td>
+      <td class="compare-val">${p.nCompras}</td>
+      <td class="compare-val">${fmtCRC(p.precioProm)}</td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="no-alerts">Sin datos en el rango filtrado.</div></td></tr>`;
+
+  const porCategoria = {};
+  detalle.forEach(l => {
+    if (!porCategoria[l.categoria]) porCategoria[l.categoria] = { monto: 0, nLineas: 0, productos: new Set() };
+    porCategoria[l.categoria].monto += l.costoLinea;
+    porCategoria[l.categoria].nLineas++;
+    porCategoria[l.categoria].productos.add(l.productoId);
+  });
+  const filasCat = Object.entries(porCategoria).map(([nombre,c]) => ({ nombre, ...c })).sort((a,b) => b.monto - a.monto);
+  const bodyCat = document.getElementById('cant-categoria-body');
+  bodyCat.innerHTML = filasCat.length ? filasCat.map(c => `
+    <tr>
+      <td>${escHtml(c.nombre)}</td>
+      <td class="compare-val">${fmtCRC(c.monto)}</td>
+      <td class="compare-val">${c.productos.size}</td>
+      <td class="compare-val">${c.nLineas}</td>
+      <td class="compare-val">${montoTotal > 0 ? (c.monto/montoTotal*100).toFixed(1) : '0.0'}%</td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>`;
+
+  renderGraficoMontoMensual(detalle);
+  renderSelectorCantidad(filasPorCantidad);
+}
+
+function renderGraficoMontoMensual(detalle) {
+  const wrap = document.getElementById('cant-chart-monto-wrap');
+  if (!detalle.length) { wrap.innerHTML = '<div class="no-alerts">Sin datos para graficar.</div>'; return; }
+  const porMes = {};
+  detalle.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.costoLinea; });
+  const meses = Object.keys(porMes).sort();
+  wrap.innerHTML = svgLineChart(meses.map(nombreMes), [{ nombre:'Compras', color:'var(--blue)', puntos: meses.map(m => porMes[m]) }], v => fmtCRC(v));
+}
+
+function renderSelectorCantidad(filasPorCantidad) {
+  const sel = document.getElementById('cant-selector');
+  if (!filasPorCantidad.length) {
+    sel.innerHTML = '<option value="">Sin productos</option>';
+    document.getElementById('cant-chart-producto-wrap').innerHTML = '<div class="no-alerts">Sin datos para graficar.</div>';
+    return;
+  }
+  const previo = sel.value;
+  const actual = previo && filasPorCantidad.some(f => f.pid === previo) ? previo : filasPorCantidad[0].pid;
+  sel.innerHTML = filasPorCantidad.map(f => `<option value="${f.pid}" ${f.pid===actual?'selected':''}>${escHtml(f.nombre)}</option>`).join('');
+  renderGraficoCantidadProducto(actual);
+}
+
+function seleccionarProductoCantidad(pid) {
+  showTab('cantidades', document.querySelector('.tab-btn[onclick*="cantidades"]'));
+  const sel = document.getElementById('cant-selector');
+  sel.value = pid;
+  renderGraficoCantidadProducto(pid);
+  sel.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+function renderGraficoCantidadProducto(pid) {
+  const info = CANTIDAD_DATA[pid];
+  const wrap = document.getElementById('cant-chart-producto-wrap');
+  if (!info || !info.lineas.length) { wrap.innerHTML = '<div class="no-alerts">Sin datos.</div>'; return; }
+  const porMes = {};
+  info.lineas.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.cantidadBase; });
+  const meses = Object.keys(porMes).sort();
+  const unidad = info.unidadBase || '';
+  wrap.innerHTML = svgLineChart(meses.map(nombreMes), [{ nombre: info.nombre, color:'var(--amber)', puntos: meses.map(m => porMes[m]) }], v => fmtNum(v) + ' ' + unidad);
+}
+
+cargarTodo();
+</script>
+</body>
+</html>
