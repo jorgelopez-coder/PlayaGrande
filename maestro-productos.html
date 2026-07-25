@@ -67,6 +67,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .mp-noaplica{opacity:.55}
 .mp-aplica-sel{min-width:90px}
 .mp-manual-toggle{display:flex;align-items:center;gap:8px}
+.mp-bulkbar{display:none;align-items:center;gap:12px;flex-wrap:wrap;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:9px;padding:9px 14px;margin-bottom:1rem;font-size:12.5px}
+.mp-bulkbar.show{display:flex}
+.mp-bulkbar b{color:var(--green)}
+.mp-chk{width:15px;height:15px;cursor:pointer;accent-color:var(--green)}
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
@@ -155,6 +159,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <div class="card">
+  <div class="mp-bulkbar" id="mp-bulkbar">
+    <span><b id="mp-bulk-count">0</b> seleccionados</span>
+    <button class="btn-sm" onclick="marcarAplicaLote('Sí')">Marcar: Aplica Sí</button>
+    <button class="btn-sm" onclick="marcarAplicaLote('No')">Marcar: No aplica (servicio)</button>
+    <button class="btn-sm" onclick="limpiarSeleccion()">Deseleccionar todo</button>
+  </div>
   <div class="stock-table-wrap"><div id="mp-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
 
@@ -188,6 +198,7 @@ document.getElementById('date-chip').textContent =
 
 let MAESTRO = [];
 let FILTRADOS = [];
+let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de filtro/búsqueda
 
 // ── GVIZ: leer hoja pública del Sheet (igual que cuentas-por-pagar.html) ──
 function gvizLoad(hoja, expectedCol) {
@@ -284,15 +295,19 @@ function renderMaestro() {
     return;
   }
 
+  const todosVisiblesSeleccionados = FILTRADOS.length > 0 && FILTRADOS.every(m => SELECCIONADOS.has(m.clave));
+
   cont.innerHTML = `
     <table class="stock-table">
       <thead><tr>
+        <th><input type="checkbox" class="mp-chk" id="mp-chk-all" ${todosVisiblesSeleccionados?'checked':''} onchange="toggleTodos(this.checked)"/></th>
         <th>Proveedor</th><th>Nombre en factura</th><th>Veces</th>
         <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th></th>
       </tr></thead>
       <tbody>
         ${FILTRADOS.map((m, idx) => `
           <tr class="${m.aplica==='No'?'mp-noaplica':''}">
+            <td><input type="checkbox" class="mp-chk" ${SELECCIONADOS.has(m.clave)?'checked':''} onchange="toggleSeleccion(${idx}, this.checked)"/></td>
             <td>${escHtml(m.proveedor||'—')}</td>
             <td>${escHtml(m.nombreFactura)}</td>
             <td>${fmtNum(m.vecesVisto)}</td>
@@ -309,6 +324,51 @@ function renderMaestro() {
           </tr>`).join('')}
       </tbody>
     </table>`;
+
+  actualizarBulkBar();
+}
+
+function toggleSeleccion(idx, checked) {
+  const item = FILTRADOS[idx];
+  if (!item) return;
+  if (checked) SELECCIONADOS.add(item.clave); else SELECCIONADOS.delete(item.clave);
+  actualizarBulkBar();
+  const chkAll = document.getElementById('mp-chk-all');
+  if (chkAll) chkAll.checked = FILTRADOS.length > 0 && FILTRADOS.every(m => SELECCIONADOS.has(m.clave));
+}
+
+function toggleTodos(checked) {
+  FILTRADOS.forEach(m => { if (checked) SELECCIONADOS.add(m.clave); else SELECCIONADOS.delete(m.clave); });
+  renderMaestro();
+}
+
+function limpiarSeleccion() {
+  SELECCIONADOS.clear();
+  renderMaestro();
+}
+
+function actualizarBulkBar() {
+  const bar = document.getElementById('mp-bulkbar');
+  document.getElementById('mp-bulk-count').textContent = SELECCIONADOS.size;
+  bar.classList.toggle('show', SELECCIONADOS.size > 0);
+}
+
+async function marcarAplicaLote(valor) {
+  if (!SELECCIONADOS.size) return;
+  const claves = Array.from(SELECCIONADOS);
+  const bar = document.getElementById('mp-bulkbar');
+  bar.querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    const r = await postAP({ modulo:'maestro_guardar_aplica_lote', claves: claves, aplica: valor });
+    MAESTRO.forEach(m => { if (SELECCIONADOS.has(m.clave)) m.aplica = valor; });
+    showToast(`${r.marcadas} fila(s) marcada(s) como "${valor==='No'?'No aplica':'Aplica'}" ✓`);
+    SELECCIONADOS.clear();
+    renderMaestro();
+  } catch (e) {
+    showToast('No se pudo guardar en lote — ' + e.message, 'error');
+  } finally {
+    bar.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
 }
 
 async function guardarFila(idx) {

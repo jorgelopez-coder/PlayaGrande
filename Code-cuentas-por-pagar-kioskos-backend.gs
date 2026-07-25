@@ -193,6 +193,9 @@ function doPost(e) {
       case 'maestro_guardar_aplica':
         result = guardarAplicaMaestro(payload);
         break;
+      case 'maestro_guardar_aplica_lote':
+        result = guardarAplicaMaestroLote(payload);
+        break;
       case 'maestro_agregar_manual':
         result = agregarManualMaestro(payload);
         break;
@@ -699,6 +702,29 @@ function guardarAplicaMaestro(p) {
   hoja.getRange(fila, columnaPorNombre(hoja, 'Aplica')).setValue(aplica);
   hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(new Date());
   return { fila: fila, aplica: aplica };
+}
+
+// Igual que guardarAplicaMaestro() pero para varias filas de un saque —
+// evita una llamada al Web App por cada checkbox tildado cuando el usuario
+// selecciona varios servicios/productos a la vez y marca "Aplica" en lote.
+// No corta ante la primera clave no encontrada: sigue con el resto y al
+// final informa cuántas sí se marcaron.
+function guardarAplicaMaestroLote(p) {
+  if (!Array.isArray(p.claves) || !p.claves.length) throw new Error('Falta indicar cuáles filas marcar.');
+  const aplica = p.aplica === 'No' ? 'No' : 'Sí';
+  const hoja = getHojaMaestro();
+  const colAplica = columnaPorNombre(hoja, 'Aplica');
+  const ahora = new Date();
+  let marcadas = 0;
+  p.claves.forEach(function(clave) {
+    const fila = filaMaestroPorClave_(hoja, clave);
+    if (fila === -1) return;
+    hoja.getRange(fila, colAplica).setValue(aplica);
+    hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+    marcadas++;
+  });
+  if (!marcadas) throw new Error('No se encontró ninguna de esas filas (sincronizá de nuevo).');
+  return { marcadas: marcadas, aplica: aplica };
 }
 
 // Agrega un producto a mano al Maestro, sin esperar a que aparezca en una
