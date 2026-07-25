@@ -34,6 +34,7 @@ main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
 .field{margin-bottom:1rem}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 input[type=text],select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
@@ -63,9 +64,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .mp-input{min-width:190px}
 .mp-counts{display:flex;gap:18px;font-size:12.5px;color:var(--muted);margin-bottom:1rem;flex-wrap:wrap}
 .mp-counts b{font-weight:700}
+.mp-noaplica{opacity:.55}
+.mp-aplica-sel{min-width:90px}
+.mp-manual-toggle{display:flex;align-items:center;gap:8px}
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
-  .field-row{grid-template-columns:1fr}
+  .field-row,.field-row-3{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -99,9 +103,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="mp-counts">
     <span>Pendientes: <b id="mp-count-pendientes" style="color:var(--amber)">0</b></span>
     <span>Confirmados: <b id="mp-count-confirmados" style="color:var(--green)">0</b></span>
+    <span>No aplica: <b id="mp-count-noaplica" style="color:var(--muted)">0</b></span>
     <span>Total: <b id="mp-count-total">0</b></span>
   </div>
-  <div class="field-row">
+  <div class="field-row-3">
     <div class="field"><label>Buscar</label><input type="text" id="mp-buscar" placeholder="proveedor o producto…" oninput="renderMaestro()"/></div>
     <div class="field"><label>Estado</label>
       <select id="mp-estado" onchange="renderMaestro()">
@@ -110,6 +115,42 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <option value="">Todos</option>
       </select>
     </div>
+    <div class="field"><label>Aplica</label>
+      <select id="mp-aplica" onchange="renderMaestro()">
+        <option value="" selected>Todos</option>
+        <option value="Sí">Solo los que aplican</option>
+        <option value="No">Solo "No aplica"</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Agregar producto manual</p>
+    <button class="btn-sm" id="btn-manual-toggle" onclick="toggleManual()">+ Agregar producto</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem" id="mp-manual-hint">
+    Para productos que todavía no aparecieron en ninguna factura procesada (o que nunca van a venir por factura)
+    pero igual necesitás tener en el maestro para Recetas/Inventario/Análisis.
+  </p>
+  <div id="mp-manual-form" style="display:none">
+    <div class="field-row-3">
+      <div class="field"><label>Nombre estándar *</label><input type="text" id="mf-nombre" placeholder="ej: Cerveza artesanal IPA 355ml"/></div>
+      <div class="field"><label>Proveedor</label><input type="text" id="mf-proveedor" placeholder="opcional"/></div>
+      <div class="field"><label>Categoría</label><input type="text" id="mf-categoria" placeholder="opcional"/></div>
+    </div>
+    <div class="field-row-3">
+      <div class="field"><label>Unidad</label><input type="text" id="mf-unidad" placeholder="ej: unidad, kg, litro"/></div>
+      <div class="field"><label>Nombre en factura (si es distinto)</label><input type="text" id="mf-nombre-factura" placeholder="opcional"/></div>
+      <div class="field"><label>Aplica</label>
+        <select id="mf-aplica">
+          <option value="Sí" selected>Sí</option>
+          <option value="No">No (servicio, no mapear)</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-sm" id="btn-manual-guardar" onclick="guardarManual()">Guardar producto</button>
   </div>
 </div>
 
@@ -207,7 +248,8 @@ async function cargarMaestro() {
       vecesVisto: Number(r['Veces visto']) || 0,
       propuesta: r['Propuesta automática'] || '',
       nombreEstandar: r['Nombre Estándar'] || '',
-      estado: r['Estado'] || 'Pendiente'
+      estado: r['Estado'] || 'Pendiente',
+      aplica: r['Aplica'] === 'No' ? 'No' : 'Sí'
     }));
     renderMaestro();
   } catch (e) {
@@ -218,20 +260,23 @@ async function cargarMaestro() {
 function renderMaestro() {
   const q = document.getElementById('mp-buscar').value.trim().toLowerCase();
   const estadoSel = document.getElementById('mp-estado').value;
+  const aplicaSel = document.getElementById('mp-aplica').value;
 
   FILTRADOS = MAESTRO.filter(m => {
     if (estadoSel && m.estado !== estadoSel) return false;
+    if (aplicaSel && m.aplica !== aplicaSel) return false;
     if (!q) return true;
     return (m.proveedor + ' ' + m.nombreFactura + ' ' + m.nombreEstandar).toLowerCase().includes(q);
   }).sort((a,b) => (b.vecesVisto - a.vecesVisto) || a.proveedor.localeCompare(b.proveedor));
 
   document.getElementById('mp-count-pendientes').textContent = MAESTRO.filter(m=>m.estado==='Pendiente').length;
   document.getElementById('mp-count-confirmados').textContent = MAESTRO.filter(m=>m.estado==='Confirmado').length;
+  document.getElementById('mp-count-noaplica').textContent = MAESTRO.filter(m=>m.aplica==='No').length;
   document.getElementById('mp-count-total').textContent = MAESTRO.length;
 
   const cont = document.getElementById('mp-lista');
   if (!MAESTRO.length) {
-    cont.innerHTML = '<div class="empty-state">Todavía no hay nada acá. Tocá "Sincronizar desde facturas" para traer los productos vistos en Desglose_IA.</div>';
+    cont.innerHTML = '<div class="empty-state">Todavía no hay nada acá. Tocá "Sincronizar desde facturas" para traer los productos vistos en Desglose_IA, o agregá uno a mano arriba.</div>';
     return;
   }
   if (!FILTRADOS.length) {
@@ -243,17 +288,23 @@ function renderMaestro() {
     <table class="stock-table">
       <thead><tr>
         <th>Proveedor</th><th>Nombre en factura</th><th>Veces</th>
-        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th></th>
+        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th></th>
       </tr></thead>
       <tbody>
         ${FILTRADOS.map((m, idx) => `
-          <tr>
+          <tr class="${m.aplica==='No'?'mp-noaplica':''}">
             <td>${escHtml(m.proveedor||'—')}</td>
             <td>${escHtml(m.nombreFactura)}</td>
             <td>${fmtNum(m.vecesVisto)}</td>
             <td class="mp-propuesta">${escHtml(m.propuesta||'—')}</td>
             <td><input type="text" class="mp-input" id="mp-input-${idx}" value="${escapeAttr(m.nombreEstandar || m.propuesta)}" placeholder="Nombre estándar"/></td>
             <td><span class="badge badge-${m.estado==='Confirmado'?'aplicada':'pendiente'}">${m.estado}</span></td>
+            <td>
+              <select class="mp-aplica-sel" id="mp-aplica-${idx}" onchange="guardarAplica(${idx})">
+                <option value="Sí" ${m.aplica==='Sí'?'selected':''}>Sí</option>
+                <option value="No" ${m.aplica==='No'?'selected':''}>No, es servicio</option>
+              </select>
+            </td>
             <td style="white-space:nowrap"><button class="btn-sm" onclick="guardarFila(${idx})">Guardar</button></td>
           </tr>`).join('')}
       </tbody>
@@ -277,6 +328,63 @@ async function guardarFila(idx) {
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
     btn.disabled = false;
+  }
+}
+
+async function guardarAplica(idx) {
+  const item = FILTRADOS[idx];
+  const sel = document.getElementById('mp-aplica-' + idx);
+  if (!item) return;
+  const valor = sel.value === 'No' ? 'No' : 'Sí';
+  sel.disabled = true;
+  try {
+    await postAP({ modulo:'maestro_guardar_aplica', clave: item.clave, aplica: valor });
+    item.aplica = valor;
+    showToast(valor === 'No' ? 'Marcado como "No aplica" ✓' : 'Marcado como "Aplica" ✓');
+    renderMaestro();
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+    sel.value = item.aplica;
+  } finally {
+    sel.disabled = false;
+  }
+}
+
+function toggleManual() {
+  const form = document.getElementById('mp-manual-form');
+  const abierto = form.style.display !== 'none';
+  form.style.display = abierto ? 'none' : 'block';
+  document.getElementById('btn-manual-toggle').textContent = abierto ? '+ Agregar producto' : 'Cancelar';
+  if (!abierto) document.getElementById('mf-nombre').focus();
+}
+
+async function guardarManual() {
+  const nombre = document.getElementById('mf-nombre').value.trim();
+  if (!nombre) { showToast('Escribí el nombre estándar del producto', 'error'); return; }
+
+  const payload = {
+    modulo: 'maestro_agregar_manual',
+    nombre_estandar: nombre,
+    proveedor: document.getElementById('mf-proveedor').value.trim(),
+    categoria: document.getElementById('mf-categoria').value.trim(),
+    unidad: document.getElementById('mf-unidad').value.trim(),
+    nombre_factura: document.getElementById('mf-nombre-factura').value.trim(),
+    aplica: document.getElementById('mf-aplica').value
+  };
+
+  const btn = document.getElementById('btn-manual-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    await postAP(payload);
+    showToast('Producto agregado ✓');
+    ['mf-nombre','mf-proveedor','mf-categoria','mf-unidad','mf-nombre-factura'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mf-aplica').value = 'Sí';
+    toggleManual();
+    await cargarMaestro();
+  } catch (e) {
+    showToast('No se pudo agregar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar producto';
   }
 }
 

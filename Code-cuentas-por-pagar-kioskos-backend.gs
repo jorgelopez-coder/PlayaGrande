@@ -32,6 +32,17 @@
  * hoy: pegá el código completo de nuevo, corré UNA VEZ configurarHojas() para
  * que se cree la pestaña nueva, y Implementar > Gestionar implementaciones >
  * Editar > Nueva versión (la URL /exec no cambia).
+ *
+ * v3 (2026-07-25, mismo día): se agrega a Maestro_Productos el campo "Aplica"
+ * (Sí/No) — para marcar líneas de factura que son servicios u otros conceptos
+ * que no hace falta homologar como producto — y la opción de agregar un
+ * producto a mano (sin que venga de una factura ya procesada), pensando en
+ * que este listado va a alimentar Recetas/Inventario/Análisis más adelante.
+ * La columna "Aplica" se crea SOLA la primera vez que se use (mismo mecanismo
+ * de columnaPorNombre() que ya usan las columnas opcionales de Registro
+ * Facturas), así que no hace falta editar el Sheet a mano ni corre riesgo de
+ * desalinear columnas existentes si Maestro_Productos ya tiene filas. Alcanza
+ * con pegar el código completo de nuevo e Implementar > Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -105,8 +116,12 @@ const MAESTRO_COL = {
 const MAESTRO_ENCABEZADOS = [
   'Clave', 'Proveedor', 'Nombre en Factura', 'Categoría', 'Unidad',
   'Veces visto', 'Primera vez', 'Última vez', 'Propuesta automática',
-  'Nombre Estándar', 'Estado', 'Actualizado'
+  'Nombre Estándar', 'Estado', 'Actualizado', 'Aplica'
 ];
+// "Aplica" (Sí/No) queda fuera de MAESTRO_COL a propósito: se resuelve con
+// columnaPorNombre() en vez de una posición fija, para que se pueda crear
+// sola en un Sheet que ya tenga filas (líneas de servicios/conceptos que no
+// hace falta homologar como producto se marcan en "No").
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -174,6 +189,12 @@ function doPost(e) {
         break;
       case 'maestro_guardar':
         result = guardarMaestro(payload);
+        break;
+      case 'maestro_guardar_aplica':
+        result = guardarAplicaMaestro(payload);
+        break;
+      case 'maestro_agregar_manual':
+        result = agregarManualMaestro(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
@@ -631,6 +652,11 @@ function sincronizarMaestro() {
         g.categorias.length, primera, ultima, propuesta,
         '', 'Pendiente', ahora
       ]);
+      // Fila nueva por sync (viene de una factura): "Aplica" arranca en "Sí"
+      // por defecto. Si ya existía, no se toca (igual que Nombre Estándar/
+      // Estado) para no pisar una fila que el usuario ya marcó "No" a mano.
+      const filaNueva = hojaMaestro.getLastRow();
+      hojaMaestro.getRange(filaNueva, columnaPorNombre(hojaMaestro, 'Aplica')).setValue('Sí');
       nuevos++;
     }
   });
@@ -658,4 +684,47 @@ function guardarMaestro(p) {
   hoja.getRange(fila, MAESTRO_COL.ESTADO).setValue(p.estado || 'Confirmado');
   hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(new Date());
   return { fila: fila };
+}
+
+// Marca una fila existente como "Aplica: Sí/No" — para las líneas que
+// resultan ser servicios u otros conceptos que no hace falta homologar como
+// producto (fletes, comisiones, servicios profesionales, etc.). Se guarda
+// sola, sin tocar Nombre Estándar/Estado.
+function guardarAplicaMaestro(p) {
+  if (!p.clave) throw new Error('Falta la clave del producto.');
+  const aplica = p.aplica === 'No' ? 'No' : 'Sí';
+  const hoja = getHojaMaestro();
+  const fila = filaMaestroPorClave_(hoja, p.clave);
+  if (fila === -1) throw new Error('No se encontró ese producto en el Maestro (sincronizá de nuevo).');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Aplica')).setValue(aplica);
+  hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(new Date());
+  return { fila: fila, aplica: aplica };
+}
+
+// Agrega un producto a mano al Maestro, sin esperar a que aparezca en una
+// factura ya procesada por Desglose_IA. Usa la misma clave (Proveedor +
+// Nombre en Factura normalizados) que sincronizarMaestro(), así que si más
+// adelante llega una factura con ese mismo texto, sincronizar la va a
+// reconocer como la misma fila en vez de duplicarla.
+function agregarManualMaestro(p) {
+  if (!p.nombre_estandar) throw new Error('Falta el nombre del producto.');
+  const proveedor = p.proveedor || '';
+  const nombreFactura = p.nombre_factura || p.nombre_estandar;
+  const clave = claveMaestro_(proveedor, nombreFactura);
+
+  const hoja = getHojaMaestro();
+  if (filaMaestroPorClave_(hoja, clave) !== -1) {
+    throw new Error('Ya existe un producto con ese proveedor + nombre. Buscalo en la lista y editalo ahí.');
+  }
+
+  const ahora = new Date();
+  hoja.appendRow([
+    clave, proveedor, nombreFactura, p.categoria || '', p.unidad || '',
+    0, '', '', '', p.nombre_estandar, 'Confirmado', ahora
+  ]);
+  const fila = hoja.getLastRow();
+  const aplica = p.aplica === 'No' ? 'No' : 'Sí';
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Aplica')).setValue(aplica);
+
+  return { clave: clave, fila: fila };
 }
