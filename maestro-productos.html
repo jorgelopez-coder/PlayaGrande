@@ -128,8 +128,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     La <b>propuesta automática</b> es el nombre que ya generó la IA al leer la factura (o una limpieza básica
     si esa factura no trajo ninguna); ajustala si hace falta y guardá el <b>Nombre Estándar</b> que se va a
     usar de acá en adelante para ese producto en toda la operación. "Sincronizar" trae los productos nuevos
-    sin tocar los que ya confirmaste. Esta pantalla también es el catálogo de productos: abrí la
-    <b>🏷️ Ficha</b> de cada uno para cargar precio, costo y en qué kioskos se vende.
+    sin tocar los que ya confirmaste. Para cargar precio, costo y en qué kioskos se vende cada uno,
+    andá a la sección <b>Fichas de producto</b> más abajo.
   </p>
   <div class="mp-counts">
     <span>Pendientes: <b id="mp-count-pendientes" style="color:var(--amber)">0</b></span>
@@ -195,6 +195,34 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="stock-table-wrap"><div id="mp-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
 
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Fichas de producto</p>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Acá cargás precio, costo, presentación y en qué kioskos se vende cada producto ya confirmado
+    (los marcados "No aplica" arriba no aparecen porque son servicios, no productos). El
+    <b>precio de compra se prellena solo</b> con el último precio visto en las facturas registradas
+    (Desglose_IA) — ajustalo si hace falta antes de guardar.
+  </p>
+  <div class="mp-counts">
+    <span>Con ficha completa: <b id="pf-count-completas" style="color:var(--green)">0</b></span>
+    <span>Pendientes de ficha: <b id="pf-count-pendientes" style="color:var(--amber)">0</b></span>
+    <span>Total: <b id="pf-count-total">0</b></span>
+  </div>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar</label><input type="text" id="pf-buscar" placeholder="proveedor o producto…" oninput="renderFichas()"/></div>
+    <div class="field"><label>Estado de ficha</label>
+      <select id="pf-filtro-estado" onchange="renderFichas()">
+        <option value="" selected>Todos</option>
+        <option value="pendiente">Pendientes</option>
+        <option value="completa">Completas</option>
+      </select>
+    </div>
+  </div>
+  <div class="stock-table-wrap"><div id="pf-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
+
 </main>
 
 <div class="modal-overlay" id="modal-ficha">
@@ -236,7 +264,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="section-label">Compra y costo</div>
       <div class="suggest-box" id="ficha-sugerencia" style="display:none">
         <span>💡 Costo sugerido: <b id="ficha-sugerencia-txt">—</b></span>
-        <button class="btn-sm" type="button" onclick="usarSugerenciaCosto()">Usar esta sugerencia</button>
+        <button class="btn-sm" type="button" id="ficha-sugerencia-btn" onclick="usarSugerenciaCosto()">Usar esta sugerencia</button>
       </div>
       <div class="field-row">
         <div class="field"><label>Moneda del precio</label>
@@ -320,6 +348,7 @@ document.getElementById('date-chip').textContent =
 
 let MAESTRO = [];
 let FILTRADOS = [];
+let FICHAS_FILTRADOS = []; // fila visible en la sección "Fichas de producto"
 let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de filtro/búsqueda
 let FICHA_EN_EDICION = null; // clave del producto abierto en el modal de ficha
 
@@ -399,11 +428,13 @@ async function cargarMaestro() {
       activo: r['Activo'] === false ? false : true,
       fichaActualizada: r['Ficha actualizada'] || ''
     }));
-    renderMaestro();
+    renderTodo();
   } catch (e) {
     document.getElementById('mp-lista').innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`;
   }
 }
+
+function renderTodo() { renderMaestro(); renderFichas(); }
 
 function renderMaestro() {
   const q = document.getElementById('mp-buscar').value.trim().toLowerCase();
@@ -439,7 +470,7 @@ function renderMaestro() {
       <thead><tr>
         <th><input type="checkbox" class="mp-chk" id="mp-chk-all" ${todosVisiblesSeleccionados?'checked':''} onchange="toggleTodos(this.checked)"/></th>
         <th>Proveedor</th><th>Nombre en factura</th><th>Veces</th>
-        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th>Ficha</th><th></th>
+        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th></th>
       </tr></thead>
       <tbody>
         ${FILTRADOS.map((m, idx) => `
@@ -457,15 +488,62 @@ function renderMaestro() {
                 <option value="No" ${m.aplica==='No'?'selected':''}>No, es servicio</option>
               </select>
             </td>
-            <td>${m.aplica==='No' ? '<span class="mp-ficha-pend">—</span>' :
-              `<button class="btn-sm mp-ficha-btn" onclick="abrirFicha(${idx})">🏷️ ${m.fichaActualizada?'Editar':'Ficha'}</button>
-               ${m.fichaActualizada?'<div class="mp-ficha-ok" style="font-size:11px;margin-top:3px">✓ completa</div>':''}`}</td>
             <td style="white-space:nowrap"><button class="btn-sm" onclick="guardarFila(${idx})">Guardar</button></td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 
   actualizarBulkBar();
+}
+
+// ── Sección aparte: Fichas de producto (precio, costo, kioskos) ───
+function renderFichas() {
+  const contEl = document.getElementById('pf-lista');
+  if (!contEl) return; // todavía no cargó el DOM de esta sección
+  const q = document.getElementById('pf-buscar').value.trim().toLowerCase();
+  const filtroEstado = document.getElementById('pf-filtro-estado').value;
+
+  const candidatos = MAESTRO.filter(m => m.aplica === 'Sí');
+  FICHAS_FILTRADOS = candidatos.filter(m => {
+    if (filtroEstado === 'completa' && !m.fichaActualizada) return false;
+    if (filtroEstado === 'pendiente' && m.fichaActualizada) return false;
+    if (!q) return true;
+    return (m.proveedor + ' ' + (m.nombreEstandar || m.nombreFactura) + ' ' + m.categoria).toLowerCase().includes(q);
+  }).sort((a, b) => (a.nombreEstandar || a.nombreFactura).localeCompare(b.nombreEstandar || b.nombreFactura));
+
+  document.getElementById('pf-count-completas').textContent = candidatos.filter(m => m.fichaActualizada).length;
+  document.getElementById('pf-count-pendientes').textContent = candidatos.filter(m => !m.fichaActualizada).length;
+  document.getElementById('pf-count-total').textContent = candidatos.length;
+
+  if (!candidatos.length) {
+    contEl.innerHTML = '<div class="empty-state">Todavía no hay productos confirmados con "Aplica: Sí". Confirmá nombres arriba en Homologación primero.</div>';
+    return;
+  }
+  if (!FICHAS_FILTRADOS.length) {
+    contEl.innerHTML = '<div class="empty-state">Sin resultados para ese filtro/búsqueda.</div>';
+    return;
+  }
+
+  contEl.innerHTML = `
+    <table class="stock-table">
+      <thead><tr>
+        <th>Proveedor</th><th>Producto</th><th>Categoría</th><th>Costo por unidad</th><th>Kioskos</th><th>Ficha</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${FICHAS_FILTRADOS.map(m => `
+          <tr>
+            <td>${escHtml(m.proveedor || '—')}</td>
+            <td>${escHtml(m.nombreEstandar || m.nombreFactura)}</td>
+            <td>${escHtml(m.categoria || '—')}</td>
+            <td>${m.costoPorUnidad ? fmtColones(m.costoPorUnidad) : '—'}</td>
+            <td>${escHtml(m.kioskosFicha && m.kioskosFicha !== 'Todos' ? m.kioskosFicha : 'Todos')}</td>
+            <td>${m.fichaActualizada
+              ? '<span class="mp-ficha-ok">✓ completa</span>'
+              : '<span class="mp-ficha-pend">Pendiente</span>'}</td>
+            <td style="white-space:nowrap"><button class="btn-sm mp-ficha-btn" onclick="abrirFicha('${escapeAttr(m.clave)}')">🏷️ ${m.fichaActualizada ? 'Editar' : 'Completar ficha'}</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 function toggleSeleccion(idx, checked) {
@@ -503,7 +581,7 @@ async function marcarAplicaLote(valor) {
     MAESTRO.forEach(m => { if (SELECCIONADOS.has(m.clave)) m.aplica = valor; });
     showToast(`${r.marcadas} fila(s) marcada(s) como "${valor==='No'?'No aplica':'Aplica'}" ✓`);
     SELECCIONADOS.clear();
-    renderMaestro();
+    renderTodo();
   } catch (e) {
     showToast('No se pudo guardar en lote — ' + e.message, 'error');
   } finally {
@@ -524,7 +602,7 @@ async function guardarFila(idx) {
     item.nombreEstandar = valor;
     item.estado = 'Confirmado';
     showToast('Guardado ✓');
-    renderMaestro();
+    renderTodo();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
     btn.disabled = false;
@@ -541,7 +619,7 @@ async function guardarAplica(idx) {
     await postAP({ modulo:'maestro_guardar_aplica', clave: item.clave, aplica: valor });
     item.aplica = valor;
     showToast(valor === 'No' ? 'Marcado como "No aplica" ✓' : 'Marcado como "Aplica" ✓');
-    renderMaestro();
+    renderTodo();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
     sel.value = item.aplica;
@@ -647,16 +725,22 @@ function actualizarCostoFichaPreview() {
 }
 
 // Costo sugerido: viene calculado por el sync (última línea de Desglose_IA
-// vista para esa clave, ver sincronizarMaestro() en el backend). Acá solo se
-// muestra y, si el usuario acepta, se copia al campo Precio + Moneda.
-function mostrarSugerenciaFicha(m) {
+// vista para esa clave, ver sincronizarMaestro() en el backend). Si la ficha
+// todavía no tenía un precio guardado, abrirFicha() ya lo prellenó solo en
+// el campo Precio + Moneda; este cuadro queda como referencia y, cuando la
+// ficha SÍ tenía un precio guardado, ofrece el botón para pisarlo con el
+// último precio de factura.
+function mostrarSugerenciaFicha(m, autoAplicado) {
   const box = document.getElementById('ficha-sugerencia');
+  const btn = document.getElementById('ficha-sugerencia-btn');
   if (!m.costoSugerido) { box.style.display = 'none'; return; }
   const moneda = m.monedaSugerida === 'USD' ? 'US$' : '₡';
   const fecha = m.fechaUltimaCompra ? new Date(m.fechaUltimaCompra).toLocaleDateString('es-CR') : '';
   document.getElementById('ficha-sugerencia-txt').textContent =
+    (autoAplicado ? '✓ Precio prellenado — ' : '') +
     `${moneda}${Number(m.costoSugerido).toLocaleString('es-CR',{maximumFractionDigits:2})}` +
-    (fecha ? ` — última factura del ${fecha}` : '');
+    (fecha ? ` (última factura del ${fecha})` : '');
+  btn.style.display = autoAplicado ? 'none' : '';
   box.style.display = 'flex';
 }
 function usarSugerenciaCosto() {
@@ -668,8 +752,8 @@ function usarSugerenciaCosto() {
   actualizarCostoFichaPreview();
 }
 
-function abrirFicha(idx) {
-  const m = FILTRADOS[idx];
+function abrirFicha(clave) {
+  const m = MAESTRO.find(x => x.clave === clave);
   if (!m) return;
   FICHA_EN_EDICION = m.clave;
   poblarDatalistsFicha();
@@ -682,16 +766,24 @@ function abrirFicha(idx) {
   document.getElementById('fi-area').value = m.area || '';
   document.getElementById('fi-presentacion').value = m.presentacion || '';
   document.getElementById('fi-tamano').value = m.tamano || '';
-  document.getElementById('fi-moneda').value = 'CRC';
+
+  // Precio de compra: si la ficha ya tenía un precio guardado a mano, se
+  // respeta. Si es la primera vez que se completa, se prellena solo con el
+  // costo sugerido (último precio visto en las facturas registradas).
+  const tienePrecioGuardado = !!m.precioSinIva;
+  const hayCostoSugerido = !!m.costoSugerido;
+  const prellenarConSugerido = !tienePrecioGuardado && hayCostoSugerido;
+  const monedaInicial = prellenarConSugerido && m.monedaSugerida === 'USD' ? 'USD' : 'CRC';
+  document.getElementById('fi-moneda').value = monedaInicial;
   document.getElementById('fi-tc').value = '';
-  document.getElementById('fi-wrap-tc').style.display = 'none';
-  document.getElementById('fi-lbl-precio').textContent = 'Precio sin IVA (₡)';
-  document.getElementById('fi-precio').value = m.precioSinIva || '';
+  document.getElementById('fi-wrap-tc').style.display = monedaInicial === 'USD' ? '' : 'none';
+  document.getElementById('fi-lbl-precio').textContent = monedaInicial === 'USD' ? 'Precio sin IVA (US$)' : 'Precio sin IVA (₡)';
+  document.getElementById('fi-precio').value = tienePrecioGuardado ? m.precioSinIva : (hayCostoSugerido ? m.costoSugerido : '');
   document.getElementById('fi-iva').value = m.iva !== '' ? m.iva : '';
   document.getElementById('fi-cantidad').value = m.cantidadPresentacion || '';
   document.getElementById('fi-activo').checked = m.activo !== false;
   marcarFichaKioskosEnModal(m.kioskosFicha || 'Todos');
-  mostrarSugerenciaFicha(m);
+  mostrarSugerenciaFicha(m, prellenarConSugerido);
   actualizarCostoFichaPreview();
 
   document.getElementById('modal-ficha').classList.add('open');
