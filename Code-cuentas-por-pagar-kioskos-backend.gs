@@ -23,6 +23,15 @@
  *    del plan de migración para el detalle exacto por kiosko).
  * 6. En cuentas-por-pagar.html, poné el ID de este Sheet en COMPRAS_SHEET_ID
  *    y esta URL /exec en APPS_SCRIPT_AP.
+ *
+ * v2 (2026-07-25): se agrega la pestaña "Maestro_Productos" — homologación de
+ * nombres de producto tal como vienen en las facturas (columna "Producto" de
+ * Desglose_IA) contra un "Nombre Estándar" único por producto para toda la
+ * operación. Usado por maestro-productos.html (mismo Sheet/Web App, no hace
+ * falta desplegar nada aparte). Si ya tenías este backend desplegado antes de
+ * hoy: pegá el código completo de nuevo, corré UNA VEZ configurarHojas() para
+ * que se cree la pestaña nueva, y Implementar > Gestionar implementaciones >
+ * Editar > Nueva versión (la URL /exec no cambia).
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -79,6 +88,26 @@ const PROV_ENCABEZADOS = [
   'Condición de pago', 'Notas de pago', 'Actualizado'
 ];
 
+// Maestro de Productos (v2): una fila por combinación distinta de Proveedor +
+// texto de producto visto en Desglose_IA. sincronizarMaestro() arma/actualiza
+// esta hoja a partir de Desglose_IA sin pisar nunca "Nombre Estándar" ni
+// "Estado" de una fila que el usuario ya haya confirmado a mano — solo
+// refresca los datos derivados (veces visto, fechas, categoría/unidad
+// heredadas, propuesta automática). "Clave" es Proveedor+Producto
+// normalizados (ver normalizarTextoGS) y es lo que identifica la fila para
+// guardarMaestro(), no hace falta un ID aparte.
+const HOJA_MAESTRO = 'Maestro_Productos';
+const MAESTRO_COL = {
+  CLAVE: 1, PROVEEDOR: 2, NOMBRE_FACTURA: 3, CATEGORIA: 4, UNIDAD: 5,
+  VECES_VISTO: 6, PRIMERA_VEZ: 7, ULTIMA_VEZ: 8, PROPUESTA: 9,
+  NOMBRE_ESTANDAR: 10, ESTADO: 11, ACTUALIZADO: 12
+};
+const MAESTRO_ENCABEZADOS = [
+  'Clave', 'Proveedor', 'Nombre en Factura', 'Categoría', 'Unidad',
+  'Veces visto', 'Primera vez', 'Última vez', 'Propuesta automática',
+  'Nombre Estándar', 'Estado', 'Actualizado'
+];
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cuentas por pagar')
@@ -93,6 +122,7 @@ function configurarHojas() {
   prepararHoja(HOJA_DESGLOSE, DESGLOSE_ENCABEZADOS);
   prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
   prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
+  prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -139,6 +169,12 @@ function doPost(e) {
       case 'eliminar_proveedor':
         result = eliminarProveedor(payload);
         break;
+      case 'maestro_sincronizar':
+        result = sincronizarMaestro();
+        break;
+      case 'maestro_guardar':
+        result = guardarMaestro(payload);
+        break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -170,6 +206,10 @@ function getHojaAbonos() {
 
 function getHojaProveedores() {
   return prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
+}
+
+function getHojaMaestro() {
+  return prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
 }
 
 // Busca una columna por nombre de encabezado; si no existe, la crea al final.
@@ -495,4 +535,127 @@ function eliminarProveedor(p) {
   if (fila === -1) throw new Error('No se encontró el proveedor con ID ' + p.id);
   hoja.deleteRow(fila);
   return { eliminado: p.id };
+}
+
+// ── MAESTRO DE PRODUCTOS (homologación de nombres de factura) ─────
+// Agrupa las líneas de Desglose_IA por Proveedor + texto de producto (clave
+// normalizada, sin acentos/mayúsculas/espacios extra) y arma una fila por
+// combinación distinta con una propuesta automática de nombre estándar.
+function claveMaestro_(proveedor, producto) {
+  return normalizarTextoGS(proveedor) + '§' + normalizarTextoGS(producto);
+}
+
+// Valor más frecuente de un array de strings, ignorando vacíos ('' si no hay
+// ninguno no vacío).
+function modaGS_(valores) {
+  const conteo = {};
+  let mejor = '', mejorConteo = 0;
+  valores.forEach(function(v) {
+    const s = String(v || '').trim();
+    if (!s) return;
+    conteo[s] = (conteo[s] || 0) + 1;
+    if (conteo[s] > mejorConteo) { mejorConteo = conteo[s]; mejor = s; }
+  });
+  return mejor;
+}
+
+// Fallback determinístico para cuando ninguna línea de Desglose_IA trae ya un
+// "Nombre normalizado" de IA para ese texto: capitaliza cada palabra y
+// colapsa espacios. La columna Nombre normalizado (IA) siempre gana cuando
+// existe — esto es solo un piso razonable, no reemplaza revisar a mano.
+function proponerNombreGS_(texto) {
+  const limpio = String(texto || '').trim().replace(/\s+/g, ' ');
+  if (!limpio) return '';
+  return limpio.toLowerCase().replace(/(^|\s)([a-záéíóúñ])/g, function(_, esp, letra) {
+    return esp + letra.toUpperCase();
+  });
+}
+
+function sincronizarMaestro() {
+  const hojaDesglose = getHojaDesglose();
+  const nFilas = hojaDesglose.getLastRow() - 1;
+  if (nFilas <= 0) return { nuevos: 0, actualizados: 0, total: 0 };
+
+  const datos = hojaDesglose.getRange(2, 1, nFilas, DESGLOSE_COL.KIOSKO).getValues();
+  const grupos = {}; // clave -> { proveedor, producto, categorias:[], unidades:[], normalizados:[], fechas:[] }
+
+  datos.forEach(function(fila) {
+    const proveedor = fila[DESGLOSE_COL.PROVEEDOR - 1];
+    const producto = fila[DESGLOSE_COL.PRODUCTO - 1];
+    if (!proveedor && !producto) return;
+    const clave = claveMaestro_(proveedor, producto);
+    if (!grupos[clave]) {
+      grupos[clave] = { proveedor: proveedor, producto: producto, categorias: [], unidades: [], normalizados: [], fechas: [] };
+    }
+    const g = grupos[clave];
+    g.categorias.push(fila[DESGLOSE_COL.CATEGORIA - 1]);
+    g.unidades.push(fila[DESGLOSE_COL.UNIDAD_MEDIDA - 1]);
+    g.normalizados.push(fila[DESGLOSE_COL.NOMBRE_NORMALIZADO - 1]);
+    const f = fila[DESGLOSE_COL.FECHA_FACTURA - 1];
+    if (f) g.fechas.push(f instanceof Date ? f : new Date(f));
+  });
+
+  const hojaMaestro = getHojaMaestro();
+  const nExistentes = hojaMaestro.getLastRow() - 1;
+  const existentes = {}; // clave -> número de fila
+  if (nExistentes > 0) {
+    const clavesExistentes = hojaMaestro.getRange(2, MAESTRO_COL.CLAVE, nExistentes, 1).getValues();
+    clavesExistentes.forEach(function(r, i) { if (r[0]) existentes[r[0]] = i + 2; });
+  }
+
+  let nuevos = 0, actualizados = 0;
+  const ahora = new Date();
+
+  Object.keys(grupos).forEach(function(clave) {
+    const g = grupos[clave];
+    const fechas = g.fechas.slice().sort(function(a, b) { return a - b; });
+    const primera = fechas.length ? fechas[0] : '';
+    const ultima = fechas.length ? fechas[fechas.length - 1] : '';
+    const categoria = modaGS_(g.categorias);
+    const unidad = modaGS_(g.unidades);
+    const propuesta = modaGS_(g.normalizados) || proponerNombreGS_(g.producto);
+
+    if (existentes[clave]) {
+      const fila = existentes[clave];
+      hojaMaestro.getRange(fila, MAESTRO_COL.CATEGORIA).setValue(categoria);
+      hojaMaestro.getRange(fila, MAESTRO_COL.UNIDAD).setValue(unidad);
+      hojaMaestro.getRange(fila, MAESTRO_COL.VECES_VISTO).setValue(g.categorias.length);
+      hojaMaestro.getRange(fila, MAESTRO_COL.PRIMERA_VEZ).setValue(primera);
+      hojaMaestro.getRange(fila, MAESTRO_COL.ULTIMA_VEZ).setValue(ultima);
+      hojaMaestro.getRange(fila, MAESTRO_COL.PROPUESTA).setValue(propuesta);
+      hojaMaestro.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+      actualizados++;
+    } else {
+      hojaMaestro.appendRow([
+        clave, g.proveedor, g.producto, categoria, unidad,
+        g.categorias.length, primera, ultima, propuesta,
+        '', 'Pendiente', ahora
+      ]);
+      nuevos++;
+    }
+  });
+
+  return { nuevos: nuevos, actualizados: actualizados, total: Object.keys(grupos).length };
+}
+
+function filaMaestroPorClave_(hoja, clave) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return -1;
+  const claves = hoja.getRange(2, MAESTRO_COL.CLAVE, nFilas, 1).getValues();
+  for (let i = 0; i < claves.length; i++) {
+    if (String(claves[i][0]) === String(clave)) return i + 2;
+  }
+  return -1;
+}
+
+function guardarMaestro(p) {
+  if (!p.clave) throw new Error('Falta la clave del producto.');
+  if (!p.nombre_estandar) throw new Error('Falta el nombre estándar.');
+  const hoja = getHojaMaestro();
+  const fila = filaMaestroPorClave_(hoja, p.clave);
+  if (fila === -1) throw new Error('No se encontró ese producto en el Maestro (sincronizá de nuevo).');
+  hoja.getRange(fila, MAESTRO_COL.NOMBRE_ESTANDAR).setValue(p.nombre_estandar);
+  hoja.getRange(fila, MAESTRO_COL.ESTADO).setValue(p.estado || 'Confirmado');
+  hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(new Date());
+  return { fila: fila };
 }
