@@ -176,13 +176,6 @@ select:focus{border-color:var(--green)}
           <button class="preset-btn" onclick="setPreset('anio')">Este año</button>
         </div>
       </div>
-      <div class="filtro-group">
-        <label class="grp-lbl">Estado de la compra</label>
-        <div class="chip-row" id="filtro-estado">
-          <button type="button" class="chip-btn active" data-estado="aplicada" onclick="setEstado('aplicada')">Aplicadas (en stock)</button>
-          <button type="button" class="chip-btn" data-estado="todas" onclick="setEstado('todas')">Todas (incl. pendientes)</button>
-        </div>
-      </div>
     </div>
     <div class="filtro-row">
       <div class="filtro-group" style="flex:1;min-width:220px;">
@@ -207,7 +200,7 @@ select:focus{border-color:var(--green)}
         <input type="text" id="filtro-producto-texto" placeholder="Nombre del producto…" oninput="renderAll()" style="width:100%;max-width:280px">
       </div>
     </div>
-    <p class="filtro-nota">Categorías y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha, kiosko y estado.</p>
+    <p class="filtro-nota">Categorías y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha y kiosko.</p>
     <div class="filtro-resumen" id="filtro-resumen-txt">Cargando datos…</div>
   </div>
 
@@ -220,7 +213,7 @@ select:focus{border-color:var(--green)}
         <span class="metas-toggle" id="config-meta-toggle-icon">▾ Configurar</span>
       </div>
       <div class="metas-body" id="config-meta-body" style="display:none">
-        <p class="card-sub">El objetivo es que las compras del período no superen un % de las ventas <b>sin impuestos</b>. Ajustá ambos porcentajes si cambian — se guardan en este navegador.</p>
+        <p class="card-sub">El objetivo es que las compras del período no superen un % de las ventas <b>sin impuestos</b>. Las compras se leen de la hoja Desglose_IA (facturas extraídas por IA); las que vienen en dólares se convierten a colones con el tipo de cambio de abajo. Ajustá los valores si cambian — se guardan en este navegador.</p>
         <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
           <div class="meta-field">
             <div class="meta-field-label">Meta: compras como % de ventas netas</div>
@@ -229,6 +222,10 @@ select:focus{border-color:var(--green)}
           <div class="meta-field">
             <div class="meta-field-label">% de impuestos incluido en las ventas</div>
             <input type="number" id="cfg-iva-pct" step="0.1" min="0" placeholder="23">
+          </div>
+          <div class="meta-field">
+            <div class="meta-field-label">Tipo de cambio USD → CRC</div>
+            <input type="number" id="cfg-tipo-cambio" step="0.01" min="0" placeholder="520">
           </div>
           <button class="btn-sm" onclick="guardarConfigMeta()">Guardar ✓</button>
           <span class="meta-status" id="cfg-status"></span>
@@ -274,7 +271,7 @@ select:focus{border-color:var(--green)}
         </table>
       </div>
       <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
-        Ventas: para Playa Grande y Tamarindo sale de la venta real por producto (Square); para los kioskos sin Square propio se usa "Total Ventas ₡" del cierre de caja. Compras sin kiosko asignado (facturas pendientes de aplicar) aparecen como "Sin asignar".
+        Ventas: para Playa Grande y Tamarindo sale de la venta real por producto (Square); para los kioskos sin Square propio se usa "Total Ventas ₡" del cierre de caja. Compras: se leen de la hoja Desglose_IA (facturas extraídas por IA); solo aparecen los kioskos que ya tienen el extractor de facturas instalado — hoy Playa Grande, los demás se suman automáticamente al conectarse.
       </div>
     </div>
   </div>
@@ -296,7 +293,7 @@ select:focus{border-color:var(--green)}
         </table>
       </div>
       <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
-        Precio = costo de la línea de compra ÷ cantidad en unidad base. Ordenado por mayor variación (en valor absoluto) primero. Solo incluye líneas mapeadas a un producto.
+        Precio = precio unitario de la línea de factura (antes de impuestos), tal como lo extrajo la IA; las líneas en USD se convierten a colones con el tipo de cambio configurado arriba. Ordenado por mayor variación (en valor absoluto) primero. Los productos se agrupan por "Nombre normalizado" — si la IA usó nombres distintos para el mismo producto en dos facturas, aparecerán como filas separadas.
       </div>
     </div>
 
@@ -400,10 +397,16 @@ function kioskosPermitidos(lista) {
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
 
-// ── CONFIG (mismas URLs/hojas que compras.html / analisis-ventas.html — ver README) ──
+// ── CONFIG ──────────────────────────────────────────────────────────
+// Compras: se leen directo de la hoja "Desglose_IA" del archivo central
+// "Facturas y CxP - Kioskos" (mismo archivo/hoja que ya usa
+// cuentas-por-pagar.html — ahí vive la extracción por IA línea por línea de
+// cada factura). Reemplaza el flujo anterior de Inventario v2
+// (Compras/ComprasDetalle mapeadas a mano producto por producto).
 const APPS_SCRIPT_URL    = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
-const INVENTARIO_V2_URL  = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+const COMPRAS_SHEET_ID   = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+const DESGLOSE_TAB       = 'Desglose_IA';
 const SQUARE_KIOSKOS = {
   'Playa Grande': {
     sheetId: '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA',
@@ -434,6 +437,23 @@ const MESES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
 const nombreMes = ym => { const [y,m] = ym.split('-'); return MESES_NOMBRES[parseInt(m,10)-1].slice(0,3) + ' ' + y.slice(2); };
 const agruparPorMes = fecha => String(fecha).slice(0,7);
 function escHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Convierte fechas "D/M/YYYY" (formato que devuelve gviz) a ISO "YYYY-MM-DD".
+function isoDate(str) {
+  const s = String(str||'').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return '';
+  const [, d, mo, y] = m;
+  return y + '-' + mo.padStart(2,'0') + '-' + d.padStart(2,'0');
+}
+// Limpia números que gviz puede devolver formateados (comas, símbolos).
+function limpiarNum(v) { return parseFloat(String(v==null?'':v).replace(/[,₡$\s]/g,'')) || 0; }
+// ID estable y seguro (solo [A-Za-z0-9+/]) para usar un nombre de producto
+// como identificador en atributos HTML y llamadas onclick sin escapar comillas.
+function safeId(s) {
+  try { return 'p' + btoa(unescape(encodeURIComponent(String(s||'')))).replace(/[^A-Za-z0-9]/g,''); }
+  catch(e) { let h = 0; const str = String(s||''); for (let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i))|0; return 'h' + Math.abs(h); }
+}
 
 document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
@@ -446,8 +466,7 @@ function showTab(id, btn) {
 }
 
 // ── DATOS CRUDOS ──────────────────────────────────────────────
-let COMPRAS_RAW = [];
-let PRODUCTOS = [], PRODUCTOS_MAP = {};
+let DESGLOSE_ROWS = [];
 let CATEGORIAS_LISTA = [];
 let LINEAS = [];
 let CIERRES_ROWS = [];
@@ -472,37 +491,58 @@ async function cargarKioskosLista() {
   KIOSKOS_LISTA = lista;
 }
 
-async function cargarCompras() {
-  try {
-    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=compras');
-    const data = await resp.json();
-    COMPRAS_RAW = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
-  } catch(e) { COMPRAS_RAW = []; }
+// Lee una hoja pública del Sheet de compras vía gviz (JSONP — evita líos de
+// CORS con fetch). Nota: si la hoja pedida no existe todavía, gviz hace
+// fallback silencioso a la PRIMERA hoja del archivo en vez de dar error; por
+// eso se valida con `expectedCol` que la hoja devuelta sea realmente la que
+// se pidió (mismo patrón que ya usa cuentas-por-pagar.html contra este mismo
+// archivo).
+function gvizLoad(hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    const cb = '_ac_' + Math.random().toString(36).slice(2,10);
+    const url = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '&sheet=' + encodeURIComponent(hoja);
+    const timer = setTimeout(() => { cleanup(); resolve([]); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e) {}
+      try { if (s && s.parentNode) document.body.removeChild(s); } catch(e) {}
+    }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        const cols = (data.table.cols||[]).map(c => String(c.label||c.id||'').trim());
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        const rows = (data.table.rows||[]).filter(r => r && r.c).map(row => {
+          const obj = {};
+          cols.forEach((col,i) => {
+            const cell = row.c[i];
+            obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : '';
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    const s = document.createElement('script');
+    s.onerror = () => { cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
 }
 
-async function cargarProductos() {
-  try {
-    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=productos');
-    const data = await resp.json();
-    PRODUCTOS = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
-  } catch(e) { PRODUCTOS = []; }
-  PRODUCTOS_MAP = {};
-  PRODUCTOS.forEach(p => { PRODUCTOS_MAP[String(p['ID'])] = p; });
+async function cargarDesgloseIA() {
+  DESGLOSE_ROWS = await gvizLoad(DESGLOSE_TAB, 'Producto').catch(() => []);
 }
 
-async function cargarCategorias() {
-  let base = [];
-  try {
-    const resp = await fetch(INVENTARIO_V2_URL + '?modulo=categorias');
-    const data = await resp.json();
-    const regs = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
-    base = regs.filter(c => c['Activo'] !== false)
-      .sort((a,b) => (Number(a['Orden'])||0) - (Number(b['Orden'])||0))
-      .map(c => c['Nombre']).filter(Boolean);
-  } catch(e) { base = []; }
-  const enUso = new Set(PRODUCTOS.map(p => p['Categoría'] || 'Sin categoría'));
-  enUso.forEach(c => { if (!base.includes(c)) base.push(c); });
-  CATEGORIAS_LISTA = base;
+// Categorías: vienen directo de la IA en cada línea de factura (columna
+// Categoría), no de un catálogo aparte — se listan las que aparecen en los
+// datos cargados.
+function construirCategoriasDesdeDesglose() {
+  const set = new Set();
+  DESGLOSE_ROWS.forEach(r => { set.add(String(r['Categoría']||'').trim() || 'Sin categoría'); });
+  CATEGORIAS_LISTA = Array.from(set).sort((a,b) => a.localeCompare(b, 'es'));
 }
 
 async function cargarCierres() {
@@ -565,32 +605,36 @@ function construirVentasUnificadas() {
   });
 }
 
-// Aplana Compras + ComprasDetalle en líneas, uniendo cada línea con el
-// producto vigente en el catálogo (categoría, unidad base, costo actual).
+// Convierte cada fila de Desglose_IA en una línea de compra normalizada. El
+// tipo de cambio configurado arriba se aplica a las líneas en USD para poder
+// sumarlas junto con las que ya vienen en colones. Se reconstruye en cada
+// render (ver renderAll) para reflejar cambios de tipo de cambio al vuelo.
 function construirLineas() {
-  LINEAS = [];
-  COMPRAS_RAW.forEach(c => {
-    const fecha = String(c['Fecha']||'').slice(0,10);
-    const kiosko = String(c['Kiosko']||'').trim();
-    const estado = String(c['Estado']||'').trim();
-    const proveedor = c['Proveedor'] || '';
-    (c.detalle || []).forEach(d => {
-      const pid = d['Producto ID'] ? String(d['Producto ID']) : '';
-      const prod = pid ? PRODUCTOS_MAP[pid] : null;
-      const cantidadBase = Number(d['Cantidad Base']) || 0;
-      const costoLinea = Number(d['Costo Línea']) || 0;
-      LINEAS.push({
-        compraId: c['ID'], fecha, kiosko, estado, proveedor,
-        productoId: pid,
-        productoNombre: prod ? prod['Nombre Interno'] : (d['Producto Nombre'] || '(sin mapear)'),
-        categoria: prod ? (prod['Categoría'] || 'Sin categoría') : 'Sin categoría',
-        unidadBase: prod ? (prod['Unidad Base'] || '') : '',
-        costoActual: prod ? (Number(prod['Costo Unidad Base']) || 0) : null,
-        cantidadBase, costoLinea,
-        precioUnitario: cantidadBase > 0 ? costoLinea / cantidadBase : null
-      });
-    });
-  });
+  const cfg = leerConfigMeta();
+  LINEAS = DESGLOSE_ROWS.map(r => {
+    const fecha = isoDate(r['Fecha de factura']);
+    const moneda = String(r['Moneda']||'CRC').trim().toUpperCase();
+    const tc = moneda === 'USD' ? (cfg.tipoCambio || 0) : 1;
+    const cantidad = limpiarNum(r['Cantidad']);
+    const precioUnitario = limpiarNum(r['Precio unitario']);
+    const totalLinea = limpiarNum(r['Total línea']);
+    const nombre = String(r['Nombre normalizado']||'').trim() || String(r['Producto']||'').trim() || '(sin nombre)';
+    return {
+      numFactura: String(r['Número de factura']||'').trim(),
+      fecha,
+      kiosko: String(r['Kiosko']||'').trim(),
+      proveedor: String(r['Proveedor']||'').trim(),
+      categoria: String(r['Categoría']||'').trim() || 'Sin categoría',
+      productoNombre: nombre,
+      unidad: String(r['Unidad de medida']||'').trim(),
+      moneda,
+      cantidad,
+      precioUnitario,
+      precioUnitarioCRC: moneda === 'USD' ? precioUnitario * tc : precioUnitario,
+      totalLinea,
+      montoCRC: moneda === 'USD' ? totalLinea * tc : totalLinea
+    };
+  }).filter(l => l.fecha && l.kiosko);
 }
 
 function renderFiltroKioskos() {
@@ -616,24 +660,14 @@ function kioskosSeleccionados() {
 function categoriasSeleccionadas() {
   return new Set(Array.from(document.querySelectorAll('#filtro-categoria-body input:checked')).map(el => el.value));
 }
-function setEstado(v) {
-  document.querySelectorAll('#filtro-estado .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.estado === v));
-  renderAll();
-}
-function estadoSeleccionado() {
-  const activo = document.querySelector('#filtro-estado .chip-btn.active');
-  return activo ? activo.dataset.estado : 'aplicada';
-}
-
 async function cargarTodo() {
   document.getElementById('filtro-resumen-txt').innerHTML = '<span class="spinner"></span> Cargando datos…';
-  await Promise.all([cargarKioskosLista(), cargarCompras(), cargarProductos(), cargarCierres(), cargarSquareProductos()]);
-  await cargarCategorias();
+  cargarConfigMetaForm();
+  await Promise.all([cargarKioskosLista(), cargarDesgloseIA(), cargarCierres(), cargarSquareProductos()]);
+  construirCategoriasDesdeDesglose();
   construirVentasUnificadas();
-  construirLineas();
   renderFiltroKioskos();
   renderFiltroCategorias();
-  cargarConfigMetaForm();
   if (!document.getElementById('filtro-desde').value) setPreset('30d');
   else renderAll();
 }
@@ -661,22 +695,17 @@ function setPreset(tipo) {
 }
 
 // ── FILTRADO ────────────────────────────────────────────────
-// Base: fecha + kiosko + estado (usada por el Resumen). Una línea sin
-// kiosko (factura pendiente de aplicar) nunca puede matchear un checkbox de
-// kiosko, así que se deja pasar siempre y se agrupa aparte como "Sin asignar".
-function lineasBase(desde, hasta, kioskosSel, estado) {
+// Base: fecha + kiosko (usada por el Resumen).
+function lineasBase(desde, hasta, kioskosSel) {
   return LINEAS.filter(l => {
     if (l.fecha < desde || l.fecha > hasta) return false;
-    if (estado === 'aplicada' && l.estado !== 'aplicada') return false;
-    if (l.kiosko && !kioskosSel.has(l.kiosko)) return false;
+    if (!kioskosSel.has(l.kiosko)) return false;
     return true;
   });
 }
-// Detalle: además exige producto identificado (para poder analizar precio y
-// cantidad) y aplica categoría + texto de producto.
+// Detalle: además aplica categoría + texto de producto.
 function lineasDetalle(base, categoriasSel, textoProducto) {
   return base.filter(l => {
-    if (!l.productoId || l.cantidadBase <= 0) return false;
     if (!categoriasSel.has(l.categoria)) return false;
     if (textoProducto && !l.productoNombre.toLowerCase().includes(textoProducto)) return false;
     return true;
@@ -687,9 +716,12 @@ function renderAll() {
   const desde = document.getElementById('filtro-desde').value || '2000-01-01';
   const hasta = document.getElementById('filtro-hasta').value || isoHoy();
   const kioskosSel = kioskosSeleccionados();
-  const estado = estadoSeleccionado();
 
-  const base = lineasBase(desde, hasta, kioskosSel, estado);
+  // Se reconstruye LINEAS con la config vigente (el tipo de cambio pudo
+  // cambiar desde la última carga) antes de filtrar.
+  construirLineas();
+
+  const base = lineasBase(desde, hasta, kioskosSel);
   renderResumen(base, desde, hasta, kioskosSel);
 
   const categoriasSel = categoriasSeleccionadas();
@@ -698,15 +730,15 @@ function renderAll() {
   renderCambiosPrecio(detalle);
   renderCantidades(detalle);
 
-  const compraIds = new Set(base.map(l => l.compraId));
+  const compras = new Set(base.map(l => l.numFactura + '|' + l.proveedor + '|' + l.kiosko));
   document.getElementById('filtro-resumen-txt').textContent =
-    `${compraIds.size} compra(s) · ${base.length} línea(s) · ${kioskosSel.size} kiosko(s) · estado: ${estado === 'aplicada' ? 'aplicadas' : 'todas'} · ${desde} → ${hasta}`;
+    `${compras.size} factura(s) · ${base.length} línea(s) · ${kioskosSel.size} kiosko(s) · ${desde} → ${hasta}`;
 }
 
 // ── CONFIG DE META (localStorage, sin backend) ────────────────
-const CONFIG_KEY = 'analisis_compras_config_v1';
+const CONFIG_KEY = 'analisis_compras_config_v2';
 function leerConfigMeta() {
-  let cfg = { metaPct: 35, ivaPct: 23 };
+  let cfg = { metaPct: 35, ivaPct: 23, tipoCambio: 520 };
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
     if (saved && typeof saved === 'object') cfg = Object.assign(cfg, saved);
@@ -717,11 +749,13 @@ function cargarConfigMetaForm() {
   const cfg = leerConfigMeta();
   document.getElementById('cfg-meta-pct').value = cfg.metaPct;
   document.getElementById('cfg-iva-pct').value = cfg.ivaPct;
+  document.getElementById('cfg-tipo-cambio').value = cfg.tipoCambio;
 }
 function guardarConfigMeta() {
   const metaPct = parseFloat(document.getElementById('cfg-meta-pct').value);
   const ivaPct = parseFloat(document.getElementById('cfg-iva-pct').value);
-  const cfg = { metaPct: isNaN(metaPct) ? 35 : metaPct, ivaPct: isNaN(ivaPct) ? 23 : ivaPct };
+  const tipoCambio = parseFloat(document.getElementById('cfg-tipo-cambio').value);
+  const cfg = { metaPct: isNaN(metaPct) ? 35 : metaPct, ivaPct: isNaN(ivaPct) ? 23 : ivaPct, tipoCambio: isNaN(tipoCambio) ? 520 : tipoCambio };
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   const status = document.getElementById('cfg-status');
   status.textContent = 'Guardado ✓';
@@ -739,7 +773,7 @@ function toggleConfigMeta() {
 // ── RESUMEN: KPI COMPRAS VS VENTAS ────────────────────────────
 function renderResumen(base, desde, hasta, kioskosSel) {
   const cfg = leerConfigMeta();
-  const totalCompras = base.reduce((s,l) => s + l.costoLinea, 0);
+  const totalCompras = base.reduce((s,l) => s + l.montoCRC, 0);
   const ventasFiltradas = VENTAS_ROWS.filter(v => v.fecha >= desde && v.fecha <= hasta && kioskosSel.has(v.kiosko));
   const totalVentas = ventasFiltradas.reduce((s,v) => s + v.total, 0);
   const ventasNetas = totalVentas / (1 + cfg.ivaPct/100);
@@ -747,10 +781,10 @@ function renderResumen(base, desde, hasta, kioskosSel) {
   const pct = ventasNetas > 0 ? (totalCompras/ventasNetas*100) : null;
   const diffColones = totalCompras - metaColones;
   const diffPct = pct != null ? pct - cfg.metaPct : null;
-  const compraIds = new Set(base.map(l => l.compraId));
+  const compras = new Set(base.map(l => l.numFactura + '|' + l.proveedor + '|' + l.kiosko));
 
   document.getElementById('kpi-compras').textContent = fmtCRC(totalCompras);
-  document.getElementById('kpi-compras-sub').textContent = `${base.length} línea(s) · ${compraIds.size} compra(s)`;
+  document.getElementById('kpi-compras-sub').textContent = `${base.length} línea(s) · ${compras.size} factura(s)`;
 
   document.getElementById('kpi-ventas').textContent = fmtCRC(totalVentas);
   document.getElementById('kpi-ventas-sub').textContent = `Sin ${cfg.ivaPct}% de impuestos: ${fmtCRC(ventasNetas)}`;
@@ -774,7 +808,7 @@ function renderComprasPorKiosko(base, ventasFiltradas, cfg) {
   const porKiosko = {};
   base.forEach(l => {
     const k = l.kiosko || 'Sin asignar';
-    porKiosko[k] = (porKiosko[k] || 0) + l.costoLinea;
+    porKiosko[k] = (porKiosko[k] || 0) + l.montoCRC;
   });
   const ventasPorKiosko = {};
   ventasFiltradas.forEach(v => { ventasPorKiosko[v.kiosko] = (ventasPorKiosko[v.kiosko] || 0) + v.total; });
@@ -862,21 +896,24 @@ let PRECIO_DATA = {};
 function renderCambiosPrecio(detalle) {
   const porProducto = {};
   detalle.forEach(l => {
-    if (!porProducto[l.productoId]) porProducto[l.productoId] = { nombre: l.productoNombre, categoria: l.categoria, unidadBase: l.unidadBase, lineas: [] };
-    porProducto[l.productoId].lineas.push(l);
+    if (!porProducto[l.productoNombre]) porProducto[l.productoNombre] = { nombre: l.productoNombre, categoria: l.categoria, unidad: l.unidad, lineas: [] };
+    porProducto[l.productoNombre].lineas.push(l);
   });
-  PRECIO_DATA = porProducto;
+  const porProductoArr = Object.values(porProducto);
+  PRECIO_DATA = {};
+  porProductoArr.forEach(info => { PRECIO_DATA[safeId(info.nombre)] = info; });
 
-  const filas = Object.entries(porProducto).map(([pid, info]) => {
+  const filas = porProductoArr.map(info => {
+    const pid = safeId(info.nombre);
     const ord = info.lineas.slice().sort((a,b) => a.fecha.localeCompare(b.fecha));
     const primero = ord[0], ultimo = ord[ord.length-1];
     const nCompras = ord.length;
-    const variacionPct = (nCompras > 1 && primero.precioUnitario > 0) ? ((ultimo.precioUnitario - primero.precioUnitario) / primero.precioUnitario * 100) : null;
-    const variacionAbs = nCompras > 1 ? (ultimo.precioUnitario - primero.precioUnitario) : null;
-    const montoTotal = ord.reduce((s,l) => s + l.costoLinea, 0);
-    const cantidadTotal = ord.reduce((s,l) => s + l.cantidadBase, 0);
+    const variacionPct = (nCompras > 1 && primero.precioUnitarioCRC > 0) ? ((ultimo.precioUnitarioCRC - primero.precioUnitarioCRC) / primero.precioUnitarioCRC * 100) : null;
+    const variacionAbs = nCompras > 1 ? (ultimo.precioUnitarioCRC - primero.precioUnitarioCRC) : null;
+    const montoTotal = ord.reduce((s,l) => s + l.montoCRC, 0);
+    const cantidadTotal = ord.reduce((s,l) => s + l.cantidad, 0);
     const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : null;
-    return { pid, nombre: info.nombre, categoria: info.categoria, unidadBase: info.unidadBase, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio };
+    return { pid, nombre: info.nombre, categoria: info.categoria, unidad: info.unidad, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio };
   }).sort((a,b) => {
     const av = a.variacionPct == null ? -1 : Math.abs(a.variacionPct);
     const bv = b.variacionPct == null ? -1 : Math.abs(b.variacionPct);
@@ -893,13 +930,13 @@ function renderCambiosPrecio(detalle) {
     return `<tr class="compare-row clickable" onclick="seleccionarProductoPrecio('${f.pid}')">
       <td><div class="compare-kiosko">${escHtml(f.nombre)}</div><div class="compare-sub">${escHtml(f.categoria)}</div></td>
       <td class="compare-val">${f.nCompras}</td>
-      <td class="compare-val">${fmtCRC(f.primero.precioUnitario)}<div class="compare-sub">${f.primero.fecha}</div></td>
-      <td class="compare-val">${fmtCRC(f.ultimo.precioUnitario)}<div class="compare-sub">${f.ultimo.fecha}</div></td>
+      <td class="compare-val">${fmtCRC(f.primero.precioUnitarioCRC)}<div class="compare-sub">${f.primero.fecha}</div></td>
+      <td class="compare-val">${fmtCRC(f.ultimo.precioUnitarioCRC)}<div class="compare-sub">${f.ultimo.fecha}</div></td>
       <td>${variacionTxt}</td>
-      <td>${f.variacionAbs == null ? '<span class="compare-dash">—</span>' : fmtCRC(f.variacionAbs) + '/' + escHtml(f.unidadBase||'u')}</td>
+      <td>${f.variacionAbs == null ? '<span class="compare-dash">—</span>' : fmtCRC(f.variacionAbs) + '/' + escHtml(f.unidad||'u')}</td>
       <td class="compare-val">${fmtCRC(f.precioPromedio)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7"><div class="no-alerts">Sin compras con producto identificado en el rango filtrado.</div></td></tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="no-alerts">Sin compras en el rango filtrado.</div></td></tr>`;
 
   renderSelectorPrecio(filas);
 }
@@ -941,7 +978,7 @@ function renderGraficoPrecio(pid) {
   } else {
     wrap.innerHTML = svgLineChart(
       ord.map(l => fmtFechaCorta(l.fecha)),
-      [{ nombre: info.nombre, color: 'var(--green)', puntos: ord.map(l => l.precioUnitario) }],
+      [{ nombre: info.nombre, color: 'var(--green)', puntos: ord.map(l => l.precioUnitarioCRC) }],
       v => fmtCRC(v)
     );
   }
@@ -950,9 +987,9 @@ function renderGraficoPrecio(pid) {
       <td>${l.fecha}</td>
       <td>${escHtml(l.kiosko || '—')}</td>
       <td>${escHtml(l.proveedor || '—')}</td>
-      <td class="compare-val">${fmtNum(l.cantidadBase)} ${escHtml(l.unidadBase||'')}</td>
-      <td class="compare-val">${fmtCRC(l.precioUnitario)}</td>
-      <td class="compare-val">${fmtCRC(l.costoLinea)}</td>
+      <td class="compare-val">${fmtNum(l.cantidad)} ${escHtml(l.unidad||'')}</td>
+      <td class="compare-val">${fmtCRC(l.precioUnitarioCRC)}${l.moneda==='USD' ? ` <div class="compare-sub">$${fmtNum(l.precioUnitario)}</div>` : ''}</td>
+      <td class="compare-val">${fmtCRC(l.montoCRC)}</td>
     </tr>`).join('');
 }
 
@@ -960,31 +997,38 @@ function renderGraficoPrecio(pid) {
 let CANTIDAD_DATA = {};
 
 function renderCantidades(detalle) {
-  const montoTotal = detalle.reduce((s,l) => s + l.costoLinea, 0);
-  const compraIds = new Set(detalle.map(l => l.compraId));
+  const montoTotal = detalle.reduce((s,l) => s + l.montoCRC, 0);
+  const compras = new Set(detalle.map(l => l.numFactura + '|' + l.proveedor + '|' + l.kiosko));
   document.getElementById('cant-kpi-monto').textContent = fmtCRC(montoTotal);
-  document.getElementById('cant-kpi-monto-sub').textContent = `${detalle.length} línea(s) · ${compraIds.size} compra(s)`;
+  document.getElementById('cant-kpi-monto-sub').textContent = `${detalle.length} línea(s) · ${compras.size} factura(s)`;
 
   const porProducto = {};
   detalle.forEach(l => {
-    if (!porProducto[l.productoId]) porProducto[l.productoId] = { nombre: l.productoNombre, categoria: l.categoria, unidadBase: l.unidadBase, cantidad: 0, monto: 0, nCompras: 0, lineas: [] };
-    const p = porProducto[l.productoId];
-    p.cantidad += l.cantidadBase; p.monto += l.costoLinea; p.nCompras++; p.lineas.push(l);
+    if (!porProducto[l.productoNombre]) porProducto[l.productoNombre] = { nombre: l.productoNombre, categoria: l.categoria, unidades: new Set(), cantidad: 0, monto: 0, nCompras: 0, lineas: [] };
+    const p = porProducto[l.productoNombre];
+    p.cantidad += l.cantidad; p.monto += l.montoCRC; p.nCompras++; p.lineas.push(l);
+    if (l.unidad) p.unidades.add(l.unidad);
   });
-  CANTIDAD_DATA = porProducto;
+  const porProductoArr = Object.values(porProducto);
+  CANTIDAD_DATA = {};
+  porProductoArr.forEach(info => { CANTIDAD_DATA[safeId(info.nombre)] = info; });
 
-  const filasProd = Object.entries(porProducto).map(([pid,p]) => ({ pid, ...p, precioProm: p.cantidad > 0 ? p.monto/p.cantidad : 0 }));
+  const filasProd = porProductoArr.map(p => ({
+    pid: safeId(p.nombre), ...p,
+    unidadTxt: p.unidades.size > 1 ? Array.from(p.unidades).join('/') + ' (mixto)' : (Array.from(p.unidades)[0] || ''),
+    precioProm: p.cantidad > 0 ? p.monto/p.cantidad : 0
+  }));
   const filasPorMonto = filasProd.slice().sort((a,b) => b.monto - a.monto);
   const filasPorCantidad = filasProd.slice().sort((a,b) => b.cantidad - a.cantidad);
 
   document.getElementById('cant-kpi-top').textContent = filasPorCantidad.length ? filasPorCantidad[0].nombre : '—';
-  document.getElementById('cant-kpi-top-sub').textContent = filasPorCantidad.length ? `${fmtNum(filasPorCantidad[0].cantidad)} ${filasPorCantidad[0].unidadBase||''}` : '';
+  document.getElementById('cant-kpi-top-sub').textContent = filasPorCantidad.length ? `${fmtNum(filasPorCantidad[0].cantidad)} ${filasPorCantidad[0].unidadTxt}` : '';
 
   const bodyProd = document.getElementById('cant-producto-body');
   bodyProd.innerHTML = filasPorMonto.length ? filasPorMonto.map(p => `
     <tr class="compare-row clickable" onclick="seleccionarProductoCantidad('${p.pid}')">
       <td><div class="compare-kiosko">${escHtml(p.nombre)}</div><div class="compare-sub">${escHtml(p.categoria)}</div></td>
-      <td class="compare-val">${fmtNum(p.cantidad)} ${escHtml(p.unidadBase||'')}</td>
+      <td class="compare-val">${fmtNum(p.cantidad)} ${escHtml(p.unidadTxt)}</td>
       <td class="compare-val">${fmtCRC(p.monto)}</td>
       <td class="compare-val">${p.nCompras}</td>
       <td class="compare-val">${fmtCRC(p.precioProm)}</td>
@@ -993,9 +1037,9 @@ function renderCantidades(detalle) {
   const porCategoria = {};
   detalle.forEach(l => {
     if (!porCategoria[l.categoria]) porCategoria[l.categoria] = { monto: 0, nLineas: 0, productos: new Set() };
-    porCategoria[l.categoria].monto += l.costoLinea;
+    porCategoria[l.categoria].monto += l.montoCRC;
     porCategoria[l.categoria].nLineas++;
-    porCategoria[l.categoria].productos.add(l.productoId);
+    porCategoria[l.categoria].productos.add(l.productoNombre);
   });
   const filasCat = Object.entries(porCategoria).map(([nombre,c]) => ({ nombre, ...c })).sort((a,b) => b.monto - a.monto);
   const bodyCat = document.getElementById('cant-categoria-body');
@@ -1016,7 +1060,7 @@ function renderGraficoMontoMensual(detalle) {
   const wrap = document.getElementById('cant-chart-monto-wrap');
   if (!detalle.length) { wrap.innerHTML = '<div class="no-alerts">Sin datos para graficar.</div>'; return; }
   const porMes = {};
-  detalle.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.costoLinea; });
+  detalle.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.montoCRC; });
   const meses = Object.keys(porMes).sort();
   wrap.innerHTML = svgLineChart(meses.map(nombreMes), [{ nombre:'Compras', color:'var(--blue)', puntos: meses.map(m => porMes[m]) }], v => fmtCRC(v));
 }
@@ -1047,9 +1091,9 @@ function renderGraficoCantidadProducto(pid) {
   const wrap = document.getElementById('cant-chart-producto-wrap');
   if (!info || !info.lineas.length) { wrap.innerHTML = '<div class="no-alerts">Sin datos.</div>'; return; }
   const porMes = {};
-  info.lineas.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.cantidadBase; });
+  info.lineas.forEach(l => { const m = agruparPorMes(l.fecha); porMes[m] = (porMes[m]||0) + l.cantidad; });
   const meses = Object.keys(porMes).sort();
-  const unidad = info.unidadBase || '';
+  const unidad = info.unidades.size > 1 ? '(mixto)' : (Array.from(info.unidades)[0] || '');
   wrap.innerHTML = svgLineChart(meses.map(nombreMes), [{ nombre: info.nombre, color:'var(--amber)', puntos: meses.map(m => porMes[m]) }], v => fmtNum(v) + ' ' + unidad);
 }
 
