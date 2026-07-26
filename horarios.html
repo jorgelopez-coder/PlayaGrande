@@ -113,8 +113,27 @@ tbody tr:last-child td{border-bottom:none}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:999}
 .toast.show{opacity:1;transform:translateY(0)}
 .export-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.coverage-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:20px;box-shadow:var(--shadow)}
+.coverage-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px}
+.coverage-title{font-size:14px;font-weight:600;color:var(--text)}
+.coverage-hint{font-size:11px;color:var(--text3);margin-bottom:12px}
+.coverage-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.coverage-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.coverage-legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.cov-day{margin-bottom:20px}
+.cov-day:last-child{margin-bottom:0}
+.cov-day-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.cov-ruler{display:flex;margin-left:132px;font-size:9px;color:var(--text3);border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:5px;position:relative;height:12px}
+.cov-ruler span{position:absolute;transform:translateX(-50%)}
+.cov-row{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.cov-row-label{width:124px;flex-shrink:0;font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cov-row-track{position:relative;flex:1;height:22px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.cov-bar{position:absolute;top:2px;bottom:2px;border-radius:3px;font-size:9px;color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;font-weight:600;padding:0 2px}
+.cov-total{margin-top:5px}
+.cov-total .cov-row-label{font-weight:600;color:var(--text)}
+.cov-empty{font-size:11px;color:var(--text3);padding:6px 0 6px 132px}
 @media print{
-  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,#metrics{display:none!important}
+  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,#metrics,.coverage-section{display:none!important}
   .note-print{display:block!important}
   .tbl-wrap{border:none;overflow:visible}
   body{background:white}
@@ -206,6 +225,13 @@ tbody tr:last-child td{border-bottom:none}
 
   <div id="sched-container"></div>
   <div class="metrics" id="metrics" style="display:none"></div>
+
+  <div class="coverage-section" id="coverage-section" style="display:none">
+    <div class="coverage-head"><div class="coverage-title">&#128202; Cobertura semanal por horas</div></div>
+    <div class="coverage-hint">Cada color de barra es una persona. La fila &ldquo;Cobertura&rdquo; muestra cu&aacute;ntas personas hay trabajando en cada franja horaria (m&aacute;s oscuro = m&aacute;s gente cubriendo, gris = nadie).</div>
+    <div class="coverage-legend" id="coverage-legend"></div>
+    <div id="coverage-days"></div>
+  </div>
 
   <div class="export-row" id="export-row" style="display:none">
     <button class="btn" id="btn-pdf" onclick="descargarPDF()" disabled title="Cerrá el horario para habilitar la exportación">&darr; Descargar PDF</button>
@@ -836,7 +862,7 @@ function renderSched(){
   const emps=filterVal?allEmps.filter(e=>e.area===filterVal):allEmps;
   const dates=getWeekDates();
 
-  if(!emps.length){container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">Sin colaboradores activos. Hacé clic en "Actualizar planilla".</div>';renderMetrics();return}
+  if(!emps.length){container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">Sin colaboradores activos. Hacé clic en "Actualizar planilla".</div>';renderMetrics();renderCoverageChart();return}
 
   let html='<div class="tbl-wrap"><table><thead><tr><th class="ec">Empleado</th>';
   dates.forEach(d=>{html+='<th>'+d.label+'<br><span style="font-weight:400;font-size:10px;color:var(--text3)">'+d.date+'</span></th>'});
@@ -856,6 +882,134 @@ function renderSched(){
   html+='<td class="grand" id="grand-tot">'+grand.toFixed(1)+'h</td></tr></tbody></table></div>';
   container.innerHTML=html;
   renderMetrics();
+  renderCoverageChart();
+}
+
+/* ── Gráfico de cobertura semanal (Gantt por día + franja de cobertura) ──
+   Muestra, para el kiosko/departamento visible, una barra de color por
+   persona con su turno del día y una fila "Cobertura" que cuenta cuántas
+   personas están trabajando en cada franja horaria (para detectar huecos). */
+const empColorCache={};
+function empColor(name){
+  const key=(name||'').trim().toLowerCase();
+  if(empColorCache[key])return empColorCache[key];
+  let h=0;for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))>>>0;
+  const hue=h%360;
+  const color='hsl('+hue+',60%,42%)';
+  empColorCache[key]=color;
+  return color;
+}
+function covColor(count){
+  if(count<=0)return '#f1f5f9';
+  if(count===1)return '#cfead9';
+  if(count===2)return '#8fd1ae';
+  if(count===3)return '#4fae7c';
+  return '#2d6a4f';
+}
+function addRangeToCounts(counts,ini,fin,rangeStart,stepMin){
+  if(!ini||!fin)return;
+  const[ih,im]=ini.split(':').map(Number),[oh,om]=fin.split(':').map(Number);
+  const startMin=(ih*60+im)-(rangeStart*60), endMin=(oh*60+om)-(rangeStart*60);
+  if(!(endMin>startMin))return;
+  const startIdx=Math.max(0,Math.floor(startMin/stepMin));
+  const endIdx=Math.min(counts.length,Math.ceil(endMin/stepMin));
+  for(let i=startIdx;i<endIdx;i++)counts[i]++;
+}
+function buildCoverageSegments(day,dayEmps,rangeStart,rangeEnd){
+  const stepMin=15;
+  const totalMin=(rangeEnd-rangeStart)*60;
+  const slots=Math.max(1,Math.ceil(totalMin/stepMin));
+  const counts=new Array(slots).fill(0);
+  dayEmps.forEach(emp=>{
+    const s=schedule[emp.id]?.[day];
+    if(!s||s.status!=='trabajo')return;
+    addRangeToCounts(counts,s.in,s.out,rangeStart,stepMin);
+    if(s.split)addRangeToCounts(counts,s.in2,s.out2,rangeStart,stepMin);
+  });
+  const segments=[];let cur=null;
+  counts.forEach((c,idx)=>{
+    if(!cur||cur.count!==c){if(cur)segments.push(cur);cur={count:c,startIdx:idx,endIdx:idx+1};}
+    else cur.endIdx=idx+1;
+  });
+  if(cur)segments.push(cur);
+  return segments.map(seg=>({
+    count:seg.count,
+    leftPct:(seg.startIdx*stepMin)/totalMin*100,
+    widthPct:(seg.endIdx-seg.startIdx)*stepMin/totalMin*100
+  }));
+}
+function renderCoverageChart(){
+  const section=document.getElementById('coverage-section');
+  const legendEl=document.getElementById('coverage-legend');
+  const daysEl=document.getElementById('coverage-days');
+  if(!section||!activeResto){if(section)section.style.display='none';return}
+
+  const filterVal=document.getElementById('filter-area').value;
+  const allEmps=employees.filter(e=>e.restoId===activeResto||e.restoId===ROTATIVO);
+  const emps=filterVal?allEmps.filter(e=>e.area===filterVal):allEmps;
+  if(!emps.length){section.style.display='none';return}
+  section.style.display='block';
+
+  const working=new Set();
+  emps.forEach(emp=>{DAYS.forEach((_,i)=>{const s=schedule[emp.id]?.[i];if(s&&s.status==='trabajo'&&s.in&&s.out)working.add(emp.name)})});
+  legendEl.innerHTML=working.size
+    ? [...working].sort((a,b)=>a.localeCompare(b,'es')).map(n=>
+        '<span class="coverage-legend-item"><span class="coverage-legend-dot" style="background:'+empColor(n)+'"></span>'+esc(n)+'</span>'
+      ).join('')
+    : '<span style="font-size:11px;color:var(--text3)">Sin turnos con horario definido esta semana</span>';
+
+  // Rango horario común para los 7 días (según los turnos reales cargados).
+  let minMin=Infinity,maxMin=-Infinity;
+  emps.forEach(emp=>{DAYS.forEach((_,i)=>{
+    const s=schedule[emp.id]?.[i];if(!s||s.status!=='trabajo')return;
+    [[s.in,s.out],(s.split?[s.in2,s.out2]:null)].forEach(pair=>{
+      if(!pair)return;const[ini,fin]=pair;if(!ini||!fin)return;
+      const[ih,im]=ini.split(':').map(Number),[oh,om]=fin.split(':').map(Number);
+      const a=ih*60+im,b=oh*60+om;if(!(b>a))return;
+      if(a<minMin)minMin=a;if(b>maxMin)maxMin=b;
+    });
+  })});
+  if(!isFinite(minMin)||!isFinite(maxMin)){minMin=6*60;maxMin=22*60;}
+  let rangeStart=Math.max(0,Math.floor(minMin/60)-1);
+  let rangeEnd=Math.min(24,Math.ceil(maxMin/60)+1);
+  if(rangeEnd<=rangeStart)rangeEnd=rangeStart+1;
+
+  const dates=getWeekDates();
+  let html='';
+  DAYS.forEach((_,i)=>{
+    const dayEmps=emps.filter(e=>{const s=schedule[e.id]?.[i];return s&&s.status==='trabajo'&&s.in&&s.out}).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+    html+='<div class="cov-day"><div class="cov-day-title">'+dates[i].label+' &middot; '+dates[i].date+'</div>';
+    html+='<div class="cov-ruler">';
+    for(let h=rangeStart;h<=rangeEnd;h+=2){
+      const pct=(h-rangeStart)/(rangeEnd-rangeStart)*100;
+      html+='<span style="left:'+pct.toFixed(2)+'%">'+String(h).padStart(2,'0')+':00</span>';
+    }
+    html+='</div>';
+    if(!dayEmps.length){
+      html+='<div class="cov-empty">Sin turnos con horario definido este d&iacute;a</div></div>';
+      return;
+    }
+    dayEmps.forEach(emp=>{
+      const s=schedule[emp.id][i];
+      const color=empColor(emp.name);
+      let bars='';
+      const mk=(ini,fin)=>{
+        const[ih,im]=ini.split(':').map(Number),[oh,om]=fin.split(':').map(Number);
+        const a=ih*60+im,b=oh*60+om;if(!(b>a))return;
+        const left=(a/60-rangeStart)/(rangeEnd-rangeStart)*100;
+        const width=(b-a)/60/(rangeEnd-rangeStart)*100;
+        bars+='<div class="cov-bar" style="left:'+left.toFixed(2)+'%;width:'+width.toFixed(2)+'%;background:'+color+'" title="'+esc(emp.name)+' &middot; '+ini+'&ndash;'+fin+'">'+ini+'-'+fin+'</div>';
+      };
+      if(s.in&&s.out)mk(s.in,s.out);
+      if(s.split&&s.in2&&s.out2)mk(s.in2,s.out2);
+      html+='<div class="cov-row"><div class="cov-row-label" title="'+esc(emp.name)+'">'+esc(emp.name)+'</div><div class="cov-row-track">'+bars+'</div></div>';
+    });
+    const segs=buildCoverageSegments(i,dayEmps,rangeStart,rangeEnd);
+    const segHtml=segs.map(seg=>'<div class="cov-bar" style="left:'+seg.leftPct.toFixed(2)+'%;width:'+seg.widthPct.toFixed(2)+'%;background:'+covColor(seg.count)+';color:'+(seg.count>=3?'#fff':'var(--text2)')+'" title="'+seg.count+' persona(s) cubriendo"></div>').join('');
+    html+='<div class="cov-row cov-total"><div class="cov-row-label">Cobertura</div><div class="cov-row-track">'+segHtml+'</div></div>';
+    html+='</div>';
+  });
+  daysEl.innerHTML=html;
 }
 
 function renderMetrics(){
