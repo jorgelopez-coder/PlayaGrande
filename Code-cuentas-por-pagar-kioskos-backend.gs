@@ -119,7 +119,14 @@ const MAESTRO_ENCABEZADOS = [
   'Nombre Estándar', 'Estado', 'Actualizado', 'Aplica',
   'Costo sugerido (última compra)', 'Moneda sugerida', 'Fecha última compra',
   'Área de negocio', 'Presentación', 'Tamaño', 'Precio sin IVA', 'IVA (%)',
-  'Cantidad presentación', 'Costo por unidad', 'Kioskos', 'Activo', 'Ficha actualizada'
+  'Cantidad presentación', 'Costo por unidad', 'Kioskos', 'Activo', 'Ficha actualizada',
+  // v2 (2026-07-26) — clasificación y datos para recetas, adaptado de
+  // "Base de Productos · Costos" de Ecosistema Lorito (ver nota más abajo
+  // en guardarFichaMaestro/configAgregar). Igual que el resto de columnas
+  // de "ficha de producto", siempre se resuelven con columnaPorNombre(),
+  // nunca un índice fijo, para no romper el Sheet ya desplegado.
+  'Familia', 'Subfamilia', 'Aplica Receta', 'Unidad Receta',
+  'Rendimiento Receta (%)', 'Costo Real Receta', 'Usar Costo Manual Receta'
 ];
 // "Aplica" (Sí/No) queda fuera de MAESTRO_COL a propósito: se resuelve con
 // columnaPorNombre() en vez de una posición fija, para que se pueda crear
@@ -138,6 +145,31 @@ const MAESTRO_ENCABEZADOS = [
 // pisa siempre, el usuario no las edita); el resto las llena el usuario
 // desde el modal "Ficha de producto" vía guardarFichaMaestro().
 
+// Catálogos editables de clasificación (Área de negocio / Categoría /
+// Familia / Subfamilia) — pestaña "Configuracion", adaptada de la pestaña
+// "⚙ Configuración" de costos-productos.html (Ecosistema Lorito) y del
+// mismo diseño que ya estaba armado (sin desplegar) en
+// Code-productos-backend.gs. "Familia"/"Categoria"/"Area" son listas
+// simples (una fila por valor); "Subfamilia" depende de una Familia
+// (columna "Extra" = a qué familia pertenece). Se administra desde la
+// pestaña "Configuración" de maestro-productos.html — agregar/quitar
+// valores no toca código, solo esta hoja.
+const HOJA_CONFIGURACION = 'Configuracion';
+const CONFIGURACION_ENCABEZADOS = ['Tipo', 'Valor', 'Extra'];
+const TIPOS_CONFIGURACION_SIMPLE = ['Area', 'Categoria', 'Familia'];
+const CONFIGURACION_DEFAULTS = {
+  Area: [
+    'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
+    'Limpieza e Higiene', 'Administración', 'Mantenimiento y Equipo'
+  ],
+  Categoria: [
+    'Cerveza', 'Licores y Destilados', 'Insumos de Coctelería',
+    'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
+    'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
+  ],
+  Familia: ['Cerveza', 'Licores', 'Cocteles', 'No alcohólicos']
+};
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Cuentas por pagar')
@@ -145,7 +177,7 @@ function onOpen() {
     .addToUi();
 }
 
-// Crea las 4 pestañas con sus encabezados si no existen todavía. No toca
+// Crea las pestañas con sus encabezados si no existen todavía. No toca
 // hojas que ya tengan datos.
 function configurarHojas() {
   prepararHoja(HOJA_FACTURAS, FACTURAS_ENCABEZADOS);
@@ -153,6 +185,106 @@ function configurarHojas() {
   prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
   prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
   prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
+  sembrarConfiguracionPorDefecto(prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS));
+}
+
+// Si "Configuracion" está recién creada (sin filas todavía) la llena con los
+// catálogos por defecto de arriba. Si ya tiene datos no la toca — aunque se
+// borren todos los valores de un tipo desde la pantalla, no se vuelve a
+// sembrar sola.
+function sembrarConfiguracionPorDefecto(hoja) {
+  if (hoja.getLastRow() > 1) return;
+  const filas = [];
+  Object.keys(CONFIGURACION_DEFAULTS).forEach(function(tipo) {
+    CONFIGURACION_DEFAULTS[tipo].forEach(function(valor) { filas.push([tipo, valor, '']); });
+  });
+  if (filas.length) hoja.getRange(2, 1, filas.length, CONFIGURACION_ENCABEZADOS.length).setValues(filas);
+}
+
+function getHojaConfiguracion() {
+  const hoja = prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS);
+  sembrarConfiguracionPorDefecto(hoja);
+  return hoja;
+}
+
+// Agrega un valor nuevo a una lista simple (Área/Categoría/Familia). Tira
+// error si el tipo no existe o si el valor ya estaba (sin importar mayúsculas).
+function configAgregar(p) {
+  if (TIPOS_CONFIGURACION_SIMPLE.indexOf(p.tipo) === -1) throw new Error('Tipo de configuración no reconocido: ' + p.tipo);
+  const valor = (p.valor || '').toString().trim();
+  if (!valor) throw new Error('Falta el valor a agregar.');
+  const hoja = getHojaConfiguracion();
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas > 0) {
+    const datos = hoja.getRange(2, 1, nFilas, 2).getValues();
+    const yaExiste = datos.some(function(f) { return f[0] === p.tipo && String(f[1]).toLowerCase() === valor.toLowerCase(); });
+    if (yaExiste) throw new Error('Ese valor ya existe en la lista.');
+  }
+  hoja.appendRow([p.tipo, valor, '']);
+  return { ok: true };
+}
+
+// Quita un valor de una lista simple. Si se borra una Familia, se borran
+// también sus subfamilias huérfanas (de abajo hacia arriba para no correr
+// los índices al eliminar filas).
+function configEliminar(p) {
+  if (TIPOS_CONFIGURACION_SIMPLE.indexOf(p.tipo) === -1) throw new Error('Tipo de configuración no reconocido: ' + p.tipo);
+  const hoja = getHojaConfiguracion();
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) throw new Error('No se encontró ese valor.');
+  const datos = hoja.getRange(2, 1, nFilas, CONFIGURACION_ENCABEZADOS.length).getValues();
+  let filaEncontrada = -1;
+  for (let i = 0; i < datos.length; i++) {
+    if (datos[i][0] === p.tipo && String(datos[i][1]) === String(p.valor)) { filaEncontrada = i + 2; break; }
+  }
+  if (filaEncontrada === -1) throw new Error('No se encontró ese valor.');
+  hoja.deleteRow(filaEncontrada);
+
+  if (p.tipo === 'Familia') {
+    const nFilas2 = hoja.getLastRow() - 1;
+    if (nFilas2 > 0) {
+      const datos2 = hoja.getRange(2, 1, nFilas2, CONFIGURACION_ENCABEZADOS.length).getValues();
+      for (let i = datos2.length - 1; i >= 0; i--) {
+        if (datos2[i][0] === 'Subfamilia' && datos2[i][2] === p.valor) hoja.deleteRow(i + 2);
+      }
+    }
+  }
+  return { ok: true };
+}
+
+// Subfamilia depende de una Familia (columna "Extra"). Puede repetirse el
+// mismo texto de subfamilia bajo familias distintas, no se valida global.
+function configSubfamiliaAgregar(p) {
+  const familia = (p.familia || '').toString().trim();
+  const subfamilia = (p.valor || '').toString().trim();
+  if (!familia) throw new Error('Falta la familia.');
+  if (!subfamilia) throw new Error('Falta la subfamilia.');
+  const hoja = getHojaConfiguracion();
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas > 0) {
+    const datos = hoja.getRange(2, 1, nFilas, CONFIGURACION_ENCABEZADOS.length).getValues();
+    const yaExiste = datos.some(function(f) {
+      return f[0] === 'Subfamilia' && f[2] === familia && String(f[1]).toLowerCase() === subfamilia.toLowerCase();
+    });
+    if (yaExiste) throw new Error('Esa subfamilia ya existe para esa familia.');
+  }
+  hoja.appendRow(['Subfamilia', subfamilia, familia]);
+  return { ok: true };
+}
+
+function configSubfamiliaEliminar(p) {
+  const hoja = getHojaConfiguracion();
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas > 0) {
+    const datos = hoja.getRange(2, 1, nFilas, CONFIGURACION_ENCABEZADOS.length).getValues();
+    for (let i = datos.length - 1; i >= 0; i--) {
+      if (datos[i][0] === 'Subfamilia' && datos[i][2] === p.familia && datos[i][1] === p.valor) {
+        hoja.deleteRow(i + 2);
+        return { ok: true };
+      }
+    }
+  }
+  throw new Error('No se encontró esa subfamilia.');
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -216,6 +348,18 @@ function doPost(e) {
         break;
       case 'maestro_guardar_ficha':
         result = guardarFichaMaestro(payload);
+        break;
+      case 'config_agregar':
+        result = configAgregar(payload);
+        break;
+      case 'config_eliminar':
+        result = configEliminar(payload);
+        break;
+      case 'config_subfamilia_agregar':
+        result = configSubfamiliaAgregar(payload);
+        break;
+      case 'config_subfamilia_eliminar':
+        result = configSubfamiliaEliminar(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
@@ -666,6 +810,7 @@ function sincronizarMaestro() {
   const colCostoSugerido = columnaPorNombre(hojaMaestro, 'Costo sugerido (última compra)');
   const colMonedaSugerida = columnaPorNombre(hojaMaestro, 'Moneda sugerida');
   const colFechaUltimaCompra = columnaPorNombre(hojaMaestro, 'Fecha última compra');
+  const colFichaActualizada = columnaPorNombre(hojaMaestro, 'Ficha actualizada');
 
   let nuevos = 0, actualizados = 0;
   const ahora = new Date();
@@ -684,7 +829,15 @@ function sincronizarMaestro() {
 
     if (existentes[clave]) {
       const fila = existentes[clave];
-      hojaMaestro.getRange(fila, MAESTRO_COL.CATEGORIA).setValue(categoria);
+      // Una vez que la ficha de producto ya se completó (tiene "Ficha
+      // actualizada"), la Categoría pasa a ser clasificación manual del
+      // usuario (ver guardarFichaMaestro) y ya no se pisa con la propuesta
+      // automática de Desglose_IA en cada sync — si no, un "Sincronizar"
+      // borraría la Categoría/Familia que se eligió a mano en la ficha.
+      const fichaYaCompleta = hojaMaestro.getRange(fila, colFichaActualizada).getValue();
+      if (!fichaYaCompleta) {
+        hojaMaestro.getRange(fila, MAESTRO_COL.CATEGORIA).setValue(categoria);
+      }
       hojaMaestro.getRange(fila, MAESTRO_COL.UNIDAD).setValue(unidad);
       hojaMaestro.getRange(fila, MAESTRO_COL.VECES_VISTO).setValue(g.categorias.length);
       hojaMaestro.getRange(fila, MAESTRO_COL.PRIMERA_VEZ).setValue(primera);
@@ -804,36 +957,98 @@ function agregarManualMaestro(p) {
   return { clave: clave, fila: fila };
 }
 
+// Todas las filas del Maestro cuyo "Nombre Estándar" coincida (normalizado,
+// sin importar mayúsculas/tildes/espacios) con el que se pasa. Un mismo
+// producto puede haber quedado homologado desde varias filas Proveedor +
+// Nombre en Factura distintas (comprado a más de un proveedor, o con más de
+// un alias de texto en factura) — la ficha es "por producto", no por fila,
+// así que se guarda igual en todas para que no importe cuál fila (proveedor)
+// se haya usado para abrir el modal.
+function filasMaestroPorNombreEstandar_(hoja, nombreEstandar) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return [];
+  const buscado = normalizarTextoGS(nombreEstandar);
+  if (!buscado) return [];
+  const valores = hoja.getRange(2, MAESTRO_COL.NOMBRE_ESTANDAR, nFilas, 1).getValues();
+  const filas = [];
+  valores.forEach(function(r, i) { if (r[0] && normalizarTextoGS(r[0]) === buscado) filas.push(i + 2); });
+  return filas;
+}
+
 // Guarda los campos de "ficha de producto" (ex módulo Base de Productos,
-// fusionado acá — ver comentario en MAESTRO_ENCABEZADOS): precio/costo,
-// presentación, kioskos donde se vende, activo. Requiere que la fila ya
-// exista en el Maestro (por sync o por alta manual) — no crea filas nuevas,
-// a propósito, para no duplicar el mecanismo de claveMaestro_/sync.
-// El precio siempre llega ya convertido a colones desde el cliente (mismo
-// criterio que tenía Code-productos-backend.gs: la moneda original elegida
-// en el modal no se persiste, solo el monto ya en ₡).
+// fusionado acá — ver comentario en MAESTRO_ENCABEZADOS): clasificación
+// (categoría/área/familia/subfamilia), precio/costo, presentación, kioskos
+// donde se vende, activo, y la sección "Información para recetas" (adaptada
+// de costos-productos.html de Ecosistema Lorito). Requiere que la fila
+// recibida en "clave" ya exista en el Maestro (por sync o por alta manual)
+// — no crea filas nuevas, a propósito, para no duplicar el mecanismo de
+// claveMaestro_/sync. El precio siempre llega ya convertido a colones desde
+// el cliente (la moneda original elegida en el modal no se persiste, solo
+// el monto ya en ₡).
+//
+// La ficha se guarda en TODAS las filas que compartan el mismo Nombre
+// Estándar que la fila de "clave" (ver filasMaestroPorNombreEstandar_) —
+// así "Fichas de producto" puede agruparlas en el frontend y mostrar una
+// sola clasificación/costo/receta por producto, con los distintos
+// proveedores/nombres de factura solo como referencia de dónde se compró.
 function guardarFichaMaestro(p) {
   if (!p.clave) throw new Error('Falta la clave del producto.');
   const hoja = getHojaMaestro();
-  const fila = filaMaestroPorClave_(hoja, p.clave);
-  if (fila === -1) throw new Error('No se encontró ese producto en el Maestro (sincronizá de nuevo).');
+  const filaOrigen = filaMaestroPorClave_(hoja, p.clave);
+  if (filaOrigen === -1) throw new Error('No se encontró ese producto en el Maestro (sincronizá de nuevo).');
+
+  const nombreEstandar = hoja.getRange(filaOrigen, MAESTRO_COL.NOMBRE_ESTANDAR).getValue();
+  const filas = nombreEstandar ? filasMaestroPorNombreEstandar_(hoja, nombreEstandar) : [filaOrigen];
+  if (filas.indexOf(filaOrigen) === -1) filas.push(filaOrigen);
 
   const precio = Number(p.precio_sin_iva) || 0;
   const cantidad = Number(p.cantidad_presentacion) || 0;
   const costoUnidad = cantidad > 0 ? Number((precio / cantidad).toFixed(4)) : 0;
+  const rendimiento = (p.rendimiento_receta !== undefined && p.rendimiento_receta !== '' && p.rendimiento_receta != null)
+    ? Number(p.rendimiento_receta) : 100;
+  const costoRealReceta = rendimiento > 0 ? Number((costoUnidad / (rendimiento / 100)).toFixed(4)) : costoUnidad;
   const ahora = new Date();
 
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Área de negocio')).setValue(p.area || '');
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Presentación')).setValue(p.presentacion || '');
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Tamaño')).setValue(p.tamano || '');
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Precio sin IVA')).setValue(precio);
-  hoja.getRange(fila, columnaPorNombre(hoja, 'IVA (%)')).setValue(Number(p.iva) || 0);
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Cantidad presentación')).setValue(cantidad);
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Costo por unidad')).setValue(costoUnidad);
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Kioskos')).setValue(p.kioskos || 'Todos');
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Activo')).setValue(p.activo === false ? false : true);
-  hoja.getRange(fila, columnaPorNombre(hoja, 'Ficha actualizada')).setValue(ahora);
-  hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+  const colCategoria = MAESTRO_COL.CATEGORIA;
+  const colArea = columnaPorNombre(hoja, 'Área de negocio');
+  const colPresentacion = columnaPorNombre(hoja, 'Presentación');
+  const colTamano = columnaPorNombre(hoja, 'Tamaño');
+  const colPrecio = columnaPorNombre(hoja, 'Precio sin IVA');
+  const colIva = columnaPorNombre(hoja, 'IVA (%)');
+  const colCantidad = columnaPorNombre(hoja, 'Cantidad presentación');
+  const colCosto = columnaPorNombre(hoja, 'Costo por unidad');
+  const colKioskos = columnaPorNombre(hoja, 'Kioskos');
+  const colActivo = columnaPorNombre(hoja, 'Activo');
+  const colFichaAct = columnaPorNombre(hoja, 'Ficha actualizada');
+  const colFamilia = columnaPorNombre(hoja, 'Familia');
+  const colSubfamilia = columnaPorNombre(hoja, 'Subfamilia');
+  const colAplicaReceta = columnaPorNombre(hoja, 'Aplica Receta');
+  const colUnidadReceta = columnaPorNombre(hoja, 'Unidad Receta');
+  const colRendimiento = columnaPorNombre(hoja, 'Rendimiento Receta (%)');
+  const colCostoReal = columnaPorNombre(hoja, 'Costo Real Receta');
+  const colUsarManual = columnaPorNombre(hoja, 'Usar Costo Manual Receta');
 
-  return { fila: fila, costoPorUnidad: costoUnidad };
+  filas.forEach(function(fila) {
+    if (p.categoria) hoja.getRange(fila, colCategoria).setValue(p.categoria);
+    hoja.getRange(fila, colArea).setValue(p.area || '');
+    hoja.getRange(fila, colPresentacion).setValue(p.presentacion || '');
+    hoja.getRange(fila, colTamano).setValue(p.tamano || '');
+    hoja.getRange(fila, colPrecio).setValue(precio);
+    hoja.getRange(fila, colIva).setValue(Number(p.iva) || 0);
+    hoja.getRange(fila, colCantidad).setValue(cantidad);
+    hoja.getRange(fila, colCosto).setValue(costoUnidad);
+    hoja.getRange(fila, colKioskos).setValue(p.kioskos || 'Todos');
+    hoja.getRange(fila, colActivo).setValue(p.activo === false ? false : true);
+    hoja.getRange(fila, colFichaAct).setValue(ahora);
+    hoja.getRange(fila, colFamilia).setValue(p.familia || '');
+    hoja.getRange(fila, colSubfamilia).setValue(p.subfamilia || '');
+    hoja.getRange(fila, colAplicaReceta).setValue(p.aplica_receta === 'No' ? 'No' : 'Sí');
+    hoja.getRange(fila, colUnidadReceta).setValue(p.unidad_receta || '');
+    hoja.getRange(fila, colRendimiento).setValue(rendimiento);
+    hoja.getRange(fila, colCostoReal).setValue(costoRealReceta);
+    hoja.getRange(fila, colUsarManual).setValue(p.usar_costo_manual_receta === true || p.usar_costo_manual_receta === 'true');
+    hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
+  });
+
+  return { filas: filas.length, costoPorUnidad: costoUnidad, costoRealReceta: costoRealReceta };
 }

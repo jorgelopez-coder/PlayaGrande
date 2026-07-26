@@ -100,6 +100,30 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .suggest-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--amber);margin-bottom:1rem;flex-wrap:wrap}
 .suggest-box b{font-family:var(--font-d)}
 .costo-display{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
+
+/* ── Fichas agrupadas por Nombre Estándar ──────────────────────── */
+.pf-expand-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;line-height:1;transition:transform .15s}
+.pf-expand-btn.open{transform:rotate(90deg)}
+.pf-sub-row td{background:var(--surface);padding:0 !important;border-bottom:1px solid var(--border)}
+.pf-sub-wrap{padding:.75rem 1.1rem}
+.pf-sub-table{width:100%;border-collapse:collapse;font-size:12px}
+.pf-sub-table th{text-align:left;color:var(--muted);font-weight:600;padding:.35rem .6rem;border-bottom:1px solid var(--border)}
+.pf-sub-table td{padding:.35rem .6rem;color:var(--text)}
+.pf-clasif{font-size:11.5px;color:var(--muted)}
+.pf-prov-count{font-size:12px;color:var(--muted)}
+
+/* ── Configuración: catálogos con chips ────────────────────────── */
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.cfg-add-row{display:flex;gap:8px;margin-bottom:.85rem}
+.cfg-add-row input{flex:1}
+.cfg-chips{display:flex;flex-wrap:wrap;gap:8px}
+.cfg-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 8px 5px 12px;font-size:12.5px}
+.cfg-chip button{background:none;border:none;color:var(--subtle);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;border-radius:50%}
+.cfg-chip button:hover{color:var(--red);background:var(--red-bg)}
+.cfg-subfamilia-familia{margin-bottom:.85rem;max-width:280px}
+@media(max-width:640px){
+  .cfg-grid{grid-template-columns:1fr}
+}
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
@@ -125,6 +149,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="mp-tabs">
   <button class="mp-tab active" id="tab-btn-homologacion" onclick="switchTab('homologacion')">Homologación</button>
   <button class="mp-tab" id="tab-btn-fichas" onclick="switchTab('fichas')">Fichas de producto</button>
+  <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
 
 <div id="tab-homologacion">
@@ -215,8 +240,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Fichas de producto</p>
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Acá cargás precio, costo, presentación y en qué kioskos se vende cada producto ya confirmado
-    (los marcados "No aplica" arriba no aparecen porque son servicios, no productos). El
+    Cada fila de acá es <b>un producto</b>, agrupado por su Nombre Estándar (los distintos
+    proveedores/nombres de factura que confirmaste con ese mismo nombre en Homologación quedan
+    adentro — abrí la flechita para verlos). Acá cargás la clasificación, precio/costo, en qué
+    kioskos se vende y la info para recetas de cada producto ya confirmado (los marcados
+    "No aplica" arriba no aparecen porque son servicios, no productos). El
     <b>precio de compra se prellena solo</b> con el último precio visto en las facturas registradas
     (Desglose_IA) — ajustalo si hace falta antes de guardar.
   </p>
@@ -240,6 +268,56 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 </div>
 
+<div id="tab-config" style="display:none">
+
+<div class="card">
+  <p class="card-title">Clasificación de productos</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Catálogos que se usan en la Ficha de producto (Área de negocio, Categoría, Familia y
+    Subfamilia). Agregá o quitá valores acá — se reflejan al toque en los desplegables de la
+    ficha, sin tocar código. Copiado del mismo panel de Ecosistema Lorito.
+  </p>
+  <div class="cfg-grid">
+    <div>
+      <div class="section-label" style="margin-top:0">Área de negocio</div>
+      <div class="cfg-add-row">
+        <input type="text" id="cfg-area-nuevo" placeholder="ej: Barra / Coctelería"/>
+        <button class="btn-sm" onclick="agregarConfigValor('Area','cfg-area-nuevo')">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-area"></div>
+    </div>
+    <div>
+      <div class="section-label" style="margin-top:0">Categoría</div>
+      <div class="cfg-add-row">
+        <input type="text" id="cfg-categoria-nuevo" placeholder="ej: Cerveza"/>
+        <button class="btn-sm" onclick="agregarConfigValor('Categoria','cfg-categoria-nuevo')">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-categoria"></div>
+    </div>
+    <div>
+      <div class="section-label" style="margin-top:0">Familia</div>
+      <div class="cfg-add-row">
+        <input type="text" id="cfg-familia-nuevo" placeholder="ej: Cerveza"/>
+        <button class="btn-sm" onclick="agregarConfigValor('Familia','cfg-familia-nuevo')">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-familia"></div>
+    </div>
+    <div>
+      <div class="section-label" style="margin-top:0">Subfamilia</div>
+      <div class="field cfg-subfamilia-familia" style="margin-bottom:.85rem">
+        <select id="cfg-subfamilia-familia-sel" onchange="renderSubfamiliasConfig()"></select>
+      </div>
+      <div class="cfg-add-row" id="cfg-subfamilia-add-row" style="display:none">
+        <input type="text" id="cfg-subfamilia-nuevo" placeholder="ej: IPA"/>
+        <button class="btn-sm" onclick="agregarSubfamiliaConfig()">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-subfamilia"></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
 </main>
 
 <div class="modal-overlay" id="modal-ficha">
@@ -253,30 +331,43 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <label>Producto</label>
         <div class="costo-display" id="ficha-nombre" style="font-size:13px;font-weight:600">—</div>
       </div>
-      <div class="field-row">
-        <div class="field" style="margin-bottom:0"><label>Proveedor</label>
-          <div class="costo-display" id="ficha-proveedor" style="font-size:13px;font-weight:500">—</div>
-          <div class="field-hint">Viene del Maestro (Proveedor + producto homologados). No se edita acá.</div>
-        </div>
-        <div class="field" style="margin-bottom:0"><label>Categoría</label>
-          <div class="costo-display" id="ficha-categoria" style="font-size:13px;font-weight:500">—</div>
-        </div>
+      <div class="field">
+        <label>Proveedores</label>
+        <div class="costo-display" id="ficha-proveedor" style="font-size:13px;font-weight:500">—</div>
+        <div class="field-hint">Viene del Maestro — todos los proveedores/nombres de factura homologados bajo este mismo Nombre Estándar. No se edita acá, se administra desde Homologación.</div>
       </div>
 
       <div class="section-label">Clasificación</div>
       <div class="field-row">
+        <div class="field"><label>Categoría</label>
+          <input type="text" id="fi-categoria" list="fi-categoria-list" placeholder="ej: Cerveza"/>
+          <datalist id="fi-categoria-list"></datalist>
+        </div>
         <div class="field"><label>Área de negocio</label>
           <input type="text" id="fi-area" list="fi-area-list" placeholder="ej: Bar, Cocina, Cava"/>
           <datalist id="fi-area-list"></datalist>
         </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Familia</label>
+          <input type="text" id="fi-familia" list="fi-familia-list" placeholder="ej: Cerveza" oninput="onFichaFamiliaChange()"/>
+          <datalist id="fi-familia-list"></datalist>
+        </div>
+        <div class="field"><label>Subfamilia</label>
+          <input type="text" id="fi-subfamilia" list="fi-subfamilia-list" placeholder="ej: IPA"/>
+          <datalist id="fi-subfamilia-list"></datalist>
+        </div>
+      </div>
+      <div class="field-row">
         <div class="field"><label>Presentación del proveedor</label>
           <input type="text" id="fi-presentacion" list="fi-presentacion-list" placeholder="ej: Caja, Six pack, Barril"/>
           <datalist id="fi-presentacion-list"></datalist>
         </div>
+        <div class="field"><label>Tamaño</label>
+          <input type="text" id="fi-tamano" placeholder="ej: 355 ml, 750 ml"/>
+        </div>
       </div>
-      <div class="field"><label>Tamaño</label>
-        <input type="text" id="fi-tamano" placeholder="ej: 355 ml, 750 ml"/>
-      </div>
+      <div class="field-hint" style="margin:-.5rem 0 1rem">Los valores de Área/Categoría/Familia se administran desde la pestaña ⚙ Configuración.</div>
 
       <div class="section-label">Compra y costo</div>
       <div class="suggest-box" id="ficha-sugerencia" style="display:none">
@@ -310,6 +401,38 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div class="costo-display" id="fi-costo-display">₡0.00</div>
           <div class="field-hint">Precio sin IVA ÷ cantidad</div>
         </div>
+      </div>
+
+      <div class="section-label">Información para recetas</div>
+      <div class="field-row">
+        <div class="field"><label>Aplica para recetas</label>
+          <select id="fi-aplica-receta">
+            <option value="Sí" selected>✓ Sí</option>
+            <option value="No">✕ No</option>
+          </select>
+          <div class="field-hint">Si es "No", no aparece como ingrediente al armar recetas (ej. limpieza, empaques, servicios).</div>
+        </div>
+        <div class="field"><label>Unidad de medida para receta</label>
+          <input type="text" id="fi-unidad-receta" list="fi-unidad-receta-list" placeholder="ej: ml, g, unidad"/>
+          <datalist id="fi-unidad-receta-list"><option value="Mililitro"/><option value="Litro"/><option value="Gramo"/><option value="Kilo"/><option value="Onza"/><option value="Unidad"/></datalist>
+          <div class="field-hint">La unidad con la que medís el ingrediente en tus recetas.</div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Rendimiento (%)</label>
+          <input type="number" id="fi-rendimiento" min="0" max="100" step="any" placeholder="100" oninput="actualizarCostoFichaPreview()"/>
+          <div class="field-hint">% utilizable tras limpieza/merma.</div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Costo real por unidad</label>
+          <div class="costo-display" id="fi-costo-real-display">₡0.00</div>
+          <div class="field-hint">Costo/u ÷ rendimiento</div>
+        </div>
+      </div>
+      <label class="check-row" style="margin-bottom:4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
+      <div class="field-hint" style="margin-bottom:1.25rem">
+        Por defecto las recetas usan el costo automático de compras (arriba en "Costo por unidad") cuando existe.
+        Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en su lugar — útil para
+        corregir un producto puntual sin esperar a que entren compras nuevas.
       </div>
 
       <div class="section-label">Dónde se vende</div>
@@ -365,9 +488,14 @@ document.getElementById('date-chip').textContent =
 
 let MAESTRO = [];
 let FILTRADOS = [];
-let FICHAS_FILTRADOS = []; // fila visible en la sección "Fichas de producto"
+let FICHAS_FILTRADOS = []; // grupos (por Nombre Estándar) visibles en "Fichas de producto"
 let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de filtro/búsqueda
 let FICHA_EN_EDICION = null; // clave del producto abierto en el modal de ficha
+let EXPANDIDOS = new Set(); // grupos con la lista de proveedores desplegada
+
+// Catálogos de clasificación (hoja "Configuracion") — Área/Categoría/Familia
+// son listas simples; Subfamilia depende de una Familia.
+let CONFIG = { areas: [], categorias: [], familias: [], subfamiliasPorFamilia: {} };
 
 // ── GVIZ: leer hoja pública del Sheet (igual que cuentas-por-pagar.html) ──
 function gvizLoad(hoja, expectedCol) {
@@ -443,7 +571,15 @@ async function cargarMaestro() {
       costoPorUnidad: Number(r['Costo por unidad']) || 0,
       kioskosFicha: r['Kioskos'] || '',
       activo: r['Activo'] === false ? false : true,
-      fichaActualizada: r['Ficha actualizada'] || ''
+      fichaActualizada: r['Ficha actualizada'] || '',
+      // ── Clasificación y datos para recetas (v2, copiado de LORITO) ──
+      familia: r['Familia'] || '',
+      subfamilia: r['Subfamilia'] || '',
+      aplicaReceta: r['Aplica Receta'] === 'No' ? 'No' : 'Sí',
+      unidadReceta: r['Unidad Receta'] || '',
+      rendimientoReceta: (r['Rendimiento Receta (%)'] !== '' && r['Rendimiento Receta (%)'] != null) ? Number(r['Rendimiento Receta (%)']) : '',
+      costoRealReceta: Number(r['Costo Real Receta']) || 0,
+      usarCostoManualReceta: r['Usar Costo Manual Receta'] === true || r['Usar Costo Manual Receta'] === 'TRUE'
     }));
     renderTodo();
   } catch (e) {
@@ -453,11 +589,119 @@ async function cargarMaestro() {
 
 function renderTodo() { renderMaestro(); renderFichas(); }
 
+// ── CONFIGURACIÓN (catálogos de Área/Categoría/Familia/Subfamilia) ────
+async function cargarConfiguracion() {
+  try {
+    const datos = await gvizLoad('Configuracion', 'Tipo');
+    const areas = [], categorias = [], familias = [], subPorFam = {};
+    datos.forEach(r => {
+      const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
+      if (!valor) return;
+      if (tipo === 'Area') areas.push(valor);
+      else if (tipo === 'Categoria') categorias.push(valor);
+      else if (tipo === 'Familia') familias.push(valor);
+      else if (tipo === 'Subfamilia') (subPorFam[extra] = subPorFam[extra] || []).push(valor);
+    });
+    CONFIG = { areas, categorias, familias, subfamiliasPorFamilia: subPorFam };
+  } catch (e) { /* si falla, se sigue con listas vacías (datalists quedan libres) */ }
+  renderConfiguracion();
+  poblarDatalistsFicha();
+}
+
+function renderConfiguracion() {
+  const chipsArea = document.getElementById('cfg-chips-area');
+  if (!chipsArea) return; // todavía no cargó el DOM de esta pestaña
+  chipsArea.innerHTML = chipsConfigHtml('Area', CONFIG.areas);
+  document.getElementById('cfg-chips-categoria').innerHTML = chipsConfigHtml('Categoria', CONFIG.categorias);
+  document.getElementById('cfg-chips-familia').innerHTML = chipsConfigHtml('Familia', CONFIG.familias);
+
+  const sel = document.getElementById('cfg-subfamilia-familia-sel');
+  const familiaSel = sel.value;
+  sel.innerHTML = '<option value="">Elegí una familia…</option>' +
+    CONFIG.familias.map(f => `<option value="${escapeAttr(f)}" ${f===familiaSel?'selected':''}>${escHtml(f)}</option>`).join('');
+  renderSubfamiliasConfig();
+}
+
+function chipsConfigHtml(tipo, valores) {
+  if (!valores.length) return '<span class="empty-state" style="padding:.5rem 0">Todavía no hay valores.</span>';
+  return valores.map(v => `
+    <span class="cfg-chip">${escHtml(v)}
+      <button type="button" title="Quitar" onclick="eliminarConfigValor('${tipo}','${escapeAttr(v)}')">×</button>
+    </span>`).join('');
+}
+
+function renderSubfamiliasConfig() {
+  const familia = document.getElementById('cfg-subfamilia-familia-sel').value;
+  document.getElementById('cfg-subfamilia-add-row').style.display = familia ? 'flex' : 'none';
+  const subfamilias = familia ? (CONFIG.subfamiliasPorFamilia[familia] || []) : [];
+  const cont = document.getElementById('cfg-chips-subfamilia');
+  if (!familia) { cont.innerHTML = '<span class="empty-state" style="padding:.5rem 0">Elegí una familia para ver/agregar sus subfamilias.</span>'; return; }
+  if (!subfamilias.length) { cont.innerHTML = '<span class="empty-state" style="padding:.5rem 0">Todavía no hay subfamilias para esta familia.</span>'; return; }
+  cont.innerHTML = subfamilias.map(v => `
+    <span class="cfg-chip">${escHtml(v)}
+      <button type="button" title="Quitar" onclick="eliminarSubfamiliaConfig('${escapeAttr(familia)}','${escapeAttr(v)}')">×</button>
+    </span>`).join('');
+}
+
+async function agregarConfigValor(tipo, inputId) {
+  const input = document.getElementById(inputId);
+  const valor = input.value.trim();
+  if (!valor) { showToast('Escribí un valor', 'error'); return; }
+  try {
+    await postAP({ modulo: 'config_agregar', tipo: tipo, valor: valor });
+    input.value = '';
+    showToast('Agregado ✓');
+    await cargarConfiguracion();
+  } catch (e) {
+    showToast('No se pudo agregar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarConfigValor(tipo, valor) {
+  if (!confirm(`¿Quitar "${valor}" de la lista?`)) return;
+  try {
+    await postAP({ modulo: 'config_eliminar', tipo: tipo, valor: valor });
+    showToast('Eliminado ✓');
+    await cargarConfiguracion();
+  } catch (e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  }
+}
+
+async function agregarSubfamiliaConfig() {
+  const familia = document.getElementById('cfg-subfamilia-familia-sel').value;
+  const input = document.getElementById('cfg-subfamilia-nuevo');
+  const valor = input.value.trim();
+  if (!familia) { showToast('Elegí una familia primero', 'error'); return; }
+  if (!valor) { showToast('Escribí una subfamilia', 'error'); return; }
+  try {
+    await postAP({ modulo: 'config_subfamilia_agregar', familia: familia, valor: valor });
+    input.value = '';
+    showToast('Agregada ✓');
+    await cargarConfiguracion();
+  } catch (e) {
+    showToast('No se pudo agregar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarSubfamiliaConfig(familia, valor) {
+  if (!confirm(`¿Quitar "${valor}" de ${familia}?`)) return;
+  try {
+    await postAP({ modulo: 'config_subfamilia_eliminar', familia: familia, valor: valor });
+    showToast('Eliminada ✓');
+    await cargarConfiguracion();
+  } catch (e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  }
+}
+
 function switchTab(nombre) {
   document.getElementById('tab-homologacion').style.display = nombre === 'homologacion' ? '' : 'none';
   document.getElementById('tab-fichas').style.display = nombre === 'fichas' ? '' : 'none';
+  document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
   document.getElementById('tab-btn-homologacion').classList.toggle('active', nombre === 'homologacion');
   document.getElementById('tab-btn-fichas').classList.toggle('active', nombre === 'fichas');
+  document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
 }
 
 function renderMaestro() {
@@ -521,6 +765,41 @@ function renderMaestro() {
 }
 
 // ── Sección aparte: Fichas de producto (precio, costo, kioskos) ───
+// Cada fila del Maestro es Proveedor + texto de factura, pero la Ficha es
+// "por producto": se agrupan acá todas las filas que compartan el mismo
+// Nombre Estándar (mismo criterio que usa guardarFichaMaestro en el
+// backend) y se muestra una sola fila por grupo, con los proveedores/
+// nombres de factura de ese producto disponibles al desplegar la flechita.
+function claveAgrupacion_(s) {
+  return (s || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+}
+
+function agruparFichas(candidatos) {
+  const mapa = new Map();
+  candidatos.forEach(m => {
+    const nombre = m.nombreEstandar || m.nombreFactura;
+    const key = claveAgrupacion_(nombre);
+    if (!mapa.has(key)) mapa.set(key, { key, nombre, items: [] });
+    mapa.get(key).items.push(m);
+  });
+  return Array.from(mapa.values()).map(g => {
+    // "Representante" del grupo: la fila con la ficha más reciente (si ya
+    // hay alguna completa) o si no, la primera — el backend igual guarda
+    // la ficha en todas las filas del grupo, así que en general coinciden.
+    const conFicha = g.items.filter(i => i.fichaActualizada)
+      .sort((a, b) => new Date(b.fichaActualizada) - new Date(a.fichaActualizada));
+    const rep = conFicha[0] || g.items[0];
+    return {
+      key: g.key,
+      nombre: g.nombre,
+      items: g.items.slice().sort((a, b) => (b.vecesVisto - a.vecesVisto) || (a.proveedor||'').localeCompare(b.proveedor||'')),
+      rep,
+      completa: !!rep.fichaActualizada
+    };
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 function renderFichas() {
   const contEl = document.getElementById('pf-lista');
   if (!contEl) return; // todavía no cargó el DOM de esta sección
@@ -528,16 +807,19 @@ function renderFichas() {
   const filtroEstado = document.getElementById('pf-filtro-estado').value;
 
   const candidatos = MAESTRO.filter(m => m.aplica === 'Sí');
-  FICHAS_FILTRADOS = candidatos.filter(m => {
-    if (filtroEstado === 'completa' && !m.fichaActualizada) return false;
-    if (filtroEstado === 'pendiente' && m.fichaActualizada) return false;
-    if (!q) return true;
-    return (m.proveedor + ' ' + (m.nombreEstandar || m.nombreFactura) + ' ' + m.categoria).toLowerCase().includes(q);
-  }).sort((a, b) => (a.nombreEstandar || a.nombreFactura).localeCompare(b.nombreEstandar || b.nombreFactura));
+  const grupos = agruparFichas(candidatos);
 
-  document.getElementById('pf-count-completas').textContent = candidatos.filter(m => m.fichaActualizada).length;
-  document.getElementById('pf-count-pendientes').textContent = candidatos.filter(m => !m.fichaActualizada).length;
-  document.getElementById('pf-count-total').textContent = candidatos.length;
+  FICHAS_FILTRADOS = grupos.filter(g => {
+    if (filtroEstado === 'completa' && !g.completa) return false;
+    if (filtroEstado === 'pendiente' && g.completa) return false;
+    if (!q) return true;
+    const texto = (g.nombre + ' ' + g.rep.categoria + ' ' + g.items.map(i => i.proveedor).join(' ')).toLowerCase();
+    return texto.includes(q);
+  });
+
+  document.getElementById('pf-count-completas').textContent = grupos.filter(g => g.completa).length;
+  document.getElementById('pf-count-pendientes').textContent = grupos.filter(g => !g.completa).length;
+  document.getElementById('pf-count-total').textContent = grupos.length;
 
   if (!candidatos.length) {
     contEl.innerHTML = '<div class="empty-state">Todavía no hay productos confirmados con "Aplica: Sí". Confirmá nombres arriba en Homologación primero.</div>';
@@ -551,23 +833,52 @@ function renderFichas() {
   contEl.innerHTML = `
     <table class="stock-table">
       <thead><tr>
-        <th>Proveedor</th><th>Producto</th><th>Categoría</th><th>Costo por unidad</th><th>Kioskos</th><th>Ficha</th><th></th>
+        <th></th><th>Producto</th><th>Clasificación</th><th>Costo por unidad</th><th>Proveedores</th><th>Kioskos</th><th>Ficha</th><th></th>
       </tr></thead>
       <tbody>
-        ${FICHAS_FILTRADOS.map(m => `
-          <tr>
-            <td>${escHtml(m.proveedor || '—')}</td>
-            <td>${escHtml(m.nombreEstandar || m.nombreFactura)}</td>
-            <td>${escHtml(m.categoria || '—')}</td>
-            <td>${m.costoPorUnidad ? fmtColones(m.costoPorUnidad) : '—'}</td>
-            <td>${escHtml(m.kioskosFicha && m.kioskosFicha !== 'Todos' ? m.kioskosFicha : 'Todos')}</td>
-            <td>${m.fichaActualizada
-              ? '<span class="mp-ficha-ok">✓ completa</span>'
-              : '<span class="mp-ficha-pend">Pendiente</span>'}</td>
-            <td style="white-space:nowrap"><button class="btn-sm mp-ficha-btn" onclick="abrirFicha('${escapeAttr(m.clave)}')">🏷️ ${m.fichaActualizada ? 'Editar' : 'Completar ficha'}</button></td>
-          </tr>`).join('')}
+        ${FICHAS_FILTRADOS.map(g => {
+          const m = g.rep;
+          const abierto = EXPANDIDOS.has(g.key);
+          const clasif = [m.categoria, [m.familia, m.subfamilia].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
+          const filaGrupo = `
+            <tr>
+              <td><button type="button" class="pf-expand-btn ${abierto?'open':''}" onclick="toggleGrupoFicha('${g.key}')" title="Ver proveedores">▶</button></td>
+              <td>${escHtml(g.nombre)}</td>
+              <td class="pf-clasif">${escHtml(clasif || '—')}</td>
+              <td>${m.costoPorUnidad ? fmtColones(m.costoPorUnidad) : '—'}</td>
+              <td class="pf-prov-count">${g.items.length} proveedor${g.items.length===1?'':'es'}</td>
+              <td>${escHtml(m.kioskosFicha && m.kioskosFicha !== 'Todos' ? m.kioskosFicha : 'Todos')}</td>
+              <td>${g.completa
+                ? '<span class="mp-ficha-ok">✓ completa</span>'
+                : '<span class="mp-ficha-pend">Pendiente</span>'}</td>
+              <td style="white-space:nowrap"><button class="btn-sm mp-ficha-btn" onclick="abrirFicha('${escapeAttr(m.clave)}')">🏷️ ${g.completa ? 'Editar' : 'Completar ficha'}</button></td>
+            </tr>`;
+          const filaDetalle = abierto ? `
+            <tr class="pf-sub-row"><td colspan="8">
+              <div class="pf-sub-wrap">
+                <table class="pf-sub-table">
+                  <thead><tr><th>Proveedor</th><th>Nombre en factura</th><th>Veces visto</th><th>Costo sugerido (última compra)</th></tr></thead>
+                  <tbody>
+                    ${g.items.map(it => `
+                      <tr>
+                        <td>${escHtml(it.proveedor || '—')}</td>
+                        <td>${escHtml(it.nombreFactura || '—')}</td>
+                        <td>${fmtNum(it.vecesVisto)}</td>
+                        <td>${it.costoSugerido ? (it.monedaSugerida === 'USD' ? 'US$' : '₡') + Number(it.costoSugerido).toLocaleString('es-CR',{maximumFractionDigits:2}) : '—'}</td>
+                      </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </td></tr>` : '';
+          return filaGrupo + filaDetalle;
+        }).join('')}
       </tbody>
     </table>`;
+}
+
+function toggleGrupoFicha(key) {
+  if (EXPANDIDOS.has(key)) EXPANDIDOS.delete(key); else EXPANDIDOS.add(key);
+  renderFichas();
 }
 
 function toggleSeleccion(idx, checked) {
@@ -723,10 +1034,33 @@ function leerFichaKioskos() {
 }
 
 function poblarDatalistsFicha() {
-  const areas = Array.from(new Set(MAESTRO.map(m => m.area).filter(Boolean))).sort();
+  const elArea = document.getElementById('fi-area-list');
+  if (!elArea) return; // todavía no cargó el DOM del modal
+  // Presentación no tiene catálogo propio en Configuración — se sigue
+  // sugiriendo con los valores ya usados en otras fichas (igual que antes).
   const presentaciones = Array.from(new Set(MAESTRO.map(m => m.presentacion).filter(Boolean))).sort();
-  document.getElementById('fi-area-list').innerHTML = areas.map(a => `<option value="${escapeAttr(a)}"/>`).join('');
   document.getElementById('fi-presentacion-list').innerHTML = presentaciones.map(p => `<option value="${escapeAttr(p)}"/>`).join('');
+
+  // Área/Categoría/Familia vienen del catálogo administrado en ⚙ Configuración
+  // (con respaldo de valores ya usados, por si todavía no se cargó/sembró).
+  const areas = Array.from(new Set([...CONFIG.areas, ...MAESTRO.map(m => m.area).filter(Boolean)]));
+  const categorias = Array.from(new Set([...CONFIG.categorias, ...MAESTRO.map(m => m.categoria).filter(Boolean)]));
+  const familias = Array.from(new Set([...CONFIG.familias, ...MAESTRO.map(m => m.familia).filter(Boolean)]));
+  document.getElementById('fi-area-list').innerHTML = areas.map(a => `<option value="${escapeAttr(a)}"/>`).join('');
+  document.getElementById('fi-categoria-list').innerHTML = categorias.map(c => `<option value="${escapeAttr(c)}"/>`).join('');
+  document.getElementById('fi-familia-list').innerHTML = familias.map(f => `<option value="${escapeAttr(f)}"/>`).join('');
+  onFichaFamiliaChange();
+}
+
+// Subfamilia depende de la Familia escrita en el campo — al tipear/elegir
+// una familia (con o sin subfamilias ya configuradas), se actualiza la
+// lista sugerida de subfamilias para esa familia.
+function onFichaFamiliaChange() {
+  const list = document.getElementById('fi-subfamilia-list');
+  if (!list) return;
+  const familia = document.getElementById('fi-familia').value.trim();
+  const subs = familia ? (CONFIG.subfamiliasPorFamilia[familia] || []) : [];
+  list.innerHTML = subs.map(s => `<option value="${escapeAttr(s)}"/>`).join('');
 }
 
 function onFichaMonedaChange() {
@@ -746,6 +1080,11 @@ function actualizarCostoFichaPreview() {
   const cantidad = Number(document.getElementById('fi-cantidad').value) || 0;
   const costo = cantidad > 0 ? precio / cantidad : 0;
   document.getElementById('fi-costo-display').textContent = fmtColones(costo);
+
+  const rendimientoInput = document.getElementById('fi-rendimiento').value;
+  const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
+  const costoReal = rendimiento > 0 ? costo / (rendimiento / 100) : costo;
+  document.getElementById('fi-costo-real-display').textContent = fmtColones(costoReal);
 }
 
 // Costo sugerido: viene calculado por el sync (última línea de Desglose_IA
@@ -782,32 +1121,56 @@ function abrirFicha(clave) {
   FICHA_EN_EDICION = m.clave;
   poblarDatalistsFicha();
 
-  document.getElementById('ficha-titulo').textContent = m.nombreEstandar || m.nombreFactura;
-  document.getElementById('ficha-nombre').textContent = m.nombreEstandar || m.nombreFactura || '—';
-  document.getElementById('ficha-proveedor').textContent = m.proveedor || '—';
-  document.getElementById('ficha-categoria').textContent = m.categoria || '—';
+  // La ficha es "por producto" (Nombre Estándar): se junta el resto de filas
+  // homologadas bajo el mismo nombre solo para mostrar sus proveedores como
+  // referencia — la clasificación/costo/receta que se ve y se guarda es una
+  // sola para todo el grupo (ver guardarFichaMaestro en el backend).
+  const nombre = m.nombreEstandar || m.nombreFactura;
+  const grupo = MAESTRO.filter(x => (x.aplica === 'Sí') &&
+    claveAgrupacion_(x.nombreEstandar || x.nombreFactura) === claveAgrupacion_(nombre));
+  const proveedoresTxt = grupo.length
+    ? grupo.map(x => x.proveedor ? `${x.proveedor} (${x.nombreFactura})` : x.nombreFactura).join('; ')
+    : (m.proveedor || '—');
 
+  document.getElementById('ficha-titulo').textContent = nombre;
+  document.getElementById('ficha-nombre').textContent = nombre || '—';
+  document.getElementById('ficha-proveedor').textContent = proveedoresTxt;
+
+  document.getElementById('fi-categoria').value = m.categoria || '';
   document.getElementById('fi-area').value = m.area || '';
+  document.getElementById('fi-familia').value = m.familia || '';
+  onFichaFamiliaChange();
+  document.getElementById('fi-subfamilia').value = m.subfamilia || '';
   document.getElementById('fi-presentacion').value = m.presentacion || '';
   document.getElementById('fi-tamano').value = m.tamano || '';
 
   // Precio de compra: si la ficha ya tenía un precio guardado a mano, se
   // respeta. Si es la primera vez que se completa, se prellena solo con el
-  // costo sugerido (último precio visto en las facturas registradas).
+  // costo sugerido (último precio visto en las facturas registradas) —
+  // tomando el más reciente entre TODAS las filas del grupo, no solo la
+  // que se usó para abrir el modal.
+  const conCosto = grupo.filter(x => x.costoSugerido).sort((a, b) => new Date(b.fechaUltimaCompra||0) - new Date(a.fechaUltimaCompra||0));
+  const sugerido = conCosto[0] || m;
   const tienePrecioGuardado = !!m.precioSinIva;
-  const hayCostoSugerido = !!m.costoSugerido;
+  const hayCostoSugerido = !!sugerido.costoSugerido;
   const prellenarConSugerido = !tienePrecioGuardado && hayCostoSugerido;
-  const monedaInicial = prellenarConSugerido && m.monedaSugerida === 'USD' ? 'USD' : 'CRC';
+  const monedaInicial = prellenarConSugerido && sugerido.monedaSugerida === 'USD' ? 'USD' : 'CRC';
   document.getElementById('fi-moneda').value = monedaInicial;
   document.getElementById('fi-tc').value = '';
   document.getElementById('fi-wrap-tc').style.display = monedaInicial === 'USD' ? '' : 'none';
   document.getElementById('fi-lbl-precio').textContent = monedaInicial === 'USD' ? 'Precio sin IVA (US$)' : 'Precio sin IVA (₡)';
-  document.getElementById('fi-precio').value = tienePrecioGuardado ? m.precioSinIva : (hayCostoSugerido ? m.costoSugerido : '');
+  document.getElementById('fi-precio').value = tienePrecioGuardado ? m.precioSinIva : (hayCostoSugerido ? sugerido.costoSugerido : '');
   document.getElementById('fi-iva').value = m.iva !== '' ? m.iva : '';
   document.getElementById('fi-cantidad').value = m.cantidadPresentacion || '';
   document.getElementById('fi-activo').checked = m.activo !== false;
+
+  document.getElementById('fi-aplica-receta').value = m.aplicaReceta === 'No' ? 'No' : 'Sí';
+  document.getElementById('fi-unidad-receta').value = m.unidadReceta || '';
+  document.getElementById('fi-rendimiento').value = m.rendimientoReceta !== '' ? m.rendimientoReceta : 100;
+  document.getElementById('fi-usar-costo-manual').checked = !!m.usarCostoManualReceta;
+
   marcarFichaKioskosEnModal(m.kioskosFicha || 'Todos');
-  mostrarSugerenciaFicha(m, prellenarConSugerido);
+  mostrarSugerenciaFicha(sugerido, prellenarConSugerido);
   actualizarCostoFichaPreview();
 
   document.getElementById('modal-ficha').classList.add('open');
@@ -828,14 +1191,21 @@ async function guardarFicha() {
     const payload = {
       modulo: 'maestro_guardar_ficha',
       clave: FICHA_EN_EDICION,
+      categoria: document.getElementById('fi-categoria').value.trim(),
       area: document.getElementById('fi-area').value.trim(),
+      familia: document.getElementById('fi-familia').value.trim(),
+      subfamilia: document.getElementById('fi-subfamilia').value.trim(),
       presentacion: document.getElementById('fi-presentacion').value.trim(),
       tamano: document.getElementById('fi-tamano').value.trim(),
       precio_sin_iva: precioFichaEnCRC(),
       iva: document.getElementById('fi-iva').value,
       cantidad_presentacion: document.getElementById('fi-cantidad').value,
       kioskos: leerFichaKioskos(),
-      activo: document.getElementById('fi-activo').checked
+      activo: document.getElementById('fi-activo').checked,
+      aplica_receta: document.getElementById('fi-aplica-receta').value,
+      unidad_receta: document.getElementById('fi-unidad-receta').value.trim(),
+      rendimiento_receta: document.getElementById('fi-rendimiento').value,
+      usar_costo_manual_receta: document.getElementById('fi-usar-costo-manual').checked
     };
     await postAP(payload);
     showToast('Ficha guardada ✓');
@@ -882,6 +1252,7 @@ function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
 
 cargarMaestro();
 cargarKioskosDisponibles();
+cargarConfiguracion();
 </script>
 </body>
 </html>
