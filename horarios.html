@@ -190,7 +190,6 @@ tbody tr:last-child td{border-bottom:none}
       <button class="btn btn-sm" id="btn-add-extra" onclick="toggleAddPanel()">+ Empleado extra</button>
       <button class="btn btn-sm" id="btn-add-cover" onclick="toggleCoverPanel()">&#8644; Colaborador de otro kiosko</button>
       <button class="btn btn-sm btn-primary" id="btn-guardar-semana" onclick="guardarSemana()">&#128190; Guardar semana</button>
-      <button class="btn btn-sm" onclick="window.print()">&#9113; Imprimir</button>
     </div>
   </div>
 
@@ -418,7 +417,8 @@ async function cargarHorarioGuardado(){
     if(!registros.length)return;
 
     registros.forEach(r=>{
-      const nombre=(r['Colaborador']||'').toString().trim().toLowerCase();
+      const nombreOrig=(r['Colaborador']||'').toString().trim();
+      const nombre=nombreOrig.toLowerCase();
       const fecha=r['Fecha']||'';
       const dayIdx=dates.indexOf(fecha);
       if(dayIdx<0)return;
@@ -427,10 +427,24 @@ async function cargarHorarioGuardado(){
       // addCoverEmp). Desambiguar primero por la columna "Kiosko" guardada;
       // si no calza (registros viejos sin ese dato, o sin ambigüedad) cae al
       // match solo por nombre como antes.
-      const kioskoReg=(r['Kiosko']||'').toString().trim().toLowerCase();
+      const kioskoRegOrig=(r['Kiosko']||'').toString().trim();
+      const kioskoReg=kioskoRegOrig.toLowerCase();
       let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
       if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
-      if(!emp)return;
+      if(!emp){
+        // Colaborador guardado que no está en RRHH "Personal": es un
+        // empleado extra agregado manualmente en una sesión anterior. Al
+        // recargar la página, "employees" se reconstruye solo desde RRHH
+        // (buildFromPersonal) y no incluye extras de sesiones pasadas, por
+        // lo que su horario guardado se descartaba en silencio (bug
+        // reportado: "al ingresar un empleado extra no se está
+        // almacenando la data"). Reconstruirlo acá para no perder ese dato.
+        if(!nombreOrig)return;
+        const kiosko=kioskoRegOrig||activeResto||(restos[0]&&restos[0].id)||'';
+        const extraId='EXTRA-'+nombre.replace(/\s+/g,'-')+'-'+kioskoReg.replace(/\s+/g,'-');
+        emp={id:extraId,name:nombreOrig,restoId:kiosko,kiosko:kiosko,area:r['Departamento']||'',puesto:r['Puesto']||'',extra:true};
+        employees.push(emp);
+      }
       if(!schedule[emp.id])initSchedule(emp);
       const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
       schedule[emp.id][dayIdx]={
