@@ -79,9 +79,16 @@ const ENCABEZADOS_AGUINALDOS = [
   'Fecha pago', 'Confirmado por', 'Notas', 'Registrado'
 ];
 // "Kiosko" agregado después de "Departamento" (Lorito no lo tiene, un solo PDV).
+// "Hora entrada 2"/"Hora salida 2" al final (nunca insertar en medio, ver
+// prepararHoja): segundo tramo de un turno partido en el mismo día (ej.
+// 08:00-12:00 y 17:00-21:00) — vacías si el turno de ese día es continuo.
+// "Horas" ya viene sumada (tramo 1 + tramo 2, ver calcH en horarios.html), así
+// que el reporte de horarios-historial.html no necesita tocarse: solo suma
+// esa columna.
 const ENCABEZADOS_HORARIOS = [
   'Semana inicio', 'Fecha', 'Colaborador', 'Departamento', 'Kiosko', 'Puesto',
-  'Estado', 'Hora entrada', 'Hora salida', 'Horas', 'Nota', 'Detalle'
+  'Estado', 'Hora entrada', 'Hora salida', 'Horas', 'Nota', 'Detalle',
+  'Hora entrada 2', 'Hora salida 2'
 ];
 const ENCABEZADOS_HORARIOS_ESTADO = [
   'Semana inicio', 'Cerrado', 'Actualizado', 'PDF URL'
@@ -543,7 +550,7 @@ function prepararHoja(nombre, encabezados) {
   // fecha/hora (rompería tanto la lectura como las comparaciones exactas que
   // usan eliminarFilasPorColumna/filaPorColumna al reemplazar una semana).
   const COLUMNAS_TEXTO_POR_HOJA = {};
-  COLUMNAS_TEXTO_POR_HOJA[HOJA_HORARIOS] = ['Semana inicio', 'Fecha', 'Hora entrada', 'Hora salida'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_HORARIOS] = ['Semana inicio', 'Fecha', 'Hora entrada', 'Hora salida', 'Hora entrada 2', 'Hora salida 2'];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_HORARIOS_ESTADO] = ['Semana inicio'];
   // "Horario Lun".."Horario Dom" guardan "HH:MM-HH:MM" (o vacío/"Cerrado"),
   // no una hora de reloj real — forzar texto para que Sheets no autoconvierta.
@@ -655,7 +662,7 @@ function filasComoObjetos(hoja) {
         // "Hora entrada"/"Hora salida" son horas de reloj ("HH:mm"), no
         // fechas — si Sheets las autoconvirtió antes de forzar el formato
         // de texto, recuperar la hora en vez de "yyyy-MM-dd" (sin sentido).
-        v = (h === 'Hora entrada' || h === 'Hora salida')
+        v = (h === 'Hora entrada' || h === 'Hora salida' || h === 'Hora entrada 2' || h === 'Hora salida 2')
           ? Utilities.formatDate(v, 'America/Costa_Rica', 'HH:mm')
           : Utilities.formatDate(v, 'America/Costa_Rica', 'yyyy-MM-dd');
       }
@@ -1231,7 +1238,9 @@ function registrarHorarioSemana(p) {
       'Hora salida': d.salida || '',
       'Horas': Number(d.horas) || 0,
       'Nota': d.nota || '',
-      'Detalle': d.detalle || ''
+      'Detalle': d.detalle || '',
+      'Hora entrada 2': d.entrada2 || '',
+      'Hora salida 2': d.salida2 || ''
     });
   });
 

@@ -360,10 +360,12 @@ async function loadSheet(){
   }
 }
 
+// "split"/"in2"/"out2": segundo tramo de un turno partido en el mismo día
+// (ej. 08:00-12:00 y 17:00-21:00). Vacíos/false si el turno es continuo.
 function initSchedule(emp){
   if(!schedule[emp.id]){
     schedule[emp.id]={};
-    DAYS.forEach((_,i)=>{schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:''}});
+    DAYS.forEach((_,i)=>{schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:'',split:false,in2:'',out2:''}});
   }
 }
 
@@ -372,7 +374,7 @@ function initSchedule(emp){
 function resetWeekCells(){
   employees.forEach(emp=>{
     if(!schedule[emp.id]) initSchedule(emp);
-    DAYS.forEach((_,i)=>{ schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:''}; });
+    DAYS.forEach((_,i)=>{ schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:'',split:false,in2:'',out2:''}; });
   });
 }
 
@@ -404,13 +406,16 @@ async function cargarHorarioGuardado(){
       if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
       if(!emp)return;
       if(!schedule[emp.id])initSchedule(emp);
+      const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
       schedule[emp.id][dayIdx]={
         status: r['Estado']||'trabajo',
         in:     r['Hora entrada']||'',
         out:    r['Hora salida']||'',
         note:   r['Nota']||'',
         autoVac:false,
-        otroLabel: r['Detalle']||''
+        otroLabel: r['Detalle']||'',
+        split: !!(in2||out2),
+        in2, out2
       };
     });
   }catch(e){
@@ -432,7 +437,8 @@ async function guardarSemana(){
         kiosko:(emp.kiosko||(emp.restoId!==ROTATIVO?emp.restoId:'')||''), puesto:emp.puesto||'',
         estado:s.status||'trabajo', entrada:s.in||'', salida:s.out||'',
         horas:calcH(emp.id,i), nota:s.note||'',
-        detalle:(s.status==='otro'?(s.otroLabel||''):'')
+        detalle:(s.status==='otro'?(s.otroLabel||''):''),
+        entrada2:(s.split?(s.in2||''):''), salida2:(s.split?(s.out2||''):'')
       });
     });
   });
@@ -662,13 +668,21 @@ function showStatus(msg,warn){
 }
 
 /* ── Schedule ── */
+// Suma tramo 1 (in/out) + tramo 2 (in2/out2, solo si el turno está partido) —
+// un turno partido de 08:00-12:00 y 17:00-21:00 da 8h en total, no 13h.
+function calcTramo(ini,fin){
+  if(!ini||!fin)return 0;
+  const[ih,im]=ini.split(':').map(Number),[oh,om]=fin.split(':').map(Number);
+  const diff=(oh*60+om)-(ih*60+im);return diff>0?diff/60:0;
+}
 function calcH(empId,day){
   const s=schedule[empId]?.[day];
   if(!s)return 0;
   if(s.status==='vacaciones')return HORAS_VACACIONES;
-  if(s.status!=='trabajo'||!s.in||!s.out)return 0;
-  const[ih,im]=s.in.split(':').map(Number),[oh,om]=s.out.split(':').map(Number);
-  const diff=(oh*60+om)-(ih*60+im);return diff>0?diff/60:0;
+  if(s.status!=='trabajo')return 0;
+  let h=calcTramo(s.in,s.out);
+  if(s.split) h+=calcTramo(s.in2,s.out2);
+  return h;
 }
 function setStatus(empId,day,val){
   if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
@@ -724,6 +738,18 @@ function setTimeField(empId,day,field,val){
 }
 function setNote(empId,day,val){if(!semanaCerrada&&schedule[empId])schedule[empId][day].note=val}
 
+// Activa/quita un segundo tramo de horario (turno partido) en el día. Al
+// quitarlo se limpian in2/out2 para que no queden horas "fantasma" sumando
+// al total si se reactiva después sin llenarlas de nuevo.
+function toggleSplit(empId,day){
+  if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  const s=schedule[empId]?.[day];
+  if(!s)return;
+  s.split=!s.split;
+  if(!s.split){s.in2='';s.out2='';}
+  renderSched();
+}
+
 function updateTotals(){
   const emps=employees.filter(e=>e.restoId===activeResto||e.restoId===ROTATIVO);
   emps.forEach(emp=>{
@@ -773,9 +799,16 @@ function buildDayCell(empId,i){
       return '<td class="'+info.bgCls+'"><div class="special-td">'+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
     }
     const h=calcH(empId,i);
+    const splitRow=s.split
+      ? '<div style="font-size:9px;color:var(--text3);margin-top:2px">Tramo 2</div>'+
+        '<input type="time" value="'+esc(s.in2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in2\',this.value)"'+dis+'/>'+
+        '<input type="time" value="'+esc(s.out2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out2\',this.value)"'+dis+'/>'+
+        (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">Quitar tramo 2</button>')
+      : (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">&#8646; Partir turno</button>');
     return '<td><div class="day-cell">'+selEl+
       '<input type="time" value="'+esc(s.in)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in\',this.value)"'+dis+'/>'+
       '<input type="time" value="'+esc(s.out)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out\',this.value)"'+dis+'/>'+
+      splitRow+
       '<div class="hours-lbl" id="h-'+empId+'-'+i+'">'+(h>0?h.toFixed(1)+'h':'—')+'</div>'+
       extraBtn+noteEl+'</div></td>';
   }
@@ -942,7 +975,9 @@ function buildPDVHtml(resto,dates){
         const lbl=info.label+(st==='otro'&&s?.otroLabel?': '+esc(s.otroLabel):'');
         tbl+='<td style="background:'+info.bg+';color:'+info.text+';font-size:11px;text-align:center">'+info.icon+' '+lbl+(s?.note?'<br><em style="font-size:10px;opacity:.7">'+esc(s.note)+'</em>':'')+'</td>';
       }else{
-        tbl+='<td>'+(s?.in&&s?.out?s.in+'–'+s.out:'')+(s?.note?'<br><em style="font-size:10px;color:#888">'+esc(s.note)+'</em>':'')+'</td>';
+        const tramo1=(s?.in&&s?.out)?s.in+'–'+s.out:'';
+        const tramo2=(s?.split&&s?.in2&&s?.out2)?s.in2+'–'+s.out2:'';
+        tbl+='<td>'+tramo1+(tramo2?'<br>'+tramo2:'')+(s?.note?'<br><em style="font-size:10px;color:#888">'+esc(s.note)+'</em>':'')+'</td>';
       }
     });
     tbl+='</tr>';
