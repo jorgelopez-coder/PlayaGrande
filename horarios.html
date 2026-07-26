@@ -78,6 +78,9 @@ tbody tr:last-child td{border-bottom:none}
 .btn-extra:hover{background:var(--surface2);color:var(--text)}
 .btn-quitar{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid currentColor;background:transparent;color:inherit;opacity:.75;cursor:pointer}
 .btn-quitar:hover{opacity:1}
+.th-copy-btn{font-size:9px;font-weight:600;padding:2px 7px;border-radius:12px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;margin-top:4px;white-space:nowrap}
+.th-copy-btn:hover{background:var(--surface2);color:var(--text)}
+.th-copy-btn:disabled{opacity:.35;cursor:not-allowed}
 .extra-popover{position:fixed;z-index:300;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 6px 24px rgba(0,0,0,.14);padding:5px;min-width:165px}
 .extra-popover button{font-size:12px;font-family:inherit;text-align:left;padding:7px 9px;border:none;background:transparent;border-radius:6px;cursor:pointer;color:var(--text)}
 .extra-popover button:hover{background:var(--surface2)}
@@ -133,7 +136,7 @@ tbody tr:last-child td{border-bottom:none}
 .cov-total .cov-row-label{font-weight:600;color:var(--text)}
 .cov-empty{font-size:11px;color:var(--text3);padding:6px 0 6px 132px}
 @media print{
-  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,#metrics,.coverage-section{display:none!important}
+  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,.th-copy-btn,#metrics,.coverage-section{display:none!important}
   .note-print{display:block!important}
   .tbl-wrap{border:none;overflow:visible}
   body{background:white}
@@ -187,6 +190,7 @@ tbody tr:last-child td{border-bottom:none}
     <label style="margin:0;font-size:13px;color:var(--text2)">Departamento:</label>
     <select id="filter-area" onchange="renderSched()"><option value="">Todos los departamentos</option></select>
     <div class="toolbar-right">
+      <button class="btn btn-sm" id="btn-copy-week" onclick="copiarSemanaAnterior()">&#10697; Copiar semana anterior</button>
       <button class="btn btn-sm" id="btn-add-extra" onclick="toggleAddPanel()">+ Empleado extra</button>
       <button class="btn btn-sm" id="btn-add-cover" onclick="toggleCoverPanel()">&#8644; Colaborador de otro kiosko</button>
       <button class="btn btn-sm btn-primary" id="btn-guardar-semana" onclick="guardarSemana()">&#128190; Guardar semana</button>
@@ -354,6 +358,10 @@ function getWeekLabel(){
   const s=new Date(base+'T00:00:00'),e=new Date(s);e.setDate(s.getDate()+6);
   return fmtShort(s)+'–'+fmtShort(e)+' '+s.getFullYear();
 }
+function diffDays(isoA,isoB){
+  const a=new Date(isoA+'T00:00:00'),b=new Date(isoB+'T00:00:00');
+  return Math.round((a-b)/86400000);
+}
 
 /* ── Data: staff activo + vacaciones desde RRHH (Apps Script / Sheet) ── */
 async function loadSheet(){
@@ -500,6 +508,144 @@ async function guardarSemana(){
   }
 }
 
+/* ── Copiar horario de la semana anterior ──
+   Trae de la hoja "Horarios" (histórico guardado) los registros de la semana
+   que empieza 7 días antes de la visible y los aplica sobre el horario actual
+   de TODOS los colaboradores (no solo del kiosko activo), sobreescribiendo lo
+   que hubiera en pantalla. Usa la misma lógica de emparejamiento nombre+kiosko
+   que cargarHorarioGuardado, pero calculando el día (0-6) por diferencia de
+   fechas en vez de buscarlo en las fechas de la semana actual. */
+async function copiarSemanaAnterior(){
+  if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  if(!employees.length){toast('No hay colaboradores cargados');return}
+  const semanaActual=document.getElementById('week-start').value;
+  const dPrev=new Date(semanaActual+'T00:00:00');dPrev.setDate(dPrev.getDate()-7);
+  const semanaPrev=fmt(dPrev);
+  if(!confirm('¿Copiar el horario de la semana del '+semanaPrev+' a esta semana?\n\nSe sobreescribirán los turnos actuales de todos los colaboradores.'))return;
+
+  const btn=document.getElementById('btn-copy-week');
+  if(btn){btn.disabled=true;btn.textContent='Copiando…';}
+  try{
+    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
+    if(!resp.ok){toast('No se pudo cargar la semana anterior');return}
+    const data=await resp.json();
+    if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar la semana anterior');return}
+    const registros=data.registros.filter(r=>(r['Semana inicio']||'')===semanaPrev);
+    if(!registros.length){toast('No hay horario guardado para la semana del '+semanaPrev);return}
+
+    resetWeekCells();
+
+    registros.forEach(r=>{
+      const nombreOrig=(r['Colaborador']||'').toString().trim();
+      const nombre=nombreOrig.toLowerCase();
+      const fecha=r['Fecha']||'';
+      if(!fecha)return;
+      const dayIdx=diffDays(fecha,semanaPrev);
+      if(dayIdx<0||dayIdx>6)return;
+      const kioskoRegOrig=(r['Kiosko']||'').toString().trim();
+      const kioskoReg=kioskoRegOrig.toLowerCase();
+      let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
+      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
+      if(!emp){
+        // Igual que en cargarHorarioGuardado: reconstruir empleados extra que
+        // ya no están en RRHH "Personal" pero sí en el horario guardado.
+        if(!nombreOrig)return;
+        const kiosko=kioskoRegOrig||activeResto||(restos[0]&&restos[0].id)||'';
+        const extraId='EXTRA-'+nombre.replace(/\s+/g,'-')+'-'+kioskoReg.replace(/\s+/g,'-');
+        emp={id:extraId,name:nombreOrig,restoId:kiosko,kiosko:kiosko,area:r['Departamento']||'',puesto:r['Puesto']||'',extra:true};
+        employees.push(emp);
+      }
+      if(!schedule[emp.id])initSchedule(emp);
+      const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
+      schedule[emp.id][dayIdx]={
+        status: r['Estado']||'trabajo',
+        in:     r['Hora entrada']||'',
+        out:    r['Hora salida']||'',
+        note:   r['Nota']||'',
+        autoVac:false,
+        otroLabel: r['Detalle']||'',
+        split: !!(in2||out2),
+        in2, out2
+      };
+    });
+
+    aplicarVacaciones();
+    renderAll();
+    toast('Horario de la semana anterior copiado ✓ — recordá guardar');
+  }catch(e){
+    toast('Sin conexión — no se pudo copiar la semana anterior');
+  }finally{
+    if(btn){btn.disabled=semanaCerrada;btn.innerHTML='&#10697; Copiar semana anterior';}
+  }
+}
+
+/* ── Copiar horario del día anterior ──
+   Botón por columna (ver renderSched). Para Mar-Dom el día anterior está en
+   la misma semana ya cargada en memoria, así que es una copia local directa.
+   Para Lun el día anterior (Dom) cae en la semana previa, que no está
+   cargada: se trae puntualmente de la hoja "Horarios" filtrando por esa
+   fecha exacta. Solo aplica a colaboradores que ya están en pantalla (no
+   recrea empleados extra de sesiones pasadas, a diferencia de la copia de
+   semana completa). */
+async function copiarDiaAnterior(dayIdx){
+  if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  const dates=getWeekDates();
+  const labelDia=dates[dayIdx].label+' '+dates[dayIdx].date;
+
+  if(dayIdx>0){
+    if(!confirm('¿Copiar el horario de '+dates[dayIdx-1].label+' a '+labelDia+'?\n\nSe sobreescribirán los turnos de ese día para todos los colaboradores visibles.'))return;
+    employees.forEach(emp=>{
+      if(!schedule[emp.id])initSchedule(emp);
+      schedule[emp.id][dayIdx]=Object.assign({},schedule[emp.id][dayIdx-1]);
+    });
+    renderAll();
+    toast('Horario de '+dates[dayIdx-1].label+' copiado a '+labelDia+' ✓ — recordá guardar');
+    return;
+  }
+
+  const semanaActual=document.getElementById('week-start').value;
+  const fechaLunes=new Date(semanaActual+'T00:00:00');
+  const fechaAnteriorD=new Date(fechaLunes);fechaAnteriorD.setDate(fechaAnteriorD.getDate()-1);
+  const fechaAnteriorISO=fmt(fechaAnteriorD);
+  if(!confirm('¿Copiar el horario del '+fechaAnteriorISO+' (domingo anterior) a '+labelDia+'?\n\nSe sobreescribirán los turnos de ese día para todos los colaboradores visibles.'))return;
+  try{
+    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
+    if(!resp.ok){toast('No se pudo cargar el día anterior');return}
+    const data=await resp.json();
+    if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar el día anterior');return}
+    const registros=data.registros.filter(r=>(r['Fecha']||'')===fechaAnteriorISO);
+    if(!registros.length){toast('No hay horario guardado para el '+fechaAnteriorISO);return}
+    let aplicados=0;
+    registros.forEach(r=>{
+      const nombre=(r['Colaborador']||'').toString().trim().toLowerCase();
+      if(!nombre)return;
+      const kioskoReg=(r['Kiosko']||'').toString().trim().toLowerCase();
+      let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
+      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
+      if(!emp)return; // colaborador ya no visible en pantalla: se omite
+      if(!schedule[emp.id])initSchedule(emp);
+      const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
+      schedule[emp.id][0]={
+        status: r['Estado']||'trabajo',
+        in:     r['Hora entrada']||'',
+        out:    r['Hora salida']||'',
+        note:   r['Nota']||'',
+        autoVac:false,
+        otroLabel: r['Detalle']||'',
+        split: !!(in2||out2),
+        in2, out2
+      };
+      aplicados++;
+    });
+    if(!aplicados){toast('Ningún colaborador visible coincide con el horario del '+fechaAnteriorISO);return}
+    aplicarVacaciones();
+    renderAll();
+    toast('Horario del '+fechaAnteriorISO+' copiado ✓ — recordá guardar');
+  }catch(e){
+    toast('Sin conexión — no se pudo copiar el día anterior');
+  }
+}
+
 /* ── Cerrar / reabrir semana ──
    Una semana cerrada bloquea toda edición y habilita exportar/enviar.
    Reabrir requiere el código de administrador. */
@@ -580,6 +726,8 @@ function aplicarEstadoUI(){
   if(btnCerrar) btnCerrar.style.display=(employees.length&&!semanaCerrada)?'inline-flex':'none';
   if(btnReabrir) btnReabrir.style.display=(employees.length&&semanaCerrada)?'inline-flex':'none';
   if(btnGuardar) btnGuardar.disabled=semanaCerrada;
+  const btnCopyWeek=document.getElementById('btn-copy-week');
+  if(btnCopyWeek) btnCopyWeek.disabled=semanaCerrada;
   const btnAddExtra=document.getElementById('btn-add-extra');
   if(btnAddExtra) btnAddExtra.disabled=semanaCerrada;
   const btnAddCover=document.getElementById('btn-add-cover');
@@ -879,7 +1027,11 @@ function renderSched(){
   if(!emps.length){container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3)">Sin colaboradores activos. Hacé clic en "Actualizar planilla".</div>';renderMetrics();renderCoverageChart();return}
 
   let html='<div class="tbl-wrap"><table><thead><tr><th class="ec">Empleado</th>';
-  dates.forEach(d=>{html+='<th>'+d.label+'<br><span style="font-weight:400;font-size:10px;color:var(--text3)">'+d.date+'</span></th>'});
+  dates.forEach((d,i)=>{
+    const copyTitle=i>0?('Copiar horario de '+dates[i-1].label+' a este día'):'Copiar horario del domingo anterior a este día';
+    const copyBtn='<br><button type="button" class="th-copy-btn" onclick="copiarDiaAnterior('+i+')" title="'+esc(copyTitle)+'"'+(semanaCerrada?' disabled':'')+'>&#8630; copiar anterior</button>';
+    html+='<th>'+d.label+'<br><span style="font-weight:400;font-size:10px;color:var(--text3)">'+d.date+'</span>'+copyBtn+'</th>';
+  });
   html+='<th>Total hrs</th></tr></thead><tbody>';
 
   emps.forEach(emp=>{
