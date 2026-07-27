@@ -139,7 +139,7 @@
     <button class="tab active" onclick="switchTab('ordenes',this)">Órdenes</button>
     <button class="tab" id="tab-btn-actual" onclick="switchTab('actual',this)" style="display:none;">Orden actual</button>
     <button class="tab" onclick="switchTab('historial',this)">Historial</button>
-    <button class="tab" onclick="switchTab('minimos',this)">Mínimos</button>
+    <button class="tab" id="tab-btn-minimos" onclick="switchTab('minimos',this)">Mínimos</button>
   </div>
 
   <div id="tab-ordenes">
@@ -213,6 +213,9 @@
         producto × kiosko, no global — un mismo producto puede tener
         mínimos distintos en cada kiosko.
       </p>
+      <div style="padding:0 1.25rem 1rem;">
+        <input type="text" id="mn-buscar" placeholder="Buscar producto…" oninput="renderMinimos()" style="width:100%;max-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;">
+      </div>
       <div id="lista-minimos"><div class="empty">Seleccioná un kiosko.</div></div>
     </div>
   </div>
@@ -250,10 +253,10 @@ function kioskosPermitidos(lista) {
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 // URL /exec del Web App de Code-inventario-kioskos-v3-backend.gs (mismo que
 // usa inventario.html) — necesario para guardar mínimos (pestaña Mínimos).
-const APPS_SCRIPT_INVENTARIO = 'TODO_APPS_SCRIPT_INVENTARIO_KIOSKOS';
+const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
 // ID del Sheet "Inventario - Kioskos" — mismo que usa inventario.html,
 // contiene las hojas HISTORIAL_inventario y Minimos.
-const INVENTARIO_SHEET_ID = 'TODO_SHEET_ID_INVENTARIO_KIOSKOS';
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 // Sheet "Cuentas por Pagar - Kioskos", hoja "Maestro_Productos" (catálogo,
 // mismo que usa inventario.html — este módulo no tiene catálogo propio).
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
@@ -274,6 +277,14 @@ document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
 
 function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── DEEP LINK (ej. desde la ficha de producto en maestro-productos.html:
+// ordenes-compra.html?tab=minimos&kiosko=Playa%20Grande&producto=Nombre) ──
+const DEEPLINK_PARAMS = new URLSearchParams(location.search);
+const DEEPLINK_TAB = DEEPLINK_PARAMS.get('tab') || '';
+const DEEPLINK_KIOSKO = DEEPLINK_PARAMS.get('kiosko') || '';
+const DEEPLINK_PRODUCTO = DEEPLINK_PARAMS.get('producto') || '';
+let MINIMOS_DESTACAR = DEEPLINK_PRODUCTO ? claveNorm(DEEPLINK_PRODUCTO) : '';
 
 // ── ESTADO ────────────────────────────────────────────────────────
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -309,7 +320,8 @@ function gvizLoad(sheetId, hoja) {
     var cb = '_gv_' + Math.random().toString(36).slice(2,10);
     var url = 'https://docs.google.com/spreadsheets/d/' + sheetId
             + '/gviz/tq?tqx=responseHandler:' + cb
-            + '&sheet=' + encodeURIComponent(hoja);
+            + '&sheet=' + encodeURIComponent(hoja)
+            + '&headers=1';
     var done  = false;
     var timer = setTimeout(function() {
       if (!done) { done=true; cleanup(); reject(new Error('Timeout: '+hoja)); }
@@ -357,8 +369,8 @@ async function cargarKioskos() {
   } catch(e) { /* respaldo */ }
   const sel = document.getElementById('sel-kiosko');
   sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
-  const ultimo = localStorage.getItem('kiosko_actual');
-  if (ultimo && KIOSKOS.includes(ultimo)) { sel.value = ultimo; kioskoActual = ultimo; }
+  const preferido = (DEEPLINK_KIOSKO && KIOSKOS.includes(DEEPLINK_KIOSKO)) ? DEEPLINK_KIOSKO : localStorage.getItem('kiosko_actual');
+  if (preferido && KIOSKOS.includes(preferido)) { sel.value = preferido; kioskoActual = preferido; }
 }
 function alCambiarKiosko() {
   kioskoActual = document.getElementById('sel-kiosko').value;
@@ -423,10 +435,16 @@ function renderMinimos() {
   if (label) label.textContent = kioskoActual || '—';
   if (!kioskoActual) { cont.innerHTML = '<div class="empty">Seleccioná un kiosko.</div>'; return; }
   if (!productos.length) { cont.innerHTML = '<div class="empty">Sin productos del Maestro para este kiosko.</div>'; return; }
+  const buscarEl = document.getElementById('mn-buscar');
+  const q = (buscarEl && buscarEl.value || '').trim().toLowerCase();
+  const filtrados = [...productos]
+    .filter(p => !q || p.nombre.toLowerCase().includes(q))
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  if (!filtrados.length) { cont.innerHTML = '<div class="empty">Sin resultados para esa búsqueda.</div>'; return; }
   cont.innerHTML = '<table><thead><tr><th>Producto</th><th>Área</th><th style="text-align:right;">Mínimo (presentaciones)</th><th></th></tr></thead><tbody>'
-    + [...productos].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p => {
+    + filtrados.map(p => {
         const sid = slugId(p.id);
-        return '<tr>'
+        return '<tr id="row-min-' + sid + '">'
           + '<td>' + escHtml(p.nombre) + '</td>'
           + '<td style="color:var(--muted);font-size:12px;">' + escHtml(p.area||'—') + '</td>'
           + '<td class="num"><input type="number" class="qty-input" min="0" step="any" id="min-' + sid + '" value="' + (p.stock_minimo||'') + '"></td>'
@@ -434,6 +452,20 @@ function renderMinimos() {
           + '</tr>';
       }).join('')
     + '</tbody></table>';
+
+  // Si se llegó acá por deep link con un producto puntual (ej. desde la
+  // ficha de producto de maestro-productos.html), lo resalta y hace scroll.
+  if (MINIMOS_DESTACAR) {
+    const match = filtrados.find(p => claveNorm(p.nombre) === MINIMOS_DESTACAR);
+    if (match) {
+      const fila = document.getElementById('row-min-' + slugId(match.id));
+      if (fila) {
+        fila.scrollIntoView({ behavior:'smooth', block:'center' });
+        fila.style.background = 'var(--amber-bg, #fdf6e3)';
+        setTimeout(() => { fila.style.background = ''; }, 2500);
+      }
+    }
+  }
 }
 async function guardarMinimoLinea(id) {
   const p = productos.find(x => x.id === id);
@@ -472,6 +504,11 @@ async function init() {
     renderListaOrdenes();
     renderHistorial();
     cargarListaInventarios();
+  }
+  if (DEEPLINK_TAB === 'minimos') {
+    const buscar = document.getElementById('mn-buscar');
+    if (buscar && DEEPLINK_PRODUCTO) buscar.value = DEEPLINK_PRODUCTO;
+    switchTab('minimos', document.getElementById('tab-btn-minimos'));
   }
 }
 

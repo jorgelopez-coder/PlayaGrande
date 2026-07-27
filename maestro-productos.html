@@ -441,6 +441,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div class="kiosko-check-grid" id="fi-kioskos-lista" style="display:none"></div>
       </div>
 
+      <div class="field">
+        <button type="button" class="btn-sm" onclick="abrirMinimosProducto()">📏 Ver/editar mínimos por kiosko →</button>
+        <div class="field-hint">El stock mínimo (para sugerir pedidos) se define por kiosko en Órdenes de compra, no acá — este enlace abre ese producto directo en la pestaña Mínimos.</div>
+      </div>
+
       <label class="check-row"><input type="checkbox" id="fi-activo" checked/> Producto activo</label>
     </div>
     <div class="modal-foot">
@@ -1178,6 +1183,22 @@ function abrirFicha(clave) {
 function cerrarFicha() {
   document.getElementById('modal-ficha').classList.remove('open');
   FICHA_EN_EDICION = null;
+}
+
+// Stock mínimo NO vive en esta ficha — es por producto × kiosko y se
+// administra en la pestaña "Mínimos" de ordenes-compra.html (conectada al
+// mismo Maestro_Productos, ver Code-inventario-v2-backend.gs). Este botón
+// abre ese producto directo ahí en vez de duplicar el dato acá.
+function abrirMinimosProducto() {
+  if (!FICHA_EN_EDICION) return;
+  const m = MAESTRO.find(x => x.clave === FICHA_EN_EDICION);
+  if (!m) return;
+  const nombre = m.nombreEstandar || m.nombreFactura;
+  const params = new URLSearchParams({ tab: 'minimos', producto: nombre });
+  const todos = document.getElementById('fi-kioskos-todos').checked;
+  const marcados = Array.from(document.querySelectorAll('.fi-kiosko-chk:checked')).map(c => c.value);
+  if (!todos && marcados.length === 1) params.set('kiosko', marcados[0]);
+  window.open('ordenes-compra.html?' + params.toString(), '_blank');
 }
 document.getElementById('modal-ficha').addEventListener('click', e => {
   if (e.target === document.getElementById('modal-ficha')) cerrarFicha();
