@@ -16,6 +16,8 @@
   --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
   --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
   --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --teal:#0e7a7a;--teal-bg:#eaf6f6;--teal-lt:#a8d8d8;
+  --purple:#6a3a9a;--purple-bg:#f3eefb;--purple-lt:#d4b8f0;
   --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
 }
 body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
@@ -26,301 +28,204 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 .date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
-.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
-.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
-.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
-.tab-btn:hover:not(.active){color:var(--text)}
-main{max-width:960px;margin:0 auto;padding:2rem 2rem 5rem}
-.page{display:none}.page.active{display:block}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
-.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
-.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
-.card-title-row .card-title{margin-bottom:0}
-.field{margin-bottom:1rem}
-.field:last-child{margin-bottom:0}
-.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
-.field-hint{font-size:11.5px;color:var(--muted);margin-top:5px}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.req{color:var(--red);margin-left:2px}
-input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{
-  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
-  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
-  outline:none;appearance:none;transition:border-color .15s
-}
-input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
-input::placeholder{color:var(--subtle)}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
-.checkbox-row{display:flex;align-items:center;gap:8px}
-.checkbox-row input{width:auto}
-.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
-.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+main{max-width:1100px;margin:0 auto;padding:2rem 2rem 5rem}
+.page-header{margin-bottom:1.25rem;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-header h1{font-family:var(--font-d);font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.page-header p{font-size:13px;color:var(--muted)}
+.kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap}
+.kiosko-row select{width:220px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:1.25rem;width:fit-content}
+.tab{font-size:13px;font-weight:500;padding:6px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
+.tab.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.toolbar{display:flex;gap:8px;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:180px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--subtle);pointer-events:none}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 12px 8px 32px;outline:none}
+.search-input:focus{border-color:var(--teal)}
+.filter-sel{font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:10px 10px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.qty-input{width:80px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:5px 8px;outline:none;text-align:right;transition:border-color .15s}
+.qty-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,122,122,.1)}
+.qty-input.ok{border-color:var(--green);background:var(--green-bg)}
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.b-proceso{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-lt)}
+.b-finalizado{background:var(--green-bg);color:var(--green);border:1px solid var(--green-lt)}
+.btn-primary{background:var(--teal);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:10px 20px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.btn-danger{background:var(--red)}
-.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
-.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
-.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
-.btn-sm:hover{border-color:var(--border-h)}
-.btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
-.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.btn-sec{padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;white-space:nowrap}
+.btn-sec:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500}
+.hist-item{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;transition:background .12s}
+.hist-item:hover{background:var(--surface)}
+.hist-item:last-child{border-bottom:none}
+.status-proceso{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--amber)}
+.status-proceso::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber)}
+.status-fin{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--green)}
+.status-fin::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green)}
+input[type="date"]{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:8px 12px;outline:none}
+input[type="date"]:focus{border-color:var(--teal)}
+.valor-box{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;background:var(--teal-bg);border-bottom:1px solid var(--teal-lt)}
+.empty{text-align:center;padding:3rem;color:var(--subtle);font-size:13px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-bar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1.25rem;font-size:12px;color:var(--muted);margin-top:1.5rem}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.ssep{width:1px;height:14px;background:var(--border)}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.08);white-space:nowrap}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
 .toast.error{border-color:var(--red);color:var(--red)}
-.toast svg{width:16px;height:16px;flex-shrink:0}
-.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
-.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
-.badge-ok{background:var(--green-bg);color:var(--green)}
-.badge-bajo{background:var(--red-bg);color:var(--red)}
-.badge-peso{background:var(--blue-bg);color:var(--blue)}
-.badge-unitario{background:var(--surface);color:var(--muted)}
-.badge-inactivo{background:var(--surface);color:var(--subtle)}
-.area-header{font-family:var(--font-d);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin:1.5rem 0 .6rem;padding-bottom:4px;border-bottom:2px solid var(--green-lt)}
-.area-header:first-child{margin-top:0}
-.cat-section{margin-bottom:1.5rem}
-.cat-section:last-child{margin-bottom:0}
-.cat-header{font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.prod-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
-.prod-row:last-child{border-bottom:none}
-.prod-nombre{font-weight:600;font-size:13.5px}
-.prod-alias{font-size:11.5px;color:var(--muted)}
-.kiosko-row{display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
-.kiosko-row select{width:220px}
-.stock-table-wrap{overflow-x:auto}
-.stock-table{width:100%;border-collapse:collapse;font-size:12.5px}
-.stock-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
-.stock-table td{padding:.6rem .9rem;border-bottom:1px solid var(--border);white-space:nowrap}
-.stock-table tbody tr:last-child td{border-bottom:none}
-.stock-table tbody tr:hover{background:var(--surface)}
-.mov-panel{background:var(--surface);border-radius:8px;padding:10px 12px;margin:6px 0 10px;font-size:12px}
-.mov-item{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}
-.mov-item:last-child{border-bottom:none}
-.toma-header-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.toma-header-info{font-size:12.5px;color:var(--muted)}
-.toma-header-info b{color:var(--text)}
-.conteo-linea{padding:12px 0;border-bottom:1px solid var(--border)}
-.conteo-linea:last-child{border-bottom:none}
-.conteo-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-.conteo-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;align-items:end}
-.conteo-inputs .mini-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}
-.conteo-calc{font-size:12px;color:var(--muted);margin-top:6px}
-.conteo-calc b{color:var(--text)}
-.conteo-guardado{font-size:11px;color:var(--green);opacity:0;transition:opacity .3s;white-space:nowrap}
-.conteo-guardado.show{opacity:1}
-.foto-chip{font-size:11px;color:var(--blue);text-decoration:none}
-.btn-foto{font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--blue-lt);background:var(--blue-bg);color:var(--blue);cursor:pointer;font-weight:600;position:relative;overflow:hidden}
-.btn-foto input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
-.btn-ia{font-size:12px;padding:6px 10px;border-radius:7px;border:1px solid var(--amber-lt);background:var(--amber-bg);color:var(--amber);cursor:pointer;font-weight:600}
-.btn-ia:disabled{opacity:.5;cursor:wait}
-.toma-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
-.toma-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
-.toma-card-title{font-weight:700;font-size:13.5px;font-family:var(--font-d)}
-.toma-card-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
-.toma-card-body{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
-.toma-card.abierta .toma-card-body{display:block}
-.dif-pos{color:var(--green);font-weight:600}
-.dif-neg{color:var(--red);font-weight:600}
-.min-input{width:80px !important;text-align:right;padding:6px 8px !important;font-size:13px !important}
-.modal-overlay{position:fixed;inset:0;background:rgba(20,40,30,.45);display:flex;align-items:center;justify-content:center;z-index:200}
-.modal-card{background:var(--card);border-radius:var(--radius);padding:1.5rem;max-width:400px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.2)}
-.modal-error{font-size:12px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-lt);border-radius:8px;padding:8px 10px;margin-top:10px;display:none}
-@media(max-width:640px){
-  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
-  .field-row,.field-row3{grid-template-columns:1fr}
-}
+.toast svg{width:16px;height:16px}
+@media(max-width:700px){header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}}
 </style>
 </head>
 <body>
-
 <header>
   <div class="nav-left">
     <a href="index.html" class="back-btn">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Inicio
     </a>
-    <span class="page-title">📦 Inventario v2</span>
+    <span class="page-title">Inventario</span>
   </div>
   <span class="date-chip" id="date-chip"></span>
 </header>
 
-<div class="tabs">
-  <button class="tab-btn active" onclick="showTab('stock',this)">Stock</button>
-  <button class="tab-btn" onclick="showTab('toma',this)">Toma de Inventario</button>
-  <button class="tab-btn" onclick="showTab('resultados',this)">Resultados</button>
-  <button class="tab-btn" onclick="showTab('catalogo',this)">Catálogo</button>
-</div>
-
 <main>
+  <div class="page-header">
+    <div>
+      <h1>Toma de inventario</h1>
+      <p>Conteo físico periódico · Valorización por costo del Maestro de Productos</p>
+    </div>
+    <button class="btn-primary" onclick="iniciaNuevaToma()">+ Nueva toma de inventario</button>
+  </div>
 
-<!-- ── TAB STOCK ── -->
-<div class="page active" id="tab-stock">
   <div class="kiosko-row">
-    <select id="stock-kiosko" onchange="alCambiarKiosko('stock')"><option value="" disabled selected>Cargando…</option></select>
-    <button class="btn-sm" onclick="cargarStock()" style="margin-left:auto">↻ Actualizar</button>
+    <select id="sel-kiosko" onchange="alCambiarKiosko()"><option value="" disabled selected>Cargando kioskos…</option></select>
   </div>
-  <div class="card">
-    <div class="card-title-row">
-      <p class="card-title">Stock actual</p>
-      <button class="btn-sm" onclick="abrirModalAjuste()">± Ajuste / Merma</button>
-    </div>
-    <div class="stock-table-wrap"><div id="stock-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
-  </div>
-</div>
 
-<!-- ── TAB TOMA ── -->
-<div class="page" id="tab-toma">
-  <div class="kiosko-row">
-    <select id="toma-kiosko" onchange="alCambiarKiosko('toma')"><option value="" disabled selected>Cargando…</option></select>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('tomas',this)">Tomas</button>
+    <button class="tab" id="tab-btn-actual" onclick="switchTab('actual',this)" style="display:none;">Toma actual</button>
+    <button class="tab" onclick="switchTab('historial',this)">Historial</button>
   </div>
-  <div id="toma-contenido"><div class="empty-state">Seleccioná un kiosko.</div></div>
-</div>
 
-<!-- ── TAB RESULTADOS ── -->
-<div class="page" id="tab-resultados">
-  <div class="kiosko-row">
-    <select id="res-kiosko" onchange="alCambiarKiosko('res')"><option value="" disabled selected>Cargando…</option></select>
-    <button class="btn-sm" onclick="cargarResultados()" style="margin-left:auto">↻ Actualizar</button>
+  <!-- ══ TAB TOMAS (lista) ══════════════════════════════════════ -->
+  <div id="tab-tomas">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Tomas de inventario</div>
+      </div>
+      <div id="lista-tomas">
+        <div class="empty">Seleccioná un kiosko.</div>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <p class="card-title">Tomas cerradas · teórico vs. físico</p>
-    <div id="res-lista"><div class="empty-state">Seleccioná un kiosko.</div></div>
-  </div>
-</div>
 
-<!-- ── TAB CATÁLOGO ── -->
-<div class="page" id="tab-catalogo">
-  <div class="card">
-    <div class="card-title-row">
-      <p class="card-title" id="prod-form-title">Nuevo producto</p>
-      <button class="btn-link" id="prod-cancelar-edicion" style="display:none" onclick="cancelarEdicionProducto()">Cancelar edición</button>
-    </div>
-    <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-      El producto se elige de la lista ya homologada en <b>Maestro de Productos</b> (Nombre Estándar,
-      solo los confirmados con "Aplica: Sí") — acá solo se agregan los datos propios de Inventario
-      (tipo de control, envase/tara/densidad, costo, proveedor habitual). Área de negocio y Categoría
-      se toman del Maestro y se usan para agrupar el catálogo más abajo; si querés cambiarlas, hacelo
-      desde <a href="maestro-productos.html" style="color:var(--green)">Maestro de Productos</a>.
-    </p>
-    <div class="field">
-      <label for="prod-nombre-estandar">Producto (Nombre Estándar del Maestro) <span class="req">*</span></label>
-      <input type="text" id="prod-nombre-estandar" list="prod-nombre-estandar-list" placeholder="Buscá el producto ya confirmado en el Maestro…" oninput="mostrarAreaCategoriaPreview()"/>
-      <datalist id="prod-nombre-estandar-list"></datalist>
-      <div class="field-hint" id="prod-area-cat-preview"></div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="prod-tipo">Tipo de control <span class="req">*</span></label>
-        <select id="prod-tipo" onchange="alCambiarTipoProducto()">
-          <option value="unitario">Unitario — conteo (botellas cerradas, latas, gaseosas…)</option>
-          <option value="peso">Peso — báscula (sifón, destilados; stock en ml)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="prod-proveedor">Proveedor habitual</label>
-        <select id="prod-proveedor"><option value="">Sin proveedor</option></select>
-      </div>
-    </div>
-    <div class="field-row3" id="prod-campos-peso" style="display:none">
-      <div class="field">
-        <label for="prod-contenido">Contenido envase (ml) <span class="req">*</span></label>
-        <input type="number" id="prod-contenido" placeholder="750" min="0" step="any"/>
-      </div>
-      <div class="field">
-        <label for="prod-tara">Tara envase vacío (g) <span class="req">*</span></label>
-        <input type="number" id="prod-tara" placeholder="Pesá un envase vacío" min="0" step="any"/>
-      </div>
-      <div class="field">
-        <label for="prod-densidad">Densidad (g/ml) <span class="req">*</span></label>
-        <input type="number" id="prod-densidad" placeholder="0.94" min="0" step="any"/>
-      </div>
-    </div>
-    <div class="field-row3">
-      <div class="field">
-        <label for="prod-costo">Costo por <span id="prod-costo-unidad">unidad</span> (₡)</label>
-        <input type="number" id="prod-costo" placeholder="0" min="0" step="any"/>
-      </div>
-      <div class="field">
-        <label for="prod-nombre-venta">Nombre de venta directa (Square)</label>
-        <input type="text" id="prod-nombre-venta" placeholder="Solo si se vende 1:1 sin receta"/>
-      </div>
-      <div class="field">
-        <label>Estado</label>
-        <div class="checkbox-row" style="padding-top:9px">
-          <input type="checkbox" id="prod-activo" checked/>
-          <label for="prod-activo" style="margin:0">Activo</label>
+  <!-- ══ TAB ACTUAL (toma en proceso) ═════════════════════════ -->
+  <div id="tab-actual" style="display:none;">
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span class="card-title" id="actual-id-label">—</span>
+            <span id="actual-estado-badge"></span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="actual-info"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:13px;font-weight:500;">Fecha de toma:</label>
+            <input type="date" id="fecha-toma" onchange="guardarFechaToma()">
+          </div>
+          <button class="btn-sec" onclick="imprimirFormato()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:4px;vertical-align:middle;"><path d="M4 4V2h8v2M4 11H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1M4 8h.01M4 11v3h8v-3H4z"/></svg>
+            Imprimir formato
+          </button>
+          <button class="btn-primary" style="background:var(--green);" id="btn-finalizar" onclick="finalizarToma()">
+            ✓ Finalizar toma
+          </button>
         </div>
       </div>
-    </div>
-    <div class="submit-area">
-      <button class="btn-primary" id="btn-prod-guardar" onclick="guardarProducto()">Guardar producto</button>
-    </div>
-  </div>
 
-  <div class="card">
-    <p class="card-title">Catálogo — agrupado por Área de negocio y Categoría (Maestro)</p>
-    <div id="prod-lista"><div class="empty-state">Cargando productos…</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title-row">
-      <p class="card-title">Mínimos por kiosko</p>
-      <select id="min-kiosko" style="width:200px" onchange="renderMinimos()"><option value="" disabled selected>Kiosko…</option></select>
-    </div>
-    <div class="stock-table-wrap"><div id="min-lista"><div class="empty-state">Seleccioná un kiosko.</div></div></div>
-  </div>
-</div>
-
-</main>
-
-<!-- Modal ajuste/merma -->
-<div class="modal-overlay" id="ajuste-modal" style="display:none">
-  <div class="modal-card">
-    <p class="card-title">Ajuste de stock</p>
-    <div class="field">
-      <label for="aj-producto">Producto</label>
-      <select id="aj-producto"></select>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="aj-tipo">Tipo</label>
-        <select id="aj-tipo">
-          <option value="Ajuste Manual">Ajuste manual</option>
-          <option value="Merma">Merma</option>
-          <option value="Traslado">Traslado</option>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" id="s-actual" placeholder="Buscar producto…" oninput="renderActual()">
+        </div>
+        <select class="filter-sel" id="f-actual-area" onchange="renderActual()">
+          <option value="">Todas las áreas</option>
+        </select>
+        <select class="filter-sel" id="f-actual-grupo" onchange="renderActual()">
+          <option value="area">Agrupar por área</option>
+          <option value="categoria">Agrupar por categoría</option>
+          <option value="familia">Agrupar por familia</option>
+          <option value="area_categoria">Área → Categoría</option>
         </select>
       </div>
-      <div class="field">
-        <label for="aj-cantidad">Cantidad ± (unidad base)</label>
-        <input type="number" id="aj-cantidad" step="any" placeholder="-500 = quita, 500 = suma"/>
+
+      <div style="border-bottom:1px solid var(--teal-lt);">
+        <div class="valor-box">
+          <span style="font-size:13px;color:var(--teal);font-weight:500;">Valorización total</span>
+          <span id="valor-live" style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--teal);">₡0</span>
+        </div>
+        <div id="totales-area" style="display:flex;gap:0;flex-wrap:wrap;border-top:1px solid var(--teal-lt);"></div>
+      </div>
+
+      <div style="overflow-x:auto;" id="tabla-actual">
+        <div class="empty"><span class="spinner"></span></div>
       </div>
     </div>
-    <div class="field">
-      <label for="aj-nota">Nota</label>
-      <input type="text" id="aj-nota" placeholder="Motivo del ajuste"/>
-    </div>
-    <div class="submit-area">
-      <button class="btn-secondary" onclick="document.getElementById('ajuste-modal').style.display='none'">Cancelar</button>
-      <button class="btn-primary" onclick="guardarAjuste()">Aplicar ajuste</button>
-    </div>
   </div>
-</div>
 
-<!-- Modal PIN admin -->
-<div class="modal-overlay" id="pin-modal" style="display:none">
-  <div class="modal-card">
-    <p class="card-title">Código de administrador</p>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-      Cerrar la toma ajusta el stock al valor contado y bloquea cualquier
-      cambio posterior — no se puede reabrir.
-    </p>
-    <input type="password" id="pin-input" placeholder="Código de administrador" autocomplete="off"
-      onkeydown="if(event.key==='Enter')confirmarCierreToma()"/>
-    <div class="modal-error" id="pin-error">Código incorrecto.</div>
-    <div class="submit-area">
-      <button class="btn-secondary" onclick="cerrarModalPin()">Cancelar</button>
-      <button class="btn-primary btn-danger" onclick="confirmarCierreToma()">Confirmar cierre</button>
+  <!-- ══ TAB HISTORIAL ════════════════════════════════════════ -->
+  <div id="tab-historial" style="display:none;">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Tomas finalizadas</div></div>
+      <div id="lista-historial">
+        <div class="empty">Seleccioná un kiosko.</div>
+      </div>
     </div>
   </div>
+
+  <div class="status-bar">
+    <span class="sdot"></span>
+    <span id="status-msg">Cargando…</span>
+    <span class="ssep"></span>
+    <span style="margin-left:auto;">Inventario · Ecosistema Kioskos</span>
+  </div>
+</main>
+
+<!-- FORMATO IMPRESIÓN -->
+<div id="print-area" style="display:none;">
+  <style>
+    @media print {
+      body > * { display:none !important; }
+      #print-area { display:block !important; }
+      @page { margin:1.5cm; size:A4 portrait; }
+    }
+    #print-area { font-family:Arial,sans-serif; font-size:11px; color:#000; }
+    .pr-header { border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:14px; }
+    .pr-logo { font-weight:700; font-size:16px; }
+    .pr-meta { font-size:10px; color:#444; margin-top:4px; }
+    .pr-area-title { background:#1c3a28; color:#fff; padding:5px 10px; font-weight:700; font-size:12px; margin:14px 0 6px; }
+    .pr-table { width:100%; border-collapse:collapse; font-size:10px; }
+    .pr-table th { background:#f0f0f0; border:1px solid #ccc; padding:5px 6px; text-align:left; font-size:9px; text-transform:uppercase; letter-spacing:.04em; }
+    .pr-table td { border:1px solid #ccc; padding:5px 6px; vertical-align:middle; }
+    .pr-table td.espacio { background:#f9f9f9; }
+    .pr-firma { margin-top:30px; display:flex; gap:40px; }
+    .pr-firma-line { flex:1; border-top:1px solid #000; padding-top:5px; font-size:10px; text-align:center; }
+  </style>
+  <div id="print-contenido"></div>
 </div>
 
 <div class="toast" id="toast">
@@ -346,23 +251,28 @@ function kioskosPermitidos(lista) {
 
 // ── CONFIG ────────────────────────────────────────────────────────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
-// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar):
-const INVENTARIO_V2_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
-// Extractor de peso con IA (mismo Web App de mermas — Code-mermas-extractor.gs):
-const EXTRACTOR_URL = 'https://script.google.com/macros/s/AKfycbyYwRDE6Y8vW79x1ad-i2hWFXRq9jP0jkPmiWwRf8gmRNp8KD5_CacpjC69Xys_ocp1HQ/exec';
+// URL /exec del Web App de Code-inventario-kioskos-v3-backend.gs (pegar al desplegar):
+const APPS_SCRIPT_INVENTARIO = 'TODO_APPS_SCRIPT_INVENTARIO_KIOSKOS';
+// ID del Sheet "Inventario - Kioskos" (el mismo al que apunta el backend de
+// arriba) — se usa para leer HISTORIAL_inventario por gviz, pegalo al desplegar.
+const INVENTARIO_SHEET_ID = 'TODO_SHEET_ID_INVENTARIO_KIOSKOS';
 // Sheet "Cuentas por Pagar - Kioskos", hoja "Maestro_Productos" — mismo
 // Sheet público que lee maestro-productos.html (gviz, sin backend propio).
-// El catálogo de Inventario elige el producto de acá (Nombre Estándar,
-// Aplica = Sí) y agrupa por Área de negocio / Categoría en vivo.
+// El catálogo de Inventario sale de acá (Nombre Estándar, Aplica = Sí);
+// este módulo no tiene catálogo propio.
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-let PRODUCTOS = [], PROVEEDORES = [], MINIMOS = [];
-let MAESTRO_PRODUCTOS = []; // [{nombre, area, categoria}] — solo confirmados con Aplica = Sí
-let MAESTRO_MAP = {};       // claveNorm(nombre) -> {nombre, area, categoria}
-let tomaActivaActual = null;
-let stockActual = [];
-let fotosLinea = {};   // producto (Nombre Estándar) → dataUrl (foto de báscula pendiente de guardar)
+let kioskoActual = '';
+
+const hoy = new Date();
+const pad = n => String(n).padStart(2,'0');
+const fechaHoy = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
+const fmt  = n => '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:0});
+const fmt2 = n => '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
 
 async function fetchConTimeout(url, options = {}, timeoutMs = 45000) {
   const controller = new AbortController();
@@ -371,26 +281,15 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 45000) {
   catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
   finally { clearTimeout(timer); }
 }
-async function postInv(payload) {
-  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_V2_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
-}
-async function getInv(params) {
-  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
-}
 
-// ── GVIZ: leer hoja pública del Sheet del Maestro (igual que maestro-productos.html) ──
-function gvizLoad(hoja, expectedCol) {
+function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function jsArg(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+// ── GVIZ: leer hoja pública de un Sheet vía script tag (sin CORS) ──
+function gvizLoad(sheetId, hoja, expectedCol) {
   return new Promise(function(resolve) {
     var cb    = '_inv_' + Math.random().toString(36).slice(2,10);
-    var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+    var url   = 'https://docs.google.com/spreadsheets/d/' + sheetId
               + '/gviz/tq?tqx=responseHandler:' + cb
               + '&sheet=' + encodeURIComponent(hoja);
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
@@ -421,105 +320,16 @@ function gvizLoad(hoja, expectedCol) {
     document.body.appendChild(s);
   });
 }
-
-// ── MAESTRO DE PRODUCTOS: fuente del catálogo (Nombre Estándar + Área/Categoría) ──
-async function cargarMaestroProductos() {
-  try {
-    const datos = await gvizLoad('Maestro_Productos', 'Nombre en Factura');
-    const mapa = new Map();
-    datos.forEach(r => {
-      const aplica = r['Aplica'] === 'No' ? 'No' : 'Sí';
-      if (aplica === 'No') return;
-      const nombre = (r['Nombre Estándar'] || '').toString().trim();
-      if (!nombre) return;
-      const key = claveNorm(nombre);
-      const area = (r['Área de negocio'] || '').toString().trim();
-      const categoria = (r['Categoría'] || '').toString().trim();
-      const previo = mapa.get(key);
-      if (!previo || (!previo.area && area) || (!previo.categoria && categoria)) {
-        mapa.set(key, { nombre, area, categoria });
-      }
-    });
-    MAESTRO_PRODUCTOS = Array.from(mapa.values()).sort((a,b) => a.nombre.localeCompare(b.nombre));
-    MAESTRO_MAP = {};
-    MAESTRO_PRODUCTOS.forEach(m => { MAESTRO_MAP[claveNorm(m.nombre)] = m; });
-  } catch(e) { /* si falla, el selector queda vacío pero el resto del módulo sigue funcionando */ }
-  poblarListaProductoMaestro();
-  renderProductos();
-  renderStock();
-}
 function claveNorm(s) {
   return (s||'').toString().trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
 }
-function areaCategoriaDe(nombreEstandar) {
-  const m = MAESTRO_MAP[claveNorm(nombreEstandar)];
-  return { area: m ? m.area : '', categoria: m ? m.categoria : '' };
+// Un producto del Maestro aplica a un kiosko si su campo "Kioskos" está
+// vacío, dice "Todos" o incluye el nombre del kiosko (coma-separado) —
+// mismo campo que ya administra maestro-productos.html.
+function productoAplicaKiosko(p, kiosko) {
+  if (!p.kioskosTxt || /^todos$/i.test(p.kioskosTxt.trim())) return true;
+  return p.kioskosTxt.split(',').map(s=>s.trim().toLowerCase()).includes(kiosko.toLowerCase());
 }
-function poblarListaProductoMaestro() {
-  const dl = document.getElementById('prod-nombre-estandar-list');
-  if (dl) dl.innerHTML = MAESTRO_PRODUCTOS.map(m => `<option value="${escapeAttr(m.nombre)}">`).join('');
-}
-function mostrarAreaCategoriaPreview() {
-  const el = document.getElementById('prod-area-cat-preview');
-  const nombre = document.getElementById('prod-nombre-estandar').value.trim();
-  if (!el) return;
-  if (!nombre) { el.textContent = ''; el.style.color = ''; return; }
-  const { area, categoria } = areaCategoriaDe(nombre);
-  if (!area && !categoria) {
-    el.style.color = 'var(--red)';
-    el.textContent = '⚠ No coincide con ningún producto confirmado del Maestro — verificá que el nombre sea exacto (pestaña Homologación de Maestro de Productos).';
-  } else {
-    el.style.color = 'var(--muted)';
-    el.textContent = 'Se va a agrupar en: ' + [area, categoria].filter(Boolean).join(' · ');
-  }
-}
-
-const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos' };
-function getRoles() {
-  try { return JSON.parse(localStorage.getItem('portal_roles')||'null') || [ADMIN_DEFAULT]; }
-  catch { return [ADMIN_DEFAULT]; }
-}
-function rolAdminPorPin(pin) {
-  const rol = getRoles().find(r => r.pin === pin);
-  return (rol && rol.modulos === 'todos') ? rol : null;
-}
-
-function showTab(tab, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  el.classList.add('active');
-  if (tab === 'stock') cargarStock();
-  if (tab === 'toma') cargarTomaActiva();
-  if (tab === 'resultados') cargarResultados();
-}
-function showToast(msg, type='success') {
-  const t = document.getElementById('toast');
-  document.getElementById('toast-icon').innerHTML = type === 'success'
-    ? '<polyline points="3 8 7 12 13 4"/>'
-    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
-  document.getElementById('toast-msg').textContent = msg;
-  t.className = `toast ${type}`;
-  requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => t.classList.remove('show'), 3500);
-}
-function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escapeAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-// Para pasar un string arbitrario (puede traer tildes, comillas, paréntesis…)
-// como argumento de un onclick/onchange embebido en HTML, sin romper el
-// atributo ni el parseo JS.
-function jsArg(v) { return escapeAttr(JSON.stringify(String(v))); }
-// ID de elemento DOM seguro a partir de un Nombre Estándar libre (puede
-// tener espacios, tildes, comillas…). Determinístico, no hace falta mapa.
-function slugId(s) {
-  let h = 0;
-  const str = String(s || '');
-  for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) | 0; }
-  return 'p' + (h >>> 0).toString(36);
-}
-function hoy(){ return new Date().toISOString().slice(0,10); }
-function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
-function fmtCant(n, unidad){ return fmtNum(Math.round(Number(n)||0)) + ' ' + (unidad === 'ml' ? 'ml' : 'ud'); }
 
 // ── KIOSKOS ───────────────────────────────────────────────────────
 async function cargarKioskos() {
@@ -528,578 +338,622 @@ async function cargarKioskos() {
     const data = await resp.json();
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
   } catch(e) { /* respaldo */ }
-  const opciones = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
-  ['stock-kiosko','toma-kiosko','res-kiosko','min-kiosko'].forEach(id => document.getElementById(id).innerHTML = opciones);
+  const sel = document.getElementById('sel-kiosko');
+  sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
   const ultimo = localStorage.getItem('kiosko_actual');
   if (ultimo && KIOSKOS.includes(ultimo)) {
-    ['stock-kiosko','toma-kiosko','res-kiosko','min-kiosko'].forEach(id => document.getElementById(id).value = ultimo);
-    cargarStock();
+    sel.value = ultimo;
+    kioskoActual = ultimo;
   }
 }
-function alCambiarKiosko(origen) {
-  const mapa = { stock:'stock-kiosko', toma:'toma-kiosko', res:'res-kiosko' };
-  const k = document.getElementById(mapa[origen]).value;
-  if (k) localStorage.setItem('kiosko_actual', k);
-  if (origen === 'stock') cargarStock();
-  if (origen === 'toma') cargarTomaActiva();
-  if (origen === 'res') cargarResultados();
+function alCambiarKiosko() {
+  kioskoActual = document.getElementById('sel-kiosko').value;
+  if (kioskoActual) localStorage.setItem('kiosko_actual', kioskoActual);
+  tomaActual = null;
+  document.getElementById('tab-btn-actual').style.display = 'none';
+  actualizarProductosDelKiosko();
+  switchTab('tomas', document.querySelectorAll('.tab')[0]);
+  renderListaTomas();
 }
 
-// ── CATÁLOGO ──────────────────────────────────────────────────────
-async function cargarCatalogo() {
+// ── MAESTRO DE PRODUCTOS: única fuente del catálogo ──────────────
+let MAESTRO_PRODUCTOS = []; // catálogo completo, sin filtrar por kiosko
+let productos = [];         // catálogo filtrado al kiosko seleccionado (lo que usa la toma)
+
+async function cargarMaestroProductos() {
   try {
-    const [prodResp, provResp, minResp] = await Promise.all([
-      getInv({ modulo:'productos' }), getInv({ modulo:'proveedores' }), getInv({ modulo:'minimos' })
-    ]);
-    PRODUCTOS = prodResp.registros || [];
-    PROVEEDORES = provResp.registros || [];
-    MINIMOS = minResp.registros || [];
-    poblarSelectProveedores();
-    renderProductos();
-    renderMinimos();
-  } catch(e) {
-    document.getElementById('prod-lista').innerHTML = `<div class="empty-state">No se pudo cargar el catálogo (${escHtml(e.message)}).</div>`;
+    const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
+    const mapa = new Map();
+    datos.forEach(r => {
+      if (r['Aplica'] === 'No') return;
+      if (r['Activo'] === 'No') return;
+      const nombre = (r['Nombre Estándar'] || '').toString().trim();
+      if (!nombre) return;
+      const key = claveNorm(nombre);
+      const prod = {
+        id:            nombre, // Producto = Nombre Estándar, sin ID propio (igual que Inventario v2)
+        nombre:        nombre,
+        area:          (r['Área de negocio']||'').toString().trim(),
+        categoria:     (r['Categoría']||'').toString().trim(),
+        familia:       (r['Familia']||'').toString().trim(),
+        unidad:        (r['Unidad Receta']||r['Unidad']||'').toString().trim(),
+        presentacion:  (r['Presentación']||'').toString().trim(),
+        tamano:        (r['Tamaño']||'').toString().trim(),
+        precio_sin_iva:parseFloat(r['Precio sin IVA'])||0,
+        costo:         parseFloat(r['Costo por unidad'])||0, // costo por unidad de receta, para valorizar lo "abierto"
+        kioskosTxt:    (r['Kioskos']||'').toString().trim(),
+      };
+      const previo = mapa.get(key);
+      if (!previo || (!previo.area && prod.area)) mapa.set(key, prod);
+    });
+    MAESTRO_PRODUCTOS = Array.from(mapa.values()).sort((a,b) => a.nombre.localeCompare(b.nombre));
+  } catch(e) { /* si falla, la toma queda vacía pero el resto del módulo sigue funcionando */ }
+  actualizarProductosDelKiosko();
+}
+function actualizarProductosDelKiosko() {
+  productos = kioskoActual ? MAESTRO_PRODUCTOS.filter(p => productoAplicaKiosko(p, kioskoActual)) : [];
+  const areas = [...new Set(productos.map(p=>p.area).filter(Boolean))].sort();
+  const selA  = document.getElementById('f-actual-area');
+  if (selA) selA.innerHTML = '<option value="">Todas las áreas</option>' + areas.map(a=>`<option>${escHtml(a)}</option>`).join('');
+  document.getElementById('status-msg').textContent =
+    kioskoActual ? `${productos.length} productos del Maestro para ${kioskoActual}` : 'Seleccioná un kiosko para empezar.';
+}
+
+// ── STORAGE (localStorage, igual que Lorito) ──────────────────────
+let tomas      = [];  // todas las tomas, de todos los kioskos
+let tomaActual = null;
+let gruposColapsados = new Set();
+
+function getTomas()   { try { return JSON.parse(localStorage.getItem('kiosko_inv_tomas')||'[]'); } catch { return []; } }
+function saveTomas(t) { localStorage.setItem('kiosko_inv_tomas', JSON.stringify(t)); }
+function genId()      { return 'INV-' + hoy.getFullYear() + pad(hoy.getMonth()+1) + pad(hoy.getDate()) + '-' + Math.floor(Math.random()*9000+1000); }
+
+// ── INIT ──────────────────────────────────────────────────────────
+async function init() {
+  tomas = getTomas();
+  await Promise.all([cargarKioskos(), cargarMaestroProductos()]);
+  if (kioskoActual) {
+    renderListaTomas();
   }
 }
-function poblarSelectProveedores() {
-  const sel = document.getElementById('prod-proveedor');
-  const actual = sel.value;
-  sel.innerHTML = '<option value="">Sin proveedor</option>' + PROVEEDORES.filter(p => p['Activo'] !== false).map(p => `<option value="${escHtml(p['Nombre'])}">${escHtml(p['Nombre'])}</option>`).join('');
-  if (actual) sel.value = actual;
+
+// ── NUEVA TOMA ────────────────────────────────────────────────────
+function iniciaNuevaToma() {
+  if (!kioskoActual) { showToast('Seleccioná un kiosko primero.', 'error'); return; }
+  const enProceso = tomas.find(t => t.estado === 'en_proceso' && t.kiosko === kioskoActual);
+  if (enProceso) {
+    if (!confirm('Ya hay una toma en proceso en ' + kioskoActual + '. ¿Querés abandonarla e iniciar una nueva?')) return;
+    enProceso.estado = 'cancelada';
+  }
+
+  const id = genId();
+  tomaActual = {
+    id, kiosko: kioskoActual,
+    fecha_inicio: new Date().toISOString(),
+    fecha_toma:   fechaHoy,
+    estado:       'en_proceso',
+    lineas:       {},  // { nombreProducto: { cerrado, abierto } }
+    valor_total:  0,
+  };
+
+  tomas.unshift(tomaActual);
+  saveTomas(tomas);
+
+  document.getElementById('tab-btn-actual').style.display = 'block';
+  switchTab('actual', document.getElementById('tab-btn-actual'));
+  renderActualMeta();
+  renderActual();
+  renderListaTomas();
+  showToast(`Toma ${id} iniciada en ${kioskoActual}`, 'success');
 }
-function alCambiarTipoProducto() {
-  const esPeso = document.getElementById('prod-tipo').value === 'peso';
-  document.getElementById('prod-campos-peso').style.display = esPeso ? 'grid' : 'none';
-  document.getElementById('prod-costo-unidad').textContent = esPeso ? 'ml' : 'unidad';
+
+// ── RENDER META ───────────────────────────────────────────────────
+function renderActualMeta() {
+  if (!tomaActual) return;
+  document.getElementById('actual-id-label').textContent = tomaActual.id + ' · ' + tomaActual.kiosko;
+  document.getElementById('actual-estado-badge').innerHTML =
+    tomaActual.estado === 'en_proceso' ? `<span class="badge b-proceso">● En proceso</span>` : `<span class="badge b-finalizado">✓ Finalizada</span>`;
+  document.getElementById('actual-info').textContent =
+    `Iniciada: ${new Date(tomaActual.fecha_inicio).toLocaleString('es-CR')}`;
+  document.getElementById('fecha-toma').value = tomaActual.fecha_toma || fechaHoy;
+  document.getElementById('btn-finalizar').style.display = tomaActual.estado === 'en_proceso' ? 'inline-block' : 'none';
 }
-function renderProductos() {
-  const cont = document.getElementById('prod-lista');
-  if (!PRODUCTOS.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay productos. Agregá el primero arriba, eligiéndolo de la lista del Maestro.</div>'; return; }
-  const grupos = {};
-  PRODUCTOS.forEach(p => {
-    const { area, categoria } = areaCategoriaDe(p['Producto']);
-    const areaTxt = area || 'Sin área de negocio';
-    const catTxt = categoria || 'Sin categoría';
-    const key = areaTxt + '␟' + catTxt;
-    (grupos[key] = grupos[key] || { area: areaTxt, categoria: catTxt, items: [] }).items.push(p);
+
+function guardarFechaToma() {
+  if (!tomaActual) return;
+  tomaActual.fecha_toma = document.getElementById('fecha-toma').value;
+  saveTomas(tomas);
+}
+
+// ── RENDER TABLA CONTEO ───────────────────────────────────────────
+function renderActual() {
+  if (!tomaActual) { document.getElementById('tabla-actual').innerHTML = '<div class="empty">Sin toma activa.</div>'; return; }
+
+  const busq  = document.getElementById('s-actual').value.toLowerCase();
+  const area  = document.getElementById('f-actual-area').value;
+  const grupo = document.getElementById('f-actual-grupo').value;
+
+  let lista = productos.filter(p =>
+    (!busq || (p.nombre||'').toLowerCase().includes(busq))
+ && (!area || p.area === area)
+  );
+
+  if (!lista.length) {
+    document.getElementById('tabla-actual').innerHTML = '<div class="empty">Sin productos que coincidan. Revisá que el kiosko tenga productos asignados en el Maestro.</div>';
+    actualizarValorLive(); return;
+  }
+
+  const thead = `<table><thead><tr>
+    <th>Producto</th>
+    <th>Presentación</th>
+    <th>Precio compra s/IVA</th>
+    <th style="text-align:right;">Cerrado / Completo</th>
+    <th style="text-align:right;">En uso / Abierto</th>
+    <th style="text-align:right;">Valorización</th>
+  </tr></thead><tbody>`;
+
+  let content = thead;
+  const agrupar = (fn) => {
+    const grupos = agruparLista(lista, fn);
+    Object.keys(grupos).sort().forEach(k => {
+      const groupId = grupo + ':' + k;
+      const sub = calcSubtotal(grupos[k]);
+      content += headerGrupo(k, grupos[k].length, sub, 6, groupId);
+      grupos[k].forEach(p => { content += buildFilaToma(p, groupId); });
+      content += footerSubtotal(sub, 6, 'Subtotal', groupId);
+    });
+  };
+
+  if (grupo === 'area') {
+    agrupar(p => p.area || 'Sin área');
+  } else if (grupo === 'categoria') {
+    agrupar(p => p.categoria || 'Sin categoría');
+  } else if (grupo === 'familia') {
+    agrupar(p => p.familia || 'Sin familia');
+  } else { // area_categoria
+    const porArea = agruparLista(lista, p => p.area || 'Sin área');
+    Object.keys(porArea).sort().forEach(areaKey => {
+      const groupId = 'area:' + areaKey;
+      const colapsado = gruposColapsados.has(groupId);
+      const subArea = calcSubtotal(porArea[areaKey]);
+      content += `<tr class="grupo-header" onclick="toggleGrupo('${escJs(groupId)}')" style="background:var(--teal-bg);cursor:pointer;"><td colspan="6" style="padding:9px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);border-top:1px solid var(--teal-lt);border-bottom:1px solid var(--teal-lt);">
+        <span style="display:inline-block;transition:transform .15s;transform:rotate(${colapsado?'-90deg':'0deg'});margin-right:6px;">▾</span>
+        ${escHtml(areaKey)} · ${porArea[areaKey].length} productos &nbsp;·&nbsp; <span style="font-weight:400;">${fmt(subArea)}</span>
+      </td></tr>`;
+      const porCat = agruparLista(porArea[areaKey], p => p.categoria || 'Sin categoría');
+      Object.keys(porCat).sort().forEach(catKey => {
+        const subCat = calcSubtotal(porCat[catKey]);
+        content += `<tr data-grupo="${groupId}" style="background:#f7f2fd;${colapsado?'display:none;':''}"><td colspan="6" style="padding:6px 20px;font-size:11px;font-weight:600;color:var(--purple);border-bottom:1px solid var(--purple-lt);">
+          ${escHtml(catKey)} · ${porCat[catKey].length} productos &nbsp;·&nbsp; ${fmt(subCat)}
+        </td></tr>`;
+        porCat[catKey].forEach(p => { content += buildFilaToma(p, groupId); });
+      });
+      content += footerSubtotal(subArea, 6, 'Subtotal ' + areaKey, groupId);
+    });
+  }
+
+  content += '</tbody></table>';
+  document.getElementById('tabla-actual').innerHTML = content;
+  actualizarValorLive();
+}
+
+function agruparLista(lista, fn) {
+  const g = {};
+  lista.forEach(p => { const k = fn(p); if (!g[k]) g[k]=[]; g[k].push(p); });
+  return g;
+}
+function calcSubtotal(lista) {
+  return lista.reduce((acc, p) => {
+    const l = (tomaActual.lineas||{})[p.id]||{};
+    return acc + (parseFloat(l.cerrado)||0)*(parseFloat(p.precio_sin_iva)||0)
+               + (parseFloat(l.abierto)||0)*(parseFloat(p.costo)||0);
+  }, 0);
+}
+function escJs(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+function toggleGrupo(groupId) {
+  if (gruposColapsados.has(groupId)) gruposColapsados.delete(groupId);
+  else gruposColapsados.add(groupId);
+  renderActual();
+}
+
+function headerGrupo(titulo, n, subtotal, cols, groupId) {
+  const colapsado = gruposColapsados.has(groupId);
+  return `<tr class="grupo-header" onclick="toggleGrupo('${escJs(groupId)}')" style="cursor:pointer;"><td colspan="${cols}">
+    <span style="display:inline-block;transition:transform .15s;transform:rotate(${colapsado?'-90deg':'0deg'});margin-right:6px;">▾</span>
+    ${escHtml(titulo)} · ${n} producto${n!==1?'s':''} <span style="font-weight:400;font-size:11px;margin-left:8px;opacity:.8;">${fmt(subtotal)}</span></td></tr>`;
+}
+function footerSubtotal(val, cols, label, groupId) {
+  const colapsado = gruposColapsados.has(groupId);
+  return `<tr data-grupo="${groupId}" style="background:var(--surface);${colapsado?'display:none;':''}">
+    <td colspan="${cols-1}" style="padding:7px 12px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;">${label}</td>
+    <td style="padding:7px 12px;text-align:right;font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--teal);">${fmt(val)}</td>
+  </tr>`;
+}
+function buildFilaToma(p, groupId) {
+  const linea   = (tomaActual.lineas || {})[p.id] || {};
+  const cerrado = linea.cerrado !== undefined ? linea.cerrado : '';
+  const abierto = linea.abierto !== undefined ? linea.abierto : '';
+  const precioU = parseFloat(p.costo) || 0;
+  const precioC = parseFloat(p.precio_sin_iva) || 0;
+
+  const valCerrado = (parseFloat(cerrado)||0) * precioC;
+  const valAbierto = (parseFloat(abierto)||0) * precioU;
+  const valor       = valCerrado + valAbierto;
+  const tieneData   = cerrado !== '' || abierto !== '';
+
+  const presentacion = [p.presentacion, p.tamano].filter(Boolean).join(' ') || '—';
+  const colapsado = gruposColapsados.has(groupId);
+  const sid = jsArg(p.id);
+
+  return `<tr data-grupo="${groupId}" style="${colapsado?'display:none;':''}">
+    <td>
+      <div style="font-weight:500;">${escHtml(p.nombre)}</div>
+      <div style="font-size:11px;color:var(--muted);">${escHtml(p.categoria||'')}</div>
+    </td>
+    <td style="font-size:12px;color:var(--muted);">${escHtml(presentacion)}</td>
+    <td class="num" style="font-size:12px;color:var(--muted);">${fmt2(precioC)}</td>
+    <td class="num">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+        <input type="number" class="qty-input ${cerrado!==''?'ok':''}" min="0" step="1"
+          value="${cerrado}" placeholder="0"
+          title="Unidades cerradas / completas (en presentación)"
+          oninput="onLinea('${sid}','cerrado',this)">
+        <div style="font-size:10px;color:var(--muted);">unidades completas</div>
+      </div>
+    </td>
+    <td class="num">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+        <input type="number" class="qty-input ${abierto!==''?'ok':''}" min="0" step="0.01"
+          value="${abierto}" placeholder="0"
+          title="Cantidad en uso / abierto (en ${escHtml(p.unidad||'unidades de medida')})"
+          oninput="onLinea('${sid}','abierto',this)">
+        <div style="font-size:10px;color:var(--muted);">${escHtml(p.unidad||'unidades')} en uso</div>
+      </div>
+    </td>
+    <td class="num" style="font-weight:600;color:var(--teal);" id="val-${slugIdInv(p.id)}">
+      ${tieneData ? fmt(valor) : '—'}
+    </td>
+  </tr>`;
+}
+// ID de elemento DOM seguro a partir de un Nombre Estándar libre.
+function slugIdInv(s) {
+  let h = 0; const str = String(s||'');
+  for (let i = 0; i < str.length; i++) { h = (h*31 + str.charCodeAt(i)) | 0; }
+  return 'p' + (h >>> 0).toString(36);
+}
+
+function onLinea(id, campo, input) {
+  if (!tomaActual.lineas) tomaActual.lineas = {};
+  if (!tomaActual.lineas[id]) tomaActual.lineas[id] = {};
+
+  const val = input.value;
+  if (val === '') {
+    delete tomaActual.lineas[id][campo];
+  } else {
+    tomaActual.lineas[id][campo] = parseFloat(val) || 0;
+    input.classList.add('ok');
+  }
+
+  const p = productos.find(x=>x.id===id);
+  if (p) {
+    const linea    = tomaActual.lineas[id];
+    const precioC  = parseFloat(p.precio_sin_iva)||0;
+    const precioU  = parseFloat(p.costo)||0;
+    const valC     = (parseFloat(linea.cerrado)||0) * precioC;
+    const valA     = (parseFloat(linea.abierto)||0) * precioU;
+    const valEl    = document.getElementById('val-' + slugIdInv(id));
+    if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+  }
+
+  saveTomas(tomas);
+  actualizarValorLive();
+}
+
+function actualizarValorLive() {
+  if (!tomaActual) { document.getElementById('valor-live').textContent = '₡0'; return; }
+
+  let total = 0;
+  const porArea = {};
+
+  productos.forEach(p => {
+    const area = p.area || 'Sin área';
+    if (!porArea[area]) porArea[area] = { valor: 0, contados: 0, total: 0 };
+    porArea[area].total++;
+
+    const linea   = (tomaActual.lineas||{})[p.id] || {};
+    const precioC = parseFloat(p.precio_sin_iva)||0;
+    const precioU = parseFloat(p.costo)||0;
+    const valor   = (parseFloat(linea.cerrado)||0)*precioC + (parseFloat(linea.abierto)||0)*precioU;
+    total += valor;
+    porArea[area].valor += valor;
+    if (linea.cerrado !== undefined || linea.abierto !== undefined) porArea[area].contados++;
   });
-  const claves = Object.keys(grupos).sort((a,b) => {
-    const ga = grupos[a], gb = grupos[b];
-    return ga.area.localeCompare(gb.area) || ga.categoria.localeCompare(gb.categoria);
-  });
-  let areaActual = null;
-  let html = '';
-  claves.forEach(key => {
-    const g = grupos[key];
-    if (g.area !== areaActual) { html += `<div class="area-header">${escHtml(g.area)}</div>`; areaActual = g.area; }
-    html += `<div class="cat-section"><div class="cat-header">${escHtml(g.categoria)}</div>`;
-    html += g.items.map(p => {
-      const esPeso = p['Tipo Control'] === 'peso';
+
+  tomaActual.valor_total = total;
+  document.getElementById('valor-live').textContent = fmt(total);
+
+  const totalesEl = document.getElementById('totales-area');
+  if (totalesEl && Object.keys(porArea).length) {
+    totalesEl.innerHTML = Object.keys(porArea).sort().map(area => {
+      const a = porArea[area];
+      const completo = a.contados === a.total;
       return `
-      <div class="prod-row">
-        <div style="flex:1">
-          <div class="prod-nombre">${escHtml(p['Producto'])}
-            <span class="badge ${esPeso?'badge-peso':'badge-unitario'}">${esPeso?'⚖ peso':'# unitario'}</span>
-            ${p['Activo'] === false ? '<span class="badge badge-inactivo">Inactivo</span>' : ''}
-          </div>
-          <div class="prod-alias">
-            ${esPeso ? `Envase ${fmtNum(p['Contenido Envase (ml)'])} ml · tara ${fmtNum(p['Tara (g)'])} g · densidad ${p['Densidad (g/ml)']}` : 'Conteo por unidad'}
-            ${p['Costo Unidad Base'] ? ` · ₡${fmtNum(p['Costo Unidad Base'])}/${esPeso?'ml':'ud'}` : ''}
-            ${p['Proveedor'] ? ' · ' + escHtml(p['Proveedor']) : ''}
-          </div>
-        </div>
-        <div><button class="btn-sm" onclick="editarProducto(${jsArg(p['Producto'])})">✎ Editar</button></div>
+      <div style="flex:1;min-width:160px;padding:8px 14px;border-right:1px solid var(--teal-lt);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--teal);font-weight:600;">${escHtml(area)}</div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--teal);">${fmt(a.valor)}</div>
+        <div style="font-size:11px;color:${completo?'var(--green)':'var(--muted)'};margin-top:2px;">${a.contados}/${a.total} producto${a.total!==1?'s':''} contados</div>
       </div>`;
     }).join('');
-    html += `</div>`;
-  });
-  cont.innerHTML = html;
-}
-function editarProducto(nombre) {
-  const p = PRODUCTOS.find(x => String(x['Producto']) === String(nombre));
-  if (!p) return;
-  document.getElementById('prod-nombre-estandar').value = p['Producto'] || '';
-  mostrarAreaCategoriaPreview();
-  document.getElementById('prod-tipo').value = p['Tipo Control'] === 'peso' ? 'peso' : 'unitario';
-  alCambiarTipoProducto();
-  document.getElementById('prod-contenido').value = p['Contenido Envase (ml)'] || '';
-  document.getElementById('prod-tara').value = p['Tara (g)'] !== '' ? p['Tara (g)'] : '';
-  document.getElementById('prod-densidad').value = p['Densidad (g/ml)'] || '';
-  document.getElementById('prod-costo').value = p['Costo Unidad Base'] || '';
-  document.getElementById('prod-proveedor').value = p['Proveedor'] || '';
-  document.getElementById('prod-nombre-venta').value = p['Nombre Venta'] || '';
-  document.getElementById('prod-activo').checked = p['Activo'] !== false;
-  document.getElementById('prod-form-title').textContent = 'Editar producto';
-  document.getElementById('prod-cancelar-edicion').style.display = 'inline';
-  document.getElementById('btn-prod-guardar').textContent = 'Guardar cambios';
-  document.querySelectorAll('.tab-btn')[3].click();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function cancelarEdicionProducto() {
-  document.getElementById('prod-nombre-estandar').value = '';
-  ['prod-contenido','prod-tara','prod-densidad','prod-costo','prod-nombre-venta'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('prod-proveedor').value = '';
-  document.getElementById('prod-tipo').value = 'unitario';
-  alCambiarTipoProducto();
-  document.getElementById('prod-activo').checked = true;
-  const preview = document.getElementById('prod-area-cat-preview');
-  if (preview) { preview.textContent = ''; preview.style.color = ''; }
-  document.getElementById('prod-form-title').textContent = 'Nuevo producto';
-  document.getElementById('prod-cancelar-edicion').style.display = 'none';
-  document.getElementById('btn-prod-guardar').textContent = 'Guardar producto';
-}
-async function guardarProducto() {
-  const producto = document.getElementById('prod-nombre-estandar').value.trim();
-  if (!producto) { showToast('Elegí el producto (nombre estándar del Maestro)','error'); return; }
-  const tipo = document.getElementById('prod-tipo').value;
-  const payload = {
-    accion: 'producto_guardar',
-    producto,
-    tipoControl: tipo,
-    contenidoMl: document.getElementById('prod-contenido').value,
-    taraG: document.getElementById('prod-tara').value,
-    densidad: document.getElementById('prod-densidad').value,
-    costo: document.getElementById('prod-costo').value,
-    proveedor: document.getElementById('prod-proveedor').value,
-    nombreVenta: document.getElementById('prod-nombre-venta').value.trim(),
-    activo: document.getElementById('prod-activo').checked
-  };
-  const btn = document.getElementById('btn-prod-guardar');
-  btn.disabled = true;
-  try {
-    await postInv(payload);
-    showToast('Producto guardado ✓');
-    cancelarEdicionProducto();
-    await cargarCatalogo();
-  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
-  finally { btn.disabled = false; }
-}
-
-// ── MÍNIMOS POR KIOSKO ────────────────────────────────────────────
-function minimoDe(producto, kiosko) {
-  return MINIMOS.find(m => String(m['Producto']).trim() === String(producto).trim() && String(m['Kiosko']) === String(kiosko)) || {};
-}
-function renderMinimos() {
-  const kiosko = document.getElementById('min-kiosko').value;
-  const cont = document.getElementById('min-lista');
-  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
-  const activos = PRODUCTOS.filter(p => p['Activo'] !== false);
-  if (!activos.length) { cont.innerHTML = '<div class="empty-state">Sin productos.</div>'; return; }
-  cont.innerHTML = `
-    <table class="stock-table">
-      <thead><tr><th>Producto</th><th>Unidad</th><th>Mínimo</th><th>Nivel objetivo</th><th></th></tr></thead>
-      <tbody>
-        ${activos.map(p => {
-          const sid = slugId(p['Producto']);
-          const m = minimoDe(p['Producto'], kiosko);
-          return `<tr>
-            <td>${escHtml(p['Producto'])}</td>
-            <td>${p['Unidad Base'] === 'ml' ? 'ml' : 'ud'}</td>
-            <td><input type="number" class="min-input" id="min-${sid}" value="${m['Mínimo'] !== undefined && m['Mínimo'] !== '' ? m['Mínimo'] : ''}" step="any" min="0"/></td>
-            <td><input type="number" class="min-input" id="obj-${sid}" value="${m['Nivel Objetivo'] !== undefined && m['Nivel Objetivo'] !== '' ? m['Nivel Objetivo'] : ''}" step="any" min="0"/></td>
-            <td><button class="btn-sm" onclick="guardarMinimoLinea(${jsArg(p['Producto'])})">Guardar</button></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
-}
-async function guardarMinimoLinea(producto) {
-  const kiosko = document.getElementById('min-kiosko').value;
-  const sid = slugId(producto);
-  try {
-    await postInv({
-      accion: 'minimo_guardar', producto, kiosko,
-      minimo: document.getElementById('min-' + sid).value,
-      nivelObjetivo: document.getElementById('obj-' + sid).value
-    });
-    showToast('Mínimo guardado ✓');
-    const minResp = await getInv({ modulo:'minimos' });
-    MINIMOS = minResp.registros || [];
-  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
-}
-
-// ── STOCK ─────────────────────────────────────────────────────────
-async function cargarStock() {
-  const kiosko = document.getElementById('stock-kiosko').value;
-  const cont = document.getElementById('stock-lista');
-  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
-  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
-  try {
-    const data = await getInv({ modulo:'stock', kiosko });
-    stockActual = data.registros || [];
-    renderStock();
-  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
-}
-function renderStock() {
-  const cont = document.getElementById('stock-lista');
-  if (!cont) return;
-  if (!stockActual.length) { cont.innerHTML = '<div class="empty-state">Sin productos activos. Agregalos en Catálogo.</div>'; return; }
-  cont.innerHTML = `
-    <table class="stock-table">
-      <thead><tr><th>Producto</th><th>Tipo</th><th>Stock</th><th>≈ Envases</th><th>Mínimo</th><th>Estado</th></tr></thead>
-      <tbody>
-        ${stockActual.map(s => {
-          const sid = slugId(s.producto);
-          const envases = (s.tipoControl === 'peso' && s.contenidoMl > 0) ? (s.cantidadActual / s.contenidoMl).toFixed(1) : '—';
-          return `
-          <tr onclick="toggleMovimientos(${jsArg(s.producto)})" style="cursor:pointer">
-            <td>${escHtml(s.producto)}</td>
-            <td>${s.tipoControl === 'peso' ? '<span class="badge badge-peso">⚖</span>' : '<span class="badge badge-unitario">#</span>'}</td>
-            <td>${fmtCant(s.cantidadActual, s.unidadBase)}</td>
-            <td>${envases}</td>
-            <td>${s.minimo ? fmtCant(s.minimo, s.unidadBase) : '—'}</td>
-            <td>${s.bajoMinimo ? '<span class="badge badge-bajo">Bajo mínimo</span>' : (s.minimo ? '<span class="badge badge-ok">OK</span>' : '')}</td>
-          </tr>
-          <tr id="mov-row-${sid}" style="display:none"><td colspan="6"><div class="mov-panel" id="mov-panel-${sid}">Cargando…</div></td></tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
-}
-async function toggleMovimientos(producto) {
-  const sid = slugId(producto);
-  const row = document.getElementById('mov-row-' + sid);
-  if (!row) return;
-  if (row.style.display !== 'none') { row.style.display = 'none'; return; }
-  row.style.display = 'table-row';
-  const panel = document.getElementById('mov-panel-' + sid);
-  try {
-    const kiosko = document.getElementById('stock-kiosko').value;
-    const data = await getInv({ modulo:'movimientos', kiosko, producto });
-    const movs = (data.registros || []).slice(0, 15);
-    panel.innerHTML = movs.length
-      ? movs.map(m => `<div class="mov-item"><span>${escHtml(m['Fecha'])} · ${escHtml(m['Tipo'])}${m['Referencia']?' · '+escHtml(m['Referencia']):''}</span><span>${m['Cantidad'] > 0 ? '+' : ''}${fmtNum(m['Cantidad'])}</span></div>`).join('')
-      : 'Sin movimientos registrados.';
-  } catch(e) { panel.textContent = 'No se pudieron cargar los movimientos.'; }
-}
-function abrirModalAjuste() {
-  const kiosko = document.getElementById('stock-kiosko').value;
-  if (!kiosko) { showToast('Seleccioná un kiosko primero','error'); return; }
-  const sel = document.getElementById('aj-producto');
-  sel.innerHTML = PRODUCTOS.filter(p => p['Activo'] !== false)
-    .map(p => `<option value="${escapeAttr(p['Producto'])}">${escHtml(p['Producto'])} (${p['Unidad Base']==='ml'?'ml':'ud'})</option>`).join('');
-  document.getElementById('aj-cantidad').value = '';
-  document.getElementById('aj-nota').value = '';
-  document.getElementById('ajuste-modal').style.display = 'flex';
-}
-async function guardarAjuste() {
-  const kiosko = document.getElementById('stock-kiosko').value;
-  const producto = document.getElementById('aj-producto').value;
-  const cantidad = document.getElementById('aj-cantidad').value;
-  if (!cantidad) { showToast('Ingresá la cantidad','error'); return; }
-  try {
-    await postInv({
-      accion:'stock_ajustar', kiosko, producto,
-      cantidad: Number(cantidad),
-      tipo: document.getElementById('aj-tipo').value,
-      nota: document.getElementById('aj-nota').value,
-      registrado_por: (PORTAL_SESION||{}).nombre || ''
-    });
-    document.getElementById('ajuste-modal').style.display = 'none';
-    showToast('Ajuste aplicado ✓');
-    cargarStock();
-  } catch(e) { showToast('No se pudo aplicar — ' + e.message,'error'); }
-}
-
-// ── TOMA DE INVENTARIO ────────────────────────────────────────────
-async function cargarTomaActiva() {
-  const kiosko = document.getElementById('toma-kiosko').value;
-  const cont = document.getElementById('toma-contenido');
-  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
-  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
-  try {
-    const data = await getInv({ modulo:'toma_activa', kiosko });
-    tomaActivaActual = data;
-    fotosLinea = {};
-    renderToma(kiosko);
-  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
-}
-function renderToma(kiosko) {
-  const cont = document.getElementById('toma-contenido');
-  if (!tomaActivaActual || !tomaActivaActual.toma) {
-    cont.innerHTML = `
-      <div class="card">
-        <p class="card-title">Iniciar nueva toma</p>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-          Al iniciar, se congela el stock teórico de este momento. Unitarios se
-          cuentan; sifón y destilados se pesan con foto de la báscula.
-        </p>
-        <div class="field"><label for="toma-fecha">Fecha</label><input type="date" id="toma-fecha" value="${hoy()}"/></div>
-        <div class="submit-area"><button class="btn-primary" onclick="iniciarToma()">Iniciar toma de inventario</button></div>
-      </div>`;
-    return;
+  } else if (totalesEl) {
+    totalesEl.innerHTML = '';
   }
-  const toma = tomaActivaActual.toma;
-  const detalle = tomaActivaActual.detalle || [];
-  const grupos = {};
-  detalle.forEach(d => {
-    const { area, categoria } = areaCategoriaDe(d['Producto']);
-    const areaTxt = area || 'Sin área de negocio';
-    const catTxt = categoria || 'Sin categoría';
-    const key = areaTxt + '␟' + catTxt;
-    (grupos[key] = grupos[key] || { area: areaTxt, categoria: catTxt, items: [] }).items.push(d);
-  });
-  const claves = Object.keys(grupos).sort((a,b) => {
-    const ga = grupos[a], gb = grupos[b];
-    return ga.area.localeCompare(gb.area) || ga.categoria.localeCompare(gb.categoria);
+}
+
+// ── IMPRIMIR FORMATO ─────────────────────────────────────────────
+function imprimirFormato() {
+  if (!tomaActual) { showToast('Sin toma activa.','error'); return; }
+
+  const fecha = tomaActual.fecha_toma || fechaHoy;
+  const id    = tomaActual.id;
+  const areas = [...new Set(productos.map(p=>p.area||'Sin área'))].sort();
+
+  let html = `
+    <div class="pr-header">
+      <div class="pr-logo">ECOSISTEMA KIOSKOS — ${escHtml(tomaActual.kiosko)}</div>
+      <div class="pr-meta">
+        Toma de inventario &nbsp;|&nbsp; ID: <strong>${escHtml(id)}</strong> &nbsp;|&nbsp; Fecha: <strong>${escHtml(fecha)}</strong>
+      </div>
+    </div>`;
+
+  areas.forEach(area => {
+    const prods = productos.filter(p=>(p.area||'Sin área')===area);
+    if (!prods.length) return;
+    html += `<div class="pr-area-title">${escHtml(area)}</div>
+    <table class="pr-table">
+      <thead><tr>
+        <th style="width:28%">Producto</th>
+        <th style="width:15%">Presentación</th>
+        <th style="width:12%">Unidad receta</th>
+        <th style="width:12%">Precio s/IVA</th>
+        <th style="width:16%;text-align:center;">Unidades completas<br><span style="font-weight:400;font-size:8px;">(pres. cerrada)</span></th>
+        <th style="width:17%;text-align:center;">Cant. en uso<br><span style="font-weight:400;font-size:8px;">(abierto, unidad receta)</span></th>
+      </tr></thead>
+      <tbody>`;
+    prods.forEach(p => {
+      const presentacion = [p.presentacion, p.tamano].filter(Boolean).join(' ') || '—';
+      html += `<tr>
+        <td><strong>${escHtml(p.nombre)}</strong><br><span style="font-size:9px;color:#555;">${escHtml(p.categoria||'')}</span></td>
+        <td>${escHtml(presentacion)}</td>
+        <td>${escHtml(p.unidad||'—')}</td>
+        <td>${fmt2(parseFloat(p.precio_sin_iva)||0)}</td>
+        <td class="espacio" style="text-align:center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td class="espacio" style="text-align:center;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
   });
 
-  let areaActual = null;
-  let bodyHtml = '';
-  claves.forEach(key => {
-    const g = grupos[key];
-    if (g.area !== areaActual) { bodyHtml += `<div class="area-header">${escHtml(g.area)}</div>`; areaActual = g.area; }
-    bodyHtml += `<div class="card"><p class="card-title">${escHtml(g.categoria)}</p>`;
-    bodyHtml += g.items
-      .sort((a,b) => String(a['Producto']).localeCompare(String(b['Producto'])))
-      .map(d => d['Tipo Control'] === 'peso' ? lineaPeso(d) : lineaUnitaria(d)).join('');
-    bodyHtml += `</div>`;
-  });
+  html += `<div class="pr-firma">
+    <div class="pr-firma-line">Responsable del conteo</div>
+    <div class="pr-firma-line">Verificado por</div>
+    <div class="pr-firma-line">Fecha de entrega</div>
+  </div>`;
 
-  cont.innerHTML = `
-    <div class="card toma-header-card">
-      <div>
-        <div class="toma-card-title">Toma abierta · ${escHtml(kiosko)}</div>
-        <div class="toma-header-info">Fecha ${escHtml(toma['Fecha'])} · Abierta por <b>${escHtml(toma['Abierta por']||'—')}</b></div>
-      </div>
-      <button class="btn-primary btn-danger" style="flex:0" onclick="abrirModalPin()">Cerrar toma</button>
-    </div>
-    ${bodyHtml}
-  `;
+  document.getElementById('print-contenido').innerHTML = html;
+  document.getElementById('print-area').style.display = 'block';
+  window.print();
+  document.getElementById('print-area').style.display = 'none';
 }
-function lineaUnitaria(d) {
-  const pid = d['Producto'];
-  const sid = slugId(pid);
-  const contada = d['Total Contado'];
-  return `
-  <div class="conteo-linea">
-    <div class="conteo-top">
-      <b style="flex:1">${escHtml(pid)}</b>
-      <span class="prod-alias">Teórico: ${fmtNum(d['Stock Teórico'])} ud</span>
-      <span class="conteo-guardado" id="ok-${sid}">✓ Guardado</span>
-    </div>
-    <div class="conteo-inputs">
-      <div><span class="mini-label">Cantidad contada</span>
-        <input type="number" step="any" min="0" id="cont-${sid}" value="${contada !== '' && contada !== undefined && contada !== null ? contada : ''}" onchange="guardarLinea(${jsArg(pid)})"/>
-      </div>
-    </div>
-  </div>`;
-}
-function lineaPeso(d) {
-  const pid = d['Producto'];
-  const sid = slugId(pid);
-  const prod = PRODUCTOS.find(p => String(p['Producto']) === String(pid)) || {};
-  return `
-  <div class="conteo-linea">
-    <div class="conteo-top">
-      <b style="flex:1">${escHtml(pid)} <span class="badge badge-peso">⚖ peso</span></b>
-      <span class="prod-alias">Teórico: ${fmtNum(d['Stock Teórico'])} ml · tara ${fmtNum(prod['Tara (g)'])} g</span>
-      <span class="conteo-guardado" id="ok-${sid}">✓ Guardado</span>
-    </div>
-    <div class="conteo-inputs">
-      <div><span class="mini-label">Envases cerrados</span>
-        <input type="number" step="1" min="0" id="cerr-${sid}" value="${d['Envases Cerrados'] !== '' && d['Envases Cerrados'] !== undefined ? d['Envases Cerrados'] : ''}" onchange="guardarLinea(${jsArg(pid)})"/>
-      </div>
-      <div><span class="mini-label">Peso abierto (g)</span>
-        <input type="number" step="any" min="0" id="peso-${sid}" value="${d['Peso Bruto (g)'] !== '' && d['Peso Bruto (g)'] !== undefined ? d['Peso Bruto (g)'] : ''}" onchange="guardarLinea(${jsArg(pid)})"/>
-      </div>
-      <div>
-        <button class="btn-foto">📷 Foto báscula<input type="file" accept="image/*" capture="environment" onchange="onFotoLinea(event,${jsArg(pid)})"/></button>
-      </div>
-      <div>
-        <button class="btn-ia" id="ia-${sid}" onclick="extraerPesoIA(${jsArg(pid)})">✨ Leer peso con IA</button>
-      </div>
-    </div>
-    <div class="conteo-calc" id="calc-${sid}">${calcTexto(d)}</div>
-  </div>`;
-}
-function calcTexto(d) {
-  const fotoLink = d['Foto URL'] ? ` · <a class="foto-chip" href="${d['Foto URL']}" target="_blank">ver foto ↗</a>` : (fotosLinea[d['Producto']] ? ' · 📷 foto lista' : '');
-  if (d['Total Contado'] === '' || d['Total Contado'] === undefined || d['Total Contado'] === null) return 'Sin conteo todavía.' + fotoLink;
-  const dif = Number(d['Diferencia']) || 0;
-  const cls = dif < 0 ? 'dif-neg' : 'dif-pos';
-  return `Neto abierto: <b>${fmtNum(d['Neto (ml)'])} ml</b> · Total: <b>${fmtNum(d['Total Contado'])} ml</b> · Diferencia: <span class="${cls}">${dif>0?'+':''}${fmtNum(dif)} ml (₡${fmtNum(d['Diferencia Colones'])})</span>${fotoLink}`;
-}
-async function iniciarToma() {
-  const kiosko = document.getElementById('toma-kiosko').value;
-  const fecha = document.getElementById('toma-fecha').value || hoy();
+
+// ── FINALIZAR TOMA ────────────────────────────────────────────────
+async function finalizarToma() {
+  if (!tomaActual) return;
+  const lineasContadas = Object.keys(tomaActual.lineas||{}).length;
+  if (!lineasContadas) { showToast('Ingresá al menos una cantidad antes de finalizar.','error'); return; }
+
+  if (!confirm(`¿Finalizar la toma ${tomaActual.id} (${tomaActual.kiosko})?\n\nProductos contados: ${lineasContadas}\nValorización: ${fmt(tomaActual.valor_total)}`)) return;
+
+  tomaActual.estado          = 'finalizada';
+  tomaActual.fecha_fin       = new Date().toISOString();
+  tomaActual.lineas_contadas = lineasContadas;
+  saveTomas(tomas);
+
   try {
-    await postInv({ accion:'toma_iniciar', kiosko, fecha, usuario: (PORTAL_SESION||{}).nombre || '' });
-    showToast('Toma iniciada ✓');
-    await cargarTomaActiva();
-  } catch(e) { showToast('No se pudo iniciar — ' + e.message,'error'); }
-}
-function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
-          else { width = Math.round(width * maxDim / height); height = maxDim; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', calidad));
-      };
-      img.onerror = () => resolve(e.target.result);
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-function onFotoLinea(event, pid) {
-  const file = event.target.files[0];
-  if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { showToast('La foto supera 8 MB','error'); return; }
-  comprimirFoto(file).then(dataUrl => {
-    fotosLinea[pid] = dataUrl;
-    const linea = (tomaActivaActual.detalle || []).find(d => String(d['Producto']) === String(pid));
-    const sid = slugId(pid);
-    document.getElementById('calc-' + sid).innerHTML = calcTexto(linea || {'Producto': pid});
-    showToast('Foto lista — leé el peso con IA o escribilo, y se guarda con evidencia ✓');
-  }).catch(() => showToast('No se pudo procesar la foto','error'));
-}
-async function extraerPesoIA(pid) {
-  const foto = fotosLinea[pid];
-  const sid = slugId(pid);
-  if (!foto) { showToast('Tomá la foto de la báscula primero','error'); return; }
-  if (!EXTRACTOR_URL) { showToast('Falta configurar EXTRACTOR_URL','error'); return; }
-  const btn = document.getElementById('ia-' + sid);
-  btn.disabled = true; btn.textContent = 'Leyendo…';
-  try {
-    const resp = await fetchConTimeout(EXTRACTOR_URL, {
-      method:'POST', headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({ foto, tipo:'inventario' })
-    }, 30000);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'No se pudo leer la báscula');
-    document.getElementById('peso-' + sid).value = Math.round(data.peso);
-    showToast('Peso extraído: ' + Math.round(data.peso) + ' g ✓');
-    await guardarLinea(pid);
-  } catch(e) { showToast(e.message || 'Error al extraer con IA','error'); }
-  finally { btn.disabled = false; btn.textContent = '✨ Leer peso con IA'; }
-}
-async function guardarLinea(pid) {
-  const sid = slugId(pid);
-  const linea = (tomaActivaActual.detalle || []).find(d => String(d['Producto']) === String(pid));
-  if (!linea) return;
-  const esPeso = linea['Tipo Control'] === 'peso';
-  const payloadLinea = { producto: pid };
-  if (esPeso) {
-    payloadLinea.envasesCerrados = document.getElementById('cerr-' + sid).value;
-    payloadLinea.pesoBrutoG = document.getElementById('peso-' + sid).value;
-    if (fotosLinea[pid]) payloadLinea.foto = fotosLinea[pid];
-  } else {
-    payloadLinea.cantidadContada = document.getElementById('cont-' + sid).value;
-  }
-  try {
-    const out = await postInv({ accion:'toma_guardar_conteo', tomaId: tomaActivaActual.toma['ID'], lineas: [payloadLinea] });
-    const r = (out.resultados || [])[0];
-    if (r) {
-      linea['Total Contado'] = r.total;
-      linea['Neto (ml)'] = r.neto;
-      linea['Diferencia'] = r.diferencia;
-      const prod = PRODUCTOS.find(p => String(p['Producto']) === String(pid)) || {};
-      linea['Diferencia Colones'] = r.diferencia === '' ? '' : Math.round(r.diferencia * (Number(prod['Costo Unidad Base'])||0));
-      if (esPeso) {
-        linea['Envases Cerrados'] = payloadLinea.envasesCerrados;
-        linea['Peso Bruto (g)'] = payloadLinea.pesoBrutoG;
-      }
-      if (fotosLinea[pid]) { delete fotosLinea[pid]; linea['Foto URL'] = linea['Foto URL'] || '#guardada'; }
-      const calc = document.getElementById('calc-' + sid);
-      if (calc) calc.innerHTML = calcTexto(linea);
-    }
-    const marca = document.getElementById('ok-' + sid);
-    marca.classList.add('show');
-    setTimeout(() => marca.classList.remove('show'), 1500);
-  } catch(e) { showToast('No se pudo guardar — ' + e.message,'error'); }
-}
-function abrirModalPin() {
-  document.getElementById('pin-input').value = '';
-  document.getElementById('pin-error').style.display = 'none';
-  document.getElementById('pin-modal').style.display = 'flex';
-  document.getElementById('pin-input').focus();
-}
-function cerrarModalPin() { document.getElementById('pin-modal').style.display = 'none'; }
-async function confirmarCierreToma() {
-  const pin = document.getElementById('pin-input').value;
-  const rol = rolAdminPorPin(pin);
-  if (!rol) { document.getElementById('pin-error').style.display = 'block'; return; }
-  try {
-    await postInv({ accion:'toma_cerrar', tomaId: tomaActivaActual.toma['ID'], pin, usuario: rol.nombre });
-    cerrarModalPin();
-    showToast('Toma cerrada ✓');
-    await cargarTomaActiva();
+    await guardarTomaEnSheet(tomaActual);
+    showToast('Toma finalizada y guardada en el Sheet ✓', 'success');
   } catch(e) {
-    document.getElementById('pin-error').textContent = e.message;
-    document.getElementById('pin-error').style.display = 'block';
+    showToast('Toma finalizada localmente, pero no se pudo guardar en el Sheet: ' + e.message, 'error');
   }
+
+  tomaActual = null;
+  document.getElementById('tab-btn-actual').style.display = 'none';
+  switchTab('historial', document.querySelectorAll('.tab')[2]);
+  renderListaTomas();
 }
 
-// ── RESULTADOS ────────────────────────────────────────────────────
-async function cargarResultados() {
-  const kiosko = document.getElementById('res-kiosko').value;
-  const cont = document.getElementById('res-lista');
-  if (!kiosko) { cont.innerHTML = '<div class="empty-state">Seleccioná un kiosko.</div>'; return; }
-  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
-  try {
-    const data = await getInv({ modulo:'toma_historial', kiosko });
-    renderResultados(data.registros || []);
-  } catch(e) { cont.innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`; }
+async function guardarTomaEnSheet(toma) {
+  const lineas = productos
+    .filter(p => toma.lineas[p.id])
+    .map(p => {
+      const l       = toma.lineas[p.id] || {};
+      const precioC = parseFloat(p.precio_sin_iva) || 0;
+      const precioU = parseFloat(p.costo) || 0;
+      const cerrado = parseFloat(l.cerrado) || 0;
+      const abierto = parseFloat(l.abierto) || 0;
+      const valC    = cerrado * precioC;
+      const valA    = abierto * precioU;
+      return {
+        nombre:       p.nombre,
+        area:         p.area || '',
+        categoria:    p.categoria || '',
+        unidad:       p.unidad || '',
+        presentacion: [p.presentacion, p.tamano].filter(Boolean).join(' '),
+        precio_sin_iva: precioC,
+        cerrado, abierto,
+        val_cerrado: valC,
+        val_abierto: valA,
+        valor: valC + valA,
+      };
+    });
+
+  const payload = {
+    modulo:          'inventario',
+    id:              toma.id,
+    kiosko:          toma.kiosko,
+    fecha_toma:      toma.fecha_toma || '',
+    fecha_inicio:    toma.fecha_inicio || '',
+    fecha_fin:       toma.fecha_fin || '',
+    estado:          toma.estado,
+    lineas_contadas: toma.lineas_contadas,
+    valor_total:     toma.valor_total || 0,
+    lineas,
+  };
+
+  if (!APPS_SCRIPT_INVENTARIO || APPS_SCRIPT_INVENTARIO.indexOf('TODO_') === 0) {
+    throw new Error('Falta configurar APPS_SCRIPT_INVENTARIO en el código.');
+  }
+  const resp = await fetchConTimeout(APPS_SCRIPT_INVENTARIO, {
+    method: 'POST',
+    body: new URLSearchParams({ data: JSON.stringify(payload) })
+  });
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido del backend.');
+  return out;
 }
-function renderResultados(tomas) {
-  const cont = document.getElementById('res-lista');
-  if (!tomas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay tomas cerradas.</div>'; return; }
-  cont.innerHTML = tomas.map(t => {
-    const difTotal = Number(t.diferenciaColonesTotal) || 0;
-    const detalleOrdenado = [...(t.detalle||[])]
-      .filter(d => d['Total Contado'] !== '' && d['Total Contado'] !== undefined && d['Total Contado'] !== null)
-      .sort((a,b) => (Number(a['Diferencia Colones'])||0) - (Number(b['Diferencia Colones'])||0));
-    return `
-    <div class="toma-card" id="res-toma-${t['ID']}">
-      <div class="toma-card-head" onclick="document.getElementById('res-toma-${t['ID']}').classList.toggle('abierta')">
-        <div>
-          <div class="toma-card-title">${escHtml(t['Fecha'])}</div>
-          <div class="toma-card-sub">Cerrada por ${escHtml(t['Cerrada por']||'—')} · Diferencia total:
-            <span class="${difTotal < 0 ? 'dif-neg' : 'dif-pos'}">₡${fmtNum(difTotal)}</span>
-          </div>
-        </div>
-        <span>▾</span>
+
+// ── RENDER LISTA TOMAS ────────────────────────────────────────────
+function renderListaTomas() {
+  const cont = document.getElementById('lista-tomas');
+  if (!kioskoActual) { cont.innerHTML = '<div class="empty">Seleccioná un kiosko.</div>'; return; }
+  const todas = getTomas().filter(t => t.estado !== 'cancelada' && t.kiosko === kioskoActual);
+  if (!todas.length) { cont.innerHTML = '<div class="empty">Sin tomas registradas en ' + escHtml(kioskoActual) + '.</div>'; return; }
+
+  cont.innerHTML = todas.map(t => {
+    const enProceso = t.estado === 'en_proceso';
+    const statusEl  = enProceso
+      ? `<span class="status-proceso">En proceso</span>`
+      : `<span class="status-fin">Finalizada</span>`;
+    const fecha = t.fecha_toma || t.fecha_inicio?.substring(0,10) || '—';
+    return `<div class="hist-item" onclick="${enProceso ? 'abrirToma()' : ''}">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${escHtml(t.id)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">Fecha: ${escHtml(fecha)} · ${t.lineas_contadas||0} productos contados</div>
       </div>
-      <div class="toma-card-body">
-        <div class="stock-table-wrap">
-          <table class="stock-table">
-            <thead><tr><th>Producto</th><th>Teórico</th><th>Contado</th><th>Diferencia</th><th>₡</th><th>Evidencia</th></tr></thead>
-            <tbody>
-              ${detalleOrdenado.map(d => {
-                const dif = Number(d['Diferencia']) || 0;
-                return `<tr>
-                  <td>${escHtml(d['Producto'])}</td>
-                  <td>${fmtNum(d['Stock Teórico'])}</td>
-                  <td>${fmtNum(d['Total Contado'])}</td>
-                  <td class="${dif < 0 ? 'dif-neg' : (dif > 0 ? 'dif-pos' : '')}">${dif>0?'+':''}${fmtNum(dif)}</td>
-                  <td class="${(Number(d['Diferencia Colones'])||0) < 0 ? 'dif-neg' : ''}">₡${fmtNum(d['Diferencia Colones']||0)}</td>
-                  <td>${d['Foto URL'] && d['Foto URL'] !== '#guardada' ? `<a class="foto-chip" href="${d['Foto URL']}" target="_blank">foto ↗</a>` : '—'}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        ${statusEl}
+        <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--teal);">${fmt(t.valor_total||0)}</div>
       </div>
     </div>`;
   }).join('');
 }
 
-// ── INIT ──────────────────────────────────────────────────────────
-document.getElementById('date-chip').textContent =
-  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
-cargarKioskos();
-cargarCatalogo();
-cargarMaestroProductos();
+function abrirToma() {
+  tomaActual = tomas.find(t => t.estado === 'en_proceso' && t.kiosko === kioskoActual);
+  if (!tomaActual) return;
+  document.getElementById('tab-btn-actual').style.display = 'block';
+  switchTab('actual', document.getElementById('tab-btn-actual'));
+  renderActualMeta();
+  renderActual();
+}
+
+// ── RENDER HISTORIAL ──────────────────────────────────────────────
+async function renderHistorial() {
+  const cont = document.getElementById('lista-historial');
+  if (!kioskoActual) { cont.innerHTML = '<div class="empty">Seleccioná un kiosko.</div>'; return; }
+  cont.innerHTML = '<div class="empty"><span class="spinner"></span> Cargando historial del Sheet…</div>';
+
+  let tomasSheet = [];
+  try {
+    if (!INVENTARIO_SHEET_ID || INVENTARIO_SHEET_ID.indexOf('TODO_') === 0) throw new Error('Sin Sheet configurado');
+    const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'HISTORIAL_inventario');
+    const tomasMap = {};
+    rows.filter(r => String(r['Kiosko']||'').trim() === kioskoActual).forEach(r => {
+      const id = String(r['Toma ID']||'').trim();
+      if (!id) return;
+      if (!tomasMap[id]) tomasMap[id] = { id, fecha: String(r['Fecha toma']||'').trim(), lineas: [] };
+      tomasMap[id].lineas.push(r);
+    });
+    tomasSheet = Object.values(tomasMap).sort((a,b) => b.id.localeCompare(a.id));
+  } catch(e) {
+    tomasSheet = getTomas().filter(t=>t.estado==='finalizada' && t.kiosko===kioskoActual).reverse().map(t => ({
+      id: t.id, fecha: t.fecha_toma, lineas: []
+    }));
+  }
+
+  if (!tomasSheet.length) {
+    cont.innerHTML = '<div class="empty">Sin tomas finalizadas en ' + escHtml(kioskoActual) + '.</div>';
+    return;
+  }
+
+  cont.innerHTML = tomasSheet.map(t => {
+    const areas = [...new Set(t.lineas.map(l=>l['Área']||'Sin área'))].filter(Boolean);
+    const total = t.lineas.reduce((a,l) => a + (parseFloat(l['Valor total línea'])||0), 0);
+    const filas = t.lineas.map(l => `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:5px 8px;font-size:12px;">${escHtml(l['Producto']||'—')}</td>
+        <td style="padding:5px 8px;font-size:12px;color:var(--muted);">${escHtml(l['Área']||'—')}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:12px;">${l['Cant. completos']||0}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:12px;">${l['Cant. en uso']||0} ${escHtml(l['Unidad']||'')}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:var(--teal);">${fmt(parseFloat(l['Valor total línea'])||0)}</td>
+      </tr>`).join('');
+
+    return `<div style="border-bottom:1px solid var(--border);">
+      <div class="hist-item" onclick="toggleDetalleHist('det-${slugIdInv(t.id)}')">
+        <div>
+          <div style="font-weight:600;">${escHtml(t.id)}</div>
+          <div style="font-size:12px;color:var(--muted);">${escHtml(t.fecha)} · ${t.lineas.length} líneas · ${escHtml(areas.join(', '))}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="status-fin">Finalizada</span>
+          <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--teal);">${fmt(total)}</div>
+        </div>
+      </div>
+      <div id="det-${slugIdInv(t.id)}" style="display:none;padding:0 1.25rem 1rem;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+          <thead><tr style="background:var(--surface);">
+            <th style="padding:5px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);">Producto</th>
+            <th style="padding:5px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);">Área</th>
+            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">Completos</th>
+            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">En uso</th>
+            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">Valorización</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleDetalleHist(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  ['tomas','actual','historial'].forEach(t => {
+    const d = document.getElementById('tab-'+t);
+    if (d) d.style.display = t===tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (tab==='actual') { renderActualMeta(); renderActual(); }
+  if (tab==='historial') { renderHistorial(); }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type==='success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>t.classList.remove('show'), 4000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>

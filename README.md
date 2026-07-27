@@ -163,15 +163,30 @@ el % convierte el peso a onzas asumiendo una densidad estándar de cerveza
 exacta, y queda documentada como tal en el pie de esa sección. El histórico
 por día de cada kiosko también muestra la merma junto a las onzas vendidas.
 
-Séptimo módulo: **Inventario v2, Compras y Recetas** — `inventario.html` +
-`compras.html` + `recetas.html`, rediseño completo (ver
-`Diseno-Inventario-v2.md`) adaptado de la lógica de base de productos,
-compras, menú/recetas e inventario de Ecosistema Lorito. **Reemplaza** al
-módulo v1 (que usaba `Code-inventario-kioskos-backend.gs` sobre el Sheet
-"Inventario - Kioskos") — ese backend y ese Sheet quedan retirados; el
-código v1 se conserva en el repo (`Code-inventario-kioskos-backend.gs`,
-`Code-inventario-v2-backend.gs` reemplaza su función) solo por si hace falta
-consultar datos viejos o volver a correr la migración.
+⚠️ **DESCONTINUADO (2026-07-27):** el módulo "Inventario v2, Compras y
+Recetas" descrito en esta sección (`Code-inventario-v2-backend.gs` +
+`compras.html` + `recetas.html` + el `inventario.html` con ledger de stock
+en vivo, control por peso/tara/densidad, auto-descuento por ventas de
+Square y lectura automática de facturas de Gmail) **nunca se desplegó a
+producción** y se reemplazó por un puerto más fiel de la lógica real de
+Ecosistema Lorito — conteo físico periódico + órdenes de compra sugeridas
+por mínimo + directorio de proveedores, sin ledger en vivo ni las
+integraciones de arriba. Ver la sección **"Inventario, Órdenes de Compra y
+Proveedores"** más abajo para el módulo vigente. Se deja el resto de esta
+sección como referencia del diseño descartado; `compras.html` y
+`recetas.html` quedan en el repo sin tocar pero **ya no tienen tile** en
+`index.html`, y `inventario.html` fue **reemplazado** (mismo nombre de
+archivo, contenido nuevo).
+
+Séptimo módulo (descontinuado, ver aviso arriba): **Inventario v2, Compras y
+Recetas** — `inventario.html` + `compras.html` + `recetas.html`, rediseño
+completo (ver `Diseno-Inventario-v2.md`) adaptado de la lógica de base de
+productos, compras, menú/recetas e inventario de Ecosistema Lorito.
+**Reemplazaba** al módulo v1 (que usaba `Code-inventario-kioskos-backend.gs`
+sobre el Sheet "Inventario - Kioskos") — ese backend v1 y el propio v2 quedan
+retirados; el código de ambos se conserva en el repo
+(`Code-inventario-kioskos-backend.gs`, `Code-inventario-v2-backend.gs`) solo
+por si hace falta consultar datos viejos o revisar el diseño descartado.
 
 Cada producto se marca con un **Tipo de Control**: **Unitario** (conteo de
 unidades — cerveza en botella/lata, gaseosas, insumos) o **Peso** (báscula,
@@ -241,9 +256,86 @@ Square, ambos con trigger horario opcional (`crearTriggers()`). Trae
 vez (los productos migrados quedan en tipo Unitario por default — revisar
 tipo de control/tara/densidad de licores y sifones después).
 
-`index.html` tiene tres tiles activos para este módulo: **Inventario**
-(`inventario.html`), **Compras** (`compras.html`) y **Recetas**
-(`recetas.html`).
+`index.html` ya no tiene tiles para `compras.html` ni `recetas.html` (ver
+aviso de descontinuado arriba); `inventario.html` sigue con tile pero es el
+archivo nuevo descrito a continuación.
+
+---
+
+Séptimo módulo (vigente): **Inventario, Órdenes de Compra y Proveedores** —
+`inventario.html` + `ordenes-compra.html` + `proveedores.html`, puerto fiel
+de la lógica real de `inventario.html` / `ordenes-compra.html` /
+`proveedores.html` de Ecosistema Lorito, adaptada con una dimensión de
+kiosko que Lorito no tiene (Lorito es un solo local). **No** tiene ledger de
+stock en vivo, control por peso/báscula, auto-descuento por ventas de
+Square ni lectura de facturas de Gmail — esas capacidades se descartaron a
+propósito al portar la lógica (ver aviso de descontinuado de "Inventario
+v2" arriba). El catálogo de productos **no es propio de este módulo**: sale
+en vivo del **Maestro de Productos** (`maestro-productos.html`, hoja
+"Maestro_Productos" del Sheet "Cuentas por Pagar - Kioskos", gviz, mismo
+mecanismo que ya usaba Inventario v2) — Área de negocio y Categoría también
+salen de ahí. Un producto del Maestro aplica a un kiosko según su columna
+"Kioskos" (vacío/"Todos" o lista separada por comas), igual que ya
+administra `maestro-productos.html`.
+
+- `inventario.html` — selector de kiosko arriba de 3 pestañas: **Tomas**
+  (lista, con botón "Nueva toma de inventario" — solo puede haber una toma
+  "en proceso" por kiosko a la vez, iniciar una nueva cancela la anterior),
+  **Toma actual** (grid de conteo agrupado por área/categoría/familia,
+  colapsable, con dos campos por producto: **Cerrado/Completo** — unidades
+  enteras de la presentación de compra — y **En uso/Abierto** — cantidad en
+  la unidad de receta del producto; valorización en vivo por línea, por
+  área y total: `cerrado × Precio sin IVA + abierto × Costo por unidad`,
+  ambos campos leídos del Maestro; botón "Imprimir formato" genera una hoja
+  en blanco para conteo en papel), **Historial** (tomas finalizadas del
+  kiosko, leídas por gviz de `HISTORIAL_inventario`, detalle expandible por
+  producto). "Finalizar toma" pide confirmación simple (sin PIN — a
+  diferencia del intento de Inventario v2, igual que el original de
+  Lorito) y escribe una fila por producto contado en `HISTORIAL_inventario`
+  vía el backend. El estado de la toma en curso vive en
+  `localStorage['kiosko_inv_tomas']` (por kiosko), igual que en Lorito — no
+  hay ledger de stock server-side.
+- `ordenes-compra.html` (nueva) — selector de kiosko + dos tipos de orden:
+  **principal** (sugiere `mínimo − stock actual` por producto, redondeado
+  hacia arriba, tomando el mínimo de la pestaña `Minimos` del Sheet nuevo
+  y el stock de una **toma finalizada elegida a mano** por el usuario —
+  igual que Lorito, no hay stock en vivo) y **recarga** (arranca en 0, sin
+  sugerido, para pedidos de mitad de semana). Agrupado por Área de negocio
+  del Maestro (dinámico, a diferencia del `Cocina/Bar/Consumible/Otro`
+  hardcodeado de Lorito). Franja de **presupuesto semanal** = 35% de las
+  ventas netas (sin IVA) de la semana calendario anterior **del kiosko
+  seleccionado**, leída de la hoja "Cierres" del backend de
+  `Code-cierres-kioskos-backend.gs` (mismo Web App que usa `cierres.html`)
+  — resta lo ya comprometido en otras órdenes de esa semana y ese kiosko.
+  Al aprobar, genera tarjetas por proveedor con PDF (jsPDF + html2canvas,
+  mismo patrón que ya usa `horarios.html` en "cierre de semana") y enlaces
+  de WhatsApp/correo (`wa.me`/`mailto:`, o `navigator.share` en celular),
+  con checkbox manual de "marcado como enviado". Las órdenes viven
+  **solo** en `localStorage['ordenes_compra_kioskos']` (por kiosko) — igual
+  que en Lorito, no hay backend para esto.
+- `proveedores.html` (nueva) — CRUD de proveedores (nombre jurídico/
+  comercial, categoría, contacto, teléfono, correo, días de pedido,
+  cuenta/IBAN, condición de pago, notas) contra la pestaña `Proveedores`
+  del Sheet nuevo. Pestaña "Por agregar" sugiere proveedores vistos en la
+  columna "Proveedor" del Maestro de Productos que todavía no tienen ficha
+  acá.
+
+Backend nuevo (`Code-inventario-kioskos-v3-backend.gs`, Sheet nuevo en
+blanco **"Inventario - Kioskos"**): angosto a propósito, igual que el
+`Code-inventario-backend.gs` de Lorito — sin `doGet` (todo se lee por gviz
+directo contra el Sheet, que debe compartirse como "Cualquiera con el
+enlace puede ver"), `doPost` con tres casos únicamente: `inventario`
+(agrega las líneas de una toma finalizada a `HISTORIAL_inventario`, con
+columna `Kiosko`), `minimo_guardar` (upsert por Producto×Kiosko en
+`Minimos`) y `guardar_proveedor`/`eliminar_proveedor` (`Proveedores`, mismo
+esquema `PROV_ENCABEZADOS` que ya usaba Lorito). Ver la sección de
+despliegue "5. Inventario, Órdenes de Compra y Proveedores" más abajo.
+
+`index.html` tiene tres tiles para este módulo: **Inventario**
+(`inventario.html`), **Órdenes de Compra** (`ordenes-compra.html`) y
+**Proveedores** (`proveedores.html`).
+
+---
 
 ⚠️ **DESCONTINUADO (2026-07-25):** este módulo nunca se desplegó y se
 fusionó dentro de **Maestro de Productos** (`maestro-productos.html`) — ver
@@ -520,17 +612,25 @@ Archivos:
   Anthropic con visión para leer el peso de una foto de báscula — alimenta
   el botón "Extraer peso con IA" de `mermas.html` (ver "Extracción con IA"
   más abajo).
-- `Code-inventario-v2-backend.gs` — backend del Sheet nuevo "Inventario
-  Kioskos v2" (16 pestañas): productos, categorías, mínimos por kiosko,
-  stock en vivo, compras (manual + lector de facturas XML de Gmail),
+- `Code-inventario-kioskos-v3-backend.gs` — backend vigente del Sheet nuevo
+  "Inventario - Kioskos" (3 pestañas: `HISTORIAL_inventario`, `Minimos`,
+  `Proveedores`) — alimenta `inventario.html`, `ordenes-compra.html` y
+  `proveedores.html` (ver detalle arriba). Sin `doGet`; solo tres casos de
+  `doPost` (`inventario`, `minimo_guardar`, `guardar_proveedor`/
+  `eliminar_proveedor`). No depende del Maestro de Productos del lado del
+  backend — el catálogo lo lee cada HTML directo por gviz.
+- `Code-inventario-v2-backend.gs` — **DESCONTINUADO**, backend del Sheet
+  "Inventario Kioskos v2" (16 pestañas: productos, categorías, mínimos por
+  kiosko, stock en vivo, compras con lector de facturas XML de Gmail,
   mapeos de factura, proveedores, órdenes de compra, toma de inventario y
-  recetas — alimenta `inventario.html`, `compras.html` y `recetas.html` (ver
-  detalle arriba). Le pega por `UrlFetchApp` al Web App de
-  `Codigo-Square-completo-con-Descuentos.gs` para traer las ventas por
-  producto y aplicar el consumo automático, y usa `GmailApp`/`DriveApp` para
-  leer facturas y guardar fotos de toma. **Reemplaza**
-  `Code-inventario-kioskos-backend.gs` (backend v1, conservado en el repo
-  solo como referencia/fuente de `importarDesdeV1()`).
+  recetas). Nunca se desplegó; reemplazado por
+  `Code-inventario-kioskos-v3-backend.gs`. Conservado en el repo solo como
+  referencia del diseño descartado.
+- `Code-inventario-kioskos-backend.gs` — backend v1, descontinuado antes que
+  v2 lo reemplazara; conservado en el repo solo como referencia.
+- `Code-productos-backend.gs` — backend del Sheet nuevo "Base de Productos -
+  Kioskos" (pestaña "Productos"): catálogo básico independiente, alimenta
+  `productos.html` (ver detalle arriba).
 - `Code-productos-backend.gs` — backend del Sheet nuevo "Base de Productos -
   Kioskos" (pestaña "Productos"): catálogo básico independiente, alimenta
   `productos.html` (ver detalle arriba).
@@ -706,7 +806,45 @@ Para activar el botón "Extraer peso con IA" (lee el número de la báscula
 directo de la foto), seguí la sección **"Extracción con IA"** más abajo —
 es un despliegue aparte, independiente de este Sheet.
 
-### 5. Inventario v2, Compras y Recetas
+### 5. Inventario, Órdenes de Compra y Proveedores
+
+Sheet nuevo, en blanco — este módulo **no reutiliza** el Sheet de v1/v2 (el
+de la sección 5b más abajo, ID `1Ghdop5T0Vo...`, si es que llegó a
+desplegarse). Aunque el nombre sugerido sea el mismo ("Inventario -
+Kioskos"), es un archivo de Google Sheets **distinto y nuevo** — no le
+pongas el ID viejo.
+
+1. Creá un Google Sheet nuevo, ej. **"Inventario - Kioskos"**.
+2. Extensiones → Apps Script, pegá **todo** el contenido de
+   `Code-inventario-kioskos-v3-backend.gs`.
+3. Corré **una vez** `configurarHojas()` desde el editor (▶ con
+   `configurarHojas` seleccionado) para crear las 3 pestañas
+   (`HISTORIAL_inventario`, `Minimos`, `Proveedores`) con sus encabezados.
+4. Implementar → Nueva implementación → Tipo: **Aplicación web**.
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquiera**
+5. Copiá la URL `/exec` resultante y pegala en **`inventario.html`** y
+   **`ordenes-compra.html`**, constante `APPS_SCRIPT_INVENTARIO`, y en
+   **`proveedores.html`**, misma constante — es el mismo Web App para los
+   tres archivos.
+6. Copiá el **ID del Sheet** (de su URL) y pegalo en la constante
+   `INVENTARIO_SHEET_ID` de esos mismos tres archivos — se usa para leer
+   `HISTORIAL_inventario`/`Minimos`/`Proveedores` por gviz.
+7. Compartí el Sheet como **"Cualquiera con el enlace puede ver"** (Lector)
+   — sin esto, los tres archivos no pueden leer por gviz aunque el Web App
+   ya esté configurado.
+
+Sin los pasos 5-7, los tres archivos muestran "Falta configurar
+APPS_SCRIPT_INVENTARIO"/listas vacías al cargar. El catálogo de productos
+no se configura acá — sale del Maestro de Productos, ya desplegado (ver
+sección "Maestro de Productos" más abajo); si ese Sheet no está compartido
+como público-lector, tampoco va a cargar el catálogo.
+
+### 5b. Inventario v2, Compras y Recetas — DESCONTINUADO, instructivo viejo
+
+⚠️ Estos pasos corresponden al módulo descartado (ver aviso al inicio de la
+sección "Inventario v2, Compras y Recetas" más arriba). Se dejan como
+referencia, no hace falta seguirlos.
 
 Sheet elegido: **"Inventario - Kioskos"** —
 `1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA`
