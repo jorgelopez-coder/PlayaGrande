@@ -508,7 +508,8 @@ function gvizLoad(hoja, expectedCol) {
     var cb    = '_mp_' + Math.random().toString(36).slice(2,10);
     var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
               + '/gviz/tq?tqx=responseHandler:' + cb
-              + '&sheet=' + encodeURIComponent(hoja);
+              + '&sheet=' + encodeURIComponent(hoja)
+              + '&headers=1';
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
       clearTimeout(timer);
