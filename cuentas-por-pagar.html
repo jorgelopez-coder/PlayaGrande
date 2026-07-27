@@ -107,6 +107,7 @@
     .b-cancelada { background:var(--blue-bg);  color:var(--blue); }
     .b-dup       { background:var(--red-bg);   color:var(--red); }
     .b-dup-monto { background:var(--amber-bg); color:var(--amber); }
+    .b-dup-sinprov { background:var(--amber-bg); color:var(--amber); }
     .b-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 
     /* Botones de acción de fila */
@@ -435,6 +436,18 @@
       </div>
     </div>
     <div id="lista-duplicados-monto">
+      <div class="empty"><span class="spinner"></span></div>
+    </div>
+
+    <h3 style="margin:1.75rem 0 .5rem;font-family:var(--font-d);font-size:15px;">Posibles duplicados por kiosko, fecha y monto (sin importar proveedor)</h3>
+    <div class="banner" style="align-items:flex-start;gap:10px;background:var(--amber-bg);border-color:var(--amber-lt);color:var(--amber);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        Estas facturas comparten kiosko, fecha y monto, pero con proveedor (y probablemente número) distinto: puede tratarse de la
+        misma factura cargada dos veces con el proveedor mal seleccionado, o de dos facturas legítimas que coinciden por casualidad. Revisá antes de eliminar.
+      </div>
+    </div>
+    <div id="lista-duplicados-sinprov">
       <div class="empty"><span class="spinner"></span></div>
     </div>
   </div>
@@ -796,6 +809,14 @@ function claveDupMontoDeCampos(kiosko, proveedor, fechaFactura, moneda, monto) {
   return String(kiosko||'') + '||' + normalizarTexto(proveedor) + '||' + fechaFactura + '||' + (moneda||'CRC') + '||' + Number(monto||0).toFixed(2);
 }
 
+// Clave de "duplicado posible sin proveedor": kiosko + fecha de factura + moneda
+// + monto, SIN considerar el proveedor. Pensada para el caso en que la misma
+// factura se cargó dos veces con el proveedor mal escrito o mal seleccionado
+// (por lo que el proveedor no sirve como parte de la clave de comparación).
+function claveDupSinProveedorDeCampos(kiosko, fechaFactura, moneda, monto) {
+  return String(kiosko||'') + '||' + fechaFactura + '||' + (moneda||'CRC') + '||' + Number(monto||0).toFixed(2);
+}
+
 // Convierte fechas formateadas por gviz como "D/M/YYYY" a ISO "YYYY-MM-DD".
 function isoDate(str) {
   const s = String(str||'').trim();
@@ -867,11 +888,32 @@ function construirFacturasAP() {
     && numerosPorClaveMonto[claveDupMonto(p)].size > 1
     && !grupoMontoAceptado[claveDupMonto(p)];
 
+  // Duplicado posible sin proveedor = mismo kiosko + fecha de factura + monto,
+  // sin importar proveedor ni número de factura. Solo cuenta si el grupo
+  // incluye al menos dos proveedores distintos (si el proveedor fuera el mismo,
+  // ya lo captura esDuplicada o esDuplicadaPorMonto arriba, y marcarlo de nuevo
+  // acá sería ruido repetido).
+  const claveDupSinProv = p => claveDupSinProveedorDeCampos(p.kiosko, p.fechaFactura, p.moneda, p.monto);
+  const conteoSinProv = {};
+  const proveedoresPorClaveSinProv = {};
+  const grupoSinProvAceptado = {};
+  parsed.forEach(p => {
+    const ks = claveDupSinProv(p);
+    conteoSinProv[ks] = (conteoSinProv[ks]||0) + 1;
+    if (!proveedoresPorClaveSinProv[ks]) proveedoresPorClaveSinProv[ks] = new Set();
+    proveedoresPorClaveSinProv[ks].add(normalizarTexto(p.proveedorNombre));
+    if (p.aceptado) grupoSinProvAceptado[ks] = true;
+  });
+  const esDuplicadaSinProveedor = p => conteoSinProv[claveDupSinProv(p)] > 1
+    && proveedoresPorClaveSinProv[claveDupSinProv(p)].size > 1
+    && !grupoSinProvAceptado[claveDupSinProv(p)];
+
   const clavesExactasDuplicadas = [...new Set(parsed.filter(esDuplicada).map(claveDup))];
   const clavesMontoDuplicadas = [...new Set(parsed.filter(esDuplicadaPorMonto).map(claveDupMonto))];
+  const clavesSinProvDuplicadas = [...new Set(parsed.filter(esDuplicadaSinProveedor).map(claveDupSinProv))];
 
   const bannerDup = document.getElementById('banner-duplicados');
-  if (clavesExactasDuplicadas.length || clavesMontoDuplicadas.length) {
+  if (clavesExactasDuplicadas.length || clavesMontoDuplicadas.length || clavesSinProvDuplicadas.length) {
     bannerDup.style.display = 'flex';
     const partes = [];
     if (clavesExactasDuplicadas.length) {
@@ -880,12 +922,15 @@ function construirFacturasAP() {
     if (clavesMontoDuplicadas.length) {
       partes.push(clavesMontoDuplicadas.length + ' posible(s) duplicado(s) por kiosko + proveedor + fecha + monto con número de factura distinto');
     }
+    if (clavesSinProvDuplicadas.length) {
+      partes.push(clavesSinProvDuplicadas.length + ' posible(s) duplicado(s) por kiosko + fecha + monto con proveedor distinto');
+    }
     document.getElementById('banner-duplicados-msg').textContent = ' Revisá — ' + partes.join(' · ');
   } else {
     bannerDup.style.display = 'none';
   }
   const dupTabBadge = document.getElementById('dup-tab-count');
-  const totalGruposRevisar = clavesExactasDuplicadas.length + clavesMontoDuplicadas.length;
+  const totalGruposRevisar = clavesExactasDuplicadas.length + clavesMontoDuplicadas.length + clavesSinProvDuplicadas.length;
   if (totalGruposRevisar) {
     dupTabBadge.textContent = totalGruposRevisar;
     dupTabBadge.style.display = 'inline-flex';
@@ -941,7 +986,7 @@ function construirFacturasAP() {
     return {
       numero, kiosko, proveedor: proveedorNombre, fechaFactura, monto, moneda, tipoCambio, montoColones,
       sinProveedor, cuentaProveedor, diasCredito, fechaVencimiento, fechaProyectada, fechaRealPago, referenciaPago, medioPago, totalAbonado, nota,
-      saldoPendiente, estado, duplicada: esDuplicada(p), duplicadaMonto: esDuplicadaPorMonto(p), ordinal: contadorOrdinal[claveOrdinal]
+      saldoPendiente, estado, duplicada: esDuplicada(p), duplicadaMonto: esDuplicadaPorMonto(p), duplicadaSinProveedor: esDuplicadaSinProveedor(p), ordinal: contadorOrdinal[claveOrdinal]
     };
   });
 }
@@ -1268,7 +1313,8 @@ function _renderFacturas() {
     const clave = claveF(f.numero, f.kiosko);
     const dupBadge = f.duplicada
       ? `<span class="badge b-dup" style="margin-left:6px;">⚠ Duplicada</span>`
-      : (f.duplicadaMonto ? `<span class="badge b-dup-monto" style="margin-left:6px;">⚠ Posible duplicado</span>` : '');
+      : (f.duplicadaMonto ? `<span class="badge b-dup-monto" style="margin-left:6px;">⚠ Posible duplicado</span>`
+      : (f.duplicadaSinProveedor ? `<span class="badge b-dup-sinprov" style="margin-left:6px;">⚠ Posible duplicado (otro proveedor)</span>` : ''));
     const notaBadge = f.nota ? `<span title="${f.nota.replace(/"/g,'&quot;')}" style="margin-left:6px;font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:20px;padding:1px 7px;">Nota</span>` : '';
     const sinProvBadge = f.sinProveedor ? `<span onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;margin-left:4px;">
         <span title="Proveedor sin registrar en la base de proveedores" style="font-size:10px;color:var(--red);">⚠</span>
@@ -1655,9 +1701,24 @@ function obtenerDuplicadosPorMonto() {
   return grupos;
 }
 
+// Agrupa por clave kiosko+fecha+monto (sin proveedor) los registros marcados
+// como "posible duplicado sin proveedor": mismo kiosko, fecha y monto, con
+// proveedor (y probablemente número) distinto.
+function obtenerDuplicadosSinProveedor() {
+  const grupos = {};
+  datasetActual().forEach(f => {
+    if (!f.duplicadaSinProveedor) return;
+    const clave = claveDupSinProveedorDeCampos(f.kiosko, f.fechaFactura, f.moneda, f.monto);
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push(f);
+  });
+  return grupos;
+}
+
 function renderDuplicados() {
   renderDuplicadosExactos();
   renderDuplicadosPorMonto();
+  renderDuplicadosSinProveedor();
 }
 
 function renderDuplicadosExactos() {
@@ -1761,6 +1822,56 @@ function renderDuplicadosPorMonto() {
   }).join('');
 }
 
+function renderDuplicadosSinProveedor() {
+  const grupos = obtenerDuplicadosSinProveedor();
+  const claves = Object.keys(grupos);
+  const cont = document.getElementById('lista-duplicados-sinprov');
+  if (!cont) return;
+
+  if (!claves.length) {
+    cont.innerHTML = '<div class="empty">No hay posibles duplicados por kiosko, fecha y monto con proveedor distinto. Todo en orden.</div>';
+    return;
+  }
+
+  cont.innerHTML = claves.map(clave => {
+    const grupo = grupos[clave];
+    const filas = grupo.map(o => `
+      <tr>
+        <td style="font-family:var(--font-d);font-weight:600;">${o.numero}</td>
+        <td style="font-weight:500;">${o.proveedor}</td>
+        <td style="color:var(--muted);">${o.fechaFactura||'—'}</td>
+        <td style="color:var(--muted);font-size:12px;">${o.moneda}${o.moneda==='USD'?' (US$'+fmtN(o.monto)+')':''}</td>
+        <td>${badgeEstado(o.estado)}</td>
+        <td class="num" style="font-weight:600;">${o.montoColones!=null ? fmt(o.montoColones) : '(falta TC)'}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="btn-mini" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);"
+            onclick="eliminarFacturaDuplicada('${o.numero}','${o.kiosko}', ${o.ordinal})">Eliminar esta copia</button>
+        </td>
+      </tr>`).join('');
+
+    return `
+      <div class="card">
+        <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div>
+            <span class="kiosko-tag">${grupo[0].kiosko}</span>
+            <span style="color:var(--muted);font-size:12px;margin-left:8px;">${grupo[0].fechaFactura||'—'}</span>
+            <span class="badge b-dup-sinprov" style="margin-left:8px;">${grupo.length} facturas, distinto proveedor</span>
+          </div>
+          <button class="btn-mini" onclick="aceptarDuplicadoGrupoSinProveedor('${clave.replace(/'/g,"\\'")}')">Aceptar duplicado</button>
+        </div>
+        <div class="tabla-wrap">
+          <table>
+            <thead><tr>
+              <th>Factura</th><th>Proveedor</th><th>Fecha factura</th><th>Moneda</th><th>Estado</th>
+              <th style="text-align:right;">Total</th><th>Acción</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function irATabDuplicados() {
   const btn = document.getElementById('tab-btn-duplicados');
   switchTab('duplicados', btn);
@@ -1807,6 +1918,32 @@ async function aceptarDuplicadoGrupoMonto(clave) {
   const resumen = grupo.map(o => `${o.numero} (${o.fechaFactura||'—'})`).join(', ');
   const montoTxt = grupo[0].moneda === 'USD' ? 'US$'+fmtN(grupo[0].monto) : fmt(grupo[0].monto);
   if (!confirm(`¿Aceptar que estas ${grupo.length} facturas de ${grupo[0].proveedor} [${kiosko}] con fecha ${grupo[0].fechaFactura||'—'} y monto ${montoTxt} son registros legítimos (no una carga duplicada)?\n\nFacturas: ${resumen}\n\nDejarán de aparecer en el control de duplicados.`)) return;
+
+  const porNumero = {};
+  grupo.forEach(o => { (porNumero[o.numero] = porNumero[o.numero] || []).push(o.ordinal); });
+
+  try {
+    for (const numero of Object.keys(porNumero)) {
+      await postAP({ modulo: 'aceptar_duplicado', numero_factura: numero, kiosko: kiosko, ordinales: porNumero[numero] });
+    }
+    showToast('Duplicado aceptado. Actualizando datos…', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo aceptar: ' + e.message, 'error');
+  }
+}
+
+// Como cada grupo de "posible duplicado sin proveedor" puede mezclar
+// proveedores y números de factura distintos dentro de un mismo kiosko,
+// se agrupa por número antes de aceptar (mismo patrón que la versión por monto).
+async function aceptarDuplicadoGrupoSinProveedor(clave) {
+  const grupo = obtenerDuplicadosSinProveedor()[clave] || [];
+  if (!grupo.length) return;
+
+  const kiosko = grupo[0].kiosko;
+  const resumen = grupo.map(o => `${o.numero} — ${o.proveedor}`).join(', ');
+  const montoTxt = grupo[0].moneda === 'USD' ? 'US$'+fmtN(grupo[0].monto) : fmt(grupo[0].monto);
+  if (!confirm(`¿Aceptar que estas ${grupo.length} facturas de "${kiosko}" con fecha ${grupo[0].fechaFactura||'—'} y monto ${montoTxt} son registros legítimos de proveedores distintos (no una carga duplicada)?\n\nFacturas: ${resumen}\n\nDejarán de aparecer en el control de duplicados.`)) return;
 
   const porNumero = {};
   grupo.forEach(o => { (porNumero[o.numero] = porNumero[o.numero] || []).push(o.ordinal); });
