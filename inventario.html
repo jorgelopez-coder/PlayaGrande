@@ -252,14 +252,17 @@ function kioskosPermitidos(lista) {
 // ── CONFIG ────────────────────────────────────────────────────────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
 // URL /exec del Web App de Code-inventario-kioskos-v3-backend.gs (pegar al desplegar):
-const APPS_SCRIPT_INVENTARIO = 'TODO_APPS_SCRIPT_INVENTARIO_KIOSKOS';
+const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
 // ID del Sheet "Inventario - Kioskos" (el mismo al que apunta el backend de
 // arriba) — se usa para leer HISTORIAL_inventario por gviz, pegalo al desplegar.
-const INVENTARIO_SHEET_ID = 'TODO_SHEET_ID_INVENTARIO_KIOSKOS';
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 // Sheet "Cuentas por Pagar - Kioskos", hoja "Maestro_Productos" — mismo
 // Sheet público que lee maestro-productos.html (gviz, sin backend propio).
-// El catálogo de Inventario sale de acá (Nombre Estándar, Aplica = Sí);
-// este módulo no tiene catálogo propio.
+// El catálogo de Inventario sale de acá: Aplica = Sí, Activo = Sí, y con la
+// "Ficha de producto" completada (columna "Ficha actualizada" no vacía) —
+// una fila homologada por factura pero sin ficha todavía no es un producto
+// de catálogo, solo un nombre pendiente de completar en maestro-productos.html.
+// Este módulo no tiene catálogo propio.
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -291,7 +294,8 @@ function gvizLoad(sheetId, hoja, expectedCol) {
     var cb    = '_inv_' + Math.random().toString(36).slice(2,10);
     var url   = 'https://docs.google.com/spreadsheets/d/' + sheetId
               + '/gviz/tq?tqx=responseHandler:' + cb
-              + '&sheet=' + encodeURIComponent(hoja);
+              + '&sheet=' + encodeURIComponent(hoja)
+              + '&headers=1';
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
       clearTimeout(timer);
@@ -367,6 +371,7 @@ async function cargarMaestroProductos() {
     datos.forEach(r => {
       if (r['Aplica'] === 'No') return;
       if (r['Activo'] === 'No') return;
+      if (!(r['Ficha actualizada'] || '').toString().trim()) return; // sin ficha completada, no es catálogo todavía
       const nombre = (r['Nombre Estándar'] || '').toString().trim();
       if (!nombre) return;
       const key = claveNorm(nombre);

@@ -22,6 +22,14 @@ nuevo con el nombre corregido. El detalle completo de este cambio de
 esquema está en la sección "Base de datos" de más abajo y en la memoria
 `project_inventario_v2_conectado_maestro`.
 
+**Actualización 2026-07-27 (mismo día) — filtro por Ficha completada:**
+no alcanza con "Aplica: Sí" — el catálogo de Inventario solo debe traer
+productos del Maestro que ya tengan su **"Ficha de producto" completada**
+(columna "Ficha actualizada" no vacía en `Maestro_Productos`). Una fila
+homologada por factura (Aplica: Sí) pero sin ficha llenada todavía es solo
+un nombre pendiente en `maestro-productos.html`, no un producto listo para
+usarse en Inventario/Compras/Recetas.
+
 ---
 
 ## 1. Objetivo
@@ -116,8 +124,9 @@ del Maestro, solo recibe el nombre ya elegido por el usuario.
 ### 4.1 Alta de productos (una vez, y mantenimiento)
 
 El producto se elige de la lista ya homologada en Maestro de Productos
-(Nombre Estándar, solo los confirmados con "Aplica: Sí" en
-`maestro-productos.html`) — Inventario no vuelve a pedir el nombre a mano.
+(Nombre Estándar, solo los confirmados con "Aplica: Sí" y con la "Ficha de
+producto" ya completada en `maestro-productos.html`) — Inventario no vuelve
+a pedir el nombre a mano.
 Admin completa ahí el tipo de control. Para tipo Peso, el alta exige tara y
 densidad (formulario no deja guardar sin esos campos). Ritual de alta:
 pesar un envase vacío en la báscula del kiosko → ese es la tara. Área de

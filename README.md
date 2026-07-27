@@ -448,6 +448,16 @@ sugerencia con un botón "Usar esta sugerencia" que la copia al campo
 Precio (ajustando la moneda). El Proveedor de la ficha no se pide aparte:
 ya es el mismo Proveedor de la clave homologada.
 
+**"Costo de compra" auto antes de la ficha (2026-07-27)**: mientras una
+fila todavía no tiene ficha completada (sin "Ficha actualizada"),
+`sincronizarMaestro()` también pisa "Costo por unidad" (la columna "Costo
+de compra" de la tabla) con el último precio de factura — mismo valor que
+"Costo sugerido" — para que no quede vacía ni desactualizada antes de que
+alguien abra la ficha. Solo aplica si la última compra vino en colones (en
+USD hace falta el tipo de cambio, que se resuelve al completar la ficha).
+En cuanto se guarda la ficha una vez, "Costo por unidad" pasa a ser 100%
+manual (Precio sin IVA ÷ Cantidad presentación) y el sync deja de tocarla.
+
 `index.html` tiene un solo tile para este módulo: **Maestro de Productos**.
 
 Módulo de **Planilla**, `planilla.html` — cálculo de planilla quincenal por
