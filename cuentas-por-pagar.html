@@ -313,6 +313,18 @@
 
   <!-- ══ TAB FACTURAS ══════════════════════════════════════════════ -->
   <div id="tab-facturas">
+    <div class="card" style="padding:.85rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--blue);flex-shrink:0;"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 00-2.5-1.5c-1.5 0-2.5 1-2.5 2s1 1.7 2.5 2 2.5 1 2.5 2-1 2-2.5 2a2.5 2.5 0 01-2.5-1.5"/><path d="M12 6v1.5M12 16.5V18"/></svg>
+        <strong style="font-size:13px;">Tipo de cambio dólar</strong>
+        <span style="font-size:12px;color:var(--muted);" id="tc-global-count">—</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" step="0.01" min="0" id="tc-global-valor" placeholder="₡ por US$" style="width:110px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;">
+        <button class="btn-mini pago" id="btn-tc-global" onclick="aplicarTipoCambioGlobal()">Actualizar facturas sin TC</button>
+      </div>
+    </div>
+
     <div class="toolbar">
       <div class="search-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -958,7 +970,7 @@ function construirFacturasAP() {
     // Tipo de cambio: para CRC es 1; para USD se define manualmente en la UI
     // (no hay columna confiable en el Sheet), conservando el valor ya cargado si existe.
     const tcPrevio   = facturaPorNumero(numero, kiosko);
-    const tipoCambio = moneda === 'CRC' ? 1 : (tcPrevio ? tcPrevio.tipoCambio : (limpiarMonto(r['TC']) || null));
+    const tipoCambio = moneda === 'CRC' ? 1 : (tcPrevio ? tcPrevio.tipoCambio : (limpiarMonto(r['Tipo de cambio']) || null));
     const montoColones = moneda === 'CRC' ? monto : (tipoCambio ? Math.round(monto * tipoCambio * 100) / 100 : null);
 
     const prov = buscarProveedor(proveedorNombre);
@@ -1052,6 +1064,7 @@ function inicializar() {
   renderDuplicados();
   renderSemana();
   actualizarBarraSeleccion();
+  actualizarContadorTcGlobal();
 }
 
 // ── KPIs: paneles de detalle desplegables ──────────────────────────
@@ -2073,6 +2086,61 @@ async function guardarProyeccionFactura(numero, kiosko, fecha, rowId) {
 }
 
 // ── TIPO DE CAMBIO (solo facturas en USD) ─────────────────────────
+// Facturas en USD sin tipo de cambio asignado todavía, en TODOS los kioskos
+// (independiente del kiosko seleccionado en el encabezado).
+function facturasUsdSinTC() {
+  return facturasAP.filter(f => f.moneda === 'USD' && (!f.tipoCambio || f.tipoCambio <= 0));
+}
+
+function actualizarContadorTcGlobal() {
+  const el = document.getElementById('tc-global-count');
+  if (!el) return;
+  const n = facturasUsdSinTC().length;
+  el.textContent = n === 0 ? 'Todas las facturas en USD tienen tipo de cambio' : n + ' factura' + (n===1?'':'s') + ' en USD sin tipo de cambio';
+}
+
+// Aplica un mismo tipo de cambio a todas las facturas en USD que aún no
+// tengan uno asignado (de cualquier kiosko). Las facturas que ya tienen TC
+// (aunque sea distinto) no se tocan.
+async function aplicarTipoCambioGlobal() {
+  const input = document.getElementById('tc-global-valor');
+  const tc = parseFloat(input.value);
+  if (!tc || tc <= 0) { showToast('Ingresá un tipo de cambio válido.', 'error'); return; }
+  const pendientes = facturasUsdSinTC();
+  if (!pendientes.length) { showToast('No hay facturas en dólares sin tipo de cambio asignado.', 'success'); return; }
+
+  const btn = document.getElementById('btn-tc-global');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  let ok = 0, fallidas = 0;
+  for (const f of pendientes) {
+    btn.textContent = `Actualizando… (${ok + fallidas + 1}/${pendientes.length})`;
+    try {
+      await postAP({
+        modulo: 'guardar_tc',
+        numero_factura: f.numero, kiosko: f.kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
+        monto: f.monto, tipo_cambio: tc
+      });
+      f.tipoCambio   = tc;
+      f.montoColones = Math.round(f.monto * tc * 100) / 100;
+      if (f.estado !== 'Cancelada') f.saldoPendiente = Math.round((f.montoColones - (f.totalAbonado||0)) * 100) / 100;
+      ok++;
+    } catch(e) {
+      fallidas++;
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = textoOriginal;
+  input.value = '';
+  showToast(
+    fallidas === 0
+      ? `Tipo de cambio aplicado a ${ok} factura${ok===1?'':'s'} ✓`
+      : `Actualizadas ${ok}, fallaron ${fallidas}. Revisá la conexión e intentá de nuevo.`,
+    fallidas === 0 ? 'success' : 'error'
+  );
+  inicializar();
+}
+
 async function guardarTipoCambio(numero, kiosko, valor) {
   const f = facturaPorNumero(numero, kiosko);
   if (!f) return;
