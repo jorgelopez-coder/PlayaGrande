@@ -397,9 +397,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div class="field"><label>Cantidad en la presentación</label>
           <input type="number" id="fi-cantidad" min="0" step="any" placeholder="ej: 6" oninput="actualizarCostoFichaPreview()"/>
         </div>
-        <div class="field" style="margin-bottom:0"><label>Costo por unidad</label>
+        <div class="field" style="margin-bottom:0"><label>Costo de compra</label>
           <div class="costo-display" id="fi-costo-display">₡0.00</div>
-          <div class="field-hint">Precio sin IVA ÷ cantidad</div>
+          <div class="field-hint">Precio sin IVA ÷ cantidad — se prellena con el precio de la última factura registrada</div>
         </div>
       </div>
 
@@ -430,7 +430,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <label class="check-row" style="margin-bottom:4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
       <div class="field-hint" style="margin-bottom:1.25rem">
-        Por defecto las recetas usan el costo automático de compras (arriba en "Costo por unidad") cuando existe.
+        Por defecto las recetas usan el costo automático de compras (arriba en "Costo de compra") cuando existe.
         Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en su lugar — útil para
         corregir un producto puntual sin esperar a que entren compras nuevas.
       </div>
@@ -833,7 +833,7 @@ function renderFichas() {
   contEl.innerHTML = `
     <table class="stock-table">
       <thead><tr>
-        <th></th><th>Producto</th><th>Clasificación</th><th>Costo por unidad</th><th>Proveedores</th><th>Kioskos</th><th>Ficha</th><th></th>
+        <th></th><th>Producto</th><th>Clasificación</th><th>Costo de compra</th><th>Proveedores</th><th>Kioskos</th><th>Ficha</th><th></th>
       </tr></thead>
       <tbody>
         ${FICHAS_FILTRADOS.map(g => {
