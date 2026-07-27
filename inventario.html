@@ -417,6 +417,11 @@ function genId()      { return 'INV-' + hoy.getFullYear() + pad(hoy.getMonth()+1
 async function init() {
   tomas = getTomas();
   await Promise.all([cargarKioskos(), cargarMaestroProductos()]);
+  // cargarMaestroProductos() puede resolver antes que cargarKioskos() fije
+  // kioskoActual (viene de localStorage, pero cargarKioskos() también espera
+  // una llamada al Apps Script de RRHH) — se recalcula acá para no quedar
+  // con "productos" vacío si esa carrera se dio en ese orden.
+  actualizarProductosDelKiosko();
   if (kioskoActual) {
     renderListaTomas();
   }
