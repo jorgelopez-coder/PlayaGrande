@@ -16,10 +16,33 @@
  *  - Órdenes de compra sugeridas por mínimos, agrupadas por proveedor.
  *  - Recetas + sync de ventas Square (mismo mecanismo probado del v1).
  *
+ * ── Catálogo = Maestro de Productos (decidido 2026-07-27) ────────────
+ * Este backend YA NO tiene su propio ID de producto ni su propia hoja de
+ * Categorías. La clave de cada producto es su **"Producto"** (= el "Nombre
+ * Estándar" ya homologado en `maestro-productos.html` / hoja
+ * "Maestro_Productos" del Sheet "Cuentas por Pagar - Kioskos"). El alta de
+ * un producto en Inventario (hoja Productos de este Sheet) solo agrega los
+ * atributos que el Maestro no tiene: Tipo de Control, Unidad Base,
+ * Contenido de envase, Tara, Densidad, Costo por unidad base, Proveedor
+ * habitual, Nombre de venta directa. Área de negocio y Categoría YA NO se
+ * guardan acá — el frontend (inventario.html) las trae en vivo del Maestro
+ * (lectura pública `gviz` del Sheet, mismo mecanismo de
+ * `maestro-productos.html`) y las usa para agrupar. Este backend nunca
+ * necesita leer el Sheet del Maestro: solo recibe el nombre ya elegido por
+ * el usuario (un string) y lo trata como clave opaca.
+ *
+ * IMPORTANTE — limitación conocida de este diseño: si más adelante se
+ * corrige/renombra un "Nombre Estándar" en el Maestro (pestaña
+ * Homologación de `maestro-productos.html`), las filas ya guardadas acá
+ * (Productos, Stock, Mínimos, Movimientos, Tomas, Compras, Mapeos, Órdenes
+ * de Compra) que usaban el nombre viejo NO se actualizan solas y quedan
+ * huérfanas del nuevo nombre. Si eso pasa, hay que dar de alta el producto
+ * de nuevo acá con el nombre corregido (y trasladar mínimos/stock a mano).
+ *
  * Cómo desplegarlo:
  * 1. Creá un Google Sheet nuevo "Inventario Kioskos v2" > Extensiones >
  *    Apps Script y pegá este código completo.
- * 2. Corré UNA VEZ configurarHoja() (crea las 16 pestañas). Autorizá los
+ * 2. Corré UNA VEZ configurarHoja() (crea las 15 pestañas). Autorizá los
  *    permisos (Sheets, Drive, Gmail, UrlFetch).
  * 3. Propiedades del script: ADMIN_PIN (para "Cerrar toma"; default 'admin').
  * 4. Completá SQUARE_URLS abajo (una URL por kiosko con Square propio).
@@ -28,9 +51,6 @@
  *    y recetas.html (constante INVENTARIO_V2_URL).
  * 6. (Opcional) crearTriggers() UNA VEZ: sync de ventas y lector de facturas
  *    Gmail cada hora.
- * 7. (Opcional) Migración: poné el ID del Sheet v1 en V1_SPREADSHEET_ID y
- *    corré importarDesdeV1() UNA VEZ (trae Productos y Recetas al formato
- *    nuevo; revisá tipo control/tara/densidad después, quedan en 'unitario').
  *
  * Si se agregan columnas nuevas: siempre al FINAL del ENCABEZADOS_*, nueva
  * versión del deployment y configurarHoja() de nuevo.
@@ -50,30 +70,25 @@ const SQUARE_URLS = {
 const GMAIL_QUERY = 'has:attachment filename:xml newer_than:7d';
 const GMAIL_MAX_HILOS = 25;
 
-// Sheet del módulo v1 ("Inventario - Kioskos") — solo para importarDesdeV1().
-const V1_SPREADSHEET_ID = '';
-
 // ── HOJAS ──────────────────────────────────────────────────────────
+// 'Producto' = Nombre Estándar homologado en el Maestro de Productos.
 const HOJA_PRODUCTOS = 'Productos';
 const ENCABEZADOS_PRODUCTOS = [
-  'ID', 'Nombre Interno', 'Categoría', 'Tipo Control', 'Unidad Base',
+  'Producto', 'Tipo Control', 'Unidad Base',
   'Contenido Envase (ml)', 'Tara (g)', 'Densidad (g/ml)',
   'Costo Unidad Base', 'Proveedor', 'Nombre Venta', 'Activo', 'Actualizado'
 ];
 
-const HOJA_CATEGORIAS = 'Categorias';
-const ENCABEZADOS_CATEGORIAS = ['Nombre', 'Orden', 'Activo'];
-
 // Mínimo y nivel objetivo por producto×kiosko (upsert).
 const HOJA_MINIMOS = 'Minimos';
-const ENCABEZADOS_MINIMOS = ['Producto ID', 'Kiosko', 'Mínimo', 'Nivel Objetivo', 'Actualizado'];
+const ENCABEZADOS_MINIMOS = ['Producto', 'Kiosko', 'Mínimo', 'Nivel Objetivo', 'Actualizado'];
 
 const HOJA_STOCK = 'Stock';
-const ENCABEZADOS_STOCK = ['Producto ID', 'Kiosko', 'Cantidad Actual', 'Actualizado'];
+const ENCABEZADOS_STOCK = ['Producto', 'Kiosko', 'Cantidad Actual', 'Actualizado'];
 
 const HOJA_MOVIMIENTOS = 'StockMovimientos';
 const ENCABEZADOS_MOVIMIENTOS = [
-  'ID', 'Fecha', 'Kiosko', 'Producto ID', 'Producto Nombre', 'Tipo',
+  'ID', 'Fecha', 'Kiosko', 'Producto', 'Tipo',
   'Cantidad', 'Referencia', 'Registrado por', 'Registrado'
 ];
 
@@ -91,7 +106,7 @@ const ENCABEZADOS_COMPRAS = [
 const HOJA_COMPRAS_DETALLE = 'ComprasDetalle';
 const ENCABEZADOS_COMPRAS_DETALLE = [
   'Compra ID', 'Línea Nº', 'Línea Original', 'Cantidad Factura',
-  'Producto ID', 'Producto Nombre', 'Cantidad Base', 'Costo Línea'
+  'Producto', 'Cantidad Base', 'Costo Línea'
 ];
 
 // Mapeo aprendido: texto de línea de factura de un proveedor → producto +
@@ -99,11 +114,17 @@ const ENCABEZADOS_COMPRAS_DETALLE = [
 // de 24 botellas → factor 24; caja de 12 botellas de ron 750ml → factor
 // 12×750=9000 ml si el producto es de tipo peso).
 const HOJA_MAPEOS = 'MapeoFacturas';
-const ENCABEZADOS_MAPEOS = ['Proveedor Cédula', 'Texto Línea', 'Producto ID', 'Factor', 'Actualizado'];
+const ENCABEZADOS_MAPEOS = ['Proveedor Cédula', 'Texto Línea', 'Producto', 'Factor', 'Actualizado'];
 
 const HOJA_RECETAS = 'Recetas';
 const ENCABEZADOS_RECETAS = ['ID', 'Nombre de Venta', 'Kiosko', 'Activo', 'Actualizado'];
 
+// NOTA: RecetasDetalle todavía referencia 'Producto ID'/'Producto Nombre'
+// tal como venían del catálogo de ingredientes que usa hoy recetas.html
+// (Base de Productos, módulo descontinuado — ver
+// project_recetas_ingredientes_base_productos en la memoria). Homologar
+// esto al mismo esquema "Producto" (Nombre Estándar) de acá es un cambio
+// aparte, pendiente de decidir con Jorge (no tocado hoy).
 const HOJA_RECETAS_DETALLE = 'RecetasDetalle';
 const ENCABEZADOS_RECETAS_DETALLE = [
   'Receta ID', 'Producto ID', 'Producto Nombre', 'Cantidad por Unidad Vendida'
@@ -119,9 +140,11 @@ const ENCABEZADOS_TOMA = [
   'ID', 'Kiosko', 'Fecha', 'Estado', 'Abierta por', 'Abierta en', 'Cerrada por', 'Cerrada en'
 ];
 
+// Nota: ya no se cachea Categoría/Área acá — inventario.html las agrupa en
+// vivo contra el Maestro usando el campo 'Producto' (Nombre Estándar).
 const HOJA_TOMA_DETALLE = 'TomaDetalle';
 const ENCABEZADOS_TOMA_DETALLE = [
-  'Toma ID', 'Producto ID', 'Producto Nombre', 'Categoría', 'Tipo Control',
+  'Toma ID', 'Producto', 'Tipo Control',
   'Stock Teórico', 'Envases Cerrados', 'Peso Bruto (g)', 'Neto (ml)',
   'Total Contado', 'Mínimo', 'Diferencia', 'Diferencia Colones', 'Foto URL', 'Notas'
 ];
@@ -133,12 +156,12 @@ const ENCABEZADOS_OC = [
 
 const HOJA_OC_DETALLE = 'OrdenesCompraDetalle';
 const ENCABEZADOS_OC_DETALLE = [
-  'OC ID', 'Producto ID', 'Producto Nombre', 'Stock al Generar', 'Mínimo',
+  'OC ID', 'Producto', 'Stock al Generar', 'Mínimo',
   'Sugerido', 'Cantidad Final', 'Compra ID Recepción'
 ];
 
 function configurarHoja() {
-  [[HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS], [HOJA_CATEGORIAS, ENCABEZADOS_CATEGORIAS],
+  [[HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS],
    [HOJA_MINIMOS, ENCABEZADOS_MINIMOS], [HOJA_STOCK, ENCABEZADOS_STOCK],
    [HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS], [HOJA_PROVEEDORES, ENCABEZADOS_PROVEEDORES],
    [HOJA_COMPRAS, ENCABEZADOS_COMPRAS], [HOJA_COMPRAS_DETALLE, ENCABEZADOS_COMPRAS_DETALLE],
@@ -226,9 +249,13 @@ function normalizarTexto(s) {
   return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-function productoPorId(id) {
+// Clave de producto: se compara con trim (no case-insensitive) porque debe
+// coincidir EXACTO con el "Nombre Estándar" tal cual está en el Maestro.
+function productoPorNombre(nombre) {
+  const buscado = String(nombre || '').trim();
+  if (!buscado) return null;
   return filasComoObjetos(prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS))
-    .find(function(p) { return String(p['ID']) === String(id); }) || null;
+    .find(function(p) { return String(p['Producto']).trim() === buscado; }) || null;
 }
 
 // ── doGet ──────────────────────────────────────────────────────────
@@ -238,7 +265,6 @@ function doGet(e) {
     const kiosko = e && e.parameter && e.parameter.kiosko;
 
     if (modulo === 'productos')   return jsonOut({ ok: true, registros: filasComoObjetos(prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS)) });
-    if (modulo === 'categorias')  return jsonOut({ ok: true, registros: filasComoObjetos(prepararHoja(HOJA_CATEGORIAS, ENCABEZADOS_CATEGORIAS)) });
     if (modulo === 'proveedores') return jsonOut({ ok: true, registros: filasComoObjetos(prepararHoja(HOJA_PROVEEDORES, ENCABEZADOS_PROVEEDORES)) });
     if (modulo === 'minimos')     return jsonOut({ ok: true, registros: filasComoObjetos(prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS)).filter(function(m) { return !kiosko || String(m['Kiosko']) === String(kiosko); }) });
     if (modulo === 'mapeos')      return jsonOut({ ok: true, registros: filasComoObjetos(prepararHoja(HOJA_MAPEOS, ENCABEZADOS_MAPEOS)) });
@@ -253,7 +279,7 @@ function doGet(e) {
       const registros = filasComoObjetos(prepararHoja(HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS))
         .filter(function(m) {
           return (!kiosko || String(m['Kiosko']) === String(kiosko)) &&
-                 (!producto || String(m['Producto ID']) === String(producto));
+                 (!producto || String(m['Producto']) === String(producto));
         })
         .sort(function(a, b) { return String(b['Registrado']).localeCompare(String(a['Registrado'])); });
       return jsonOut({ ok: true, registros: registros });
@@ -294,7 +320,6 @@ function doPost(e) {
 
     switch (payload.accion) {
       case 'producto_guardar':      return jsonOut(guardarProducto(payload));
-      case 'categoria_guardar':     return jsonOut(guardarCategoria(payload));
       case 'proveedor_guardar':     return jsonOut(guardarProveedor(payload));
       case 'minimo_guardar':        return jsonOut(guardarMinimo(payload));
       case 'stock_ajustar':         return jsonOut(ajustarStock(payload));
@@ -318,9 +343,12 @@ function doPost(e) {
   }
 }
 
-// ── PRODUCTOS / CATEGORÍAS / PROVEEDORES / MÍNIMOS ─────────────────
+// ── PRODUCTOS / PROVEEDORES / MÍNIMOS ──────────────────────────────
+// Upsert por 'Producto' (Nombre Estándar exacto, elegido en inventario.html
+// de la lista de productos ya confirmados en el Maestro).
 function guardarProducto(p) {
-  if (!p.nombreInterno) throw new Error('Falta el nombre interno del producto.');
+  const producto = String(p.producto || '').trim();
+  if (!producto) throw new Error('Falta el producto (elegilo de la lista del Maestro).');
   const tipo = p.tipoControl === 'peso' ? 'peso' : 'unitario';
   if (tipo === 'peso') {
     if (!Number(p.contenidoMl)) throw new Error('Un producto por peso necesita el contenido del envase en ml.');
@@ -328,13 +356,10 @@ function guardarProducto(p) {
     if (!Number(p.densidad)) throw new Error('Un producto por peso necesita la densidad en g/ml (cerveza ≈ 1.005, destilados 40° ≈ 0.94).');
   }
   const hoja = prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS);
-  const filaExistente = p.id ? filaPorValor(hoja, 'ID', p.id, ENCABEZADOS_PRODUCTOS) : -1;
-  const id = p.id || Date.now();
+  const filaExistente = filaPorValor(hoja, 'Producto', producto, ENCABEZADOS_PRODUCTOS);
   const fila = filaExistente > 0 ? filaExistente : hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_PRODUCTOS, {
-    'ID': id,
-    'Nombre Interno': p.nombreInterno,
-    'Categoría': p.categoria || '',
+    'Producto': producto,
     'Tipo Control': tipo,
     'Unidad Base': tipo === 'peso' ? 'ml' : 'unidad',
     'Contenido Envase (ml)': Number(p.contenidoMl) || '',
@@ -346,20 +371,7 @@ function guardarProducto(p) {
     'Activo': p.activo === false ? false : true,
     'Actualizado': new Date().toISOString()
   });
-  return { ok: true, id: id };
-}
-
-function guardarCategoria(p) {
-  if (!p.nombre) throw new Error('Falta el nombre de la categoría.');
-  const hoja = prepararHoja(HOJA_CATEGORIAS, ENCABEZADOS_CATEGORIAS);
-  const filaExistente = filaPorValor(hoja, 'Nombre', p.nombre, ENCABEZADOS_CATEGORIAS);
-  const fila = filaExistente > 0 ? filaExistente : hoja.getLastRow() + 1;
-  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_CATEGORIAS, {
-    'Nombre': p.nombre,
-    'Orden': p.orden !== undefined && p.orden !== '' ? Number(p.orden) : fila,
-    'Activo': p.activo === false ? false : true
-  });
-  return { ok: true };
+  return { ok: true, producto: producto };
 }
 
 function guardarProveedor(p) {
@@ -382,18 +394,19 @@ function guardarProveedor(p) {
 
 // Upsert por producto×kiosko.
 function guardarMinimo(p) {
-  if (!p.productoId || !p.kiosko) throw new Error('Falta el producto o el kiosko.');
+  const producto = String(p.producto || '').trim();
+  if (!producto || !p.kiosko) throw new Error('Falta el producto o el kiosko.');
   const hoja = prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS);
   const nFilas = hoja.getLastRow() - 1;
   let fila = -1;
   if (nFilas > 0) {
     const datos = hoja.getRange(2, 1, nFilas, 2).getValues();
     for (let i = 0; i < datos.length; i++) {
-      if (String(datos[i][0]) === String(p.productoId) && String(datos[i][1]) === String(p.kiosko)) { fila = i + 2; break; }
+      if (String(datos[i][0]).trim() === producto && String(datos[i][1]) === String(p.kiosko)) { fila = i + 2; break; }
     }
   }
   escribirFilaPorEncabezado(hoja, fila > 0 ? fila : hoja.getLastRow() + 1, ENCABEZADOS_MINIMOS, {
-    'Producto ID': p.productoId,
+    'Producto': producto,
     'Kiosko': p.kiosko,
     'Mínimo': Number(p.minimo) || 0,
     'Nivel Objetivo': Number(p.nivelObjetivo) || '',
@@ -406,49 +419,49 @@ function minimosDeKiosko(kiosko) {
   const mapa = {};
   filasComoObjetos(prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS))
     .filter(function(m) { return String(m['Kiosko']) === String(kiosko); })
-    .forEach(function(m) { mapa[String(m['Producto ID'])] = m; });
+    .forEach(function(m) { mapa[String(m['Producto']).trim()] = m; });
   return mapa;
 }
 
 // ── STOCK ──────────────────────────────────────────────────────────
-function filaStock(hoja, productoId, kiosko) {
+function filaStock(hoja, producto, kiosko) {
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) return -1;
   const datos = hoja.getRange(2, 1, nFilas, 2).getValues();
+  const buscado = String(producto).trim();
   for (let i = 0; i < datos.length; i++) {
-    if (String(datos[i][0]) === String(productoId) && String(datos[i][1]) === String(kiosko)) return i + 2;
+    if (String(datos[i][0]).trim() === buscado && String(datos[i][1]) === String(kiosko)) return i + 2;
   }
   return -1;
 }
 
-function obtenerStock(productoId, kiosko) {
+function obtenerStock(producto, kiosko) {
   const hoja = prepararHoja(HOJA_STOCK, ENCABEZADOS_STOCK);
-  const fila = filaStock(hoja, productoId, kiosko);
+  const fila = filaStock(hoja, producto, kiosko);
   if (fila === -1) return 0;
   return Number(hoja.getRange(fila, ENCABEZADOS_STOCK.indexOf('Cantidad Actual') + 1).getValue()) || 0;
 }
 
-function fijarStock(productoId, kiosko, nuevaCantidad) {
+function fijarStock(producto, kiosko, nuevaCantidad) {
   const hoja = prepararHoja(HOJA_STOCK, ENCABEZADOS_STOCK);
-  const fila = filaStock(hoja, productoId, kiosko);
+  const fila = filaStock(hoja, producto, kiosko);
   escribirFilaPorEncabezado(hoja, fila > 0 ? fila : hoja.getLastRow() + 1, ENCABEZADOS_STOCK, {
-    'Producto ID': productoId,
+    'Producto': producto,
     'Kiosko': kiosko,
     'Cantidad Actual': nuevaCantidad,
     'Actualizado': new Date().toISOString()
   });
 }
 
-function registrarMovimiento(kiosko, productoId, productoNombre, tipo, cantidadDelta, referencia, registradoPor) {
-  const nuevo = obtenerStock(productoId, kiosko) + Number(cantidadDelta);
-  fijarStock(productoId, kiosko, nuevo);
+function registrarMovimiento(kiosko, producto, tipo, cantidadDelta, referencia, registradoPor) {
+  const nuevo = obtenerStock(producto, kiosko) + Number(cantidadDelta);
+  fijarStock(producto, kiosko, nuevo);
   const hojaMov = prepararHoja(HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS);
   escribirFilaPorEncabezado(hojaMov, hojaMov.getLastRow() + 1, ENCABEZADOS_MOVIMIENTOS, {
     'ID': Date.now() + '_' + Math.floor(Math.random() * 1000),
     'Fecha': hoyCR(),
     'Kiosko': kiosko,
-    'Producto ID': productoId,
-    'Producto Nombre': productoNombre || '',
+    'Producto': producto,
     'Tipo': tipo,
     'Cantidad': cantidadDelta,
     'Referencia': referencia || '',
@@ -461,28 +474,28 @@ function registrarMovimiento(kiosko, productoId, productoNombre, tipo, cantidadD
 // Ajuste manual con tipo: 'Ajuste Manual' (default), 'Merma' o 'Traslado'.
 function ajustarStock(p) {
   if (!p.kiosko) throw new Error('Falta el kiosko.');
-  if (!p.productoId) throw new Error('Falta el producto.');
+  const producto = String(p.producto || '').trim();
+  if (!producto) throw new Error('Falta el producto.');
   if (p.cantidad === undefined || p.cantidad === null || p.cantidad === '') throw new Error('Falta la cantidad del ajuste.');
   const tiposValidos = ['Ajuste Manual', 'Merma', 'Traslado'];
   const tipo = tiposValidos.indexOf(p.tipo) >= 0 ? p.tipo : 'Ajuste Manual';
-  const nuevo = registrarMovimiento(p.kiosko, p.productoId, p.productoNombre || '', tipo,
-    Number(p.cantidad), p.nota || '', p.registrado_por || '');
+  const nuevo = registrarMovimiento(p.kiosko, producto, tipo, Number(p.cantidad), p.nota || '', p.registrado_por || '');
   return { ok: true, stockActual: nuevo };
 }
 
 // Stock de todos los productos activos de un kiosko con mínimos por kiosko.
+// (Ya no devuelve Categoría — inventario.html agrupa en vivo contra el
+// Maestro usando el campo "producto".)
 function obtenerStockKiosko(kiosko) {
   const minimos = minimosDeKiosko(kiosko);
   const productos = filasComoObjetos(prepararHoja(HOJA_PRODUCTOS, ENCABEZADOS_PRODUCTOS))
     .filter(function(p) { return p['Activo'] !== false; });
   return productos.map(function(prod) {
-    const cantidad = obtenerStock(prod['ID'], kiosko);
-    const min = minimos[String(prod['ID'])] || {};
+    const cantidad = obtenerStock(prod['Producto'], kiosko);
+    const min = minimos[String(prod['Producto']).trim()] || {};
     const minimo = Number(min['Mínimo']) || 0;
     return {
-      productoId: prod['ID'],
-      nombre: prod['Nombre Interno'],
-      categoria: prod['Categoría'],
+      producto: prod['Producto'],
       tipoControl: prod['Tipo Control'],
       unidadBase: prod['Unidad Base'],
       contenidoMl: Number(prod['Contenido Envase (ml)']) || 0,
@@ -532,20 +545,20 @@ function registrarCompraManual(p) {
   const hojaDet = prepararHoja(HOJA_COMPRAS_DETALLE, ENCABEZADOS_COMPRAS_DETALLE);
   let filaDet = hojaDet.getLastRow() + 1;
   p.lineas.forEach(function(l, i) {
-    const prod = productoPorId(l.productoId);
-    if (!prod) throw new Error('Producto no encontrado: ' + l.productoId);
+    const producto = String(l.producto || '').trim();
+    const prod = productoPorNombre(producto);
+    if (!prod) throw new Error('Producto no encontrado en el catálogo de Inventario: ' + producto);
     escribirFilaPorEncabezado(hojaDet, filaDet, ENCABEZADOS_COMPRAS_DETALLE, {
       'Compra ID': id,
       'Línea Nº': i + 1,
       'Línea Original': l.descripcion || '',
       'Cantidad Factura': Number(l.cantidad) || 0,
-      'Producto ID': prod['ID'],
-      'Producto Nombre': prod['Nombre Interno'],
+      'Producto': prod['Producto'],
       'Cantidad Base': Number(l.cantidadBase) || Number(l.cantidad) || 0,
       'Costo Línea': Number(l.costo) || 0
     });
     filaDet++;
-    registrarMovimiento(p.kiosko, prod['ID'], prod['Nombre Interno'], 'Compra',
+    registrarMovimiento(p.kiosko, prod['Producto'], 'Compra',
       Math.abs(Number(l.cantidadBase) || Number(l.cantidad) || 0), 'Compra ' + id, p.usuario || '');
   });
   return { ok: true, id: id };
@@ -554,10 +567,11 @@ function registrarCompraManual(p) {
 // Mapea una línea de una compra pendiente a un producto (y aprende el mapeo
 // para las próximas facturas del mismo proveedor).
 function mapearLineaCompra(p) {
-  if (!p.compraId || !p.lineaNumero || !p.productoId) throw new Error('Faltan datos del mapeo.');
+  const producto = String(p.producto || '').trim();
+  if (!p.compraId || !p.lineaNumero || !producto) throw new Error('Faltan datos del mapeo.');
   const factor = Number(p.factor) || 1;
-  const prod = productoPorId(p.productoId);
-  if (!prod) throw new Error('Producto no encontrado: ' + p.productoId);
+  const prod = productoPorNombre(producto);
+  if (!prod) throw new Error('Producto no encontrado en el catálogo de Inventario: ' + producto);
 
   const hojaDet = prepararHoja(HOJA_COMPRAS_DETALLE, ENCABEZADOS_COMPRAS_DETALLE);
   const nFilas = hojaDet.getLastRow() - 1;
@@ -570,8 +584,7 @@ function mapearLineaCompra(p) {
   if (fila === -1) throw new Error('No se encontró la línea ' + p.lineaNumero + ' de la compra ' + p.compraId);
 
   const cantFactura = Number(hojaDet.getRange(fila, ENCABEZADOS_COMPRAS_DETALLE.indexOf('Cantidad Factura') + 1).getValue()) || 0;
-  hojaDet.getRange(fila, ENCABEZADOS_COMPRAS_DETALLE.indexOf('Producto ID') + 1).setValue(prod['ID']);
-  hojaDet.getRange(fila, ENCABEZADOS_COMPRAS_DETALLE.indexOf('Producto Nombre') + 1).setValue(prod['Nombre Interno']);
+  hojaDet.getRange(fila, ENCABEZADOS_COMPRAS_DETALLE.indexOf('Producto') + 1).setValue(prod['Producto']);
   hojaDet.getRange(fila, ENCABEZADOS_COMPRAS_DETALLE.indexOf('Cantidad Base') + 1).setValue(cantFactura * factor);
 
   if (p.guardarMapeo !== false) {
@@ -579,12 +592,12 @@ function mapearLineaCompra(p) {
     const hojaCompras = prepararHoja(HOJA_COMPRAS, ENCABEZADOS_COMPRAS);
     const filaCompra = filaPorValor(hojaCompras, 'ID', p.compraId, ENCABEZADOS_COMPRAS);
     const cedula = filaCompra > 0 ? hojaCompras.getRange(filaCompra, ENCABEZADOS_COMPRAS.indexOf('Proveedor Cédula') + 1).getValue() : '';
-    guardarMapeo(cedula, textoLinea, prod['ID'], factor);
+    guardarMapeo(cedula, textoLinea, prod['Producto'], factor);
   }
   return { ok: true };
 }
 
-function guardarMapeo(cedula, textoLinea, productoId, factor) {
+function guardarMapeo(cedula, textoLinea, producto, factor) {
   const hoja = prepararHoja(HOJA_MAPEOS, ENCABEZADOS_MAPEOS);
   const clave = normalizarTexto(cedula) + '|' + normalizarTexto(textoLinea);
   const filas = filasComoObjetos(hoja);
@@ -595,7 +608,7 @@ function guardarMapeo(cedula, textoLinea, productoId, factor) {
   escribirFilaPorEncabezado(hoja, fila > 0 ? fila : hoja.getLastRow() + 1, ENCABEZADOS_MAPEOS, {
     'Proveedor Cédula': cedula || '',
     'Texto Línea': textoLinea,
-    'Producto ID': productoId,
+    'Producto': producto,
     'Factor': factor,
     'Actualizado': new Date().toISOString()
   });
@@ -627,13 +640,13 @@ function aplicarCompra(p) {
   }
   const detalle = filasComoObjetos(prepararHoja(HOJA_COMPRAS_DETALLE, ENCABEZADOS_COMPRAS_DETALLE))
     .filter(function(d) { return String(d['Compra ID']) === String(p.compraId); });
-  const sinMapear = detalle.filter(function(d) { return !d['Producto ID']; });
+  const sinMapear = detalle.filter(function(d) { return !d['Producto']; });
   if (sinMapear.length && !p.omitirSinMapear) {
     throw new Error('Hay ' + sinMapear.length + ' línea(s) sin mapear a un producto. Mapealas primero o marcá "omitir líneas sin mapear".');
   }
   detalle.forEach(function(d) {
-    if (!d['Producto ID']) return;
-    registrarMovimiento(p.kiosko, d['Producto ID'], d['Producto Nombre'], 'Compra',
+    if (!d['Producto']) return;
+    registrarMovimiento(p.kiosko, d['Producto'], 'Compra',
       Math.abs(Number(d['Cantidad Base']) || 0), 'Compra ' + p.compraId, p.usuario || '');
   });
   hoja.getRange(fila, ENCABEZADOS_COMPRAS.indexOf('Kiosko') + 1).setValue(p.kiosko);
@@ -686,15 +699,14 @@ function procesarFacturasGmail() {
             return normalizarTexto(m['Proveedor Cédula']) === normalizarTexto(factura.cedula) &&
                    normalizarTexto(m['Texto Línea']) === normalizarTexto(l.detalle);
           });
-          const prod = mapeo ? productoPorId(mapeo['Producto ID']) : null;
+          const prod = mapeo ? productoPorNombre(mapeo['Producto']) : null;
           if (!prod) lineasSinMapear++;
           escribirFilaPorEncabezado(hojaDet, filaDet, ENCABEZADOS_COMPRAS_DETALLE, {
             'Compra ID': id,
             'Línea Nº': i + 1,
             'Línea Original': l.detalle,
             'Cantidad Factura': l.cantidad,
-            'Producto ID': prod ? prod['ID'] : '',
-            'Producto Nombre': prod ? prod['Nombre Interno'] : '',
+            'Producto': prod ? prod['Producto'] : '',
             'Cantidad Base': prod ? l.cantidad * (Number(mapeo['Factor']) || 1) : '',
             'Costo Línea': l.monto
           });
@@ -777,14 +789,12 @@ function iniciarToma(p) {
   const hojaDet = prepararHoja(HOJA_TOMA_DETALLE, ENCABEZADOS_TOMA_DETALLE);
   let filaDet = hojaDet.getLastRow() + 1;
   productos.forEach(function(prod) {
-    const min = minimos[String(prod['ID'])] || {};
+    const min = minimos[String(prod['Producto']).trim()] || {};
     escribirFilaPorEncabezado(hojaDet, filaDet, ENCABEZADOS_TOMA_DETALLE, {
       'Toma ID': id,
-      'Producto ID': prod['ID'],
-      'Producto Nombre': prod['Nombre Interno'],
-      'Categoría': prod['Categoría'],
+      'Producto': prod['Producto'],
       'Tipo Control': prod['Tipo Control'],
-      'Stock Teórico': obtenerStock(prod['ID'], p.kiosko),
+      'Stock Teórico': obtenerStock(prod['Producto'], p.kiosko),
       'Envases Cerrados': '', 'Peso Bruto (g)': '', 'Neto (ml)': '',
       'Total Contado': '', 'Mínimo': Number(min['Mínimo']) || 0,
       'Diferencia': '', 'Diferencia Colones': '', 'Foto URL': '', 'Notas': ''
@@ -816,12 +826,13 @@ function guardarConteo(p) {
   const resultados = [];
 
   p.lineas.forEach(function(linea) {
+    const producto = String(linea.producto || '').trim();
     let filaDet = -1;
     for (let i = 0; i < tomaIds.length; i++) {
-      if (String(tomaIds[i][0]) === String(p.tomaId) && String(tomaIds[i][1]) === String(linea.productoId)) { filaDet = i + 2; break; }
+      if (String(tomaIds[i][0]) === String(p.tomaId) && String(tomaIds[i][1]).trim() === producto) { filaDet = i + 2; break; }
     }
     if (filaDet === -1) return;
-    const prod = productoPorId(linea.productoId);
+    const prod = productoPorNombre(producto);
     if (!prod) return;
 
     let total = '';
@@ -840,7 +851,7 @@ function guardarConteo(p) {
       hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Peso Bruto (g)') + 1).setValue(bruto);
       hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Neto (ml)') + 1).setValue(neto);
       if (linea.foto) {
-        const url = guardarFotoTomaEnDrive(linea.foto, kiosko, p.tomaId, linea.productoId);
+        const url = guardarFotoTomaEnDrive(linea.foto, kiosko, p.tomaId, producto);
         if (url) hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Foto URL') + 1).setValue(url);
       }
     } else {
@@ -855,7 +866,7 @@ function guardarConteo(p) {
     hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Diferencia') + 1).setValue(dif);
     hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Diferencia Colones') + 1).setValue(dif === '' ? '' : Math.round(dif * costo));
     if (linea.notas !== undefined) hojaDet.getRange(filaDet, ENCABEZADOS_TOMA_DETALLE.indexOf('Notas') + 1).setValue(linea.notas);
-    resultados.push({ productoId: linea.productoId, neto: neto, total: total, diferencia: dif });
+    resultados.push({ producto: producto, neto: neto, total: total, diferencia: dif });
   });
   return { ok: true, resultados: resultados };
 }
@@ -863,7 +874,7 @@ function guardarConteo(p) {
 // Evidencia fotográfica de cada pesaje: Drive, carpeta "Inventario v2 -
 // Fotos" (creada junto al Sheet), subcarpeta por kiosko — mismo patrón que
 // Mermas.
-function guardarFotoTomaEnDrive(dataUrl, kiosko, tomaId, productoId) {
+function guardarFotoTomaEnDrive(dataUrl, kiosko, tomaId, producto) {
   const datos = extraerBase64(dataUrl);
   if (!datos) return '';
   const archivoSheet = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId());
@@ -875,8 +886,8 @@ function guardarFotoTomaEnDrive(dataUrl, kiosko, tomaId, productoId) {
   const subNombre = (kiosko || 'Sin kiosko').toString();
   const subs = raiz.getFoldersByName(subNombre);
   const carpeta = subs.hasNext() ? subs.next() : raiz.createFolder(subNombre);
-  const nombre = hoyCR() + '_toma' + tomaId + '_prod' + productoId + '.jpg';
-  const blob = Utilities.newBlob(Utilities.base64Decode(datos.base64), datos.mime, nombre);
+  const nombreArchivo = hoyCR() + '_toma' + tomaId + '_' + normalizarTexto(producto).replace(/[^a-z0-9]+/g, '-').slice(0, 40) + '.jpg';
+  const blob = Utilities.newBlob(Utilities.base64Decode(datos.base64), datos.mime, nombreArchivo);
   return carpeta.createFile(blob).getUrl();
 }
 
@@ -904,7 +915,7 @@ function cerrarToma(p) {
     if (linea['Total Contado'] === '' || linea['Total Contado'] === null || linea['Total Contado'] === undefined) return;
     const dif = Number(linea['Total Contado']) - (Number(linea['Stock Teórico']) || 0);
     if (dif !== 0) {
-      registrarMovimiento(kiosko, linea['Producto ID'], linea['Producto Nombre'], 'Conteo', dif, 'Toma ' + p.tomaId, p.usuario || '');
+      registrarMovimiento(kiosko, linea['Producto'], 'Conteo', dif, 'Toma ' + p.tomaId, p.usuario || '');
     }
   });
   hojaToma.getRange(filaToma, colEstado).setValue('Cerrada');
@@ -927,6 +938,9 @@ function obtenerHistorialTomas(kiosko) {
 }
 
 // ── RECETAS ────────────────────────────────────────────────────────
+// NOTA: sigue con el esquema 'Producto ID'/'Producto Nombre' — ver
+// comentario junto a ENCABEZADOS_RECETAS_DETALLE arriba (fuera de alcance
+// del cambio de hoy).
 function guardarReceta(p) {
   if (!p.nombreVenta) throw new Error('Falta el nombre de venta de la receta.');
   if (!p.ingredientes || !p.ingredientes.length) throw new Error('La receta necesita al menos un ingrediente.');
@@ -1019,15 +1033,19 @@ function sincronizarVentas(p) {
         return String(r['Nombre de Venta']).trim() === nombreVendido && (!r['Kiosko'] || r['Kiosko'] === kiosko);
       });
       if (receta) {
+        // NOTA: ing['Producto ID'] viene del catálogo de ingredientes de
+        // recetas.html (Base de Productos), no necesariamente coincide con
+        // el 'Producto' (Nombre Estándar) de este Sheet — ver nota junto a
+        // ENCABEZADOS_RECETAS_DETALLE. Se usa tal cual, best-effort.
         receta.ingredientes.forEach(function(ing) {
-          registrarMovimiento(kiosko, ing['Producto ID'], ing['Producto Nombre'], 'Consumo Venta',
+          registrarMovimiento(kiosko, ing['Producto ID'], 'Consumo Venta',
             -Math.abs(Number(ing['Cantidad por Unidad Vendida']) || 0) * cantidadVendida,
             'Venta ' + linea.orderId, 'Sync Square');
         });
       } else {
         const directo = productos.find(function(prod) { return String(prod['Nombre Venta']).trim() === nombreVendido && prod['Nombre Venta']; });
         if (directo) {
-          registrarMovimiento(kiosko, directo['ID'], directo['Nombre Interno'], 'Consumo Venta',
+          registrarMovimiento(kiosko, directo['Producto'], 'Consumo Venta',
             -Math.abs(cantidadVendida) * (directo['Tipo Control'] === 'peso' ? (Number(directo['Contenido Envase (ml)']) || 1) : 1),
             'Venta ' + linea.orderId, 'Sync Square');
         } else {
@@ -1067,7 +1085,7 @@ function sugerirOrdenCompra(kiosko) {
         envases = Math.ceil(sugerido / s.contenidoMl);
         sugerido = envases * s.contenidoMl;
       }
-      const prod = productoPorId(s.productoId) || {};
+      const prod = productoPorNombre(s.producto) || {};
       return Object.assign({}, s, { sugerido: sugerido, envasesSugeridos: envases, proveedor: prod['Proveedor'] || '' });
     });
 }
@@ -1086,8 +1104,7 @@ function guardarOC(p) {
   p.lineas.forEach(function(l) {
     escribirFilaPorEncabezado(hojaDet, filaDet, ENCABEZADOS_OC_DETALLE, {
       'OC ID': id,
-      'Producto ID': l.productoId,
-      'Producto Nombre': l.productoNombre || '',
+      'Producto': l.producto,
       'Stock al Generar': Number(l.stock) || 0,
       'Mínimo': Number(l.minimo) || 0,
       'Sugerido': Number(l.sugerido) || 0,
@@ -1130,56 +1147,4 @@ function obtenerOCConDetalle(kiosko) {
       detalle: detalleTodo.filter(function(d) { return String(d['OC ID']) === String(o['ID']); })
     });
   }).sort(function(a, b) { return String(b['Registrado']).localeCompare(String(a['Registrado'])); });
-}
-
-// ── MIGRACIÓN DESDE V1 ─────────────────────────────────────────────
-// Corré UNA VEZ con V1_SPREADSHEET_ID configurado. Trae Productos (quedan
-// como 'unitario' — revisá y pasá a 'peso' los destilados/sifón con su
-// tara y densidad) y Recetas con sus ingredientes. El mínimo global del v1
-// se copia como mínimo de TODOS los kioskos listados en KIOSKOS_MIGRACION.
-const KIOSKOS_MIGRACION = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-
-function importarDesdeV1() {
-  if (!V1_SPREADSHEET_ID) throw new Error('Configurá V1_SPREADSHEET_ID arriba.');
-  const ssV1 = SpreadsheetApp.openById(V1_SPREADSHEET_ID);
-  const leer = function(nombre) {
-    const hoja = ssV1.getSheetByName(nombre);
-    if (!hoja || hoja.getLastRow() < 2) return [];
-    const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-    return hoja.getRange(2, 1, hoja.getLastRow() - 1, hoja.getLastColumn()).getValues().map(function(f) {
-      const o = {};
-      enc.forEach(function(h, i) { o[h] = f[i]; });
-      return o;
-    });
-  };
-
-  leer('Categorias').forEach(function(c) {
-    if (c['Nombre']) guardarCategoria({ nombre: c['Nombre'], orden: c['Orden'], activo: c['Activo'] !== false });
-  });
-  leer('Productos').forEach(function(p) {
-    if (!p['Nombre Interno']) return;
-    guardarProducto({
-      id: p['ID'], nombreInterno: p['Nombre Interno'], categoria: p['Categoría'],
-      tipoControl: 'unitario', nombreVenta: p['Nombre Venta'], activo: p['Activo'] !== false
-    });
-    const minimo = Number(p['Mínimo Recomendado']) || 0;
-    if (minimo > 0) {
-      KIOSKOS_MIGRACION.forEach(function(k) {
-        guardarMinimo({ productoId: p['ID'], kiosko: k, minimo: minimo });
-      });
-    }
-  });
-  const detallesV1 = leer('RecetasDetalle');
-  leer('Recetas').forEach(function(r) {
-    if (!r['Nombre de Venta']) return;
-    const ingredientes = detallesV1
-      .filter(function(d) { return String(d['Receta ID']) === String(r['ID']); })
-      .map(function(d) {
-        return { productoId: d['Producto ID'], productoNombre: d['Producto Nombre'], cantidad: d['Cantidad por Unidad Vendida'] };
-      });
-    if (ingredientes.length) {
-      guardarReceta({ id: r['ID'], nombreVenta: r['Nombre de Venta'], kiosko: r['Kiosko'], activo: r['Activo'] !== false, ingredientes: ingredientes });
-    }
-  });
-  Logger.log('Migración completada. Revisá tipo control, tara y densidad de los productos por peso.');
 }

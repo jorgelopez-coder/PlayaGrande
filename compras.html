@@ -283,6 +283,7 @@ function showToast(msg, type='success') {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
 function usuario(){ return (PORTAL_SESION||{}).nombre || ''; }
 
@@ -320,7 +321,7 @@ function poblarProveedores() {
 }
 function selectProductos(id, valor) {
   return `<select id="${id}">${valor ? '' : '<option value="" disabled selected>Producto…</option>'}${
-    PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(valor)?'selected':''}>${escHtml(p['Nombre Interno'])} (${p['Unidad Base']==='ml'?'ml':'ud'})</option>`).join('')
+    PRODUCTOS.map(p => `<option value="${escapeAttr(p['Producto'])}" ${String(p['Producto'])===String(valor)?'selected':''}>${escHtml(p['Producto'])} (${p['Unidad Base']==='ml'?'ml':'ud'})</option>`).join('')
   }</select>`;
 }
 
@@ -358,10 +359,10 @@ function renderPendientes() {
         </div>
       </div>
       <div class="compra-body">
-        ${(c.detalle||[]).map(d => d['Producto ID'] ? `
+        ${(c.detalle||[]).map(d => d['Producto'] ? `
           <div class="linea-mapeo">
             <span>${escHtml(d['Línea Original'])} × ${fmtNum(d['Cantidad Factura'])}</span>
-            <span class="linea-ok">→ ${escHtml(d['Producto Nombre'])}</span>
+            <span class="linea-ok">→ ${escHtml(d['Producto'])}</span>
             <span>${fmtNum(d['Cantidad Base'])}</span>
             <span class="linea-ok">✓</span>
           </div>` : `
@@ -388,7 +389,7 @@ async function mapearLinea(compraId, lineaNumero) {
   if (!prodSel.value) { showToast('Elegí el producto','error'); return; }
   if (!factor || Number(factor) <= 0) { showToast('Ingresá el factor (unidades base por unidad de factura)','error'); return; }
   try {
-    await postInv({ accion:'compra_mapear_linea', compraId, lineaNumero, productoId: prodSel.value, factor: Number(factor), guardarMapeo: true });
+    await postInv({ accion:'compra_mapear_linea', compraId, lineaNumero, producto: prodSel.value, factor: Number(factor), guardarMapeo: true });
     showToast('Línea mapeada y aprendida ✓');
     await cargarCompras();
   } catch(e) { showToast('No se pudo mapear — ' + e.message,'error'); }
@@ -428,7 +429,7 @@ function renderHistorial() {
       <div class="compra-body">
         ${(c.detalle||[]).map(d => `
           <div class="linea-mapeo">
-            <span>${escHtml(d['Producto Nombre']||d['Línea Original'])}</span>
+            <span>${escHtml(d['Producto']||d['Línea Original'])}</span>
             <span>${fmtNum(d['Cantidad Base'])} base</span>
             <span>₡${fmtNum(d['Costo Línea'])}</span>
             <span></span>
@@ -458,17 +459,17 @@ async function guardarCompraManual() {
   const lineas = [];
   document.querySelectorAll('#cm-lineas .compra-linea-form').forEach(div => {
     const id = div.id.replace('cm-linea-','');
-    const prodId = document.getElementById('cm-prod-' + id).value;
+    const producto = document.getElementById('cm-prod-' + id).value;
     const cant = Number(document.getElementById('cm-cant-' + id).value);
-    if (!prodId || !cant) return;
-    const prod = PRODUCTOS.find(p => String(p['ID']) === String(prodId)) || {};
+    if (!producto || !cant) return;
+    const prod = PRODUCTOS.find(p => String(p['Producto']) === String(producto)) || {};
     const esPeso = prod['Tipo Control'] === 'peso';
     lineas.push({
-      productoId: prodId,
+      producto,
       cantidad: cant,
       cantidadBase: esPeso ? cant * (Number(prod['Contenido Envase (ml)']) || 1) : cant,
       costo: Number(document.getElementById('cm-costo-' + id).value) || 0,
-      descripcion: prod['Nombre Interno'] || ''
+      descripcion: prod['Producto'] || ''
     });
   });
   if (!lineas.length) { showToast('Agregá al menos una línea con producto y cantidad','error'); return; }
@@ -512,7 +513,7 @@ async function generarSugerido() {
           ${sugeridoActual.map((s,i) => `
             <tr>
               <td><input type="checkbox" id="oc-inc-${i}" checked/></td>
-              <td>${escHtml(s.nombre)} ${s.envasesSugeridos ? `<div class="compra-sub">≈ ${s.envasesSugeridos} envase(s)</div>` : ''}</td>
+              <td>${escHtml(s.producto)} ${s.envasesSugeridos ? `<div class="compra-sub">≈ ${s.envasesSugeridos} envase(s)</div>` : ''}</td>
               <td>${escHtml(s.proveedor||'—')}</td>
               <td><span class="badge badge-bajo">${fmtNum(s.cantidadActual)}</span></td>
               <td>${fmtNum(s.minimo)}</td>
@@ -532,7 +533,7 @@ async function guardarOCs() {
     if (cant <= 0) return;
     const prov = s.proveedor || 'Sin proveedor';
     (porProveedor[prov] = porProveedor[prov] || []).push({
-      productoId: s.productoId, productoNombre: s.nombre,
+      producto: s.producto,
       stock: s.cantidadActual, minimo: s.minimo, sugerido: s.sugerido, cantidadFinal: cant
     });
   });
@@ -571,7 +572,7 @@ function renderOCs(ordenes) {
       <div class="compra-body">
         ${(o.detalle||[]).map(d => `
           <div class="linea-mapeo">
-            <span>${escHtml(d['Producto Nombre'])}</span>
+            <span>${escHtml(d['Producto'])}</span>
             <span>Stock ${fmtNum(d['Stock al Generar'])} / mín ${fmtNum(d['Mínimo'])}</span>
             <span><b>${fmtNum(d['Cantidad Final'])}</b></span>
             <span></span>
@@ -598,7 +599,7 @@ function exportarOC(ocId) {
   const o = (window._ocCache||[]).find(x => String(x['ID']) === String(ocId));
   if (!o) return;
   const filas = [['Producto','Cantidad','Stock al generar','Minimo'],
-    ...(o.detalle||[]).map(d => [d['Producto Nombre'], d['Cantidad Final'], d['Stock al Generar'], d['Mínimo']])];
+    ...(o.detalle||[]).map(d => [d['Producto'], d['Cantidad Final'], d['Stock al Generar'], d['Mínimo']])];
   const csv = filas.map(f => f.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
@@ -619,11 +620,10 @@ async function cargarMapeos() {
         <thead><tr><th>Proveedor (cédula)</th><th>Texto en factura</th><th>Producto</th><th>Factor</th><th></th></tr></thead>
         <tbody>
           ${MAPEOS.map((m,i) => {
-            const prod = PRODUCTOS.find(p => String(p['ID']) === String(m['Producto ID'])) || {};
             return `<tr>
               <td>${escHtml(m['Proveedor Cédula']||'—')}</td>
               <td>${escHtml(m['Texto Línea'])}</td>
-              <td>${escHtml(prod['Nombre Interno']||m['Producto ID'])}</td>
+              <td>${escHtml(m['Producto']||'—')}</td>
               <td>×${fmtNum(m['Factor'])}</td>
               <td><button class="btn-sm" onclick="eliminarMapeo(${i})">✕</button></td>
             </tr>`;

@@ -1,7 +1,26 @@
 # Diseño — Inventario Kioskos v2
 
-**Fecha:** 2026-07-24 · **Estado:** Aprobado por Jorge, implementación de código completa (2026-07-24) — pendiente el despliegue manual del Sheet nuevo (ver README.md, sección "5. Inventario v2, Compras y Recetas")
+**Fecha:** 2026-07-24 (actualizado 2026-07-27) · **Estado:** Aprobado por Jorge, implementación de código completa — pendiente el despliegue manual del Sheet nuevo (ver README.md, sección "5. Inventario v2, Compras y Recetas")
 **Reemplaza:** módulo actual `inventario.html` + `recetas.html` + `Code-inventario-kioskos-backend.gs` (rediseño desde cero, decidido 2026-07-24)
+
+**Actualización 2026-07-27 — catálogo conectado al Maestro de Productos:**
+el catálogo de Inventario (pestaña Productos, §3 abajo) ya no tiene ID propio
+ni su propia lista de Categorías. La clave de cada producto es su **"Producto"**
+= el **Nombre Estándar** ya homologado en `maestro-productos.html` (hoja
+"Maestro_Productos" del Sheet "Cuentas por Pagar - Kioskos"), y **Área de
+negocio** / **Categoría** se leen en vivo de ese mismo Maestro para agrupar
+el catálogo, el stock, la toma y los mínimos — no se duplican en el Sheet de
+Inventario. Alta de un producto en Inventario = elegir el nombre ya
+confirmado en el Maestro + completar los datos propios de inventario (tipo
+de control, envase/tara/densidad, costo, proveedor habitual). Decidido con
+Jorge (2026-07-27): se prefirió esta clave simple sobre mantener un ID
+interno propio, con esta limitación conocida — **si se renombra un Nombre
+Estándar en el Maestro más adelante, los registros de Inventario que usaban
+el nombre viejo (Productos, Stock, Mínimos, Movimientos, Tomas, Compras,
+Mapeos, Órdenes de Compra) quedan huérfanos** y hay que darlos de alta de
+nuevo con el nombre corregido. El detalle completo de este cambio de
+esquema está en la sección "Base de datos" de más abajo y en la memoria
+`project_inventario_v2_conectado_maestro`.
 
 ---
 
@@ -64,24 +83,31 @@ backend Apps Script propio (`Code-inventario-v2-backend.gs`), mismo patrón
 del ecosistema (Web App JSON, `configurarHoja()`, PIN admin, log
 append-only).
 
+**"Producto" = Nombre Estándar del Maestro.** Todas las pestañas que antes
+referenciaban un "Producto ID" propio de Inventario ahora usan directamente
+el campo **Producto** (el Nombre Estándar exacto, tal cual homologado en
+`maestro-productos.html`) como clave. No hay pestaña Categorias propia —
+Área de negocio y Categoría se leen del Maestro (gviz, en el frontend) para
+agrupar catálogo/stock/toma/mínimos; este backend no necesita leer el Sheet
+del Maestro, solo recibe el nombre ya elegido por el usuario.
+
 | Pestaña | Contenido (columnas clave) |
 |---|---|
-| **Productos** | ID, Nombre Interno, Categoría, Tipo Control (unitario/peso), Unidad Base, Contenido Envase (ml), Tara (g), Densidad (g/ml), Costo por Unidad Base (₡), Proveedor habitual, Activo |
-| **Categorias** | Nombre, Orden, Activo |
-| **Minimos** | Producto ID, Kiosko, Mínimo, Nivel Objetivo, Actualizado — *mínimos por kiosko, no globales: Playa Grande no vende igual que Liberia* |
-| **Stock** | Producto ID, Kiosko, Cantidad Actual (unidad base), Actualizado — upsert, una fila por producto×kiosko |
+| **Productos** | Producto (= Nombre Estándar), Tipo Control (unitario/peso), Unidad Base, Contenido Envase (ml), Tara (g), Densidad (g/ml), Costo por Unidad Base (₡), Proveedor habitual, Nombre Venta, Activo |
+| **Minimos** | Producto, Kiosko, Mínimo, Nivel Objetivo, Actualizado — *mínimos por kiosko, no globales: Playa Grande no vende igual que Liberia* |
+| **Stock** | Producto, Kiosko, Cantidad Actual (unidad base), Actualizado — upsert, una fila por producto×kiosko |
 | **StockMovimientos** | ID, Fecha, Kiosko, Producto, Tipo (compra/venta/merma/ajuste/conteo), Cantidad ±, Referencia, Registrado por — *auditoría append-only* |
 | **Proveedores** | ID, Nombre, Cédula jurídica, Correo pedidos, Teléfono, Activo |
 | **Compras** | ID, Fecha, Kiosko, Proveedor, Nº factura / Clave Hacienda, Origen (gmail-xml/manual), Total ₡, Estado (pendiente-mapeo/aplicada), Registrado por |
-| **ComprasDetalle** | Compra ID, Línea original (texto factura), Producto ID, Cantidad (unidad base), Costo línea |
-| **MapeoFacturas** | Proveedor, Texto/código de línea en factura (CABYS o descripción), Producto ID, Factor (ej. "caja 24" → 24 unidades) — *se aprende una vez y las siguientes facturas del proveedor se mapean solas* |
+| **ComprasDetalle** | Compra ID, Línea original (texto factura), Producto, Cantidad (unidad base), Costo línea |
+| **MapeoFacturas** | Proveedor, Texto/código de línea en factura (CABYS o descripción), Producto, Factor (ej. "caja 24" → 24 unidades) — *se aprende una vez y las siguientes facturas del proveedor se mapean solas* |
 | **Recetas** | ID, Nombre de Venta (Square), Kiosko (o "todos"), Activo |
-| **RecetasDetalle** | Receta ID, Producto ID, Cantidad por unidad vendida (en unidad base: ml o unidades) |
+| **RecetasDetalle** | Receta ID, Producto ID, Producto Nombre, Cantidad por unidad vendida — *todavía con el esquema viejo (ID propio de Base de Productos), no tocado en el cambio 2026-07-27; ver nota de alcance en el `.gs`* |
 | **VentasProcesadas** | Clave única por línea de venta — idempotencia del sync (mismo patrón que hoy) |
 | **TomaInventario** | ID, Kiosko, Fecha, Estado (abierta/cerrada), Abierta/Cerrada por y en |
-| **TomaDetalle** | Toma ID, Producto ID, Envases cerrados contados, Peso bruto (g), Tara usada, Neto (ml), Total contado (unidad base), Stock teórico, Diferencia, Diferencia ₡, Foto ID (Drive), Notas |
+| **TomaDetalle** | Toma ID, Producto, Envases cerrados contados, Peso bruto (g), Tara usada, Neto (ml), Total contado (unidad base), Stock teórico, Diferencia, Diferencia ₡, Foto ID (Drive), Notas — *ya no cachea Categoría: se agrupa en vivo contra el Maestro* |
 | **OrdenesCompra** | ID, Fecha, Kiosko, Proveedor, Estado (borrador/enviada/recibida), Generada por |
-| **OrdenesCompraDetalle** | OC ID, Producto ID, Stock al generar, Mínimo, Cantidad sugerida, Cantidad final, Compra ID de recepción |
+| **OrdenesCompraDetalle** | OC ID, Producto, Stock al generar, Mínimo, Cantidad sugerida, Cantidad final, Compra ID de recepción |
 
 ---
 
@@ -89,7 +115,14 @@ append-only).
 
 ### 4.1 Alta de productos (una vez, y mantenimiento)
 
-Admin da de alta cada producto con su tipo de control. Para tipo Peso, el alta exige tara y densidad (formulario no deja guardar sin esos campos). Ritual de alta: pesar un envase vacío en la báscula del kiosko → ese es la tara.
+El producto se elige de la lista ya homologada en Maestro de Productos
+(Nombre Estándar, solo los confirmados con "Aplica: Sí" en
+`maestro-productos.html`) — Inventario no vuelve a pedir el nombre a mano.
+Admin completa ahí el tipo de control. Para tipo Peso, el alta exige tara y
+densidad (formulario no deja guardar sin esos campos). Ritual de alta:
+pesar un envase vacío en la báscula del kiosko → ese es la tara. Área de
+negocio y Categoría se administran únicamente desde ⚙ Configuración de
+Maestro de Productos.
 
 ### 4.2 Compras
 
@@ -162,7 +195,7 @@ Kioskos sin Square propio: pueden usar todo (compras, toma, OC); solo el descuen
 | **4. Facturas Gmail** | Lector XML + bandeja pendiente-mapeo + MapeoFacturas | Compras entran solas |
 | **5. Órdenes de compra** | Sugeridos por mínimos + OC + envío | Ciclo completo cerrado |
 
-Migración desde v1: importar Productos y Recetas existentes al formato nuevo (script de una vez); las páginas v1 se retiran cuando la fase 3 esté viva.
+Migración desde v1: ya no hay script automático (`importarDesdeV1()` se quitó 2026-07-27 al pasar a Producto=Nombre Estándar — los nombres del v1 no calzan 1:1 con el Maestro homologado). Los productos activos del v1 se dan de alta a mano en Inventario v2, eligiéndolos de la lista del Maestro; las páginas v1 se retiran cuando la fase 3 esté viva.
 
 ---
 
