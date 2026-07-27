@@ -258,10 +258,11 @@ const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8
 const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 // Sheet "Cuentas por Pagar - Kioskos", hoja "Maestro_Productos" — mismo
 // Sheet público que lee maestro-productos.html (gviz, sin backend propio).
-// El catálogo de Inventario sale de acá: Aplica = Sí, Activo = Sí, y con la
-// "Ficha de producto" completada (columna "Ficha actualizada" no vacía) —
-// una fila homologada por factura pero sin ficha todavía no es un producto
-// de catálogo, solo un nombre pendiente de completar en maestro-productos.html.
+// El catálogo de Inventario sale de acá: con Nombre Estándar asignado
+// (homologado) y Aplica != "No" (Sí o sin decidir todavía se incluyen).
+// Ajuste 2026-07-27 (pedido de Jorge): ya NO se exige "Ficha de producto"
+// completada — antes se requería "Ficha actualizada" no vacía y eso dejaba
+// el catálogo vacío mientras no se completara la ficha de cada producto.
 // Este módulo no tiene catálogo propio.
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
 
@@ -371,7 +372,6 @@ async function cargarMaestroProductos() {
     datos.forEach(r => {
       if (r['Aplica'] === 'No') return;
       if (r['Activo'] === 'No') return;
-      if (!(r['Ficha actualizada'] || '').toString().trim()) return; // sin ficha completada, no es catálogo todavía
       const nombre = (r['Nombre Estándar'] || '').toString().trim();
       if (!nombre) return;
       const key = claveNorm(nombre);
