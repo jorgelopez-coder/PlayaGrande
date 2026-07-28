@@ -656,6 +656,13 @@ const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4
 // Mismo backend de RRHH que ya usan compras.html/cierres.html/inventario.html,
 // para traer la lista de kioskos activos (?modulo=kioskos).
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+// 2026-07-28: los proveedores YA NO viven en este Sheet — se unificaron en el
+// Sheet "Inventario - Kioskos" (mismo que usan proveedores.html/inventario.html/
+// ordenes-compra.html, pestaña "Proveedores"), para no mantener dos catálogos
+// de proveedores separados que no se comunicaban entre sí. Mismos valores que
+// esos tres archivos.
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
+const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
 // ─────────────────────────────────────────────────────────────────
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -748,6 +755,43 @@ function gvizLoad(hoja, expectedCol) {
   });
 }
 
+// Igual que gvizLoad() pero contra el Sheet "Inventario - Kioskos" (donde
+// vive la pestaña "Proveedores", unificada — ver INVENTARIO_SHEET_ID arriba).
+function gvizLoadInv(hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    var cb    = '_inv_' + Math.random().toString(36).slice(2,10);
+    var url   = 'https://docs.google.com/spreadsheets/d/' + INVENTARIO_SHEET_ID
+              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '&sheet=' + encodeURIComponent(hoja);
+    var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e) {}
+      try { if (s && s.parentNode) document.body.removeChild(s); } catch(e) {}
+    }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        var cols = (data.table.cols||[]).map(function(c){ return String(c.label||c.id||'').trim(); });
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        var rows = (data.table.rows||[]).filter(function(r){ return r&&r.c; }).map(function(row){
+          var obj = {};
+          cols.forEach(function(col,i){
+            var cell = row.c[i];
+            obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : '';
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    var s = document.createElement('script');
+    s.onerror = function(){ cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
+}
+
 function filaAProveedor(r) {
   return {
     id: r['ID'] || '',
@@ -770,7 +814,7 @@ async function cargarDatos() {
   try {
     const [dF, dP, dAb, dDes] = await Promise.all([
       gvizLoad('Registro Facturas', 'Factura'),
-      gvizLoad('proveedores', 'ID').catch(() => []),
+      gvizLoadInv('Proveedores', 'ID').catch(() => []),
       gvizLoad('Abonos', 'Monto abonado').catch(() => []),
       gvizLoad('Desglose_IA', 'Producto').catch(() => [])
     ]);
@@ -2050,6 +2094,18 @@ async function postAP(payload) {
   return json.result;
 }
 
+// Igual que postAP() pero contra el Web App del Sheet "Inventario - Kioskos"
+// (guardar_proveedor/eliminar_proveedor viven ahí, ver INVENTARIO_SHEET_ID arriba).
+async function postInv(payload) {
+  const resp = await fetch(APPS_SCRIPT_INVENTARIO, {
+    method: 'POST',
+    body: new URLSearchParams({ data: JSON.stringify(payload) })
+  });
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar');
+  return json.result;
+}
+
 // Salta a la pestaña Proveedores con el nombre ya prellenado, para completar
 // ahí toda la información (categoría, contacto, condición de pago, etc.).
 function agregarProveedorRapido(nombre) {
@@ -2340,7 +2396,7 @@ async function guardarProveedorForm() {
   const nombreJuridico = document.getElementById('pv-nombre-juridico').value.trim();
   if (!nombreJuridico) { showToast('Ingresá el nombre jurídico del proveedor.', 'error'); return; }
   try {
-    await postAP({
+    await postInv({
       modulo: 'guardar_proveedor',
       id: document.getElementById('pv-id').value || undefined,
       nombre_juridico: nombreJuridico,
@@ -2357,7 +2413,7 @@ async function guardarProveedorForm() {
     });
     showToast('Proveedor guardado ✓', 'success');
     cancelarEdicionProveedor();
-    const dP = await gvizLoad('proveedores', 'ID').catch(() => []);
+    const dP = await gvizLoadInv('Proveedores', 'ID').catch(() => []);
     proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
     construirFacturasAP();
     inicializar();
@@ -2370,9 +2426,9 @@ async function guardarProveedorForm() {
 async function eliminarProveedorForm(id, nombre) {
   if (!confirm(`¿Eliminar el proveedor "${nombre}"? Esta acción no se puede deshacer.`)) return;
   try {
-    await postAP({ modulo: 'eliminar_proveedor', id: id });
+    await postInv({ modulo: 'eliminar_proveedor', id: id });
     showToast('Proveedor eliminado ✓', 'success');
-    const dP = await gvizLoad('proveedores', 'ID').catch(() => []);
+    const dP = await gvizLoadInv('Proveedores', 'ID').catch(() => []);
     proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
     renderProveedoresTab();
   } catch(e) {

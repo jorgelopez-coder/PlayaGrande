@@ -14,8 +14,9 @@
  * 2. Extensiones > Apps Script > pegá este código (reemplazando el contenido
  *    del archivo por defecto).
  * 3. Corré UNA VEZ, a mano desde este editor, la función configurarHojas()
- *    para crear las 4 pestañas (Registro Facturas, Desglose_IA, Abonos,
- *    proveedores) con sus encabezados.
+ *    para crear las 3 pestañas (Registro Facturas, Desglose_IA, Abonos) con
+ *    sus encabezados. El catálogo de proveedores NO vive acá (ver v4 más
+ *    abajo) — sale del Sheet "Inventario - Kioskos".
  * 4. Implementar > Nueva implementación > Aplicación web
  *    (Ejecutar como: Yo · Acceso: Cualquiera). Copiá la URL /exec.
  * 5. En el facturas-extractor de cada kiosko, apuntá DEST_SPREADSHEET_ID al
@@ -43,12 +44,22 @@
  * Facturas), así que no hace falta editar el Sheet a mano ni corre riesgo de
  * desalinear columnas existentes si Maestro_Productos ya tiene filas. Alcanza
  * con pegar el código completo de nuevo e Implementar > Nueva versión.
+ *
+ * v4 (2026-07-28): se retira la pestaña "proveedores" y su CRUD propio
+ * (guardar_proveedor/eliminar_proveedor) — duplicaban el mismo esquema y la
+ * misma lógica que ya vive en Code-inventario-kioskos-v3-backend.gs (Sheet
+ * "Inventario - Kioskos", pestaña "Proveedores") sin comunicarse entre sí.
+ * cuentas-por-pagar.html ahora lee/escribe proveedores directo contra ese
+ * otro Sheet/Web App (ver INVENTARIO_SHEET_ID/APPS_SCRIPT_INVENTARIO ahí). Si
+ * este Sheet ya tenía proveedores cargados en su propia pestaña "proveedores",
+ * copialos a mano a la pestaña "Proveedores" del Sheet "Inventario - Kioskos"
+ * antes de borrar esa pestaña acá — no hace falta correr nada nuevo en este
+ * backend, solo pegar el código y Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
 const HOJA_DESGLOSE    = 'Desglose_IA';
 const HOJA_ABONOS      = 'Abonos';
-const HOJA_PROVEEDORES = 'proveedores';
 
 // Columnas de "Registro Facturas". 1-6 las llena el sync de cada
 // facturas-extractor (Fecha, Factura, Proveedor, Moneda, TOTAL, Kiosko) en un
@@ -84,19 +95,6 @@ const DESGLOSE_ENCABEZADOS = [
   'Proveedor', 'Categoría', 'Producto', 'Nombre normalizado', 'Unidad de medida',
   'Cantidad', 'Precio unitario', 'Descuento', 'Impuesto', 'Total línea',
   'Total factura', 'Archivo', 'Fecha de carga', 'Kiosko'
-];
-
-// Catálogo de proveedores propio de este módulo (no el de Inventario Kioskos v2,
-// que no tiene condición de pago ni cuenta bancaria).
-const PROV_COL = {
-  ID: 1, NOMBRE_JURIDICO: 2, NOMBRE_COMERCIAL: 3, CATEGORIA: 4, CONTACTO: 5,
-  TELEFONO: 6, CORREO: 7, DIAS_PEDIDO: 8, NOTAS_CONTACTO: 9, CUENTA: 10,
-  CONDICION_PAGO: 11, NOTAS_PAGO: 12, ACTUALIZADO: 13
-};
-const PROV_ENCABEZADOS = [
-  'ID', 'Nombre jurídico', 'Nombre comercial', 'Categoría', 'Contacto',
-  'Teléfono', 'Correo', 'Días de pedido', 'Notas de contacto', 'Cuenta',
-  'Condición de pago', 'Notas de pago', 'Actualizado'
 ];
 
 // Maestro de Productos (v2): una fila por combinación distinta de Proveedor +
@@ -205,7 +203,6 @@ function configurarHojas() {
   prepararHoja(HOJA_FACTURAS, FACTURAS_ENCABEZADOS);
   prepararHoja(HOJA_DESGLOSE, DESGLOSE_ENCABEZADOS);
   prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
-  prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
   prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
   sembrarConfiguracionPorDefecto(prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS));
 }
@@ -347,12 +344,6 @@ function doPost(e) {
       case 'aceptar_duplicado':
         result = aceptarDuplicado(payload);
         break;
-      case 'guardar_proveedor':
-        result = guardarProveedor(payload);
-        break;
-      case 'eliminar_proveedor':
-        result = eliminarProveedor(payload);
-        break;
       case 'maestro_sincronizar':
         result = sincronizarMaestro();
         break;
@@ -410,10 +401,6 @@ function getHojaDesglose() {
 
 function getHojaAbonos() {
   return prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
-}
-
-function getHojaProveedores() {
-  return prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
 }
 
 function getHojaMaestro() {
@@ -698,52 +685,15 @@ function aceptarDuplicado(p) {
   return { marcadas: marcadas };
 }
 
-// ── PROVEEDORES (catálogo propio de este módulo) ──────────────────
-function filaProveedorPorId(hoja, id) {
-  if (!id) return -1;
-  const ids = hoja.getRange(2, PROV_COL.ID, Math.max(hoja.getLastRow() - 1, 0), 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(id)) return i + 2;
-  }
-  return -1;
-}
-
-function guardarProveedor(p) {
-  if (!p.nombre_juridico) throw new Error('Falta el nombre jurídico del proveedor.');
-
-  const hoja = getHojaProveedores();
-  let fila = filaProveedorPorId(hoja, p.id);
-  const esNuevo = fila === -1;
-  const id = esNuevo ? ('PROV-' + Date.now()) : p.id;
-  if (esNuevo) fila = hoja.getLastRow() + 1;
-
-  const dias = Array.isArray(p.dias_pedido) ? p.dias_pedido.join(', ') : (p.dias_pedido || '');
-
-  hoja.getRange(fila, PROV_COL.ID).setValue(id);
-  hoja.getRange(fila, PROV_COL.NOMBRE_JURIDICO).setValue(p.nombre_juridico || '');
-  hoja.getRange(fila, PROV_COL.NOMBRE_COMERCIAL).setValue(p.nombre_comercial || '');
-  hoja.getRange(fila, PROV_COL.CATEGORIA).setValue(p.categoria || '');
-  hoja.getRange(fila, PROV_COL.CONTACTO).setValue(p.contacto || '');
-  hoja.getRange(fila, PROV_COL.TELEFONO).setValue(p.telefono || '');
-  hoja.getRange(fila, PROV_COL.CORREO).setValue(p.correo || '');
-  hoja.getRange(fila, PROV_COL.DIAS_PEDIDO).setValue(dias);
-  hoja.getRange(fila, PROV_COL.NOTAS_CONTACTO).setValue(p.notas_contacto || '');
-  hoja.getRange(fila, PROV_COL.CUENTA).setValue(p.cuenta || '');
-  hoja.getRange(fila, PROV_COL.CONDICION_PAGO).setValue(p.condicion_pago || '0');
-  hoja.getRange(fila, PROV_COL.NOTAS_PAGO).setValue(p.notas_pago || '');
-  hoja.getRange(fila, PROV_COL.ACTUALIZADO).setValue(new Date());
-
-  return { id: id, fila: fila, nuevo: esNuevo };
-}
-
-function eliminarProveedor(p) {
-  if (!p.id) throw new Error('Falta el ID del proveedor a eliminar.');
-  const hoja = getHojaProveedores();
-  const fila = filaProveedorPorId(hoja, p.id);
-  if (fila === -1) throw new Error('No se encontró el proveedor con ID ' + p.id);
-  hoja.deleteRow(fila);
-  return { eliminado: p.id };
-}
+// ── PROVEEDORES ────────────────────────────────────────────────────
+// 2026-07-28: se retira el catálogo propio de este módulo (duplicaba 1:1 el
+// esquema y la lógica de proveedores.html/Code-inventario-kioskos-v3-backend.gs
+// contra un Sheet distinto). Ahora este módulo es solo LECTOR del Sheet
+// "Inventario - Kioskos" (pestaña "Proveedores") vía gviz desde el propio
+// cuentas-por-pagar.html — ver INVENTARIO_SHEET_ID/APPS_SCRIPT_INVENTARIO ahí.
+// Si esta hoja "proveedores" ya tenía filas cargadas antes de este cambio,
+// hay que copiarlas a mano a la pestaña "Proveedores" del otro Sheet antes de
+// borrarla — este backend ya no las lee ni las escribe.
 
 // ── MAESTRO DE PRODUCTOS (homologación de nombres de factura) ─────
 // Agrupa las líneas de Desglose_IA por Proveedor + texto de producto (clave

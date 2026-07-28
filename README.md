@@ -320,6 +320,14 @@ administra `maestro-productos.html`.
   columna "Proveedor" del Maestro de Productos que todavía no tienen ficha
   acá.
 
+**Fuente única de proveedores (2026-07-28):** la pestaña "Proveedores" de
+este Sheet ("Inventario - Kioskos") es ahora la **única** base de
+proveedores de todo el ecosistema — antes `cuentas-por-pagar.html` tenía su
+propio catálogo duplicado (misma estructura, otro Sheet, sin comunicarse
+con este). Ver el aviso "Proveedores unificados" en la sección de
+**Maestro de Productos** más abajo, donde se documenta el backend de
+`cuentas-por-pagar.html`.
+
 Backend nuevo (`Code-inventario-kioskos-v3-backend.gs`, Sheet nuevo en
 blanco **"Inventario - Kioskos"**): angosto a propósito, igual que el
 `Code-inventario-backend.gs` de Lorito — sin `doGet` (todo se lee por gviz
@@ -427,6 +435,21 @@ múltiple para marcarlas en lote. Botón "+ Agregar producto" para dar de
 alta uno a mano sin esperar a que aparezca en una factura. Backend:
 `Code-cuentas-por-pagar-kioskos-backend.gs`, hoja "Maestro_Productos" del
 Sheet "Cuentas por Pagar - Kioskos" (ya desplegado).
+
+**Proveedores unificados (2026-07-28):** `cuentas-por-pagar.html` (pestaña
+"Proveedores", 5ta pestaña) tenía su propio catálogo de proveedores en la
+hoja "proveedores" de este mismo Sheet — duplicaba 1:1 el esquema y el CRUD
+de `proveedores.html` (Sheet "Inventario - Kioskos") sin comunicarse con él.
+Se retiró: `guardar_proveedor`/`eliminar_proveedor` y la hoja "proveedores"
+ya no existen en `Code-cuentas-por-pagar-kioskos-backend.gs` (ver comentario
+v4 al inicio de ese archivo); `cuentas-por-pagar.html` ahora lee/escribe
+proveedores directo contra el Web App/Sheet de Inventario (constantes
+`INVENTARIO_SHEET_ID`/`APPS_SCRIPT_INVENTARIO`, mismos valores que
+`proveedores.html`). Si la hoja "proveedores" de este Sheet ya tenía filas
+cargadas, copialas a mano a la pestaña "Proveedores" del Sheet "Inventario -
+Kioskos" antes de borrarla — después de eso alcanza con pegar el código
+nuevo del backend e Implementar → Nueva versión (no hace falta volver a
+correr `configurarHojas()`).
 
 **Fusión con Base de Productos (2026-07-25):** cada fila confirmada del
 Maestro ahora ES también el catálogo de producto — botón **"🏷️ Ficha"**
