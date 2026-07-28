@@ -1,7 +1,9 @@
 # Diseño — Inventario Kioskos v2
 
-**Fecha:** 2026-07-24 (actualizado 2026-07-27) · **Estado:** Aprobado por Jorge, implementación de código completa — pendiente el despliegue manual del Sheet nuevo (ver README.md, sección "5. Inventario v2, Compras y Recetas")
-**Reemplaza:** módulo actual `inventario.html` + `recetas.html` + `Code-inventario-kioskos-backend.gs` (rediseño desde cero, decidido 2026-07-24)
+> **⚠️ SUPERSEDIDO (2026-07-27).** Este diseño (`Code-inventario-v2-backend.gs`) nunca se desplegó y **no es el que está en uso**. `inventario.html` terminó conectado a un backend más angosto, `Code-inventario-kioskos-v3-backend.gs` — catálogo 100% desde el Maestro de Productos, sin Compras/OC/Recetas/facturas Gmail propias (eso vive en `compras.html`/`ordenes-compra.html`/`recetas.html` por separado), toma con conteo unitario + campo "en uso" manual. El **concepto de Tipo de Control unitario/peso con tara/densidad de la sección 2** de abajo sí se rescató, pero implementado en v3 con una diferencia importante: la tara **no es un valor único por producto** — cada botella/barril abierto se pesa por separado con su propia tara editable, porque la tara real cambia según la marca de la botella (decisión de Jorge, 2026-07-27). No hay foto+IA en esa implementación (eso queda pendiente si se quiere más adelante). Ver `project_control_peso_tara_inventario` en la memoria para el diseño vigente. El resto de este documento queda como referencia histórica del diseño que no se construyó.
+
+**Fecha:** 2026-07-24 (actualizado 2026-07-27) · **Estado:** Supersedido — ver nota arriba. (Histórico: "Aprobado por Jorge, implementación de código completa — pendiente el despliegue manual del Sheet nuevo")
+**Reemplaza:** módulo actual `inventario.html` + `recetas.html` + `Code-inventario-kioskos-backend.gs` (rediseño desde cero, decidido 2026-07-24) — **y a su vez fue reemplazado por v3, ver nota arriba.**
 
 **Actualización 2026-07-27 — catálogo conectado al Maestro de Productos:**
 el catálogo de Inventario (pestaña Productos, §3 abajo) ya no tiene ID propio

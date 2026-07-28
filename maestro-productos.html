@@ -370,6 +370,35 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div class="field-hint" style="margin:-.5rem 0 1rem">Los valores de Área/Categoría/Familia se administran desde la pestaña ⚙ Configuración.</div>
 
+      <div class="section-label">Control de inventario</div>
+      <div class="field-row">
+        <div class="field"><label>Tipo de control</label>
+          <select id="fi-tipo-control" onchange="onFichaTipoControlChange()">
+            <option value="unitario" selected>Unitario (conteo)</option>
+            <option value="peso">Peso (báscula)</option>
+          </select>
+          <div class="field-hint">Peso: botellas de licor y cerveza en sifón — se pesan en la toma en vez de contarlas.</div>
+        </div>
+      </div>
+      <div id="fi-wrap-peso" style="display:none">
+        <div class="field-row">
+          <div class="field"><label>Contenido del envase (ml)</label>
+            <input type="number" id="fi-contenido-ml" min="0" step="any" placeholder="ej: 750"/>
+            <div class="field-hint">ej. botella de ron 750 ml, barril quinto 19 000 ml.</div>
+          </div>
+          <div class="field"><label>Densidad (g/ml)</label>
+            <input type="number" id="fi-densidad" min="0" step="any" placeholder="ej: 0.94"/>
+            <div class="field-hint">Cerveza ≈ 1.005 · destilados 40° ≈ 0.94 · licores cremosos ≈ 1.05.</div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Tara por defecto (g)</label>
+            <input type="number" id="fi-tara-defecto" min="0" step="any" placeholder="ej: 500"/>
+            <div class="field-hint">Peso del envase vacío que se sugiere al pesar una botella nueva en la toma. La tara real de cada botella abierta se ajusta ahí mismo (cambia según la marca) — esto es solo el punto de partida.</div>
+          </div>
+        </div>
+      </div>
+
       <div class="section-label">Compra y costo</div>
       <div class="suggest-box" id="ficha-sugerencia" style="display:none">
         <span>💡 Costo sugerido: <b id="ficha-sugerencia-txt">—</b></span>
@@ -586,7 +615,12 @@ async function cargarMaestro() {
       unidadReceta: r['Unidad Receta'] || '',
       rendimientoReceta: (r['Rendimiento Receta (%)'] !== '' && r['Rendimiento Receta (%)'] != null) ? Number(r['Rendimiento Receta (%)']) : '',
       costoRealReceta: Number(r['Costo Real Receta']) || 0,
-      usarCostoManualReceta: r['Usar Costo Manual Receta'] === true || r['Usar Costo Manual Receta'] === 'TRUE'
+      usarCostoManualReceta: r['Usar Costo Manual Receta'] === true || r['Usar Costo Manual Receta'] === 'TRUE',
+      // ── Control de inventario por peso (2026-07-27) ──
+      tipoControl: r['Tipo de Control'] === 'peso' ? 'peso' : 'unitario',
+      contenidoEnvaseMl: Number(r['Contenido Envase (ml)']) || 0,
+      densidad: Number(r['Densidad (g/ml)']) || 0,
+      taraDefectoG: (r['Tara por Defecto (g)'] !== '' && r['Tara por Defecto (g)'] != null) ? Number(r['Tara por Defecto (g)']) : ''
     }));
     renderTodo();
   } catch (e) {
@@ -1147,6 +1181,11 @@ function abrirFicha(clave) {
   document.getElementById('fi-area').value = m.area || '';
   document.getElementById('fi-familia').value = m.familia || '';
   onFichaFamiliaChange();
+  document.getElementById('fi-tipo-control').value = m.tipoControl === 'peso' ? 'peso' : 'unitario';
+  document.getElementById('fi-contenido-ml').value = m.contenidoEnvaseMl || '';
+  document.getElementById('fi-densidad').value = m.densidad || '';
+  document.getElementById('fi-tara-defecto').value = m.taraDefectoG !== '' ? m.taraDefectoG : '';
+  onFichaTipoControlChange();
   document.getElementById('fi-subfamilia').value = m.subfamilia || '';
   document.getElementById('fi-presentacion').value = m.presentacion || '';
   document.getElementById('fi-tamano').value = m.tamano || '';
@@ -1185,6 +1224,11 @@ function abrirFicha(clave) {
 function cerrarFicha() {
   document.getElementById('modal-ficha').classList.remove('open');
   FICHA_EN_EDICION = null;
+}
+
+function onFichaTipoControlChange() {
+  const esPeso = document.getElementById('fi-tipo-control').value === 'peso';
+  document.getElementById('fi-wrap-peso').style.display = esPeso ? '' : 'none';
 }
 
 // Stock mínimo NO vive en esta ficha — es por producto × kiosko y se
@@ -1228,8 +1272,15 @@ async function guardarFicha() {
       aplica_receta: document.getElementById('fi-aplica-receta').value,
       unidad_receta: document.getElementById('fi-unidad-receta').value.trim(),
       rendimiento_receta: document.getElementById('fi-rendimiento').value,
-      usar_costo_manual_receta: document.getElementById('fi-usar-costo-manual').checked
+      usar_costo_manual_receta: document.getElementById('fi-usar-costo-manual').checked,
+      tipo_control: document.getElementById('fi-tipo-control').value,
+      contenido_envase_ml: document.getElementById('fi-contenido-ml').value,
+      densidad: document.getElementById('fi-densidad').value,
+      tara_defecto: document.getElementById('fi-tara-defecto').value
     };
+    if (payload.tipo_control === 'peso' && (!payload.contenido_envase_ml || !payload.densidad)) {
+      throw new Error('Un producto de control por peso necesita contenido del envase y densidad.');
+    }
     await postAP(payload);
     showToast('Ficha guardada ✓');
     cerrarFicha();

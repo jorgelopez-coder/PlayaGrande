@@ -43,6 +43,30 @@ const ENCABEZADOS_HISTORIAL = [
   'Registrado'
 ];
 
+// 2026-07-27 — control por peso (botellas de licor, cerveza en sifón): ver
+// project_control_peso_tara_inventario en la memoria. Un producto tipo
+// "peso" puede tener varias botellas/barriles abiertos a la vez en la misma
+// toma (ej. dos rones distintos abiertos); cada uno se pesa por separado
+// porque la tara (peso del envase vacío) cambia según la marca de la
+// botella. 'Cant. en uso' en HISTORIAL_inventario sigue siendo el TOTAL en
+// ml (suma de los netos de todos los pesajes de esa línea) para no romper
+// a los lectores existentes (ordenes-compra.html); el detalle por envase
+// queda acá como evidencia/auditoría de cómo se llegó a ese total.
+const HOJA_PESAJES = 'HISTORIAL_pesajes';
+const ENCABEZADOS_PESAJES = [
+  'Toma ID', 'Kiosko', 'Fecha toma', 'Producto',
+  'Marca/Envase', 'Peso Bruto (g)', 'Tara (g)', 'Neto (ml)', 'Registrado'
+];
+
+// Catálogo aprendido de taras por marca: la primera vez que se pesa una
+// botella de una marca nueva de un producto, se guarda acá (upsert por
+// Producto+Marca) para que la próxima toma la sugiera sola en vez de pedir
+// pesar el envase vacío otra vez. No es una tabla maestra estricta — el
+// usuario puede editar la tara de un pesaje puntual sin que eso cambie el
+// catálogo si no lo confirma.
+const HOJA_MARCAS_ENVASE = 'MarcasEnvase';
+const ENCABEZADOS_MARCAS_ENVASE = ['Producto', 'Marca/Envase', 'Tara (g)', 'Actualizado'];
+
 const ENCABEZADOS_MINIMOS = ['Producto', 'Kiosko', 'Mínimo', 'Actualizado'];
 
 const PROV_ENCABEZADOS = [
@@ -61,6 +85,8 @@ function configurarHojas() {
   prepararHoja(HOJA_HISTORIAL, ENCABEZADOS_HISTORIAL);
   prepararHoja(HOJA_MINIMOS, ENCABEZADOS_MINIMOS);
   prepararHoja(HOJA_PROVEEDORES, PROV_ENCABEZADOS);
+  prepararHoja(HOJA_PESAJES, ENCABEZADOS_PESAJES);
+  prepararHoja(HOJA_MARCAS_ENVASE, ENCABEZADOS_MARCAS_ENVASE);
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -93,10 +119,11 @@ function doPost(e) {
 
     let result;
     switch (payload.modulo) {
-      case 'inventario':        result = guardarInventario(payload); break;
-      case 'minimo_guardar':    result = guardarMinimo(payload); break;
-      case 'guardar_proveedor': result = guardarProveedor(payload); break;
-      case 'eliminar_proveedor':result = eliminarProveedor(payload); break;
+      case 'inventario':          result = guardarInventario(payload); break;
+      case 'minimo_guardar':      result = guardarMinimo(payload); break;
+      case 'guardar_proveedor':   result = guardarProveedor(payload); break;
+      case 'eliminar_proveedor':  result = eliminarProveedor(payload); break;
+      case 'marca_envase_guardar':result = guardarMarcaEnvase(payload); break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
@@ -107,6 +134,11 @@ function doPost(e) {
 }
 
 // ── TOMA DE INVENTARIO ────────────────────────────────────────────
+// Cada línea puede traer "pesajes": [{marca, bruto_g, tara_g, neto_ml}, ...]
+// para productos de control por peso (uno por botella/barril abierto). Acá
+// solo se guarda la evidencia en HISTORIAL_pesajes — la suma ya viene
+// calculada en l.abierto desde inventario.html (ver sumaPesajes() ahí), no
+// se recalcula en el backend para no duplicar la lógica de densidad/tara.
 function guardarInventario(p) {
   const lineas = p.lineas || [];
   if (!lineas.length) throw new Error('La toma no tiene líneas contadas.');
@@ -140,7 +172,51 @@ function guardarInventario(p) {
   const filaInicio = hoja.getLastRow() + 1;
   hoja.getRange(filaInicio, 1, filas.length, ENCABEZADOS_HISTORIAL.length).setValues(filas);
 
-  return { filas_escritas: filas.length, fila_inicio: filaInicio };
+  const filasPesajes = [];
+  lineas.forEach(function(l) {
+    (l.pesajes || []).forEach(function(pj) {
+      if (!pj || (pj.bruto_g === '' && pj.bruto_g !== 0)) return;
+      filasPesajes.push([
+        p.id || '', p.kiosko || '', p.fecha_toma || '', l.nombre || '',
+        pj.marca || '', Number(pj.bruto_g) || 0, Number(pj.tara_g) || 0,
+        Number(pj.neto_ml) || 0, registrado
+      ]);
+    });
+  });
+  if (filasPesajes.length) {
+    const hojaPesajes = prepararHoja(HOJA_PESAJES, ENCABEZADOS_PESAJES);
+    hojaPesajes.getRange(hojaPesajes.getLastRow() + 1, 1, filasPesajes.length, ENCABEZADOS_PESAJES.length).setValues(filasPesajes);
+  }
+
+  return { filas_escritas: filas.length, fila_inicio: filaInicio, pesajes_escritos: filasPesajes.length };
+}
+
+// ── MARCAS DE ENVASE (tara aprendida por marca, para autocompletar) ─────
+function filaMarcaEnvase_(hoja, producto, marca) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return -1;
+  const datos = hoja.getRange(2, 1, nFilas, 2).getValues();
+  for (let i = 0; i < datos.length; i++) {
+    if (String(datos[i][0]) === String(producto) && String(datos[i][1]).trim().toLowerCase() === String(marca).trim().toLowerCase()) return i + 2;
+  }
+  return -1;
+}
+
+function guardarMarcaEnvase(p) {
+  const producto = String(p.producto || '').trim();
+  const marca = String(p.marca || '').trim();
+  if (!producto || !marca) throw new Error('Falta el producto o la marca/envase.');
+  if (p.tara_g === undefined || p.tara_g === '' || p.tara_g === null) throw new Error('Falta la tara (g).');
+
+  const hoja = prepararHoja(HOJA_MARCAS_ENVASE, ENCABEZADOS_MARCAS_ENVASE);
+  let fila = filaMarcaEnvase_(hoja, producto, marca);
+  if (fila === -1) fila = hoja.getLastRow() + 1;
+
+  hoja.getRange(fila, 1, 1, ENCABEZADOS_MARCAS_ENVASE.length).setValues([[
+    producto, marca, Number(p.tara_g) || 0, new Date().toISOString()
+  ]]);
+
+  return { fila: fila };
 }
 
 // ── MÍNIMOS (por Producto × Kiosko) ───────────────────────────────

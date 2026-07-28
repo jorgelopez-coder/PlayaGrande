@@ -365,6 +365,49 @@ function alCambiarKiosko() {
 let MAESTRO_PRODUCTOS = []; // catálogo completo, sin filtrar por kiosko
 let productos = [];         // catálogo filtrado al kiosko seleccionado (lo que usa la toma)
 
+// ── MARCAS DE ENVASE: taras aprendidas por producto×marca ──────────
+// Se pesa una vez una botella de una marca nueva y queda guardada acá
+// (hoja "MarcasEnvase" del mismo Sheet de Inventario) para que la próxima
+// toma sugiera la tara sola en vez de pedir pesar el envase vacío otra vez.
+let MARCAS_ENVASE = {}; // { claveNorm(producto): [{marca, taraG}, ...] }
+
+async function cargarMarcasEnvase() {
+  try {
+    const filas = await gvizLoad(INVENTARIO_SHEET_ID, 'MarcasEnvase');
+    const mapa = {};
+    filas.forEach(r => {
+      const producto = (r['Producto']||'').toString().trim();
+      const marca = (r['Marca/Envase']||'').toString().trim();
+      const tara = parseFloat(r['Tara (g)']) || 0;
+      if (!producto || !marca) return;
+      const key = claveNorm(producto);
+      (mapa[key] = mapa[key] || []).push({ marca, taraG: tara });
+    });
+    MARCAS_ENVASE = mapa;
+  } catch(e) { /* si falla, el autocompletar de marcas queda vacío pero el resto sigue funcionando */ }
+}
+function marcasDeProducto(nombre) {
+  return MARCAS_ENVASE[claveNorm(nombre)] || [];
+}
+function taraConocida(nombre, marca) {
+  const lista = marcasDeProducto(nombre);
+  const m = lista.find(x => x.marca.trim().toLowerCase() === String(marca||'').trim().toLowerCase());
+  return m ? m.taraG : null;
+}
+async function guardarMarcaEnvase(producto, marca, taraG) {
+  if (!producto || !marca || !(Number(taraG) >= 0)) return;
+  try {
+    await fetchConTimeout(APPS_SCRIPT_INVENTARIO, {
+      method: 'POST',
+      body: JSON.stringify({ modulo: 'marca_envase_guardar', producto, marca, tara_g: Number(taraG) })
+    });
+    const key = claveNorm(producto);
+    const lista = MARCAS_ENVASE[key] = MARCAS_ENVASE[key] || [];
+    const existente = lista.find(x => x.marca.trim().toLowerCase() === marca.trim().toLowerCase());
+    if (existente) existente.taraG = Number(taraG); else lista.push({ marca, taraG: Number(taraG) });
+  } catch(e) { /* falla silenciosa: no bloquea la toma si no se pudo aprender la marca */ }
+}
+
 async function cargarMaestroProductos() {
   try {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
@@ -387,6 +430,12 @@ async function cargarMaestroProductos() {
         precio_sin_iva:parseFloat(r['Precio sin IVA'])||0,
         costo:         parseFloat(r['Costo por unidad'])||0, // costo por unidad de receta, para valorizar lo "abierto"
         kioskosTxt:    (r['Kioskos']||'').toString().trim(),
+        // ── Control por peso (2026-07-27): botellas de licor, cerveza en
+        // sifón — ver project_control_peso_tara_inventario en la memoria.
+        tipoControl:   (r['Tipo de Control']||'').toString().trim() === 'peso' ? 'peso' : 'unitario',
+        contenidoMl:   parseFloat(r['Contenido Envase (ml)'])||0,
+        densidad:      parseFloat(r['Densidad (g/ml)'])||0,
+        taraDefecto:   (r['Tara por Defecto (g)']!=='' && r['Tara por Defecto (g)']!=null) ? parseFloat(r['Tara por Defecto (g)']) : '',
       };
       const previo = mapa.get(key);
       if (!previo || (!previo.area && prod.area)) mapa.set(key, prod);
@@ -416,7 +465,7 @@ function genId()      { return 'INV-' + hoy.getFullYear() + pad(hoy.getMonth()+1
 // ── INIT ──────────────────────────────────────────────────────────
 async function init() {
   tomas = getTomas();
-  await Promise.all([cargarKioskos(), cargarMaestroProductos()]);
+  await Promise.all([cargarKioskos(), cargarMaestroProductos(), cargarMarcasEnvase()]);
   // cargarMaestroProductos() puede resolver antes que cargarKioskos() fije
   // kioskoActual (viene de localStorage, pero cargarKioskos() también espera
   // una llamada al Apps Script de RRHH) — se recalcula acá para no quedar
@@ -612,19 +661,172 @@ function buildFilaToma(p, groupId) {
         <div style="font-size:10px;color:var(--muted);">unidades completas</div>
       </div>
     </td>
-    <td class="num">
+    <td class="num" style="text-align:left;">
+      ${p.tipoControl === 'peso' ? renderPesajesCell(p, linea) : `
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
         <input type="number" class="qty-input ${abierto!==''?'ok':''}" min="0" step="0.01"
           value="${abierto}" placeholder="0"
           title="Cantidad en uso / abierto (en ${escHtml(p.unidad||'unidades de medida')})"
           oninput="onLinea('${sid}','abierto',this)">
         <div style="font-size:10px;color:var(--muted);">${escHtml(p.unidad||'unidades')} en uso</div>
-      </div>
+      </div>`}
     </td>
     <td class="num" style="font-weight:600;color:var(--teal);" id="val-${slugIdInv(p.id)}">
       ${tieneData ? fmt(valor) : '—'}
     </td>
   </tr>`;
+}
+
+// ── PESO: botellas de licor / cerveza en sifón ──────────────────────
+// Un producto tipo "peso" puede tener varias botellas o barriles abiertos
+// a la vez — cada uno se pesa por separado porque la tara (peso del envase
+// vacío) cambia según la marca de la botella (decidido con Jorge
+// 2026-07-27, ver project_control_peso_tara_inventario en la memoria).
+// El total en ml (suma de los netos) se guarda en linea.abierto para que
+// calcSubtotal()/actualizarValorLive()/guardarTomaEnSheet() sigan
+// funcionando sin cambios — son los mismos de siempre, solo que ahora el
+// número sale de sumar pesajes en vez de un input directo.
+function renderPesajesCell(p, linea) {
+  const sid = jsArg(p.id);
+  const sidSafe = slugIdInv(p.id);
+  const pesajes = (linea && linea.pesajes) || [];
+  const marcas = marcasDeProducto(p.nombre);
+  const dlId = 'dl-' + sidSafe;
+  const datalist = `<datalist id="${dlId}">${marcas.map(m => `<option value="${escHtml(m.marca)}">`).join('')}</datalist>`;
+
+  const filas = pesajes.map((pj, i) => {
+    const neto = netoPesaje(p, pj);
+    return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
+      <input type="text" list="${dlId}" placeholder="Marca/envase" value="${escHtml(pj.marca||'')}"
+        style="width:88px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);"
+        oninput="onPesaje('${sid}',${i},'marca',this)" onchange="onPesajeMarcaChange('${sid}',${i},this)">
+      <input type="number" min="0" step="1" placeholder="Tara g" value="${pj.taraG!==undefined&&pj.taraG!==''?pj.taraG:''}"
+        id="tara-${sidSafe}-${i}" title="Peso del envase vacío"
+        style="width:54px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
+        oninput="onPesaje('${sid}',${i},'taraG',this)" onblur="onPesajeTaraBlur('${sid}',${i},this)">
+      <input type="number" min="0" step="1" placeholder="Bruto g" value="${pj.brutoG!==undefined&&pj.brutoG!==''?pj.brutoG:''}"
+        title="Peso en la báscula (botella + contenido)"
+        style="width:54px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
+        oninput="onPesaje('${sid}',${i},'brutoG',this)">
+      <span style="font-size:10px;color:var(--muted);min-width:48px;text-align:right;" id="neto-${sidSafe}-${i}">${neto===''?'—':Math.round(neto)+' ml'}</span>
+      <button type="button" onclick="quitarPesaje('${sid}',${i})" title="Quitar este pesaje"
+        style="border:none;background:transparent;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">×</button>
+    </div>`;
+  }).join('');
+
+  const total = pesajes.reduce((acc, pj) => { const n = netoPesaje(p, pj); return acc + (n===''?0:n); }, 0);
+
+  return `${datalist}
+    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+      ${filas}
+      <button type="button" class="btn-sm" style="margin-top:2px;" onclick="agregarPesaje('${sid}')">+ Botella/barril abierto</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;" id="totalpes-${sidSafe}">${pesajes.length ? Math.round(total) + ' ml en uso' : ''}</div>
+    </div>`;
+}
+
+function pesajesDe(id) {
+  if (!tomaActual.lineas) tomaActual.lineas = {};
+  if (!tomaActual.lineas[id]) tomaActual.lineas[id] = {};
+  if (!tomaActual.lineas[id].pesajes) tomaActual.lineas[id].pesajes = [];
+  return tomaActual.lineas[id].pesajes;
+}
+
+function netoPesaje(p, pj) {
+  if (!pj) return '';
+  const bruto = parseFloat(pj.brutoG);
+  const tara = parseFloat(pj.taraG);
+  if (!(bruto >= 0) || !(tara >= 0)) return '';
+  const densidad = parseFloat(p.densidad) || 1;
+  return Math.max(0, (bruto - tara) / densidad);
+}
+
+// Recalcula linea.abierto (= suma de netos, en ml) y refresca en el DOM los
+// spans de cada pesaje + el total + la celda de valorización, sin re-render
+// completo de la tabla (para no perder el foco mientras se escribe un peso).
+function recalcAbierto(id) {
+  const p = productos.find(x=>x.id===id);
+  if (!p) return;
+  const pesajes = pesajesDe(id);
+  const sidSafe = slugIdInv(id);
+  let suma = 0, algunNeto = false;
+  pesajes.forEach((pj, i) => {
+    const n = netoPesaje(p, pj);
+    if (n !== '') { suma += n; algunNeto = true; }
+    const el = document.getElementById('neto-' + sidSafe + '-' + i);
+    if (el) el.textContent = n === '' ? '—' : Math.round(n) + ' ml';
+  });
+  // Solo se marca como "contado" cuando al menos un pesaje tiene bruto y
+  // tara válidos — agregar una fila vacía todavía no cuenta como conteo.
+  if (algunNeto) tomaActual.lineas[id].abierto = Math.round(suma);
+  else delete tomaActual.lineas[id].abierto;
+
+  const totalEl = document.getElementById('totalpes-' + sidSafe);
+  if (totalEl) totalEl.textContent = pesajes.length ? Math.round(suma) + ' ml en uso' : '';
+
+  const linea = tomaActual.lineas[id];
+  const precioC = parseFloat(p.precio_sin_iva)||0;
+  const precioU = parseFloat(p.costo)||0;
+  const valC = (parseFloat(linea.cerrado)||0) * precioC;
+  const valA = (parseFloat(linea.abierto)||0) * precioU;
+  const valEl = document.getElementById('val-' + sidSafe);
+  if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+
+  saveTomas(tomas);
+  actualizarValorLive();
+}
+
+function onPesaje(id, idx, campo, input) {
+  const pesajes = pesajesDe(id);
+  if (!pesajes[idx]) pesajes[idx] = {};
+  if (campo === 'marca') {
+    pesajes[idx].marca = input.value;
+    return; // el recálculo de marca se maneja en onPesajeMarcaChange (onchange)
+  }
+  pesajes[idx][campo] = input.value === '' ? '' : (parseFloat(input.value) || 0);
+  recalcAbierto(id);
+}
+
+// Al confirmar la marca (change, no cada tecla): si ya conocemos la tara de
+// esa marca para este producto y el campo tara está vacío, la prellena.
+function onPesajeMarcaChange(id, idx, input) {
+  const p = productos.find(x=>x.id===id);
+  const pesajes = pesajesDe(id);
+  const pj = pesajes[idx];
+  if (!p || !pj) return;
+  pj.marca = input.value;
+  if (pj.marca && (pj.taraG === '' || pj.taraG === undefined)) {
+    const conocida = taraConocida(p.nombre, pj.marca);
+    if (conocida != null) {
+      pj.taraG = conocida;
+      const taraInput = document.getElementById('tara-' + slugIdInv(id) + '-' + idx);
+      if (taraInput) taraInput.value = conocida;
+    }
+  }
+  recalcAbierto(id);
+}
+
+// Al salir del campo tara (blur): si hay marca y tara, se aprende esa
+// combinación para la próxima toma (fire-and-forget, no bloquea el conteo).
+function onPesajeTaraBlur(id, idx) {
+  const p = productos.find(x=>x.id===id);
+  const pj = pesajesDe(id)[idx];
+  if (p && pj && pj.marca && pj.taraG !== '' && pj.taraG !== undefined) {
+    guardarMarcaEnvase(p.nombre, pj.marca, pj.taraG);
+  }
+}
+
+function agregarPesaje(id) {
+  const p = productos.find(x=>x.id===id);
+  const pesajes = pesajesDe(id);
+  pesajes.push({ marca: '', taraG: (p && p.taraDefecto !== '' && p.taraDefecto != null) ? p.taraDefecto : '', brutoG: '' });
+  recalcAbierto(id);
+  renderActual();
+}
+
+function quitarPesaje(id, idx) {
+  pesajesDe(id).splice(idx, 1);
+  recalcAbierto(id);
+  renderActual();
 }
 // ID de elemento DOM seguro a partir de un Nombre Estándar libre.
 function slugIdInv(s) {
@@ -793,6 +995,17 @@ async function guardarTomaEnSheet(toma) {
       const abierto = parseFloat(l.abierto) || 0;
       const valC    = cerrado * precioC;
       const valA    = abierto * precioU;
+      // Detalle de pesajes (un envase abierto = una fila) para evidencia en
+      // HISTORIAL_pesajes — no afecta el total, que ya viene sumado en
+      // "abierto" (ver recalcAbierto en la toma).
+      const pesajes = (p.tipoControl === 'peso' ? (l.pesajes||[]) : [])
+        .filter(pj => pj && pj.brutoG !== '' && pj.brutoG !== undefined)
+        .map(pj => ({
+          marca: pj.marca || '',
+          bruto_g: parseFloat(pj.brutoG) || 0,
+          tara_g: parseFloat(pj.taraG) || 0,
+          neto_ml: (() => { const n = netoPesaje(p, pj); return n === '' ? 0 : Math.round(n); })(),
+        }));
       return {
         nombre:       p.nombre,
         area:         p.area || '',
@@ -804,6 +1017,7 @@ async function guardarTomaEnSheet(toma) {
         val_cerrado: valC,
         val_abierto: valA,
         valor: valC + valA,
+        pesajes,
       };
     });
 

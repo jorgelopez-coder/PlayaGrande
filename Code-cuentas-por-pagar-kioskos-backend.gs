@@ -126,7 +126,17 @@ const MAESTRO_ENCABEZADOS = [
   // de "ficha de producto", siempre se resuelven con columnaPorNombre(),
   // nunca un índice fijo, para no romper el Sheet ya desplegado.
   'Familia', 'Subfamilia', 'Aplica Receta', 'Unidad Receta',
-  'Rendimiento Receta (%)', 'Costo Real Receta', 'Usar Costo Manual Receta'
+  'Rendimiento Receta (%)', 'Costo Real Receta', 'Usar Costo Manual Receta',
+  // 2026-07-27 (tarde) — control de inventario por peso (botellas de licor,
+  // cerveza en sifón): ver project_control_peso_tara_inventario en la
+  // memoria. 'Tipo de Control' es 'unitario' (default, conteo) o 'peso'
+  // (báscula). Para 'peso', 'Contenido Envase (ml)' y 'Densidad (g/ml)' son
+  // obligatorios (se validan en guardarFichaMaestro) y 'Tara por Defecto (g)'
+  // es el valor que se prellena al pesar una botella de una marca nueva en
+  // inventario.html — no es la tara final: cada pesaje individual en la toma
+  // puede tener su propia tara editable, porque la tara real depende de la
+  // marca de la botella (decidido con Jorge 2026-07-27).
+  'Tipo de Control', 'Contenido Envase (ml)', 'Densidad (g/ml)', 'Tara por Defecto (g)'
 ];
 // "Aplica" (Sí/No) queda fuera de MAESTRO_COL a propósito: se resuelve con
 // columnaPorNombre() en vez de una posición fija, para que se pueda crear
@@ -150,7 +160,12 @@ const MAESTRO_ENCABEZADOS = [
 // sugerido'), para que la columna "Costo de compra" de la tabla no quede
 // vacía. En cuanto se guarda la ficha una vez, pasa a ser 100% manual
 // (Precio sin IVA ÷ Cantidad presentación vía guardarFichaMaestro) y el
-// sync deja de tocarla.
+// sync deja de tocarla. Mismo criterio (2026-07-27) para 'Precio sin IVA':
+// sin ficha completada, sincronizarMaestro() también la pisa con el último
+// precio de factura en colones, porque Inventario usa ese campo para
+// valorizar las unidades "cerrado/completo" (Costo por unidad valoriza solo
+// lo "abierto/en uso") — si quedaba vacía, la valorización de inventario
+// solo reflejaba lo abierto.
 
 // Catálogos editables de clasificación (Área de negocio / Categoría /
 // Familia / Subfamilia) — pestaña "Configuracion", adaptada de la pestaña
@@ -820,6 +835,7 @@ function sincronizarMaestro() {
   const colFichaActualizada = columnaPorNombre(hojaMaestro, 'Ficha actualizada');
   const colCostoPorUnidad = columnaPorNombre(hojaMaestro, 'Costo por unidad');
   const colArea = columnaPorNombre(hojaMaestro, 'Área de negocio');
+  const colPrecioSinIVA = columnaPorNombre(hojaMaestro, 'Precio sin IVA');
 
   let nuevos = 0, actualizados = 0;
   const ahora = new Date();
@@ -856,6 +872,12 @@ function sincronizarMaestro() {
         // estar vacía y este bloque no vuelve a pisar el valor manual.
         if (colCostoPorUnidad && monedaSugerida !== 'USD' && costoSugerido !== '') {
           hojaMaestro.getRange(fila, colCostoPorUnidad).setValue(costoSugerido);
+        }
+        // "Precio sin IVA" (2026-07-27) — mismo criterio: Inventario lo usa
+        // para valorizar unidades "cerrado/completo", y sin esto quedaba
+        // en ₡0 hasta que alguien completara la ficha a mano.
+        if (colPrecioSinIVA && monedaSugerida !== 'USD' && costoSugerido !== '') {
+          hojaMaestro.getRange(fila, colPrecioSinIVA).setValue(costoSugerido);
         }
         // "Área de negocio" (2026-07-27) — mismo criterio: sin ficha
         // completada, se rellena con la Categoría (que sí llega bien
@@ -895,6 +917,10 @@ function sincronizarMaestro() {
       // colones) hasta que alguien complete la ficha a mano.
       if (colCostoPorUnidad && monedaSugerida !== 'USD' && costoSugerido !== '') {
         hojaMaestro.getRange(filaNueva, colCostoPorUnidad).setValue(costoSugerido);
+      }
+      // Mismo criterio de "Precio sin IVA" que arriba, para filas nuevas.
+      if (colPrecioSinIVA && monedaSugerida !== 'USD' && costoSugerido !== '') {
+        hojaMaestro.getRange(filaNueva, colPrecioSinIVA).setValue(costoSugerido);
       }
       // Mismo criterio de "Área de negocio" que arriba, para filas nuevas.
       if (colArea) {
@@ -1045,6 +1071,19 @@ function guardarFichaMaestro(p) {
   const rendimiento = (p.rendimiento_receta !== undefined && p.rendimiento_receta !== '' && p.rendimiento_receta != null)
     ? Number(p.rendimiento_receta) : 100;
   const costoRealReceta = rendimiento > 0 ? Number((costoUnidad / (rendimiento / 100)).toFixed(4)) : costoUnidad;
+
+  // Control de inventario por peso (2026-07-27): ver nota junto a
+  // MAESTRO_ENCABEZADOS. 'peso' exige contenido de envase y densidad —
+  // sin esos dos datos, inventario.html no puede convertir gramos a ml.
+  const tipoControl = p.tipo_control === 'peso' ? 'peso' : 'unitario';
+  const contenidoMl = Number(p.contenido_envase_ml) || 0;
+  const densidad = Number(p.densidad) || 0;
+  const taraDefecto = (p.tara_defecto === '' || p.tara_defecto === undefined || p.tara_defecto === null) ? '' : Number(p.tara_defecto);
+  if (tipoControl === 'peso') {
+    if (!contenidoMl) throw new Error('Un producto de control por peso necesita el contenido del envase en ml.');
+    if (!densidad) throw new Error('Un producto de control por peso necesita la densidad en g/ml (cerveza ≈ 1.005, destilados 40° ≈ 0.94).');
+  }
+
   const ahora = new Date();
 
   const colCategoria = MAESTRO_COL.CATEGORIA;
@@ -1065,6 +1104,10 @@ function guardarFichaMaestro(p) {
   const colRendimiento = columnaPorNombre(hoja, 'Rendimiento Receta (%)');
   const colCostoReal = columnaPorNombre(hoja, 'Costo Real Receta');
   const colUsarManual = columnaPorNombre(hoja, 'Usar Costo Manual Receta');
+  const colTipoControl = columnaPorNombre(hoja, 'Tipo de Control');
+  const colContenidoMl = columnaPorNombre(hoja, 'Contenido Envase (ml)');
+  const colDensidad = columnaPorNombre(hoja, 'Densidad (g/ml)');
+  const colTaraDefecto = columnaPorNombre(hoja, 'Tara por Defecto (g)');
 
   filas.forEach(function(fila) {
     if (p.categoria) hoja.getRange(fila, colCategoria).setValue(p.categoria);
@@ -1085,6 +1128,10 @@ function guardarFichaMaestro(p) {
     hoja.getRange(fila, colRendimiento).setValue(rendimiento);
     hoja.getRange(fila, colCostoReal).setValue(costoRealReceta);
     hoja.getRange(fila, colUsarManual).setValue(p.usar_costo_manual_receta === true || p.usar_costo_manual_receta === 'true');
+    hoja.getRange(fila, colTipoControl).setValue(tipoControl);
+    hoja.getRange(fila, colContenidoMl).setValue(contenidoMl || '');
+    hoja.getRange(fila, colDensidad).setValue(densidad || '');
+    hoja.getRange(fila, colTaraDefecto).setValue(taraDefecto);
     hoja.getRange(fila, MAESTRO_COL.ACTUALIZADO).setValue(ahora);
   });
 
