@@ -143,7 +143,14 @@ const MAESTRO_ENCABEZADOS = [
 // compra)', 'Moneda sugerida' y 'Fecha última compra' las llena solo
 // sincronizarMaestro() en cada corrida (dato derivado de Desglose_IA, se
 // pisa siempre, el usuario no las edita); el resto las llena el usuario
-// desde el modal "Ficha de producto" vía guardarFichaMaestro().
+// desde el modal "Ficha de producto" vía guardarFichaMaestro(). Excepción:
+// 'Costo por unidad' (2026-07-27) — mientras la fila no tenga ficha
+// completada (sin 'Ficha actualizada'), sincronizarMaestro() también la
+// pisa con el último precio de factura en colones (mismo valor que 'Costo
+// sugerido'), para que la columna "Costo de compra" de la tabla no quede
+// vacía. En cuanto se guarda la ficha una vez, pasa a ser 100% manual
+// (Precio sin IVA ÷ Cantidad presentación vía guardarFichaMaestro) y el
+// sync deja de tocarla.
 
 // Catálogos editables de clasificación (Área de negocio / Categoría /
 // Familia / Subfamilia) — pestaña "Configuracion", adaptada de la pestaña
@@ -811,6 +818,8 @@ function sincronizarMaestro() {
   const colMonedaSugerida = columnaPorNombre(hojaMaestro, 'Moneda sugerida');
   const colFechaUltimaCompra = columnaPorNombre(hojaMaestro, 'Fecha última compra');
   const colFichaActualizada = columnaPorNombre(hojaMaestro, 'Ficha actualizada');
+  const colCostoPorUnidad = columnaPorNombre(hojaMaestro, 'Costo por unidad');
+  const colArea = columnaPorNombre(hojaMaestro, 'Área de negocio');
 
   let nuevos = 0, actualizados = 0;
   const ahora = new Date();
@@ -837,6 +846,25 @@ function sincronizarMaestro() {
       const fichaYaCompleta = hojaMaestro.getRange(fila, colFichaActualizada).getValue();
       if (!fichaYaCompleta) {
         hojaMaestro.getRange(fila, MAESTRO_COL.CATEGORIA).setValue(categoria);
+        // "Costo por unidad" (= "Costo de compra" en la tabla) todavía no lo
+        // fijó nadie a mano desde la ficha: mientras tanto, que refleje el
+        // último precio de factura (igual que Costo sugerido) para que la
+        // columna no quede vacía ni desactualizada. Solo si la última compra
+        // vino en colones — en USD hace falta el tipo de cambio, que sólo se
+        // resuelve al completar la ficha (ver guardarFichaMaestro). En
+        // cuanto se guarda la ficha una vez, "Ficha actualizada" deja de
+        // estar vacía y este bloque no vuelve a pisar el valor manual.
+        if (colCostoPorUnidad && monedaSugerida !== 'USD' && costoSugerido !== '') {
+          hojaMaestro.getRange(fila, colCostoPorUnidad).setValue(costoSugerido);
+        }
+        // "Área de negocio" (2026-07-27) — mismo criterio: sin ficha
+        // completada, se rellena con la Categoría (que sí llega bien
+        // poblada desde Desglose_IA) para que Inventario pueda agrupar en
+        // vivo aunque nadie haya abierto la ficha todavía. En cuanto se
+        // guarda la ficha una vez, este bloque deja de pisar el valor.
+        if (colArea) {
+          hojaMaestro.getRange(fila, colArea).setValue(categoria);
+        }
       }
       hojaMaestro.getRange(fila, MAESTRO_COL.UNIDAD).setValue(unidad);
       hojaMaestro.getRange(fila, MAESTRO_COL.VECES_VISTO).setValue(g.categorias.length);
@@ -862,6 +890,16 @@ function sincronizarMaestro() {
       hojaMaestro.getRange(filaNueva, colCostoSugerido).setValue(costoSugerido);
       hojaMaestro.getRange(filaNueva, colMonedaSugerida).setValue(monedaSugerida);
       hojaMaestro.getRange(filaNueva, colFechaUltimaCompra).setValue(fechaUltimaCompra);
+      // Fila sin ficha todavía: mismo criterio que arriba, "Costo por
+      // unidad" arranca reflejando el último precio de factura (solo en
+      // colones) hasta que alguien complete la ficha a mano.
+      if (colCostoPorUnidad && monedaSugerida !== 'USD' && costoSugerido !== '') {
+        hojaMaestro.getRange(filaNueva, colCostoPorUnidad).setValue(costoSugerido);
+      }
+      // Mismo criterio de "Área de negocio" que arriba, para filas nuevas.
+      if (colArea) {
+        hojaMaestro.getRange(filaNueva, colArea).setValue(categoria);
+      }
       nuevos++;
     }
   });
