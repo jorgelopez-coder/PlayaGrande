@@ -55,6 +55,15 @@
  * copialos a mano a la pestaña "Proveedores" del Sheet "Inventario - Kioskos"
  * antes de borrar esa pestaña acá — no hace falta correr nada nuevo en este
  * backend, solo pegar el código y Nueva versión.
+ *
+ * v5 (2026-07-29): botón "Agregar factura manual" en cuentas-por-pagar.html
+ * (para facturas/recibos que no pasaron por el facturas-extractor de OCR).
+ * Nueva acción guardar_factura_manual(): agrega una fila directo a "Registro
+ * Facturas" con Fecha/Kiosko/Proveedor/Monto/Moneda; el número de factura es
+ * opcional y si no se indica se genera uno con prefijo "MANUAL-" para que la
+ * fila tenga clave propia (igual que cualquier otra, para pagos/abonos/
+ * borrado). No hace falta correr configurarHojas() de nuevo — solo pegar el
+ * código completo e Implementar > Gestionar implementaciones > Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -338,6 +347,9 @@ function doPost(e) {
       case 'registrar_abono':
         result = registrarAbono(payload);
         break;
+      case 'guardar_factura_manual':
+        result = guardarFacturaManual(payload);
+        break;
       case 'eliminar_factura':
         result = eliminarFactura(payload);
         break;
@@ -606,6 +618,35 @@ function registrarAbono(p) {
   hoja.getRange(fila, col).setValue(totalAbonado);
 
   return { fila: fila, total_abonado: totalAbonado };
+}
+
+// ── FACTURA MANUAL ─────────────────────────────────────────────────
+// Alta a mano desde cuentas-por-pagar.html (botón "Agregar factura manual"),
+// para facturas/recibos que no pasaron por el facturas-extractor de OCR de
+// ningún kiosko. Solo pide lo esencial (fecha, kiosko, proveedor, monto); el
+// número de factura es opcional porque muchos recibos en papel no tienen uno
+// claro. Si se deja vacío, se genera uno con prefijo "MANUAL-" para que la
+// fila tenga igual una clave (número + kiosko) con la que identificarla
+// después al registrar un pago/abono o al eliminarla (mismo mecanismo de
+// filaFacturaPorOrdinal que usa el resto de las acciones).
+function generarNumeroFacturaManual_() {
+  const marca = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Costa_Rica', 'yyyyMMdd-HHmmss');
+  const azar = Math.floor(100 + Math.random() * 900);
+  return 'MANUAL-' + marca + '-' + azar;
+}
+
+function guardarFacturaManual(p) {
+  if (!p.fecha) throw new Error('Falta la fecha de la factura.');
+  requerirKiosko(p);
+  if (!p.proveedor) throw new Error('Falta el proveedor.');
+  if (!p.monto || Number(p.monto) <= 0) throw new Error('Falta un monto válido.');
+
+  const numero = (p.numero_factura && String(p.numero_factura).trim()) || generarNumeroFacturaManual_();
+  const hoja = getHoja();
+  hoja.appendRow([
+    p.fecha, numero, p.proveedor, p.moneda || 'CRC', Number(p.monto), p.kiosko
+  ]);
+  return { numero_factura: numero, fila: hoja.getLastRow() };
 }
 
 function eliminarFactura(p) {

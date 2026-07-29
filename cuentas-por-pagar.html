@@ -340,6 +340,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
         Descargar reporte
       </button>
+      <button class="btn-mini pago" onclick="abrirModalFacturaManual()" style="display:flex;align-items:center;gap:6px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Agregar factura manual
+      </button>
     </div>
 
     <div class="card" id="panel-filtros" style="display:none;padding:1rem 1.25rem;margin-bottom:1rem;">
@@ -623,6 +627,55 @@
     <div class="modal-foot">
       <button class="btn-sec" onclick="cerrarModal('modal-abono')">Cancelar</button>
       <button class="btn-save" onclick="guardarAbono()">Guardar abono</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FACTURA MANUAL -->
+<div class="modal-bg" id="modal-factura-manual">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Agregar factura manual</div>
+        <div class="modal-sub">Para facturas que no llegaron por el proceso automático</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-factura-manual')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="fm-fecha">Fecha de la factura</label>
+        <input type="date" id="fm-fecha">
+      </div>
+      <div class="field">
+        <label for="fm-kiosko">Kiosko</label>
+        <select id="fm-kiosko"></select>
+      </div>
+      <div class="field">
+        <label for="fm-proveedor">Proveedor</label>
+        <input type="text" id="fm-proveedor" list="dl-fm-proveedores" placeholder="Seleccioná uno existente o escribí uno nuevo">
+        <datalist id="dl-fm-proveedores"></datalist>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="fm-numero">Número de factura (opcional)</label>
+          <input type="text" id="fm-numero" placeholder="Se genera automático si se deja vacío">
+        </div>
+        <div class="field">
+          <label for="fm-moneda">Moneda</label>
+          <select id="fm-moneda">
+            <option value="CRC" selected>Colones (₡)</option>
+            <option value="USD">Dólares (US$)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fm-monto">Monto</label>
+        <input type="number" step="0.01" min="0" id="fm-monto" placeholder="0.00">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModal('modal-factura-manual')">Cancelar</button>
+      <button class="btn-save" onclick="guardarFacturaManual()">Guardar factura</button>
     </div>
   </div>
 </div>
@@ -2345,6 +2398,59 @@ function cerrarModal(id) {
   document.getElementById(id).classList.remove('open');
 }
 
+// ── MODAL FACTURA MANUAL ───────────────────────────────────────────
+// Para facturas que no pasaron por el facturas-extractor automático (p.ej.
+// un recibo en papel). Se le pide solo lo esencial (fecha, kiosko, proveedor,
+// monto); el número de factura es opcional y si se deja vacío el backend le
+// asigna uno propio (prefijo MANUAL-) para que el resto del sistema (pagos,
+// abonos, duplicados) lo pueda identificar igual que a cualquier otra fila.
+function abrirModalFacturaManual() {
+  const selKiosko = document.getElementById('fm-kiosko');
+  selKiosko.innerHTML = KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${k}</option>`).join('');
+  if (kioskoActual) selKiosko.value = kioskoActual;
+  document.getElementById('fm-fecha').value = hoyISO;
+  document.getElementById('fm-proveedor').value = '';
+  document.getElementById('fm-numero').value = '';
+  document.getElementById('fm-moneda').value = 'CRC';
+  document.getElementById('fm-monto').value = '';
+  document.getElementById('modal-factura-manual').classList.add('open');
+}
+
+async function guardarFacturaManual() {
+  const fecha     = document.getElementById('fm-fecha').value;
+  const kiosko    = document.getElementById('fm-kiosko').value;
+  const proveedor = document.getElementById('fm-proveedor').value.trim();
+  const numero    = document.getElementById('fm-numero').value.trim();
+  const moneda    = document.getElementById('fm-moneda').value;
+  const monto     = parseFloat(document.getElementById('fm-monto').value);
+  if (!fecha)  { showToast('Ingresá la fecha de la factura.', 'error'); return; }
+  if (!kiosko) { showToast('Seleccioná el kiosko.', 'error'); return; }
+  if (!proveedor) { showToast('Ingresá el proveedor.', 'error'); return; }
+  if (!monto || monto <= 0) { showToast('Ingresá un monto válido.', 'error'); return; }
+  try {
+    await postAP({
+      modulo: 'guardar_factura_manual',
+      fecha: fecha, kiosko: kiosko, proveedor: proveedor,
+      numero_factura: numero, moneda: moneda, monto: monto
+    });
+    cerrarModal('modal-factura-manual');
+    showToast('Factura agregada ✓', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo guardar la factura: ' + e.message, 'error');
+  }
+}
+
+// Lista de proveedores ya ingresados para el campo con autocompletar de la
+// factura manual (input + datalist: deja elegir uno existente sin impedir
+// escribir uno nuevo que todavía no esté en el catálogo).
+function renderDatalistProveedoresManual() {
+  const dl = document.getElementById('dl-fm-proveedores');
+  if (!dl) return;
+  const ordenados = [...proveedores].sort((a,b) => (a.nombre_juridico||'').localeCompare(b.nombre_juridico||''));
+  dl.innerHTML = ordenados.map(p => `<option value="${escapeAttr(p.nombre_comercial||p.nombre_juridico)}">`).join('');
+}
+
 document.querySelectorAll('.modal-bg').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
 });
@@ -2437,6 +2543,7 @@ async function eliminarProveedorForm(id, nombre) {
 }
 
 function renderProveedoresTab() {
+  renderDatalistProveedoresManual();
   const cont = document.getElementById('prov-lista');
   if (!cont) return;
   if (!proveedores.length) {
