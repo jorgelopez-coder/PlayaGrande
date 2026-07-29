@@ -564,6 +564,11 @@
         <label for="pago-nota-credito">Nota de crédito asociada</label>
         <input type="text" id="pago-nota-credito" placeholder="Número de la nota de crédito">
       </div>
+      <div class="field" id="pago-campo-fondo" style="display:none;">
+        <label for="pago-fecha-efectivo">Fecha del efectivo</label>
+        <input type="date" id="pago-fecha-efectivo">
+        <div class="field-hint">Fecha del cierre de caja del que sale este pago — se rebaja de esa fecha en Depósitos.</div>
+      </div>
       <div class="field">
         <label for="pago-referencia">Referencia bancaria</label>
         <input type="text" id="pago-referencia" placeholder="Nº de transferencia / comprobante">
@@ -618,6 +623,11 @@
       <div class="field" id="abono-campo-notacredito" style="display:none;">
         <label for="abono-nota-credito">Nota de crédito asociada</label>
         <input type="text" id="abono-nota-credito" placeholder="Número de la nota de crédito">
+      </div>
+      <div class="field" id="abono-campo-fondo" style="display:none;">
+        <label for="abono-fecha-efectivo">Fecha del efectivo</label>
+        <input type="date" id="abono-fecha-efectivo">
+        <div class="field-hint">Fecha del cierre de caja del que sale este abono — se rebaja de esa fecha en Depósitos.</div>
       </div>
       <div class="field">
         <label for="abono-referencia">Referencia bancaria</label>
@@ -720,6 +730,13 @@ const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3Bogjtj
 // esos tres archivos.
 const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
+// 2026-07-29: mismo backend/Sheet de Cierres que usan depositos.html/
+// indicadores.html/index.html (Code-cierres-kioskos-backend.gs). Se usa solo
+// para mandar en paralelo las "Salidas de fondo de caja" (pagos/abonos a
+// proveedor con Medio de pago = "Fondo de caja"), para que esos otros tres
+// módulos rebajen el monto del "efectivo pendiente de depositar" de la fecha
+// que corresponda — ver guardarPago()/guardarAbono() más abajo.
+const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 // ─────────────────────────────────────────────────────────────────
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -2163,6 +2180,29 @@ async function postInv(payload) {
   return json.result;
 }
 
+// Igual que asignarDeposito() en depositos.html: manda al backend de Cierres
+// (mismo Sheet/Web App que depositos.html/indicadores.html/index.html, ver
+// SHEETS_URL_CIERRES arriba) con mode:'no-cors' — Apps Script no manda
+// headers CORS, así que la respuesta queda opaca y no se puede leer; si el
+// fetch no lanza excepción se asume guardado. No bloquea el flujo de pago si
+// falla: el pago en Cuentas por pagar ya quedó guardado igual, solo faltaría
+// rebajarlo a mano en Depósitos.
+async function enviarSalidaFondo(fecha, kiosko, monto, proveedor, factura, referencia, notas) {
+  try {
+    await fetch(SHEETS_URL_CIERRES, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        type: 'salidaFondo', id: Date.now(),
+        fecha, kiosko, monto, proveedor, factura, referencia, notas,
+        origen: 'Cuentas por pagar'
+      })
+    });
+  } catch(e) {
+    showToast('Pago guardado, pero no se pudo avisar a Depósitos — rebajalo a mano ahí.', 'error');
+  }
+}
+
 // Salta a la pestaña Proveedores con el nombre ya prellenado, para completar
 // ahí toda la información (categoría, contacto, condición de pago, etc.).
 function agregarProveedorRapido(nombre) {
@@ -2293,6 +2333,7 @@ function actualizarCamposMedioPago(prefix) {
   const medio = document.getElementById(prefix + '-medio').value;
   document.getElementById(prefix + '-campo-reembolso').style.display = medio === 'Reembolso' ? '' : 'none';
   document.getElementById(prefix + '-campo-notacredito').style.display = medio === 'Nota de crédito' ? '' : 'none';
+  document.getElementById(prefix + '-campo-fondo').style.display = medio === 'Fondo de caja' ? '' : 'none';
 }
 
 // ── MODAL PAGO TOTAL ───────────────────────────────────────────────
@@ -2306,6 +2347,7 @@ function abrirModalPago(numero, kiosko) {
   document.getElementById('pago-medio').value = 'Transferencia';
   document.getElementById('pago-reembolso-a').value = '';
   document.getElementById('pago-nota-credito').value = '';
+  document.getElementById('pago-fecha-efectivo').value = hoyISO;
   document.getElementById('pago-referencia').value = '';
   actualizarCamposMedioPago('pago');
   document.getElementById('modal-pago').classList.add('open');
@@ -2318,10 +2360,12 @@ async function guardarPago() {
   const medio  = document.getElementById('pago-medio').value;
   const reembolsoA  = document.getElementById('pago-reembolso-a').value.trim();
   const notaCredito = document.getElementById('pago-nota-credito').value.trim();
+  const fechaEfectivo = document.getElementById('pago-fecha-efectivo').value;
   const referencia = document.getElementById('pago-referencia').value.trim();
   if (!fecha) { showToast('Ingresá la fecha de pago.', 'error'); return; }
   if (medio === 'Reembolso' && !reembolsoA) { showToast('Ingresá a quién se reembolsa.', 'error'); return; }
   if (medio === 'Nota de crédito' && !notaCredito) { showToast('Ingresá la nota de crédito asociada.', 'error'); return; }
+  if (medio === 'Fondo de caja' && !fechaEfectivo) { showToast('Ingresá la fecha del efectivo (cierre de caja).', 'error'); return; }
   const f = facturaPorNumero(numero, kiosko);
   if (!f) return;
   try {
@@ -2329,8 +2373,11 @@ async function guardarPago() {
       modulo: 'registrar_pago',
       numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
       monto: f.monto, fecha_pago: fecha, medio_pago: medio, referencia: referencia,
-      reembolso_a: reembolsoA, nota_credito: notaCredito
+      reembolso_a: reembolsoA, nota_credito: notaCredito, fecha_efectivo: fechaEfectivo
     });
+    if (medio === 'Fondo de caja') {
+      await enviarSalidaFondo(fechaEfectivo, kiosko, f.montoColones || f.monto, f.proveedor, numero, referencia, 'Pago total');
+    }
     f.fechaRealPago = fecha;
     f.medioPago = medio;
     f.referenciaPago = referencia;
@@ -2357,6 +2404,7 @@ function abrirModalAbono(numero, kiosko) {
   document.getElementById('abono-medio').value = 'Transferencia';
   document.getElementById('abono-reembolso-a').value = '';
   document.getElementById('abono-nota-credito').value = '';
+  document.getElementById('abono-fecha-efectivo').value = hoyISO;
   document.getElementById('abono-referencia').value = '';
   document.getElementById('abono-saldo-hint').textContent = `Saldo pendiente: ${fmt(f.saldoPendiente)}`;
   actualizarCamposMedioPago('abono');
@@ -2371,11 +2419,13 @@ async function guardarAbono() {
   const medio  = document.getElementById('abono-medio').value;
   const reembolsoA  = document.getElementById('abono-reembolso-a').value.trim();
   const notaCredito = document.getElementById('abono-nota-credito').value.trim();
+  const fechaEfectivo = document.getElementById('abono-fecha-efectivo').value;
   const referencia = document.getElementById('abono-referencia').value.trim();
   if (!fecha) { showToast('Ingresá la fecha del abono.', 'error'); return; }
   if (!monto || monto <= 0) { showToast('Ingresá un monto de abono válido.', 'error'); return; }
   if (medio === 'Reembolso' && !reembolsoA) { showToast('Ingresá a quién se reembolsa.', 'error'); return; }
   if (medio === 'Nota de crédito' && !notaCredito) { showToast('Ingresá la nota de crédito asociada.', 'error'); return; }
+  if (medio === 'Fondo de caja' && !fechaEfectivo) { showToast('Ingresá la fecha del efectivo (cierre de caja).', 'error'); return; }
 
   const f = facturaPorNumero(numero, kiosko);
   if (!f) return;
@@ -2384,8 +2434,11 @@ async function guardarAbono() {
       modulo: 'registrar_abono',
       numero_factura: numero, kiosko: kiosko, ordinal: f.ordinal, fecha_factura: f.fechaFactura,
       fecha_abono: fecha, monto_abono: monto, medio_pago: medio, referencia: referencia,
-      reembolso_a: reembolsoA, nota_credito: notaCredito
+      reembolso_a: reembolsoA, nota_credito: notaCredito, fecha_efectivo: fechaEfectivo
     });
+    if (medio === 'Fondo de caja') {
+      await enviarSalidaFondo(fechaEfectivo, kiosko, monto, f.proveedor, numero, referencia, 'Abono parcial');
+    }
     dataAbonos.push({ 'Factura': numero, 'Kiosko': kiosko, 'Fecha de abono': fecha, 'Monto abonado': monto, 'Medio de pago': medio, 'Referencia': referencia });
     f.totalAbonado = result.total_abonado != null ? result.total_abonado : (f.totalAbonado||0) + monto;
     f.saldoPendiente = Math.round(((f.montoColones||0) - f.totalAbonado) * 100) / 100;

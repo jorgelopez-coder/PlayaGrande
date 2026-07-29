@@ -691,12 +691,13 @@ function mermasPorDiaKiosko(mermasRaw, kiosko, desde, hasta) {
 // (efectivo pendiente de depositar — saldo actual, no depende del rango) ──
 async function obtenerCierresYDepositos() {
   try {
-    const [rCierres, rDepositos] = await Promise.all([
+    const [rCierres, rDepositos, rSalidasFondo] = await Promise.all([
       fetch(SHEETS_URL_CIERRES + '?action=read').then(r=>r.json()),
-      fetch(SHEETS_URL_CIERRES + '?action=depositos').then(r=>r.json())
+      fetch(SHEETS_URL_CIERRES + '?action=depositos').then(r=>r.json()),
+      fetch(SHEETS_URL_CIERRES + '?action=salidasfondo').then(r=>r.json())
     ]);
-    return { cierres: rCierres.records || [], depositos: rDepositos.records || [] };
-  } catch(e) { return { cierres:[], depositos:[] }; }
+    return { cierres: rCierres.records || [], depositos: rDepositos.records || [], salidasFondo: rSalidasFondo.records || [] };
+  } catch(e) { return { cierres:[], depositos:[], salidasFondo:[] }; }
 }
 function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
   const porDia = {};
@@ -709,10 +710,12 @@ function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
   return porDia;
 }
 // Efectivo pendiente de depositar — mismo cálculo que depositos.html/index.html:
-// (billetes+monedas contados) - fondo de caja, por fecha, excluyendo fechas
-// que ya tengan un depósito asignado. Es un saldo acumulado a hoy, no se
-// filtra por el rango de fechas del selector.
-function efectivoPendienteKiosko(cierresRaw, depositosRaw, kiosko) {
+// (billetes+monedas contados) - fondo de caja - salidas de fondo de caja
+// (pagos a proveedor con Medio de pago = "Fondo de caja", ver
+// SalidasFondoCaja en Code-cierres-kioskos-backend.gs), por fecha,
+// excluyendo fechas que ya tengan un depósito asignado. Es un saldo
+// acumulado a hoy, no se filtra por el rango de fechas del selector.
+function efectivoPendienteKiosko(cierresRaw, depositosRaw, salidasFondoRaw, kiosko) {
   const porFecha = {};
   cierresRaw.forEach(r => {
     if ((r[COL_KIOSKO]||'') !== kiosko) return;
@@ -725,6 +728,12 @@ function efectivoPendienteKiosko(cierresRaw, depositosRaw, kiosko) {
     if (!porFecha[fecha]) porFecha[fecha] = { crc:0, usd:0 };
     porFecha[fecha].crc += (caja - fondo);
     porFecha[fecha].usd += usdTotal;
+  });
+  (salidasFondoRaw||[]).forEach(r => {
+    if (!r[0] || (r[3]||'') !== kiosko) return;
+    const fecha = String(r[2]||'').slice(0,10);
+    if (!fecha || !porFecha[fecha]) return;
+    porFecha[fecha].crc -= (+r[4]||0);
   });
   const cubiertas = new Set();
   depositosRaw.forEach(r => {
@@ -1006,7 +1015,7 @@ async function calcularIndicadores() {
     const mermaTotalG = Object.values(mermaPorDia).reduce((s,g)=>s+g,0);
     const tipsPorDia = tipsPorDiaKiosko(cierresDepositos.cierres, kiosko, desde, hasta);
     const tipsTotal = Object.values(tipsPorDia).reduce((s,t)=>s+t,0);
-    const efPend = efectivoPendienteKiosko(cierresDepositos.cierres, cierresDepositos.depositos, kiosko);
+    const efPend = efectivoPendienteKiosko(cierresDepositos.cierres, cierresDepositos.depositos, cierresDepositos.salidasFondo, kiosko);
 
     let ventasTotal = null, onzasTotal = null, mermaPct = null, tipsVentasPct = null;
     if (sq && sq.ok) {

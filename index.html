@@ -763,15 +763,17 @@ async function cargarKPIs() {
   const compareBody = document.getElementById('compare-kioskos-body');
   const squareEntries = Object.entries(SQUARE_KIOSKOS);
   try {
-    const [respCierres, respTipsPagos, respDepositos, ...squareResumenes] = await Promise.all([
+    const [respCierres, respTipsPagos, respDepositos, respSalidasFondo, ...squareResumenes] = await Promise.all([
       fetch(SHEETS_URL_CIERRES + '?action=read'),
       fetch(SHEETS_URL_CIERRES + '?action=tipspagos'),
       fetch(SHEETS_URL_CIERRES + '?action=depositos'),
+      fetch(SHEETS_URL_CIERRES + '?action=salidasfondo'),
       ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
     ]);
     const data = await respCierres.json();
     const dataTipsPagos = await respTipsPagos.json();
     const dataDepositos = await respDepositos.json();
+    const dataSalidasFondo = await respSalidasFondo.json();
     const cierresRaw = data.records || [];
     const registros = cierresRaw.map(r => ({
       fecha: String(r[1]||'').slice(0,10),
@@ -784,7 +786,7 @@ async function cargarKPIs() {
     squareEntries.forEach(([nombre], i) => { squareResumen[nombre] = squareResumenes[i]; });
 
     const tipsPendientesArr = renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
-    const efectivoPendientesArr = renderEfectivoPendiente(cierresRaw, dataDepositos.records || []);
+    const efectivoPendientesArr = renderEfectivoPendiente(cierresRaw, dataDepositos.records || [], dataSalidasFondo.records || []);
 
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
@@ -839,8 +841,9 @@ function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
 }
 
 // ── EFECTIVO PENDIENTE DE DEPOSITAR (hoja Cierres agregada por kiosko +
-// fecha, vs. hoja Depositos — mismo cálculo que depositos.html) ──
-function renderEfectivoPendiente(cierresRaw, depositosRaw) {
+// fecha, vs. hoja Depositos — mismo cálculo que depositos.html, restando
+// también las salidas de fondo de caja de cuentas-por-pagar.html) ──
+function renderEfectivoPendiente(cierresRaw, depositosRaw, salidasFondoRaw) {
   const porKioskoFecha = {};
   cierresRaw.forEach(r => {
     const fecha = String(r[COL_DEP_FECHA]||'').slice(0,10);
@@ -854,6 +857,15 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw) {
     COL_DEP_MONEDAS_CRC.forEach((c,i)  => { caja += (+r[c]||0) * DENOMS_DEP_MONEDAS_CRC[i]; });
     porKioskoFecha[key].crc += (caja - fondo);
     porKioskoFecha[key].usd += usdTotal;
+  });
+
+  (salidasFondoRaw||[]).forEach(r => {
+    if (!r[0]) return;
+    const kiosko = r[3] || '';
+    const fecha = String(r[2]||'').slice(0,10);
+    const key = kiosko + '|' + fecha;
+    if (!fecha || !kiosko || !porKioskoFecha[key]) return;
+    porKioskoFecha[key].crc -= (+r[4]||0);
   });
 
   const cubiertas = {}; // { kiosko: Set(fechas ya con depósito asignado) }

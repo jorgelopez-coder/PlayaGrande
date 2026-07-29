@@ -438,6 +438,8 @@ function fechaLbl(iso) {
 let kioskoActual = localStorage.getItem('kiosko_actual') || '';
 let cierresRaw = [];       // registros crudos de la hoja Cierres (todos los kioskos)
 let depositosRaw = [];     // registros crudos de la hoja Depositos (todos los kioskos)
+let salidasFondoRaw = [];  // registros crudos de la hoja SalidasFondoCaja (todos los kioskos) — ver
+                            // Code-cierres-kioskos-backend.gs / cuentas-por-pagar.html
 let porFecha = {};         // { 'YYYY-MM-DD': {...} } — ya filtrado por kioskoActual
 let fechasOrdenadas = [];  // más reciente primero
 let depositosData = [];    // depósitos del kioskoActual, parseados
@@ -481,12 +483,14 @@ function alCambiarKioskoDep() {
 // ── CARGA DE DATOS ────────────────────────────────────────────────
 async function cargarDatos() {
   try {
-    const [rCierres, rDepositos] = await Promise.all([
+    const [rCierres, rDepositos, rSalidasFondo] = await Promise.all([
       fetch(SHEETS_URL + '?action=read').then(r => r.json()),
-      fetch(SHEETS_URL + '?action=depositos').then(r => r.json())
+      fetch(SHEETS_URL + '?action=depositos').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=salidasfondo').then(r => r.json())
     ]);
     cierresRaw = rCierres.records || [];
     depositosRaw = rDepositos.records || [];
+    salidasFondoRaw = rSalidasFondo.records || [];
     recalcularYRenderizar();
   } catch(e) {
     document.getElementById('tabla-resumen-body').innerHTML = '<tr><td colspan="4" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
@@ -503,6 +507,7 @@ async function cargarDatos() {
 function recalcularYRenderizar() {
   const registrosKiosko = cierresRaw.filter(r => (r[COL_KIOSKO]||'') === kioskoActual);
   porFecha = agregarPorFecha(registrosKiosko);
+  aplicarSalidasFondo(porFecha, kioskoActual);
   fechasOrdenadas = Object.keys(porFecha).sort((a,b) => b.localeCompare(a));
 
   depositosData = depositosRaw.filter(r => r[0] && (r[3]||'') === kioskoActual).map(r => {
@@ -542,6 +547,7 @@ function agregarPorFecha(records) {
     if (!fecha) return;
     if (!out[fecha]) out[fecha] = {
       fecha, crc: 0, usd: 0, caja: 0, fondo: 0, cierres: 0,
+      salidasFondo: 0, salidasFondoItems: [],
       billetesCrc: DENOMS_BILLETES_CRC.map(()=>0),
       monedasCrc: DENOMS_MONEDAS_CRC.map(()=>0),
       billetesUsd: DENOMS_BILLETES_USD.map(()=>0)
@@ -562,13 +568,32 @@ function agregarPorFecha(records) {
   return out;
 }
 
+// Rebaja del "a depositar" (d.crc) los pagos a proveedor hechos con Fondo de
+// caja (registrados desde cuentas-por-pagar.html, ver hoja SalidasFondoCaja
+// en Code-cierres-kioskos-backend.gs) — ese dinero nunca va a llegar al banco
+// porque salió directo del efectivo retenido en el cierre de esa fecha. Si la
+// fecha del efectivo no tiene cierre registrado en este kiosko todavía, no
+// hay de dónde rebajarlo (queda solo en el registro de Cuentas por pagar).
+function aplicarSalidasFondo(porFechaObj, kiosko) {
+  salidasFondoRaw.forEach(r => {
+    if (!r[0] || (r[3]||'') !== kiosko) return;
+    const fecha = soloFecha(r[2]);
+    const d = porFechaObj[fecha];
+    if (!fecha || !d) return;
+    const monto = +r[4] || 0;
+    d.salidasFondo += monto;
+    d.salidasFondoItems.push({ proveedor: r[5]||'', factura: r[6]||'', referencia: r[7]||'', notas: r[8]||'', monto });
+    d.crc = Math.round((d.crc - monto) * 100) / 100;
+  });
+}
+
 // ── TAB 1: RESUMEN DIARIO ─────────────────────────────────────────
 function idDetalle(fecha) { return 'det-' + fecha; }
 
 // ── KPI: EFECTIVO SIN DEPÓSITO ASIGNADO ───────────────────────────
 function agregarTotalesPendientes(pendientes) {
   const agg = {
-    crc: 0, usd: 0, caja: 0, fondo: 0,
+    crc: 0, usd: 0, caja: 0, fondo: 0, salidasFondo: 0, salidasFondoItems: [],
     billetesCrc: DENOMS_BILLETES_CRC.map(()=>0),
     monedasCrc: DENOMS_MONEDAS_CRC.map(()=>0),
     billetesUsd: DENOMS_BILLETES_USD.map(()=>0)
@@ -577,6 +602,8 @@ function agregarTotalesPendientes(pendientes) {
     const d = porFecha[fecha];
     if (!d) return;
     agg.crc += d.crc; agg.usd += d.usd; agg.caja += d.caja; agg.fondo += d.fondo;
+    agg.salidasFondo += d.salidasFondo||0;
+    agg.salidasFondoItems = agg.salidasFondoItems.concat((d.salidasFondoItems||[]).map(it => Object.assign({fecha}, it)));
     d.billetesCrc.forEach((q,i) => agg.billetesCrc[i] += q);
     d.monedasCrc.forEach((q,i) => agg.monedasCrc[i] += q);
     d.billetesUsd.forEach((q,i) => agg.billetesUsd[i] += q);
@@ -724,9 +751,18 @@ function renderDenomDetalleHTMLFromAgg(d) {
   }
   html += '</div>';
 
+  if (d.salidasFondoItems && d.salidasFondoItems.length) {
+    html += '<div class="denom-section-label" style="margin-top:.75rem">Pagos con fondo de caja (rebajados)</div>';
+    d.salidasFondoItems.forEach(it => {
+      const etiqueta = [it.proveedor, it.factura].filter(Boolean).join(' · ') + (it.fecha ? ` <span class="q">(${it.fecha})</span>` : '');
+      html += `<div class="denom-detail-row"><span>${etiqueta || 'Pago con fondo de caja'}</span><span class="v" style="color:var(--red);">− ${fmtCRC(it.monto)}</span></div>`;
+    });
+  }
+
   html += `<div class="cuadre-card" style="margin-top:.5rem">
     <div class="cuadre-row"><label>Total contado en caja (₡)</label><span class="val">${fmtCRC(d.caja)}</span></div>
     <div class="cuadre-row"><label>Fondo de caja retenido (₡)</label><span class="val">${fmtCRC(d.fondo)}</span></div>
+    ${d.salidasFondo ? `<div class="cuadre-row"><label>Salidas de fondo de caja (pagos a proveedor)</label><span class="val" style="color:var(--red);">− ${fmtCRC(d.salidasFondo)}</span></div>` : ''}
     <div class="cuadre-total"><span>A depositar (₡)</span><span class="val">${fmtCRC(d.crc)}</span></div>
     ${d.usd > 0 ? `<div class="cuadre-row" style="margin-top:6px"><label>A depositar ($)</label><span class="val">${fmtUSD(d.usd)}</span></div>` : ''}
   </div>`;
