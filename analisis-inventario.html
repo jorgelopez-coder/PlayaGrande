@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>COGS · Análisis de Inventario · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --teal:#0e7a7a;--teal-bg:#eaf6f6;--teal-lt:#a8d8d8;
+  --purple:#6a3a9a;--purple-bg:#f3eefb;--purple-lt:#d4b8f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+.sync-btn{font-family:var(--font-m);font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;display:flex;align-items:center;gap:6px;margin-left:8px}
+.sync-btn:hover{border-color:var(--border-h);color:var(--text)}
+.sync-btn svg{width:12px;height:12px}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+/* ── Filtros ── */
+.filtro-row{display:flex;flex-wrap:wrap;gap:22px;margin-bottom:1rem}
+.filtro-group{display:flex;flex-direction:column;gap:6px;min-width:180px;flex:1}
+.grp-lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+select{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 32px 8px 11px;outline:none;appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;width:100%}
+select:focus{border-color:var(--green)}
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:13px;font-weight:700;padding:10px 20px;cursor:pointer;transition:opacity .15s;white-space:nowrap;align-self:flex-end}
+.btn-primary:hover{opacity:.87}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.filtro-resumen{font-size:11.5px;color:var(--subtle);border-top:1px solid var(--border);padding-top:.85rem;margin-top:.25rem}
+
+/* ── KPIs ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:1rem}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:20px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.kpi-box.kpi-cogs{background:var(--green-bg);border-color:var(--green-lt)}
+.kpi-box.kpi-cogs .kpi-val,.kpi-box.kpi-cogs .kpi-lbl{color:var(--green)}
+
+/* ── Period badge ── */
+.period-note{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--muted);margin-bottom:1rem}
+.period-note strong{color:var(--text);font-weight:500}
+.sep{color:var(--subtle)}
+
+/* ── Aviso ── */
+.aviso-warn{display:flex;gap:8px;font-size:11.5px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:8px;padding:.65rem 1rem;margin-bottom:1rem;line-height:1.45}
+
+/* ── Tabla de categorías ── */
+.cat-section{margin-bottom:12px}
+.cat-header{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-top-left-radius:10px;border-top-right-radius:10px;padding:.6rem 1rem;border-bottom:none}
+.cat-name{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cat-cogs-sum{font-family:var(--font-m);font-size:13px;font-weight:600;color:var(--text)}
+.compare-wrap{overflow-x:auto}
+.prod-table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border:1px solid var(--border);border-bottom-left-radius:10px;border-bottom-right-radius:10px;min-width:560px}
+.prod-table th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);white-space:nowrap}
+.prod-table th.r,.prod-table td.r{text-align:right}
+.prod-table td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.prod-table tbody tr:last-child td{border-bottom:none}
+.prod-table tbody tr:hover{background:var(--surface)}
+.td-mono{font-family:var(--font-m);font-size:12px}
+.td-prod{max-width:280px;font-weight:500}
+.flag{font-size:10px;color:var(--amber);font-family:var(--font-b);margin-left:5px}
+.flag-gone{color:var(--subtle)}
+.subtotal-row td{background:var(--surface);font-family:var(--font-m);font-size:12px;font-weight:600;border-top:1px solid var(--border-h)}
+.subtotal-row td:first-child{font-family:var(--font-b);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+
+/* ── Gran total ── */
+.total-wrap{margin-top:.5rem}
+.total-table{width:100%;border-collapse:collapse;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:var(--radius);overflow:hidden;font-size:13px}
+.total-table td{padding:13px 12px;font-weight:700;font-family:var(--font-m);color:var(--green)}
+.total-table td:first-child{font-family:var(--font-d);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:800}
+.total-table td.r{text-align:right}
+
+/* ── Empty / loading ── */
+.empty{text-align:center;padding:3rem;color:var(--subtle);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.empty strong{display:block;margin-bottom:.35rem;color:var(--muted);font-family:var(--font-d);font-size:15px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .tabs{padding:0 1rem}
+  .filtro-row{gap:14px}
+  .td-prod{max-width:140px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">COGS · Análisis de Inventario</span>
+  </div>
+  <div style="display:flex;align-items:center;">
+    <span class="date-chip" id="date-chip"></span>
+    <button class="sync-btn" onclick="cargarTodo()" title="Recargar datos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Actualizar
+    </button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('cogs',this)">COGS · Período</button>
+</div>
+
+<main>
+
+  <!-- ── TAB: COGS ── -->
+  <div class="page active" id="tab-cogs">
+
+    <div class="card">
+      <p class="card-title">Seleccionar período de análisis</p>
+      <div class="filtro-row">
+        <div class="filtro-group">
+          <label class="grp-lbl">Kiosko</label>
+          <select id="sel-kiosko" onchange="onKioskoChange()">
+            <option value="">— cargando… —</option>
+          </select>
+        </div>
+        <div class="filtro-group">
+          <label class="grp-lbl">Toma inicial</label>
+          <select id="sel-inicio">
+            <option value="">— seleccioná kiosko —</option>
+          </select>
+        </div>
+        <div class="filtro-group">
+          <label class="grp-lbl">Toma final</label>
+          <select id="sel-fin">
+            <option value="">— seleccioná kiosko —</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="btn-calc" onclick="calcular()" disabled>Calcular COGS</button>
+      </div>
+      <div class="filtro-resumen" id="filtro-resumen">
+        <span class="spinner"></span>Cargando historial de inventarios y facturas…
+      </div>
+    </div>
+
+    <div id="results-area"></div>
+
+  </div>
+
+</main>
+
+<script>
+// ── CONTROL DE ACCESO ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now()-PORTAL_SESION.ts) >= 8*60*60*1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href='login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('analisis-inventario')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href='index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION||PORTAL_SESION.kioskos==='todos') return lista;
+  return (lista||[]).filter(k=>PORTAL_SESION.kioskos.includes(k));
+}
+
+// ── CONFIG ──
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
+const COMPRAS_SHEET_ID    = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+
+let histAll    = [];
+let comprasAll = [];
+let snapshots  = [];
+
+// ── Fecha en header ──
+(function(){
+  var h=new Date();
+  document.getElementById('date-chip').textContent=
+    h.toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+})();
+
+// ── Helpers ──
+function fmtCRC(n){return '₡'+Math.round(n||0).toLocaleString('es-CR');}
+function esc(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function parseNum(v){if(typeof v==='number') return v; return parseFloat(String(v||'').replace(/[^0-9.\-]/g,''))||0;}
+function parseGvizDate(v){
+  var s=String(v||'');
+  var m=s.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if(m) return new Date(+m[1],+m[2],+m[3]);
+  if(s.length>=8){var d=new Date(s);if(!isNaN(d.getTime())) return d;}
+  return null;
+}
+function claveNorm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+
+function showTab(id,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab-'+id).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+}
+
+// ── gviz: leer cualquier Sheet (sin CORS) ──
+function gvizLoad(sheetId, hoja){
+  return new Promise(function(resolve){
+    var cb='_ci_'+Math.random().toString(36).slice(2,10);
+    var url='https://docs.google.com/spreadsheets/d/'+sheetId
+           +'/gviz/tq?tqx=responseHandler:'+cb
+           +'&sheet='+encodeURIComponent(hoja)
+           +'&headers=1';
+    var s;
+    var timer=setTimeout(function(){cleanup();resolve([]);},25000);
+    function cleanup(){
+      clearTimeout(timer);
+      try{delete window[cb];}catch(e){}
+      try{if(s&&s.parentNode)s.parentNode.removeChild(s);}catch(e){}
+    }
+    window[cb]=function(resp){
+      cleanup();
+      try{
+        var cols=(resp.table.cols||[]).map(function(c){return String(c.label||c.id||'').trim();});
+        var rows=(resp.table.rows||[]).filter(function(r){return r&&r.c;}).map(function(row){
+          var obj={};
+          cols.forEach(function(col,i){
+            var cell=row.c[i];
+            if(!cell){obj[col]='';obj['_v_'+col]=null;return;}
+            obj[col]     = cell.f!=null?cell.f:(cell.v!=null?String(cell.v):'');
+            obj['_v_'+col] = cell.v!=null?cell.v:null;
+          });
+          return obj;
+        });
+        resolve(rows);
+      }catch(e){resolve([]);}
+    };
+    s=document.createElement('script');
+    s.onerror=function(){cleanup();resolve([]);};
+    s.src=url;
+    document.body.appendChild(s);
+  });
+}
+
+// ── Construir lista de snapshots únicos ──
+function buildSnapshots(){
+  var seen={};
+  histAll.forEach(function(row){
+    var id     =(row['Toma ID']||'').trim();
+    var kiosko =(row['Kiosko']||'').trim();
+    var fechaFmt=row['Fecha toma']||'';
+    var fechaRaw=parseGvizDate(row['_v_Fecha toma']);
+    if(!id||!kiosko) return;
+    var key=id+'|'+kiosko;
+    if(!seen[key]){
+      seen[key]={id:id,kiosko:kiosko,fechaFmt:fechaFmt,fechaRaw:fechaRaw};
+      snapshots.push(seen[key]);
+    }
+  });
+  snapshots.sort(function(a,b){
+    if(a.kiosko!==b.kiosko) return a.kiosko.localeCompare(b.kiosko,'es');
+    var da=a.fechaRaw||new Date(0),db=b.fechaRaw||new Date(0);
+    return da-db;
+  });
+}
+
+function populateKioskos(){
+  var todos=[];
+  snapshots.forEach(function(s){if(!todos.includes(s.kiosko))todos.push(s.kiosko);});
+  todos.sort(function(a,b){return a.localeCompare(b,'es');});
+  var permitidos=kioskosPermitidos(todos);
+  var sel=document.getElementById('sel-kiosko');
+  sel.innerHTML='<option value="">— Seleccioná kiosko —</option>';
+  permitidos.forEach(function(k){
+    var o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);
+  });
+  if(permitidos.length===1){sel.value=permitidos[0];onKioskoChange();}
+}
+
+function onKioskoChange(){
+  var kiosko=document.getElementById('sel-kiosko').value;
+  var ks=snapshots.filter(function(s){return s.kiosko===kiosko;});
+  var selI=document.getElementById('sel-inicio');
+  var selF=document.getElementById('sel-fin');
+  selI.innerHTML='<option value="">— Toma inicial —</option>';
+  selF.innerHTML='<option value="">— Toma final —</option>';
+  ks.forEach(function(s,i){
+    var lbl=s.fechaFmt+' (toma '+(i+1)+')';
+    selI.insertAdjacentHTML('beforeend','<option value="'+esc(s.id)+'">'+esc(lbl)+'</option>');
+    selF.insertAdjacentHTML('beforeend','<option value="'+esc(s.id)+'">'+esc(lbl)+'</option>');
+  });
+  if(ks.length>=2){selI.value=ks[0].id;selF.value=ks[ks.length-1].id;}
+}
+
+// ── Calcular COGS ──
+function calcular(){
+  var kiosko  =document.getElementById('sel-kiosko').value;
+  var idInicio=document.getElementById('sel-inicio').value;
+  var idFin   =document.getElementById('sel-fin').value;
+  if(!kiosko||!idInicio||!idFin){alert('Seleccioná kiosko y dos tomas.');return;}
+  if(idInicio===idFin){alert('Las dos tomas deben ser distintas.');return;}
+
+  var snapI=snapshots.find(function(s){return s.id===idInicio&&s.kiosko===kiosko;});
+  var snapF=snapshots.find(function(s){return s.id===idFin&&s.kiosko===kiosko;});
+
+  var rowsI=histAll.filter(function(r){return (r['Toma ID']||'').trim()===idInicio&&(r['Kiosko']||'').trim()===kiosko;});
+  var rowsF=histAll.filter(function(r){return (r['Toma ID']||'').trim()===idFin&&(r['Kiosko']||'').trim()===kiosko;});
+
+  var fechaI=snapI&&snapI.fechaRaw?snapI.fechaRaw:new Date(0);
+  var fechaF=snapF&&snapF.fechaRaw?snapF.fechaRaw:new Date('9999');
+  if(fechaI>fechaF){
+    var tmp;tmp=rowsI;rowsI=rowsF;rowsF=tmp;tmp=fechaI;fechaI=fechaF;fechaF=tmp;tmp=snapI;snapI=snapF;snapF=tmp;
+  }
+
+  // Mapa inventario inicial: producto → valor total
+  var mapI={};
+  rowsI.forEach(function(r){
+    var p=(r['Producto']||'').trim();if(!p)return;
+    if(!mapI[p])mapI[p]={cat:(r['Categoría']||'Sin categoría').trim(),valor:0};
+    mapI[p].valor+=parseNum(r['_v_Valor total línea']);
+  });
+
+  // Mapa inventario final
+  var mapF={};
+  rowsF.forEach(function(r){
+    var p=(r['Producto']||'').trim();if(!p)return;
+    if(!mapF[p])mapF[p]={cat:(r['Categoría']||'Sin categoría').trim(),valor:0};
+    mapF[p].valor+=parseNum(r['_v_Valor total línea']);
+  });
+
+  // Compras del período (mismo kiosko, fecha entre snapshots)
+  var comprasK=comprasAll.filter(function(r){
+    var k=(r['Kiosko']||'').trim();
+    if(claveNorm(k)!==claveNorm(kiosko))return false;
+    var fd=parseGvizDate(r['_v_Fecha de factura']);
+    if(fd&&(fd<fechaI||fd>fechaF))return false;
+    return true;
+  });
+
+  // Mapa compras por nombre normalizado
+  var mapC={};
+  comprasK.forEach(function(r){
+    var nNorm=claveNorm(r['Nombre normalizado']||r['Producto']||'');
+    if(!nNorm)return;
+    if(!mapC[nNorm])mapC[nNorm]={total:0,lineas:0,matched:false};
+    mapC[nNorm].total+=parseNum(r['_v_Total línea']);
+    mapC[nNorm].lineas++;
+  });
+
+  // Combinar todos los productos
+  var allProds={};
+  Object.keys(mapI).forEach(function(p){allProds[p]=true;});
+  Object.keys(mapF).forEach(function(p){allProds[p]=true;});
+
+  var results=[];
+  Object.keys(allProds).forEach(function(prod){
+    var iRow=mapI[prod],fRow=mapF[prod];
+    var cat=(iRow||fRow).cat;
+    var pNorm=claveNorm(prod);
+    var cRow=mapC[pNorm];
+    var invI=iRow?iRow.valor:0;
+    var invF=fRow?fRow.valor:0;
+    var comp=cRow?cRow.total:0;
+    if(cRow)cRow.matched=true;
+    results.push({prod:prod,cat:cat,invI:invI,comp:comp,invF:invF,cogs:invI+comp-invF,noInicio:!iRow,noFin:!fRow});
+  });
+
+  // Compras sin coincidencia de producto en inventario
+  var unmComp=0,unmLineas=0;
+  Object.keys(mapC).forEach(function(pNorm){
+    if(!mapC[pNorm].matched){unmComp+=mapC[pNorm].total;unmLineas+=mapC[pNorm].lineas;}
+  });
+
+  results.sort(function(a,b){
+    if(a.cat!==b.cat)return a.cat.localeCompare(b.cat,'es');
+    return a.prod.localeCompare(b.prod,'es');
+  });
+
+  renderResults(results,snapI,snapF,unmComp,unmLineas,comprasK.length);
+}
+
+function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas){
+  var tInvI=0,tComp=0,tInvF=0,tCogs=0;
+  results.forEach(function(r){tInvI+=r.invI;tComp+=r.comp;tInvF+=r.invF;tCogs+=r.cogs;});
+  var totalComp=tComp+unmComp;
+  var totalCogs=tCogs+unmComp;
+
+  // Agrupar por categoría
+  var cats=[],catMap={};
+  results.forEach(function(r){
+    if(!catMap[r.cat]){catMap[r.cat]=[];cats.push(r.cat);}
+    catMap[r.cat].push(r);
+  });
+
+  var html='';
+
+  // KPIs
+  html+='<div class="kpi-grid">';
+  html+='<div class="kpi-box"><div class="kpi-val">'+fmtCRC(tInvI)+'</div><div class="kpi-lbl">Inventario inicial</div></div>';
+  html+='<div class="kpi-box"><div class="kpi-val" style="color:var(--amber)">'+fmtCRC(totalComp)+'</div><div class="kpi-lbl">+ Compras del período</div></div>';
+  html+='<div class="kpi-box"><div class="kpi-val" style="color:var(--subtle)">'+fmtCRC(tInvF)+'</div><div class="kpi-lbl">− Inventario final</div></div>';
+  html+='<div class="kpi-box kpi-cogs"><div class="kpi-val">'+fmtCRC(totalCogs)+'</div><div class="kpi-lbl">= COGS Total</div></div>';
+  html+='</div>';
+
+  // Period info
+  var fi=snapI&&snapI.fechaFmt?snapI.fechaFmt:snapI&&snapI.id||'–';
+  var ff=snapF&&snapF.fechaFmt?snapF.fechaFmt:snapF&&snapF.id||'–';
+  html+='<div class="period-note">';
+  html+='Período: <strong>'+esc(fi)+'</strong><span class="sep">→</span><strong>'+esc(ff)+'</strong>';
+  html+='<span class="sep">·</span>'+results.length+' productos';
+  html+='<span class="sep">·</span>'+totalLineas+' líneas de factura';
+  html+='</div>';
+
+  if(unmComp>0){
+    html+='<div class="aviso-warn">⚠ '+fmtCRC(unmComp)+' en facturas ('+unmLineas+' líneas) sin coincidencia en inventario — se suman al COGS total.</div>';
+  }
+
+  // Tablas por categoría
+  cats.forEach(function(cat){
+    var rows=catMap[cat];
+    var sI=0,sC=0,sF=0,sCG=0;
+    rows.forEach(function(r){sI+=r.invI;sC+=r.comp;sF+=r.invF;sCG+=r.cogs;});
+
+    html+='<div class="cat-section">';
+    html+='<div class="cat-header"><span class="cat-name">'+esc(cat)+'</span><span class="cat-cogs-sum">COGS '+fmtCRC(sCG)+'</span></div>';
+    html+='<div class="compare-wrap"><table class="prod-table">';
+    html+='<thead><tr>';
+    html+='<th>Producto</th>';
+    html+='<th class="r">Inv. Inicial</th>';
+    html+='<th class="r">+ Compras</th>';
+    html+='<th class="r">− Inv. Final</th>';
+    html+='<th class="r">= COGS</th>';
+    html+='</tr></thead><tbody>';
+
+    rows.forEach(function(r){
+      var flag='';
+      if(r.noInicio) flag='<span class="flag">solo en fin</span>';
+      else if(r.noFin) flag='<span class="flag flag-gone">no en toma final</span>';
+      var cogsStyle=r.cogs<0?'style="color:var(--amber)"':'';
+      html+='<tr>';
+      html+='<td class="td-prod">'+esc(r.prod)+flag+'</td>';
+      html+='<td class="r td-mono">'+fmtCRC(r.invI)+'</td>';
+      html+='<td class="r td-mono"'+(r.comp>0?' style="color:var(--amber)"':'')+'>'+fmtCRC(r.comp)+'</td>';
+      html+='<td class="r td-mono" style="color:var(--subtle)">'+fmtCRC(r.invF)+'</td>';
+      html+='<td class="r td-mono" '+cogsStyle+'>'+fmtCRC(r.cogs)+'</td>';
+      html+='</tr>';
+    });
+
+    html+='<tr class="subtotal-row">';
+    html+='<td>Subtotal '+esc(cat)+'</td>';
+    html+='<td class="r">'+fmtCRC(sI)+'</td>';
+    html+='<td class="r"'+(sC>0?' style="color:var(--amber)"':'')+'>'+fmtCRC(sC)+'</td>';
+    html+='<td class="r" style="color:var(--subtle)">'+fmtCRC(sF)+'</td>';
+    html+='<td class="r">'+fmtCRC(sCG)+'</td>';
+    html+='</tr>';
+    html+='</tbody></table></div></div>';
+  });
+
+  // Gran total
+  html+='<div class="total-wrap"><table class="total-table">';
+  html+='<tr><td>COGS Total del Período</td>';
+  html+='<td class="r">'+fmtCRC(tInvI)+'</td>';
+  html+='<td class="r">'+fmtCRC(totalComp)+'</td>';
+  html+='<td class="r">'+fmtCRC(tInvF)+'</td>';
+  html+='<td class="r">'+fmtCRC(totalCogs)+'</td>';
+  html+='</tr></table></div>';
+
+  document.getElementById('results-area').innerHTML=html;
+}
+
+// ── Carga inicial ──
+async function cargarTodo(){
+  document.getElementById('filtro-resumen').innerHTML='<span class="spinner"></span>Cargando datos…';
+  document.getElementById('btn-calc').disabled=true;
+  histAll=[];comprasAll=[];snapshots=[];
+
+  try{
+    var res=await Promise.all([
+      gvizLoad(INVENTARIO_SHEET_ID,'HISTORIAL_inventario'),
+      gvizLoad(COMPRAS_SHEET_ID,'Desglose_IA')
+    ]);
+    histAll=res[0];
+    comprasAll=res[1];
+    buildSnapshots();
+    populateKioskos();
+    document.getElementById('btn-calc').disabled=false;
+    document.getElementById('filtro-resumen').textContent=
+      snapshots.length+' tomas de inventario · '+comprasAll.length+' líneas de factura cargadas.';
+  }catch(e){
+    document.getElementById('filtro-resumen').textContent=
+      'Error al cargar datos. Verificá la conexión y que los Sheets sean públicos.';
+  }
+}
+
+cargarTodo();
+</script>
+</body>
+</html>
