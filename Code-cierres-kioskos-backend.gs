@@ -22,6 +22,18 @@
 // implementaciones → Editar → Nueva versión (la URL /exec no cambia), y
 // correr agregarEncabezados() de nuevo para que la fila de encabezados se
 // actualice sin tocar los datos ya guardados.
+//
+// v2 (2026-07-29): pestaña nueva "SalidasFondoCaja" — cuando en
+// cuentas-por-pagar.html se paga a un proveedor con Medio de pago = "Fondo de
+// caja", ese pago se registra acá (doPost type:'salidaFondo') para que
+// depositos.html/indicadores.html/index.html puedan rebajarlo del "efectivo
+// pendiente de depositar" de la fecha de cierre que corresponda (antes esos
+// tres módulos solo calculaban caja − fondo, sin enterarse de estas salidas).
+// Para desplegar: pegá el código completo de nuevo, corré UNA VEZ (a mano,
+// desde el editor) agregarEncabezadosSalidasFondo(), e Implementar → Gestionar
+// implementaciones → Editar → Nueva versión. No hace falta tocar nada más en
+// este Sheet — la URL /exec no cambia y cuentas-por-pagar.html/depositos.html/
+// indicadores.html/index.html apuntan todos a esta misma URL.
 
 // API key de Anthropic (Claude) para extraer datos del cierre de tarjeta por
 // foto. Configurala en Extensiones → Apps Script → Configuración del
@@ -63,6 +75,20 @@ const HEADERS_TIPS_PAGOS = [
   'IDs cierres cubiertos', 'Kioskos', 'Monto total ₡', 'Notas'
 ];
 
+// Salidas de fondo de caja (2026-07-29): cuando en cuentas-por-pagar.html se
+// registra un pago/abono a proveedor con Medio de pago = "Fondo de caja", ese
+// dinero salió del efectivo retenido en un cierre de caja puntual (no de una
+// cuenta bancaria) — así que hay que rebajarlo del "efectivo pendiente de
+// depositar" de esa fecha/kiosko en depositos.html/indicadores.html/
+// index.html (que hasta ahora solo calculaban caja − fondo). Cada fila acá es
+// UN pago con Fondo de caja; "Fecha del efectivo" es la fecha del cierre de
+// caja que Jorge elige a mano en el modal (no necesariamente la fecha en que
+// se registra el pago). Ver guardarSalidaFondo()/doGet 'salidasfondo' abajo.
+const HEADERS_SALIDAS_FONDO = [
+  'ID', 'Fecha registro', 'Fecha del efectivo', 'Kiosko', 'Monto CRC',
+  'Proveedor', 'Factura', 'Referencia', 'Notas', 'Origen'
+];
+
 function doPost(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -90,6 +116,10 @@ function doPost(e) {
 
     if (data.type === 'tipsPago') {
       return guardarPagoTips(ss, data);
+    }
+
+    if (data.type === 'salidaFondo') {
+      return guardarSalidaFondo(ss, data);
     }
 
     if (data.type === 'extraerIA') {
@@ -196,6 +226,13 @@ function doGet(e) {
     return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
   }
 
+  if (e && e.parameter && e.parameter.action === 'salidasfondo') {
+    const salidasSheet = ss.getSheetByName('SalidasFondoCaja');
+    if (!salidasSheet || salidasSheet.getLastRow() === 0) return jsonOut({ records: [] });
+    const rows = salidasSheet.getDataRange().getValues();
+    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+  }
+
   let sheet = ss.getSheetByName('Cierres');
   if (!sheet) sheet = ss.getActiveSheet();
   const rows = sheet.getDataRange().getValues();
@@ -242,6 +279,19 @@ function agregarEncabezadosTipsPagos() {
     sheet.getRange(1, 1, 1, HEADERS_TIPS_PAGOS.length).setValues([HEADERS_TIPS_PAGOS]);
   }
   sheet.getRange(1, 1, 1, HEADERS_TIPS_PAGOS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+}
+
+function agregarEncabezadosSalidasFondo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('SalidasFondoCaja');
+  if (!sheet) sheet = ss.insertSheet('SalidasFondoCaja');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS_SALIDAS_FONDO);
+  } else {
+    sheet.getRange(1, 1, 1, HEADERS_SALIDAS_FONDO.length).setValues([HEADERS_SALIDAS_FONDO]);
+  }
+  sheet.getRange(1, 1, 1, HEADERS_SALIDAS_FONDO.length).setFontWeight('bold');
   sheet.setFrozenRows(1);
 }
 
@@ -304,6 +354,35 @@ function guardarPagoTips(ss, data) {
     (data.kioskos || []).join(', '),
     data.montoTotal || 0,
     data.notas || ''
+  ]);
+
+  return jsonOut({ result: 'ok' });
+}
+
+// ── SALIDAS DE FONDO DE CAJA (pagos a proveedores con Medio de pago =
+// "Fondo de caja", registrados desde cuentas-por-pagar.html) ─────────
+// data: { id, fecha (fecha del efectivo/cierre elegida a mano), kiosko,
+//         monto, proveedor, factura, referencia, notas }
+function guardarSalidaFondo(ss, data) {
+  let sheet = ss.getSheetByName('SalidasFondoCaja');
+  if (!sheet) sheet = ss.insertSheet('SalidasFondoCaja');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS_SALIDAS_FONDO);
+    sheet.getRange(1, 1, 1, HEADERS_SALIDAS_FONDO.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+
+  sheet.appendRow([
+    data.id || Date.now(),
+    hoyCR(),
+    data.fecha || '',
+    data.kiosko || '',
+    data.monto || 0,
+    data.proveedor || '',
+    data.factura || '',
+    data.referencia || '',
+    data.notas || '',
+    data.origen || 'Cuentas por pagar'
   ]);
 
   return jsonOut({ result: 'ok' });

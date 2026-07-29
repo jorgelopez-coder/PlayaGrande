@@ -66,6 +66,17 @@
  * guarda en la misma columna dinámica "Notas" que ya usa guardarNota(). No
  * hace falta correr configurarHojas() de nuevo — solo pegar el código
  * completo e Implementar > Gestionar implementaciones > Nueva versión.
+ *
+ * v6 (2026-07-29): cuando Medio de pago = "Fondo de caja" en el modal de
+ * pago/abono, ahora también se pide "Fecha del efectivo" (la fecha del
+ * cierre de caja del que salió el dinero) — se guarda acá como columna
+ * dinámica 'Fecha del efectivo (fondo de caja)' en Registro Facturas y como
+ * última columna de Abonos, y ADEMÁS cuentas-por-pagar.html manda ese mismo
+ * dato en paralelo al backend de Cierres (Code-cierres-kioskos-backend.gs,
+ * pestaña nueva "SalidasFondoCaja") para que depositos.html/indicadores.html/
+ * index.html rebajen el pago del "efectivo pendiente de depositar" de esa
+ * fecha. No hace falta correr nada nuevo acá — solo pegar el código completo
+ * e Implementar > Gestionar implementaciones > Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -89,7 +100,10 @@ const FACTURAS_ENCABEZADOS = [
 
 const ABONOS_ENCABEZADOS = [
   'Factura', 'Fecha de abono', 'Monto abonado', 'Medio de pago', 'Referencia',
-  'Reembolsado a', 'Nota de crédito asociada', 'Fecha de registro', 'Kiosko'
+  'Reembolsado a', 'Nota de crédito asociada', 'Fecha de registro', 'Kiosko',
+  // v6 (2026-07-29) — se agrega AL FINAL (nunca en el medio, para no correr
+  // las columnas de filas ya guardadas). Ver nota de registrarPago() más abajo.
+  'Fecha del efectivo (fondo de caja)'
 ];
 
 // Mismas 18 columnas que DESGLOSE_COL de Code-compras-backend.gs, más Kiosko
@@ -561,11 +575,22 @@ function guardarNota(p) {
   return { fila: fila };
 }
 
+// "Fecha del efectivo (fondo de caja)" (2026-07-29): solo aplica cuando
+// medio_pago === 'Fondo de caja' — es la fecha del cierre de caja del que
+// físicamente salió el dinero (no la fecha en que se registra el pago acá).
+// cuentas-por-pagar.html manda además, en paralelo, este mismo dato al
+// backend de Cierres (ver Code-cierres-kioskos-backend.gs, tipo
+// 'salidaFondo') para que depositos.html/indicadores.html/index.html rebajen
+// el monto del "efectivo pendiente de depositar" de esa fecha — acá solo
+// queda guardado como referencia visible sobre la factura/abono.
 function registrarPago(p) {
   if (!p.numero_factura) throw new Error('Falta número de factura.');
   if (!p.ordinal)        throw new Error('Falta indicar a cuál copia de la factura aplica.');
   if (!p.fecha_pago)     throw new Error('Falta la fecha de pago.');
   requerirKiosko(p);
+  if (p.medio_pago === 'Fondo de caja' && !p.fecha_efectivo) {
+    throw new Error('Indicá la fecha del efectivo (cierre de caja) del que sale este pago.');
+  }
   const hoja = getHoja();
   const fila = filaFacturaPorOrdinal(hoja, p.numero_factura, p.ordinal, p.kiosko);
   if (fila === -1) throw new Error('No se encontró esa factura.');
@@ -577,6 +602,9 @@ function registrarPago(p) {
   }
   if (p.nota_credito) {
     hoja.getRange(fila, columnaPorNombre(hoja, 'Nota de crédito asociada')).setValue(p.nota_credito);
+  }
+  if (p.medio_pago === 'Fondo de caja' && p.fecha_efectivo) {
+    hoja.getRange(fila, columnaPorNombre(hoja, 'Fecha del efectivo (fondo de caja)')).setValue(p.fecha_efectivo);
   }
   return { fila: fila };
 }
@@ -605,10 +633,20 @@ function registrarAbono(p) {
   if (!p.fecha_abono)    throw new Error('Falta la fecha del abono.');
   if (!p.monto_abono)    throw new Error('Falta el monto del abono.');
   requerirKiosko(p);
+  if (p.medio_pago === 'Fondo de caja' && !p.fecha_efectivo) {
+    throw new Error('Indicá la fecha del efectivo (cierre de caja) del que sale este abono.');
+  }
 
-  getHojaAbonos().appendRow([
+  const hojaAbonos = getHojaAbonos();
+  // Asegura que la columna 10 tenga su encabezado aunque la hoja ya existiera
+  // desplegada antes de esta versión (prepararHoja() solo escribe encabezados
+  // en una hoja recién creada) — mismo mecanismo que columnaPorNombre() usa
+  // para el resto de columnas dinámicas del archivo.
+  columnaPorNombre(hojaAbonos, 'Fecha del efectivo (fondo de caja)');
+  hojaAbonos.appendRow([
     p.numero_factura, p.fecha_abono, Number(p.monto_abono), p.medio_pago || '', p.referencia || '',
-    p.reembolso_a || '', p.nota_credito || '', new Date(), p.kiosko
+    p.reembolso_a || '', p.nota_credito || '', new Date(), p.kiosko,
+    p.medio_pago === 'Fondo de caja' ? (p.fecha_efectivo || '') : ''
   ]);
 
   const hoja = getHoja();
