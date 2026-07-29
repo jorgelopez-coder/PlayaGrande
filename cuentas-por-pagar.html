@@ -672,6 +672,10 @@
         <label for="fm-monto">Monto</label>
         <input type="number" step="0.01" min="0" id="fm-monto" placeholder="0.00">
       </div>
+      <div class="field">
+        <label for="fm-observacion">Observación / motivo (opcional)</label>
+        <input type="text" id="fm-observacion" placeholder="Por qué se agrega a mano, de qué factura/recibo es, etc.">
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-sec" onclick="cerrarModal('modal-factura-manual')">Cancelar</button>
@@ -2413,16 +2417,18 @@ function abrirModalFacturaManual() {
   document.getElementById('fm-numero').value = '';
   document.getElementById('fm-moneda').value = 'CRC';
   document.getElementById('fm-monto').value = '';
+  document.getElementById('fm-observacion').value = '';
   document.getElementById('modal-factura-manual').classList.add('open');
 }
 
 async function guardarFacturaManual() {
-  const fecha     = document.getElementById('fm-fecha').value;
-  const kiosko    = document.getElementById('fm-kiosko').value;
-  const proveedor = document.getElementById('fm-proveedor').value.trim();
-  const numero    = document.getElementById('fm-numero').value.trim();
-  const moneda    = document.getElementById('fm-moneda').value;
-  const monto     = parseFloat(document.getElementById('fm-monto').value);
+  const fecha       = document.getElementById('fm-fecha').value;
+  const kiosko      = document.getElementById('fm-kiosko').value;
+  const proveedor   = document.getElementById('fm-proveedor').value.trim();
+  const numero      = document.getElementById('fm-numero').value.trim();
+  const moneda      = document.getElementById('fm-moneda').value;
+  const monto       = parseFloat(document.getElementById('fm-monto').value);
+  const observacion = document.getElementById('fm-observacion').value.trim();
   if (!fecha)  { showToast('Ingresá la fecha de la factura.', 'error'); return; }
   if (!kiosko) { showToast('Seleccioná el kiosko.', 'error'); return; }
   if (!proveedor) { showToast('Ingresá el proveedor.', 'error'); return; }
@@ -2431,7 +2437,7 @@ async function guardarFacturaManual() {
     await postAP({
       modulo: 'guardar_factura_manual',
       fecha: fecha, kiosko: kiosko, proveedor: proveedor,
-      numero_factura: numero, moneda: moneda, monto: monto
+      numero_factura: numero, moneda: moneda, monto: monto, nota: observacion
     });
     cerrarModal('modal-factura-manual');
     showToast('Factura agregada ✓', 'success');

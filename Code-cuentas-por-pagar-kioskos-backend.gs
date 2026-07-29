@@ -62,8 +62,10 @@
  * Facturas" con Fecha/Kiosko/Proveedor/Monto/Moneda; el número de factura es
  * opcional y si no se indica se genera uno con prefijo "MANUAL-" para que la
  * fila tenga clave propia (igual que cualquier otra, para pagos/abonos/
- * borrado). No hace falta correr configurarHojas() de nuevo — solo pegar el
- * código completo e Implementar > Gestionar implementaciones > Nueva versión.
+ * borrado). Incluye también un campo opcional de observación/motivo, que se
+ * guarda en la misma columna dinámica "Notas" que ya usa guardarNota(). No
+ * hace falta correr configurarHojas() de nuevo — solo pegar el código
+ * completo e Implementar > Gestionar implementaciones > Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -646,7 +648,15 @@ function guardarFacturaManual(p) {
   hoja.appendRow([
     p.fecha, numero, p.proveedor, p.moneda || 'CRC', Number(p.monto), p.kiosko
   ]);
-  return { numero_factura: numero, fila: hoja.getLastRow() };
+  const fila = hoja.getLastRow();
+  // Observación/motivo (opcional): misma columna dinámica "Notas" que ya usa
+  // guardarNota() para el resto de las facturas, así se ve y se edita igual
+  // en la tabla sin necesidad de un campo aparte.
+  const nota = (p.nota || '').toString().trim();
+  if (nota) {
+    hoja.getRange(fila, columnaPorNombre(hoja, 'Notas')).setValue(nota);
+  }
+  return { numero_factura: numero, fila: fila };
 }
 
 function eliminarFactura(p) {
