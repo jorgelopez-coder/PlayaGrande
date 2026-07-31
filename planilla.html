@@ -567,9 +567,13 @@ function calcularClientePreview(part) {
     const fecha = String(f['Fecha']);
     return fecha >= r.fechaInicio && fecha <= r.fechaFin;
   });
+  // El día del feriado ya está cubierto por el salario base de la quincena
+  // (Horas regulares) — un feriado NO trabajado no suma nada extra. Si SÍ
+  // se marca como trabajado, se paga el recargo de ley: 1 día de salario
+  // extra por encima del salario base (Art. 148 CT).
   const feriadosMonto = feriadosDelPeriodo.reduce((acc,f) => {
     const trabajado = part.feriadosTrabajados.indexOf(String(f['Fecha'])) !== -1;
-    return acc + salarioDiario * (trabajado?2:1);
+    return acc + (trabajado ? salarioDiario : 0);
   }, 0);
 
   let incapCCSSMonto=0, diasCCSS=0;
@@ -952,7 +956,7 @@ function renderFeriadosSeccion(feriadosDelPeriodo) {
   return `
     <div class="card" style="margin-top:14px">
       <p class="card-title">Feriados de la quincena — ¿quién los trabajó?</p>
-      <p class="hint" style="display:block;margin-bottom:10px">Todo feriado activo del periodo se paga completo aunque no se trabaje (Art. 148). Marcá solo a quien SÍ lo trabajó — a esa persona se le paga doble ese día.</p>
+      <p class="hint" style="display:block;margin-bottom:10px">El día del feriado ya está cubierto por el salario base de la quincena — si nadie lo marca, no suma nada extra. Marcá solo a quien SÍ lo trabajó: a esa persona se le paga 1 día de salario extra (recargo de ley, Art. 148).</p>
       ${feriadosDelPeriodo.map(f => `
         <div class="subcard">
           <div class="subcard-title">${fechaBonita(f['Fecha'])} — ${f['Nombre']}</div>
@@ -1029,7 +1033,7 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
       ${feriadosDelPeriodo.length ? feriadosDelPeriodo.map(f => `
         <div class="check-row">
           <input type="checkbox" ${p.feriadosTrabajados.indexOf(String(f['Fecha']))!==-1?'checked':''} onchange="toggleFeriadoTrabajado(${i}, '${f['Fecha']}', this.checked)">
-          <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si lo trabajó — se paga doble)</span></span>
+          <span>${fechaBonita(f['Fecha'])} — ${f['Nombre']} <span class="hint">(marcá si lo trabajó — se paga 1 día extra)</span></span>
         </div>`).join('') : '<p class="hint">No hay feriados activos en esta quincena.</p>'}
   `) + subcardColapsable(scId(2,i,'incapacidades'), 'Incapacidades', `
       <p class="hint" style="display:block;margin-bottom:8px">CCSS: primeros 3 días al 50% a cargo del patrono. INS: ₡0 (lo paga el INS). Ambas restan días no trabajados automáticamente.</p>

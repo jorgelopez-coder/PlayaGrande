@@ -1788,15 +1788,17 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const extra50Monto = (Number(inc['Horas extra 50%']) || 0) * salarioHora * 1.5;
     const extra100Monto = (Number(inc['Horas extra 100%']) || 0) * salarioHora * 2;
 
-    // Feriados: cada feriado activo del periodo paga un día completo de
-    // salario (se trabaje o no, Art. 148 CT); si además está marcado como
-    // trabajado en la incidencia, paga un día extra más (doble).
+    // Feriados: el día del feriado ya está cubierto por el salario base de
+    // la quincena (Horas regulares) — un feriado NO trabajado no suma nada
+    // extra. Si SÍ está marcado como trabajado en la incidencia, se paga el
+    // recargo de ley: 1 día de salario extra por encima del salario base
+    // (Art. 148 CT).
     let feriadosTrabajados = [];
     try { feriadosTrabajados = JSON.parse(inc['Feriados trabajados'] || '[]'); } catch (err) { feriadosTrabajados = []; }
     const feriadosMonto = feriadosEnPeriodo.reduce(function (acc, f) {
       const fechaFeriado = valorComoTexto(f['Fecha']);
       const trabajado = feriadosTrabajados.indexOf(fechaFeriado) !== -1;
-      return acc + salarioDiario * (trabajado ? 2 : 1);
+      return acc + (trabajado ? salarioDiario : 0);
     }, 0);
 
     // Incapacidad CCSS: 50% a cargo del patrono solo en los primeros 3 días
