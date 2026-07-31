@@ -545,7 +545,7 @@ Estado="Aprobado" (mismo valor que escribe `rrhh-control-vacaciones.html`).
 dentro de la quincena suma 1 "día no trabajado"** además de su pago
 específico — sin esto, "Horas regulares" (pensado como el total de la
 quincena) pagaría esos días completos encima del pago de la
-incapacidad/vacación. La base de CCSS (cuota obrera 10.67%, deducción
+incapacidad/vacación. La base de CCSS (cuota obrera 10.83%, deducción
 automática) excluye el subsidio y los 3 montos de incapacidad, y admite un
 ajuste manual por colaborador que tiene prioridad sobre la automática. Toda
 la lógica vive una sola vez en `calcularPlanilla()`

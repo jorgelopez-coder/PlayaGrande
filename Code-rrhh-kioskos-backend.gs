@@ -136,7 +136,7 @@ const ENCABEZADOS_FERIADOS = ['Fecha', 'Nombre', 'Activo', 'Registrado'];
 const HOJA_INCIDENCIAS = 'Incidencias';
 const ENCABEZADOS_INCIDENCIAS = [
   'ID', 'Periodo', 'Fecha inicio', 'Fecha fin', 'Kiosko', 'Colaborador',
-  'Horas regulares',
+  'Horas regulares', 'Comentario horas regulares',
   'Horas extra 50%', 'Comentario extra 50%',
   'Horas extra 100%', 'Comentario extra 100%',
   'Feriados trabajados',
@@ -190,7 +190,7 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
 // deducción de ley automática, no aparece en la lista de deducciones
 // manuales porque no se ingresa a mano.
-const PORCENTAJE_CCSS_OBRERA = 0.1067;
+const PORCENTAJE_CCSS_OBRERA = 0.1083;
 
 // ── SERVICIO 10% (servicio-10.html) ───────────────────────────────
 // Cálculo y repartición del 10% de servicio entre el equipo, por kiosko y
@@ -461,6 +461,104 @@ function configurarHojas() {
   sembrarConfiguracion();
   sembrarRoles();
   sembrarFeriados();
+}
+
+// ── CALCULAR BALANCE INICIAL DE VACACIONES (correr UNA VEZ) ─────────
+// Corré esta función UNA VEZ desde el editor de Apps Script (▶ con esta
+// función seleccionada) para llenar la columna "Saldo vacaciones" de
+// "Personal" con el saldo calculado de cada colaborador ACTIVO, como punto
+// de partida inicial. Una vez corrida, ese saldo queda escrito en el Sheet y
+// rrhh-control-vacaciones.html lo toma como base fija (ver calcularSaldo()
+// ahí: si "Saldo vacaciones" > 0, tiene prioridad sobre el cálculo
+// automático desde "Fecha ingreso") — las vacaciones que se aprueben de ahí
+// en adelante se restan solas de ese saldo. No hace falta volver a correrla
+// salvo que se quiera reiniciar el cálculo desde cero para todos.
+//
+// Regla legal (Código de Trabajo, Art. 153): 1 día por mes completo
+// trabajado + 1 día extra si ya pasaron más de 20 días del mes en curso
+// desde la fecha de ingreso — misma fórmula que calcularSaldo() usa en el
+// navegador, replicada acá para que el saldo guardado coincida con lo que
+// esa pantalla mostraría si no hubiera saldo manual. Se le restan los días
+// ya tomados y Aprobados en la pestaña "Vacaciones".
+function calcularBalanceVacacionesInicial() {
+  const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
+  const personal = filasComoObjetos(hojaPersonal);
+  const vacaciones = filasComoObjetos(prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES));
+
+  const hoy = parsearFechaVac(hoyCR());
+  const colSaldo = colPorEncabezado(hojaPersonal, 'Saldo vacaciones');
+  if (!colSaldo) throw new Error('La columna "Saldo vacaciones" no existe en "Personal".');
+
+  const resumen = [];
+  personal.forEach(function (p, i) {
+    const nombre = (p['Nombre completo'] || '').toString().trim();
+    if (!nombre) return; // fila vacía
+
+    const estado = (p['Estado'] || 'ACTIVO').toString().trim().toUpperCase();
+    if (estado !== 'ACTIVO') return; // solo activos: a los inactivos ya se les liquidó
+
+    const dIng = parsearFechaVac(p['Fecha ingreso']);
+    if (!dIng) {
+      resumen.push({ colaborador: nombre, error: 'Sin fecha de ingreso válida — no se calculó.' });
+      return;
+    }
+
+    const diasTomados = vacaciones
+      .filter(function (v) {
+        const colab   = (v['Colaborador'] || '').toString().trim().toLowerCase();
+        const estadoV = (v['Estado'] || '').toString().trim().toLowerCase();
+        return colab === nombre.toLowerCase() && estadoV === 'aprobado';
+      })
+      .reduce(function (acc, v) { return acc + (Number(v['Días']) || 0); }, 0);
+
+    const diasDevengados = diasDevengadosVac(dIng, hoy);
+    const saldo = Math.max(0, diasDevengados - diasTomados);
+
+    hojaPersonal.getRange(i + 2, colSaldo).setValue(saldo);
+    resumen.push({ colaborador: nombre, diasDevengados: diasDevengados, diasTomados: diasTomados, saldo: saldo });
+  });
+
+  Logger.log(JSON.stringify(resumen, null, 2));
+  return resumen;
+}
+
+// Mismo parseo que rrhh-control-vacaciones.html: toma solo "yyyy-MM-dd" (los
+// primeros 10 caracteres) para no depender de si el valor quedó guardado en
+// el Sheet como texto o como fecha real.
+function parsearFechaVac(valor) {
+  if (!valor) return null;
+  const str = valorComoTexto(valor).trim().substring(0, 10);
+  const partes = str.split('-');
+  if (partes.length < 3) return null;
+  const anio = parseInt(partes[0], 10);
+  const mes  = parseInt(partes[1], 10) - 1;
+  const dia  = parseInt(partes[2], 10);
+  if (isNaN(anio) || isNaN(mes) || isNaN(dia)) return null;
+  return new Date(anio, mes, dia);
+}
+
+// Misma regla que calcularSaldo() en rrhh-control-vacaciones.html: 1 día por
+// mes completo + 1 día extra si ya pasaron más de 20 días del mes en curso.
+function diasDevengadosVac(dIng, hoy) {
+  let anios = hoy.getFullYear() - dIng.getFullYear();
+  let meses = hoy.getMonth() - dIng.getMonth();
+  let dias  = hoy.getDate() - dIng.getDate();
+
+  if (dias < 0) meses--;
+  if (meses < 0) { anios--; meses += 12; }
+
+  const mesesCompletos = Math.max(0, anios * 12 + meses);
+
+  let diasEnMesActual;
+  if (dias >= 0) {
+    diasEnMesActual = dias;
+  } else {
+    const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
+    diasEnMesActual = diasEnMesAnterior + dias;
+  }
+
+  const extra = diasEnMesActual > 20 ? 1 : 0;
+  return mesesCompletos + extra;
 }
 
 // Crea la pestaña "Feriados" y, si está recién creada (sin filas todavía),
@@ -1529,6 +1627,7 @@ function guardarIncidencia(p) {
     'Kiosko': p.kiosko,
     'Colaborador': p.colaborador,
     'Horas regulares': Number(p.horas_regulares) || 0,
+    'Comentario horas regulares': p.comentario_horas_regulares || '',
     'Horas extra 50%': Number(p.extra_50) || 0,
     'Comentario extra 50%': p.comentario_extra_50 || '',
     'Horas extra 100%': Number(p.extra_100) || 0,
