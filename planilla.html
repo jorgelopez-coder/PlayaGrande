@@ -1498,10 +1498,185 @@ async function aprobarPlanillaFinal() {
         </div>
         ${driveMsg}
       </div>
+      ${renderReportePago(PLANILLA_ACTUAL['ID'], kiosko, r.periodo, WIZARD_DETALLE_FILAS)}
     `;
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
     btn.disabled = false; btn.textContent = 'Aprobar planilla';
+  }
+}
+
+// ── REPORTE DE PAGO (nombre, cédula, cuenta, monto) + envío de boletas ──
+// Nombre/cédula/cuenta/email salen de TODOS_PERSONAL (ya cargado por
+// cargarDatosCompartidos()), unidos por 'Colaborador' igual que hace
+// buscarPersonal() en el backend — no hace falta pedirle nada nuevo al
+// servidor para armar la tabla.
+function datosPersonalPago(nombre) {
+  const buscado = String(nombre || '').trim().toLowerCase();
+  const p = TODOS_PERSONAL.find(per => String(per['Nombre completo'] || '').trim().toLowerCase() === buscado);
+  return {
+    cedula: p ? (p['Cédula'] || '') : '',
+    banco: p ? (p['Banco'] || '') : '',
+    cuenta: p ? (p['Cuenta'] || '') : '',
+    tipoCuenta: p ? (p['Tipo cuenta'] || '') : '',
+    email: p ? String(p['Email'] || '').trim() : ''
+  };
+}
+
+// Guarda el contexto de la tabla actualmente en pantalla para que
+// marcarPagoUI()/enviarBoletasPorCorreo() no necesiten recibir parámetros
+// desde cada onclick — se llama tanto desde el Paso 5 recién aprobado como
+// desde la vista de solo lectura de una planilla ya aprobada.
+let REPORTE_PAGO_ID = null, REPORTE_PAGO_KIOSKO = '', REPORTE_PAGO_PERIODO = '', REPORTE_PAGO_FILAS = [];
+
+function renderReportePago(idPlanilla, kiosko, periodo, filas) {
+  REPORTE_PAGO_ID = idPlanilla; REPORTE_PAGO_KIOSKO = kiosko; REPORTE_PAGO_PERIODO = periodo; REPORTE_PAGO_FILAS = filas;
+  return `
+    <div class="card" id="reporte-pago-card">
+      <p class="card-title">Reporte de pago</p>
+      <p class="hint" style="display:block;margin-bottom:10px">Nombre, cédula, cuenta y monto a pagar de cada colaborador. Marcá el check apenas ejecutés la transferencia.</p>
+      <table class="calc-tabla">
+        <thead><tr><th>Colaborador</th><th>Cédula</th><th>Banco / Cuenta</th><th style="text-align:right">Monto a pagar</th><th style="text-align:center">Pagado</th></tr></thead>
+        <tbody>${filas.map(d => filaReportePago(idPlanilla, d)).join('')}</tbody>
+      </table>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-secondary" id="btn-enviar-boletas" onclick="enviarBoletasPorCorreo()">Enviar boletas de pago por correo</button>
+      </div>
+      <p class="hint" id="reporte-pago-envio-msg" style="display:none;margin-top:8px"></p>
+    </div>
+  `;
+}
+function filaReportePago(idPlanilla, d) {
+  const info = datosPersonalPago(d['Colaborador']);
+  const pagado = d['Pagado'] === 'Sí';
+  const cuentaTxt = [info.banco, info.cuenta].filter(Boolean).join(' — ') || '<span style="color:var(--red)">Sin cuenta registrada</span>';
+  return `<tr>
+    <td>${d['Colaborador']}<div class="subtit">${d['Puesto'] || ''}</div></td>
+    <td>${info.cedula || '—'}</td>
+    <td>${cuentaTxt}</td>
+    <td class="monto" style="font-weight:700">${fmt(d['Neto a pagar'])}</td>
+    <td style="text-align:center">
+      <input type="checkbox" ${pagado ? 'checked' : ''} onchange="marcarPagoUI(this, ${JSON.stringify(idPlanilla)}, ${JSON.stringify(d['Colaborador'])})">
+      <div class="subtit" data-fecha-pago>${pagado && d['Fecha pago'] ? 'Pagado el ' + d['Fecha pago'] : ''}</div>
+    </td>
+  </tr>`;
+}
+async function marcarPagoUI(checkbox, idPlanilla, colaborador) {
+  checkbox.disabled = true;
+  try {
+    const res = await postBackend({ modulo: 'planilla_pago', id_planilla: idPlanilla, colaborador, pagado: checkbox.checked });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    const fila = REPORTE_PAGO_FILAS.find(d => d['Colaborador'] === colaborador);
+    if (fila) fila['Pagado'] = checkbox.checked ? 'Sí' : 'No';
+    if (fila) fila['Fecha pago'] = res.result.fecha_pago || '';
+    const fechaDiv = checkbox.closest('td').querySelector('[data-fecha-pago]');
+    fechaDiv.textContent = checkbox.checked && res.result.fecha_pago ? ('Pagado el ' + res.result.fecha_pago) : '';
+    showToast(checkbox.checked ? 'Marcado como pagado' : 'Marca de pago quitada', 'success');
+  } catch (err) {
+    checkbox.checked = !checkbox.checked;
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
+// Boleta individual en PDF (jsPDF + html2canvas, mismo patrón que
+// generarPDFPlanilla) con el desglose completo de ingresos/deducciones de
+// UN colaborador — es lo que se adjunta al correo de enviarBoletasPorCorreo().
+async function generarPDFBoleta(kiosko, periodo, d) {
+  const info = datosPersonalPago(d['Colaborador']);
+  const linea = (label, val, negativo) => Number(val)
+    ? `<tr><td style="padding:4px 6px;">${label}</td><td style="text-align:right;padding:4px 6px;${negativo ? 'color:#b23b3b;' : ''}">${negativo ? '−' : ''}${fmt(val)}</td></tr>`
+    : '';
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:absolute;left:-9999px;top:0;width:650px;background:#fff;padding:24px;font-family:Arial,sans-serif;color:#1c3a28;';
+  holder.innerHTML = `
+    <h2 style="margin:0 0 4px;font-size:19px;">Boleta de pago — ${d['Colaborador']}</h2>
+    <p style="margin:0 0 4px;font-size:13px;color:#5a8a6a;">${kiosko} · Periodo: ${periodo}</p>
+    <p style="margin:0 0 16px;font-size:12px;color:#5a8a6a;">Cédula: ${info.cedula || '—'} · ${[info.banco, info.cuenta].filter(Boolean).join(' — ') || 'Sin cuenta registrada'}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;">
+      <thead><tr style="background:#f2ede2;"><th colspan="2" style="text-align:left;padding:6px;border:1px solid #c8ddd0;">Ingresos</th></tr></thead>
+      <tbody>
+        ${linea('Horas regulares', d['Horas regulares monto'])}
+        ${linea('Horas extra 50%', d['Horas extra 50% monto'])}
+        ${linea('Horas extra 100%', d['Horas extra 100% monto'])}
+        ${linea('Feriados', d['Feriados monto'])}
+        ${linea('Incapacidad CCSS', d['Incapacidad CCSS monto'])}
+        ${linea('Incapacidad INS', d['Incapacidad INS monto'])}
+        ${linea('Incapacidad interna', d['Incapacidad interna monto'])}
+        ${linea('Vacaciones', d['Vacaciones monto'])}
+        ${linea('Subsidio', d['Subsidio monto'])}
+        ${linea('Días no trabajados', d['Días no trabajados monto'])}
+        ${linea('Tardanza', d['Tardanza monto'], true)}
+      </tbody>
+      <tfoot><tr style="background:#eef8f2;font-weight:bold;"><td style="padding:6px;border:1px solid #c8ddd0;">Total ingresos</td><td style="text-align:right;padding:6px;border:1px solid #c8ddd0;">${fmt(d['Total ingresos'])}</td></tr></tfoot>
+    </table>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f2ede2;"><th colspan="2" style="text-align:left;padding:6px;border:1px solid #c8ddd0;">Deducciones</th></tr></thead>
+      <tbody>
+        ${linea('CCSS obrera', d['CCSS obrera monto'])}
+        ${linea('Adelanto de salario', d['Adelanto salario'])}
+        ${linea('Compras aprobadas', d['Compras aprobadas'])}
+        ${linea('Otras deducciones', d['Otras deducciones'])}
+        ${linea('Embargo salarial', d['Embargo salarial'])}
+        ${linea('Pensión alimenticia', d['Pensión alimenticia'])}
+      </tbody>
+      <tfoot><tr style="background:#eef8f2;font-weight:bold;"><td style="padding:6px;border:1px solid #c8ddd0;">Total deducciones</td><td style="text-align:right;padding:6px;border:1px solid #c8ddd0;">${fmt(d['Total deducciones'])}</td></tr></tfoot>
+    </table>
+    <div style="margin-top:14px;padding:10px;background:#eef8f2;border-radius:6px;font-size:15px;font-weight:bold;display:flex;justify-content:space-between;">
+      <span>Neto a pagar</span><span>${fmt(d['Neto a pagar'])}</span>
+    </div>
+  `;
+  document.body.appendChild(holder);
+  const canvas = await html2canvas(holder, { scale: 2, backgroundColor: '#ffffff' });
+  document.body.removeChild(holder);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const imgWidth = pdf.internal.pageSize.getWidth();
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
+  return pdf.output('datauristring').split(',')[1];
+}
+
+// Genera (una por una, para no saturar html2canvas) la boleta de cada
+// colaborador CON correo registrado y las manda en un solo POST al backend
+// (que hace el envío real por MailApp) — pide confirmación antes, mostrando
+// a cuántos SÍ y a cuántos NO (por falta de correo en Personal) les va a llegar.
+async function enviarBoletasPorCorreo() {
+  const filas = REPORTE_PAGO_FILAS;
+  if (!filas || !filas.length) { showToast('No hay colaboradores para enviar.', 'error'); return; }
+  const conCorreo = filas.filter(d => datosPersonalPago(d['Colaborador']).email);
+  const sinCorreo = filas.filter(d => !datosPersonalPago(d['Colaborador']).email);
+  const confirmMsg = `Se va a enviar la boleta de pago por correo a ${conCorreo.length} de ${filas.length} colaborador(es).`
+    + (sinCorreo.length ? `\n\nSin correo registrado en Personal (no se les enviará): ${sinCorreo.map(d => d['Colaborador']).join(', ')}.` : '')
+    + '\n\n¿Continuar?';
+  if (!confirm(confirmMsg)) return;
+
+  const btn = document.getElementById('btn-enviar-boletas');
+  const msgEl = document.getElementById('reporte-pago-envio-msg');
+  btn.disabled = true; btn.textContent = 'Generando y enviando…';
+  msgEl.style.display = 'none';
+  try {
+    const boletas = [];
+    for (const d of conCorreo) {
+      const pdfBase64 = await generarPDFBoleta(REPORTE_PAGO_KIOSKO, REPORTE_PAGO_PERIODO, d);
+      boletas.push({ colaborador: d['Colaborador'], pdf_base64: pdfBase64 });
+    }
+    const res = await postBackend({
+      modulo: 'planilla_enviar_boletas', id: REPORTE_PAGO_ID,
+      kiosko: REPORTE_PAGO_KIOSKO, periodo: REPORTE_PAGO_PERIODO, boletas
+    });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    const r = res.result;
+    showToast(`Boletas enviadas: ${r.enviados.length} de ${filas.length}`, r.errores.length ? 'error' : 'success');
+    msgEl.style.display = 'block';
+    msgEl.innerHTML = `Enviadas: ${r.enviados.length}.`
+      + (r.sin_correo.length ? ` Sin correo registrado: ${r.sin_correo.join(', ')}.` : '')
+      + (r.errores.length ? ` Errores: ${r.errores.join(', ')}.` : '');
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar boletas de pago por correo';
   }
 }
 
@@ -1578,8 +1753,13 @@ function generarCSVPlanilla(kiosko, periodo, resultado) {
 }
 
 // ── VISTA DE SOLO LECTURA (planilla ya aprobada) ─────────────────
-function renderPlanillaAprobada(planilla) {
-  document.getElementById('planilla-contenido').innerHTML = `
+// Async (antes no lo era): además del resumen, trae el detalle por
+// colaborador de PlanillasDetalle para poder mostrar de nuevo el reporte de
+// pago con los checks de "Pagado" — así reabrir una planilla ya aprobada más
+// tarde (para seguir marcando pagos o reenviar boletas) no pierde la tabla.
+async function renderPlanillaAprobada(planilla) {
+  const cont = document.getElementById('planilla-contenido');
+  cont.innerHTML = `
     <div class="card">
       <p class="card-title">Planilla aprobada <span class="estado-badge aprobada" style="margin-left:6px">Aprobada</span></p>
       <p class="hint" style="display:block">Calculada: ${planilla['Fecha cálculo']||''} · Aprobada por ${planilla['Aprobado por']||'—'} el ${planilla['Fecha aprobación']||''}</p>
@@ -1587,7 +1767,18 @@ function renderPlanillaAprobada(planilla) {
       ${planilla['PDF URL'] ? `<p style="margin-top:10px"><a href="${planilla['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
       <p class="hint" style="display:block;margin-top:10px">Esta planilla ya fue aprobada — para corregirla hay que editar directamente el Sheet o abrir un periodo nuevo.</p>
     </div>
+    <div id="reporte-pago-aprobada"><div class="empty-state"><span class="spinner"></span></div></div>
   `;
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
+    const data = await resp.json();
+    const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(planilla['ID']));
+    document.getElementById('reporte-pago-aprobada').innerHTML = detalle.length
+      ? renderReportePago(planilla['ID'], planilla['Kiosko'], planilla['Periodo'], detalle)
+      : '';
+  } catch (err) {
+    document.getElementById('reporte-pago-aprobada').innerHTML = `<div class="card"><p class="hint" style="display:block">No se pudo cargar el reporte de pago: ${err.message}</p></div>`;
+  }
 }
 
 // ══════════════════════════ CONTROL (todos los kioskos x todas las quincenas) ══════════════════════════

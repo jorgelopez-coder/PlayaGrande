@@ -194,7 +194,12 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   // Agregadas al final (nunca insertar en medio, ver prepararHoja): horas de
   // "Llegada tardía" de Amonestaciones dentro de este periodo y su monto en
   // negativo, ya restados de 'Total ingresos' — ver calcularPlanilla().
-  'Tardanza horas', 'Tardanza monto'
+  'Tardanza horas', 'Tardanza monto',
+  // Agregadas al final (2026-08-01): reporte de pago por colaborador
+  // (planilla.html, Paso 5 y vista de planilla aprobada) — check "Pagado"
+  // por persona una vez que se ejecutó la transferencia, mismo patrón que
+  // 'Pagado'/'Fecha pago' en ServicioRepartoDetalle. Ver marcarPlanillaPagado().
+  'Pagado', 'Fecha pago'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -447,7 +452,7 @@ const FOLDER_ID_CEDULAS = '1a6cdpjL85_26UP4nto35Ht4ata1rODPA';
 // → Editar → Nueva versión — mientras esté vacío, "Aprobar planilla" avisa
 // que falta este paso en vez de fallar en silencio (podés seguir aprobando
 // planillas sin archivarlas mientras tanto).
-const FOLDER_ID_PLANILLAS = '';
+const FOLDER_ID_PLANILLAS = '1p3Z80BTbMB_0kMK2XPeIOaVfk6Rb8stO';
 
 // Corré esta función UNA VEZ desde el editor de Apps Script para preparar el
 // Sheet: agrega las columnas nuevas a "Personal" (sin tocar filas existentes)
@@ -676,6 +681,7 @@ function prepararHoja(nombre, encabezados) {
   COLUMNAS_TEXTO_POR_HOJA[HOJA_PLANILLAS] = ['Fecha inicio', 'Fecha fin'];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_REPARTOS] = ['Fecha inicio', 'Fecha fin'];
   COLUMNAS_TEXTO_POR_HOJA[HOJA_SERVICIO_DETALLE] = ['Fecha', 'Fecha pago'];
+  COLUMNAS_TEXTO_POR_HOJA[HOJA_PLANILLAS_DETALLE] = ['Fecha pago'];
   (COLUMNAS_TEXTO_POR_HOJA[nombre] || []).forEach(function (col) {
     const idx = encabezados.indexOf(col) + 1;
     if (idx > 0) hoja.getRange(2, idx, Math.max(hoja.getMaxRows() - 1, 1), 1).setNumberFormat('@');
@@ -825,6 +831,8 @@ function doPost(e) {
         break;
       case 'planilla_aprobar':      result = aprobarPlanilla(payload); break;
       case 'planilla_guardar_archivo': result = guardarArchivoPlanilla(payload); break;
+      case 'planilla_pago':          result = marcarPlanillaPagado(payload); break;
+      case 'planilla_enviar_boletas': result = enviarBoletasPago(payload); break;
       case 'servicio_guardar':      result = guardarServicioReparto(payload); break;
       case 'servicio_pago':         result = marcarServicioPagado(payload); break;
       default:
@@ -2063,7 +2071,9 @@ function guardarPlanilla(p) {
       'Pensión alimenticia': c.pension,
       'Total deducciones': c.totalDeducciones,
       'Neto a pagar': c.neto,
-      'CCSS registrado': c.ccssRegistrado ? 'Sí' : 'No'
+      'CCSS registrado': c.ccssRegistrado ? 'Sí' : 'No',
+      'Pagado': 'No',
+      'Fecha pago': ''
     });
   });
 
@@ -2202,4 +2212,93 @@ function guardarArchivoPlanilla(p) {
     hoja.getRange(fila, colPdfUrl).setValue(url);
   }
   return { url: url };
+}
+
+// Marca (o desmarca) el pago de UN colaborador dentro de una planilla ya
+// aprobada — reporte de pago de planilla.html (Paso 5 y vista de planilla
+// aprobada), mismo patrón que marcarServicioPagado() pero identificando la
+// fila por 'ID Planilla' + 'Colaborador' en vez de un ID propio (el detalle
+// de Planillas nunca tuvo un ID de fila individual). data:
+// { id_planilla, colaborador, pagado: true/false, fecha_pago }
+function marcarPlanillaPagado(p) {
+  if (!p.id_planilla) throw new Error('Falta el ID de la planilla.');
+  if (!p.colaborador) throw new Error('Falta el colaborador.');
+
+  const hoja = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) throw new Error('No hay planillas guardadas todavía.');
+
+  const colIdPlanilla = colPorEncabezado(hoja, 'ID Planilla');
+  const colColaborador = colPorEncabezado(hoja, 'Colaborador');
+  const colPagado = colPorEncabezado(hoja, 'Pagado');
+  const colFecha = colPorEncabezado(hoja, 'Fecha pago');
+  const datos = hoja.getRange(2, 1, nFilas, Math.max(colColaborador, colIdPlanilla)).getValues();
+
+  const idBuscado = String(p.id_planilla).trim();
+  const nombreBuscado = String(p.colaborador).trim().toLowerCase();
+  let fila = -1;
+  for (let i = 0; i < datos.length; i++) {
+    if (String(datos[i][colIdPlanilla - 1]).trim() === idBuscado
+      && String(datos[i][colColaborador - 1]).trim().toLowerCase() === nombreBuscado) {
+      fila = i + 2;
+      break;
+    }
+  }
+  if (fila === -1) throw new Error('No se encontró ese colaborador en esta planilla.');
+
+  const pagado = !!p.pagado;
+  const fechaPago = pagado ? (p.fecha_pago || Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd')) : '';
+  hoja.getRange(fila, colPagado).setValue(pagado ? 'Sí' : 'No');
+  hoja.getRange(fila, colFecha).setValue(fechaPago);
+  return { fila: fila, pagado: pagado, fecha_pago: fechaPago };
+}
+
+// Envía, por correo, la boleta de pago en PDF (base64, generada en
+// planilla.html con jsPDF/html2canvas, mismo patrón que generarPDFPlanilla)
+// a cada colaborador de la lista — buscando su Email en "Personal" por
+// 'Nombre completo' (igual que buscarPersonal() dentro de calcularPlanilla).
+// No falla toda la corrida si a alguien le falta el correo: lo reporta en
+// "sin_correo" y sigue con el resto. data: { id, kiosko, periodo,
+// boletas: [{ colaborador, pdf_base64 }, ...] }
+function enviarBoletasPago(p) {
+  if (!Array.isArray(p.boletas) || !p.boletas.length) {
+    throw new Error('Falta el detalle de boletas a enviar.');
+  }
+
+  const personalTodos = filasComoObjetos(prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL));
+  function buscarPersonal(nombre) {
+    const buscado = String(nombre || '').trim().toLowerCase();
+    return personalTodos.find(function (per) { return String(per['Nombre completo'] || '').trim().toLowerCase() === buscado; });
+  }
+
+  const enviados = [];
+  const sinCorreo = [];
+  const errores = [];
+
+  p.boletas.forEach(function (b) {
+    const nombre = String(b.colaborador || '').trim();
+    if (!nombre) return;
+    if (!b.pdf_base64) { errores.push(nombre + ' (sin PDF generado)'); return; }
+
+    const persona = buscarPersonal(nombre);
+    const email = persona && persona['Email'] ? String(persona['Email']).trim() : '';
+    if (!email) { sinCorreo.push(nombre); return; }
+
+    try {
+      const nombreArchivo = 'Boleta de pago - ' + nombre + (p.periodo ? ' - ' + p.periodo : '') + '.pdf';
+      const bytes = Utilities.base64Decode(b.pdf_base64);
+      const blob = Utilities.newBlob(bytes, 'application/pdf', nombreArchivo);
+      const asunto = 'Boleta de pago' + (p.periodo ? ' — ' + p.periodo : '') + (p.kiosko ? ' (' + p.kiosko + ')' : '');
+      const cuerpo = 'Hola ' + nombre + ',\n\n'
+        + 'Adjunto encontrás el detalle de tu pago' + (p.periodo ? ' correspondiente al periodo ' + p.periodo : '')
+        + (p.kiosko ? ' — ' + p.kiosko : '') + '.\n\n'
+        + 'Cualquier consulta, respondé este correo.\n\nSaludos.';
+      MailApp.sendEmail({ to: email, subject: asunto, body: cuerpo, attachments: [blob] });
+      enviados.push(nombre);
+    } catch (err) {
+      errores.push(nombre + ' (' + err.message + ')');
+    }
+  });
+
+  return { enviados: enviados, sin_correo: sinCorreo, errores: errores };
 }
