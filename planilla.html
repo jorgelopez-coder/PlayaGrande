@@ -1423,8 +1423,25 @@ function renderDetalleChecklistItem(i) {
   const filas = WIZARD_DETALLE_FILAS;
   if (!filas.length) return '<p class="hint">Sin detalle guardado para esta planilla.</p>';
   if (i === 0) {
-    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Tardanza</th><th style="text-align:right">Total ingresos</th></tr></thead>
-      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${fmt(d['Horas extra 50% monto'])}</td><td class="monto">${fmt(d['Horas extra 100% monto'])}</td><td class="monto">${(Number(d['Tardanza monto'])||0)>0?'−'+fmt(d['Tardanza monto']):fmt(0)}</td><td class="monto">${fmt(d['Total ingresos'])}</td></tr>`).join('')}</tbody></table>`;
+    const r = rangoPeriodoActual();
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Tardanza</th><th style="text-align:right">Total ingresos</th><th>Comentarios</th></tr></thead>
+      <tbody>${filas.map(d => {
+        const tardanzaMonto = Number(d['Tardanza monto'])||0;
+        const tardanzaDet = sumarHorasTardanzaCliente(d['Colaborador'], r.fechaInicio, r.fechaFin);
+        const tardanzaCelda = tardanzaMonto > 0
+          ? `−${fmt(tardanzaMonto)}<div class="subtit">${tardanzaDet.horas}h · ${tardanzaDet.fechas.map(fechaBonita).join(', ')}</div>`
+          : fmt(0);
+        // 'Comentario horas regulares/extra 50%/extra 100%' vive en Incidencias,
+        // no en PlanillasDetalle — se lee de WIZARD_PARTICIPANTES (ya cargado
+        // por incidenciaAParticipante() con las filas de este periodo/kiosko).
+        const part = WIZARD_PARTICIPANTES.find(p => (p.nombre||'').trim().toLowerCase() === (d['Colaborador']||'').trim().toLowerCase());
+        const comentarios = [
+          part && part.comentarioHorasRegulares ? `Horas reg.: ${part.comentarioHorasRegulares}` : '',
+          part && part.comentarioExtra50 ? `Extra 50%: ${part.comentarioExtra50}` : '',
+          part && part.comentarioExtra100 ? `Extra 100%: ${part.comentarioExtra100}` : ''
+        ].filter(Boolean).join('<br>');
+        return `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${fmt(d['Horas extra 50% monto'])}</td><td class="monto">${fmt(d['Horas extra 100% monto'])}</td><td class="monto">${tardanzaCelda}</td><td class="monto">${fmt(d['Total ingresos'])}</td><td class="hint">${comentarios || '—'}</td></tr>`;
+      }).join('')}</tbody></table>`;
   }
   if (i === 1) {
     return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Incap. CCSS</th><th style="text-align:right">Incap. INS</th><th style="text-align:right">Incap. interna</th><th style="text-align:right">Vacaciones</th></tr></thead>
