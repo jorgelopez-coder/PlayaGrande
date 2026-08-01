@@ -128,12 +128,22 @@
 
     /* Amonestaciones */
     .amon-lista { display:flex; flex-direction:column; gap:8px; }
-    .amon-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--surface); font-size:13px; }
+    .amon-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--surface); font-size:13px; cursor:pointer; transition:border-color .15s; }
+    .amon-item:hover { border-color:var(--border-h); }
+    .amon-item.expandido { border-color:var(--border-h); }
     .amon-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .amon-icon svg { width:14px; height:14px; }
     .amon-tipo { font-weight:500; color:var(--text); margin-bottom:2px; }
     .amon-fecha { font-size:11px; color:var(--muted); }
     .amon-empty { font-size:13px; color:var(--subtle); text-align:center; padding:1.5rem; }
+    .amon-chevron { width:14px; height:14px; flex-shrink:0; color:var(--muted); margin-top:2px; transition:transform .15s; }
+    .amon-chevron.abierto { transform:rotate(180deg); }
+    .amon-detalle { display:none; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text); }
+    .amon-detalle.abierto { display:block; }
+    .amon-detalle-row { display:flex; gap:6px; margin-bottom:5px; }
+    .amon-detalle-row:last-child { margin-bottom:0; }
+    .amon-detalle-label { flex-shrink:0; width:110px; color:var(--muted); font-weight:500; }
+    .amon-detalle-valor { flex:1; }
 
     /* Status bar */
     .status-bar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem 1.25rem; font-size:12px; color:var(--muted); margin-top:1.5rem; }
@@ -557,6 +567,42 @@ function iniciales(nombre) {
   return nombre.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
 }
 
+// ── DETALLE DE AMONESTACIÓN (expandir/colapsar al hacer clic) ─────
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function toggleAmonDetalle(i) {
+  const det = document.getElementById(`amon-detalle-${i}`);
+  const chev = document.getElementById(`amon-chevron-${i}`);
+  if (!det) return;
+  const abrir = !det.classList.contains('abierto');
+
+  if (abrir && !det.dataset.armado) {
+    const a = (window._amonesExpediente || [])[i] || {};
+    const motivo        = a['Motivo']            || a.motivo            || '';
+    const observaciones = a['Observaciones']      || a.observaciones     || '';
+    const motivoCat      = a['Motivo categoría']  || a.motivo_categoria  || '';
+    const horas          = a['Horas tardanza']    || a.horas_tardanza    || '';
+    const suspDesde       = a['Suspensión desde'] || a.susp_desde        || '';
+    const suspHasta       = a['Suspensión hasta'] || a.susp_hasta        || '';
+
+    let filas = '';
+    if (motivoCat) filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Motivo</span><span class="amon-detalle-valor">${escHtml(motivoCat)}${horas ? ` (${escHtml(horas)}h)` : ''}</span></div>`;
+    if (motivo)    filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Detalle</span><span class="amon-detalle-valor">${escHtml(motivo)}</span></div>`;
+    if (observaciones) filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Observaciones</span><span class="amon-detalle-valor">${escHtml(observaciones)}</span></div>`;
+    if (suspDesde || suspHasta) filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Suspensión</span><span class="amon-detalle-valor">${escHtml(suspDesde)} → ${escHtml(suspHasta)}</span></div>`;
+    if (!filas) filas = `<div class="amon-detalle-row"><span class="amon-detalle-valor" style="color:var(--subtle);">Sin más detalle disponible.</span></div>`;
+
+    det.innerHTML = filas;
+    det.dataset.armado = '1';
+  }
+
+  det.classList.toggle('abierto', abrir);
+  if (chev) chev.classList.toggle('abierto', abrir);
+  const item = chev ? chev.closest('.amon-item') : null;
+  if (item) item.classList.toggle('expandido', abrir);
+}
+
 // ── CARGAR DATOS ──────────────────────────────────────────────────
 async function cargarDatos() {
   try {
@@ -583,20 +629,28 @@ async function cargarDatos() {
     const localesFiltrados = locales.filter(l => !idsSheet.has(String(l.id)));
     window._solicitudesVac = [...normalizados, ...localesFiltrados];
 
-    // Amonestaciones desde el Sheet + locales
+    // Amonestaciones desde el Sheet + locales (deduplicadas por "Registrado",
+    // igual que las solicitudes de vacaciones arriba — si no se deduplica,
+    // todo lo que ya se sincronizó al Sheet se sigue viendo también desde
+    // localStorage y queda duplicado en el expediente).
     const amonSheet  = dA.ok ? dA.registros : [];
     const amonLocales = JSON.parse(localStorage.getItem('amonestaciones') || '[]');
     // Normalizar encabezados del Sheet
     const amonNorm = amonSheet.map(a => ({
-      fecha:        a['Fecha']            || a.fecha        || '',
-      colaborador:  a['Colaborador']      || a.colaborador  || '',
-      tipo:         a['Tipo']             || a.tipo         || '',
-      motivo:       a['Motivo']           || a.motivo       || '',
-      observaciones:a['Observaciones']    || a.observaciones|| '',
-      susp_desde:   a['Suspensión desde'] || a.susp_desde   || '',
-      susp_hasta:   a['Suspensión hasta'] || a.susp_hasta   || '',
+      fecha:            a['Fecha']             || a.fecha            || '',
+      colaborador:      a['Colaborador']       || a.colaborador      || '',
+      tipo:             a['Tipo']              || a.tipo             || '',
+      motivo:           a['Motivo']             || a.motivo           || '',
+      observaciones:    a['Observaciones']     || a.observaciones    || '',
+      susp_desde:       a['Suspensión desde']  || a.susp_desde       || '',
+      susp_hasta:       a['Suspensión hasta']  || a.susp_hasta       || '',
+      motivo_categoria: a['Motivo categoría']  || a.motivo_categoria || '',
+      horas_tardanza:   a['Horas tardanza']    || a.horas_tardanza   || '',
+      registrado_en:    a['Registrado']        || a.registrado_en    || '',
     }));
-    window._amonestaciones = [...amonNorm, ...amonLocales];
+    const idsAmonSheet = new Set(amonNorm.map(a => String(a.registrado_en || '')).filter(Boolean));
+    const amonLocalesFiltrados = amonLocales.filter(l => !idsAmonSheet.has(String(l.registrado_en || '')));
+    window._amonestaciones = [...amonNorm, ...amonLocalesFiltrados];
 
     // Acciones (amonestaciones, cambios)
     try {
@@ -801,25 +855,30 @@ function verExpediente(idx) {
     const colab = (a['Colaborador'] || a.colaborador || '').trim();
     return colab.toLowerCase() === nombre.toLowerCase();
   });
+  // Se guardan aparte para que toggleAmonDetalle() pueda leerlas por índice
+  // sin tener que re-escapar el HTML dentro del atributo onclick.
+  window._amonesExpediente = amones;
 
   const amonHtml = amones.length
-    ? amones.map(a => {
+    ? amones.map((a, i) => {
         const tipo  = a['Tipo'] || a.tipo || 'Amonestación';
         const fecha = a['Fecha'] || a.fecha || '';
         const isEscrita = tipo.toLowerCase().includes('escrita');
         const isSusp    = tipo.toLowerCase().includes('suspen');
         const bg  = isSusp ? 'var(--red-bg)' : isEscrita ? 'var(--amber-bg)' : 'var(--surface)';
         const col = isSusp ? 'var(--red)'    : isEscrita ? 'var(--amber)'    : 'var(--muted)';
-        return `<div class="amon-item">
+        return `<div class="amon-item" onclick="toggleAmonDetalle(${i})">
           <div class="amon-icon" style="background:${bg};color:${col};">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 2l1.5 4h4l-3.3 2.4 1.3 4L8 10l-3.5 2.4 1.3-4L2.5 6h4z"/>
             </svg>
           </div>
-          <div>
+          <div style="flex:1;">
             <div class="amon-tipo">${tipo}</div>
             <div class="amon-fecha">${fecha}</div>
+            <div class="amon-detalle" id="amon-detalle-${i}"></div>
           </div>
+          <svg class="amon-chevron" id="amon-chevron-${i}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"/></svg>
         </div>`;
       }).join('')
     : '<div class="amon-empty">Sin amonestaciones registradas</div>';
