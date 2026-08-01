@@ -54,9 +54,9 @@ const ENCABEZADOS_AMONESTACIONES = [
   'Fecha', 'Colaborador', 'Tipo', 'Motivo', 'Observaciones', 'Suspensión desde', 'Suspensión hasta', 'Registrado',
   // Columnas nuevas (2026-08-01): categoría del motivo — Llegada tardía,
   // Falta de respeto, Consumo de licor o drogas — y, si es "Llegada
-  // tardía", la cantidad de horas para descontar de "Horas regulares" en
-  // la planilla de la quincena en que cae la fecha de la amonestación
-  // (ver sumarHorasTardanza() y abrirPeriodoPlanilla()).
+  // tardía", la cantidad de horas a mostrar como línea de "Tardanza" (en
+  // negativo) en Ingresos de la planilla de la quincena en que cae la
+  // fecha de la amonestación (ver sumarHorasTardanza() y calcularPlanilla()).
   'Motivo categoría', 'Horas tardanza'
 ];
 const ENCABEZADOS_TERMINACIONES = [
@@ -190,7 +190,11 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   'Embargo salarial', 'Pensión alimenticia', 'Total deducciones', 'Neto a pagar',
   // Si estaba marcado 'CCSS' en el expediente (Personal) al momento del
   // cálculo — deja registro de por qué el rebajo dio 0 cuando corresponde.
-  'CCSS registrado'
+  'CCSS registrado',
+  // Agregadas al final (nunca insertar en medio, ver prepararHoja): horas de
+  // "Llegada tardía" de Amonestaciones dentro de este periodo y su monto en
+  // negativo, ya restados de 'Total ingresos' — ver calcularPlanilla().
+  'Tardanza horas', 'Tardanza monto'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -1821,6 +1825,14 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const extra50Monto = (Number(inc['Horas extra 50%']) || 0) * salarioHora * 1.5;
     const extra100Monto = (Number(inc['Horas extra 100%']) || 0) * salarioHora * 2;
 
+    // Tardanza: horas de "Llegada tardía" registradas en Amonestaciones con
+    // fecha dentro de esta quincena — se muestran como línea propia en
+    // negativo dentro de Ingresos (en vez de restarse en silencio de "Horas
+    // regulares" al abrir el periodo, como antes) y se descuentan del total.
+    const tardanza = sumarHorasTardanza(nombre, fechaInicioStr, fechaFinStr);
+    const tardanzaHoras = tardanza.horas;
+    const tardanzaMonto = tardanzaHoras * salarioHora;
+
     // Feriados: el día del feriado ya está cubierto por el salario base de
     // la quincena (Horas regulares) — un feriado NO trabajado no suma nada
     // extra. Si SÍ está marcado como trabajado en la incidencia, se paga el
@@ -1901,7 +1913,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
 
     const totalIngresos = horasRegularesMonto + extra50Monto + extra100Monto + feriadosMonto
       + incapCCSSMonto + incapINSMonto + incapInternaMonto + vacacionesMonto + subsidioMonto
-      - diasNoTrabajadosMonto;
+      - diasNoTrabajadosMonto - tardanzaMonto;
 
     // Base de CCSS: excluye el subsidio (no es salario) y los 3 montos de
     // incapacidad (no están sujetos a la cuota obrera) — editable por
@@ -1932,6 +1944,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       subsidioMonto: subsidioMonto,
       diasNoTrabajadosAuto: diasNoTrabajadosAuto, diasNoTrabajadosManual: diasNoTrabajadosManual,
       diasNoTrabajadosTotal: diasNoTrabajadosTotal, diasNoTrabajadosMonto: diasNoTrabajadosMonto,
+      tardanzaHoras: tardanzaHoras, tardanzaMonto: tardanzaMonto, tardanzaFechas: tardanza.fechas,
       totalIngresos: totalIngresos,
       baseCCSSAuto: baseCCSSAuto, baseCCSSFinal: baseCCSSFinal, usaCCSSAjustada: usaCCSSAjustada,
       ccssRegistrado: ccssRegistrado,
@@ -2038,6 +2051,8 @@ function guardarPlanilla(p) {
       'Vacaciones monto': c.vacacionesMonto,
       'Subsidio monto': c.subsidioMonto,
       'Días no trabajados monto': c.diasNoTrabajadosMonto,
+      'Tardanza horas': c.tardanzaHoras,
+      'Tardanza monto': c.tardanzaMonto,
       'Total ingresos': c.totalIngresos,
       'Base CCSS utilizada': c.baseCCSSFinal,
       'CCSS obrera monto': c.ccssObreraMonto,
@@ -2100,20 +2115,16 @@ function abrirPeriodoPlanilla(p) {
   let agregados = 0;
   confirmados.forEach(function (c) {
     if (nombresExistentes.indexOf(c.nombre.toLowerCase()) !== -1) return; // ya tenía incidencia, no resetear
-    // Si hay amonestaciones por "Llegada tardía" con fecha dentro de esta
-    // quincena, descontar esas horas de las 120 regulares y dejar el
-    // motivo en el comentario — así queda visible en el wizard (Paso 2) y
-    // en el detalle guardado de la planilla.
-    const tardanza = sumarHorasTardanza(c.nombre, p.fecha_inicio, p.fecha_fin);
-    const horasRegulares = tardanza.horas > 0 ? Math.max(120 - tardanza.horas, 0) : 120;
-    const comentario = tardanza.horas > 0
-      ? 'Tardanza: -' + tardanza.horas + 'h (amonestación ' + tardanza.fechas.join(', ') + ')'
-      : '';
+    // Las horas regulares arrancan siempre en 120 (quincena completa) — la
+    // tardanza de Amonestaciones ya NO se resta acá en silencio. Ahora se
+    // calcula y se muestra como su propia línea en negativo dentro de
+    // Ingresos (ver sumarHorasTardanza() + calcularPlanilla()), para que
+    // quede visible y no se pierda si alguien ajusta "Horas regulares" a
+    // mano después de abrir el periodo.
     guardarIncidencia({
       periodo: p.periodo, fecha_inicio: p.fecha_inicio, fecha_fin: p.fecha_fin,
       kiosko: p.kiosko, colaborador: c.nombre,
-      horas_regulares: horasRegulares,
-      comentario_horas_regulares: comentario,
+      horas_regulares: 120,
       es_manual: c.esManual ? 'Sí' : 'No',
       salario_manual: c.esManual ? c.salario : '',
       puesto_manual: c.esManual ? c.puesto : ''

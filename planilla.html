@@ -442,24 +442,28 @@ function alCambiarSelector() {
 let TODOS_PERSONAL = [];
 let VACACIONES_CACHE = [];
 let FERIADOS_CACHE = [];
+let AMONESTACIONES_CACHE = [];
 
 async function cargarDatosCompartidos() {
-  const [rPersonal, rVac, rFer] = await Promise.all([
+  const [rPersonal, rVac, rFer, rAmo] = await Promise.all([
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
-    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados')
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones')
   ]);
-  const [dPersonal, dVac, dFer] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json()]);
+  const [dPersonal, dVac, dFer, dAmo] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json(), rAmo.json()]);
   TODOS_PERSONAL = dPersonal.ok ? dPersonal.registros : [];
   VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
   FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
+  AMONESTACIONES_CACHE = dAmo.ok ? dAmo.registros : [];
 }
 
-// VACACIONES_CACHE (y FERIADOS_CACHE) se cargan una sola vez al abrir la
-// pestaña — si alguien aprueba una solicitud de vacaciones mientras el
-// wizard ya está abierto, el preview de los Pasos 2-3 (calcularClientePreview,
-// que lee estos arreglos globales) no se entera hasta recargar la página.
-// Este refresco vuelve a pedir ambos catálogos y re-renderiza el paso actual
+// VACACIONES_CACHE (FERIADOS_CACHE y AMONESTACIONES_CACHE) se cargan una
+// sola vez al abrir la pestaña — si alguien aprueba una solicitud de
+// vacaciones (o registra una amonestación) mientras el wizard ya está
+// abierto, el preview de los Pasos 2-3 (calcularClientePreview, que lee
+// estos arreglos globales) no se entera hasta recargar la página. Este
+// refresco vuelve a pedir los tres catálogos y re-renderiza el paso actual
 // del wizard, sin perder el progreso capturado.
 let REFRESCANDO_VACACIONES = false;
 async function refrescarVacaciones(btn) {
@@ -468,14 +472,16 @@ async function refrescarVacaciones(btn) {
   const textoOriginal = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    const [rVac, rFer] = await Promise.all([
+    const [rVac, rFer, rAmo] = await Promise.all([
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados')
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones')
     ]);
-    const [dVac, dFer] = await Promise.all([rVac.json(), rFer.json()]);
+    const [dVac, dFer, dAmo] = await Promise.all([rVac.json(), rFer.json(), rAmo.json()]);
     if (dVac.ok) VACACIONES_CACHE = dVac.registros;
     if (dFer.ok) FERIADOS_CACHE = dFer.registros;
-    showToast('Cálculo actualizado con las vacaciones y feriados más recientes.', 'success');
+    if (dAmo.ok) AMONESTACIONES_CACHE = dAmo.registros;
+    showToast('Cálculo actualizado con las vacaciones, feriados y amonestaciones más recientes.', 'success');
     renderWizard();
   } catch (err) {
     showToast('No se pudo refrescar: ' + err.message, 'error');
@@ -549,6 +555,25 @@ function participanteAPayload(r, kiosko, part) {
     ccss_base_ajustada: part.ccssBaseAjustada
   };
 }
+// Réplica en el cliente de sumarHorasTardanza() (Code-rrhh-kioskos-backend.gs):
+// suma las horas de "Llegada tardía" de Amonestaciones cuya fecha cae dentro
+// del periodo — se muestra como línea propia en negativo dentro de Ingresos.
+function sumarHorasTardanzaCliente(colaborador, fechaInicio, fechaFin) {
+  const resultado = { horas: 0, fechas: [] };
+  if (!colaborador || !fechaInicio || !fechaFin) return resultado;
+  const buscado = String(colaborador).trim().toLowerCase();
+  AMONESTACIONES_CACHE.forEach(row => {
+    if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
+    if (String(row['Motivo categoría']||'') !== 'Llegada tardía') return;
+    const fecha = String(row['Fecha']||'');
+    if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
+    const horas = Number(row['Horas tardanza']) || 0;
+    if (horas <= 0) return;
+    resultado.horas += horas;
+    resultado.fechas.push(fecha);
+  });
+  return resultado;
+}
 // Réplica en el cliente de calcularPlanilla() (Code-rrhh-kioskos-backend.gs)
 // para dar feedback instantáneo en los Pasos 2-3 sin ida y vuelta al
 // servidor — el cálculo autoritativo (el que se guarda) siempre corre en el
@@ -561,6 +586,10 @@ function calcularClientePreview(part) {
   const horasRegularesMonto = numOr(part.horasRegulares,0) * salarioHora;
   const extra50Monto = numOr(part.extra50,0) * salarioHora * 1.5;
   const extra100Monto = numOr(part.extra100,0) * salarioHora * 2;
+
+  const tardanza = sumarHorasTardanzaCliente(part.nombre, r.fechaInicio, r.fechaFin);
+  const tardanzaHoras = tardanza.horas;
+  const tardanzaMonto = tardanzaHoras * salarioHora;
 
   const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
     if (String(f['Activo']||'Sí').trim().toLowerCase()==='no') return false;
@@ -611,7 +640,7 @@ function calcularClientePreview(part) {
   const diasNoTrabajadosTotal = diasNoTrabajadosAuto + diasNoTrabajadosManual;
   const diasNoTrabajadosMonto = diasNoTrabajadosTotal * salarioDiario;
 
-  const totalIngresos = horasRegularesMonto+extra50Monto+extra100Monto+feriadosMonto+incapCCSSMonto+incapINSMonto+incapInternaMonto+vacacionesMonto+subsidioMonto - diasNoTrabajadosMonto;
+  const totalIngresos = horasRegularesMonto+extra50Monto+extra100Monto+feriadosMonto+incapCCSSMonto+incapINSMonto+incapInternaMonto+vacacionesMonto+subsidioMonto - diasNoTrabajadosMonto - tardanzaMonto;
 
   const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto, 0);
   const usaAjustada = !(part.ccssBaseAjustada===''||part.ccssBaseAjustada===undefined||part.ccssBaseAjustada===null);
@@ -626,6 +655,7 @@ function calcularClientePreview(part) {
   return { salarioDiario, salarioHora, horasRegularesMonto, extra50Monto, extra100Monto, feriadosMonto,
     incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, subsidioMonto,
     diasNoTrabajadosAuto, diasNoTrabajadosManual, diasNoTrabajadosTotal, diasNoTrabajadosMonto,
+    tardanzaHoras, tardanzaMonto, tardanzaFechas: tardanza.fechas,
     totalIngresos, baseCCSSAuto, baseCCSSFinal, ccssObreraMonto, totalDeducciones, neto };
 }
 
@@ -917,9 +947,10 @@ function renderPaso2() {
       <td><input type="number" min="0" step="0.5" value="${p.extra50}" oninput="actualizarCampoSilencioso(${i},'extra50',this.value)"></td>
       <td><input type="number" min="0" step="0.5" value="${p.extra100}" oninput="actualizarCampoSilencioso(${i},'extra100',this.value)"></td>
       <td class="hint">${prev.diasNoTrabajadosAuto>0?`${prev.diasNoTrabajadosAuto} día(s) auto`:'—'}</td>
+      <td class="hint" ${prev.tardanzaHoras>0?'style="color:var(--red)"':''} title="${prev.tardanzaFechas.length?'Amonestación(es): '+prev.tardanzaFechas.map(fechaBonita).join(', '):''}">${prev.tardanzaHoras>0?`−${prev.tardanzaHoras}h`:'—'}</td>
       <td><button class="detalle-toggle" onclick="togglePaso2Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
     </tr>
-    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="6">${detalleAbierto?renderDetallePaso2(i, feriadosDelPeriodo, prev):''}</td></tr>
+    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="7">${detalleAbierto?renderDetallePaso2(i, feriadosDelPeriodo, prev):''}</td></tr>
     `;
   }).join('');
 
@@ -927,11 +958,11 @@ function renderPaso2() {
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <p class="card-title" style="margin:0">Ingresos — horas de la quincena</p>
-        <button class="btn-secondary" onclick="refrescarVacaciones(event.target)" title="Vuelve a traer las solicitudes de vacaciones y feriados más recientes y recalcula el preview">🔄 Refrescar cálculo</button>
+        <button class="btn-secondary" onclick="refrescarVacaciones(event.target)" title="Vuelve a traer las solicitudes de vacaciones, feriados y amonestaciones más recientes y recalcula el preview">🔄 Refrescar cálculo</button>
       </div>
-      <p class="hint" style="display:block;margin:6px 0 10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. Usá "Detalle" para feriados, incapacidades, vacaciones y subsidio.</p>
+      <p class="hint" style="display:block;margin:6px 0 10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. "Tardanza" se calcula sola desde Amonestaciones (Llegada tardía) y se resta del total de horas trabajadas. Usá "Detalle" para feriados, incapacidades, vacaciones y subsidio.</p>
       <table class="tabla-wizard">
-        <thead><tr><th>Colaborador</th><th>Horas reg.</th><th>Extra 50%</th><th>Extra 100%</th><th>Días no trab.</th><th></th></tr></thead>
+        <thead><tr><th>Colaborador</th><th>Horas reg.</th><th>Extra 50%</th><th>Extra 100%</th><th>Días no trab.</th><th>Tardanza</th><th></th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
@@ -1149,6 +1180,7 @@ function renderDetallePaso3(i, prev) {
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Feriados</span><span>${fmt(prev.feriadosMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Vacaciones</span><span>${fmt(prev.vacacionesMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Días no trabajados</span><span>−${fmt(prev.diasNoTrabajadosMonto)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Tardanza${prev.tardanzaHoras>0?` (${prev.tardanzaHoras}h)`:''}</span><span>−${fmt(prev.tardanzaMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);font-weight:600"><span>= Base CCSS automática</span><span>${fmt(prev.baseCCSSAuto)}</span></div>
       </div>
       <p class="hint" style="display:block;margin-top:8px">Las horas extra (50% y 100%) sí forman parte de la base de cotización de CCSS — solo quedan afuera el subsidio de alimentación/transporte y las incapacidades (CCSS, INS, interna), que no son salario sujeto a cuota.</p>
@@ -1253,6 +1285,7 @@ function renderTablaCalculo(resultado) {
           <div><span>Vacaciones (${c.vacacionesDias} días)</span><span>${fmt(c.vacacionesMonto)}</span></div>
           <div><span>Subsidio</span><span>${fmt(c.subsidioMonto)}</span></div>
           <div><span>Días no trabajados (${c.diasNoTrabajadosTotal})</span><span>−${fmt(c.diasNoTrabajadosMonto)}</span></div>
+          <div style="${c.tardanzaHoras>0?'color:var(--red)':''}"><span>Tardanza (${c.tardanzaHoras}h)</span><span>−${fmt(c.tardanzaMonto)}</span></div>
         </div>
         <div><b>Deducciones</b>
           <div><span>Base CCSS${c.usaCCSSAjustada?' (ajustada)':''}</span><span>${fmt(c.baseCCSSFinal)}</span></div>
@@ -1390,8 +1423,8 @@ function renderDetalleChecklistItem(i) {
   const filas = WIZARD_DETALLE_FILAS;
   if (!filas.length) return '<p class="hint">Sin detalle guardado para esta planilla.</p>';
   if (i === 0) {
-    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Total ingresos</th></tr></thead>
-      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${fmt(d['Horas extra 50% monto'])}</td><td class="monto">${fmt(d['Horas extra 100% monto'])}</td><td class="monto">${fmt(d['Total ingresos'])}</td></tr>`).join('')}</tbody></table>`;
+    return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Tardanza</th><th style="text-align:right">Total ingresos</th></tr></thead>
+      <tbody>${filas.map(d => `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${fmt(d['Horas extra 50% monto'])}</td><td class="monto">${fmt(d['Horas extra 100% monto'])}</td><td class="monto">${(Number(d['Tardanza monto'])||0)>0?'−'+fmt(d['Tardanza monto']):fmt(0)}</td><td class="monto">${fmt(d['Total ingresos'])}</td></tr>`).join('')}</tbody></table>`;
   }
   if (i === 1) {
     return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Incap. CCSS</th><th style="text-align:right">Incap. INS</th><th style="text-align:right">Incap. interna</th><th style="text-align:right">Vacaciones</th></tr></thead>
