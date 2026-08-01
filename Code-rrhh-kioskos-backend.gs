@@ -51,7 +51,13 @@ const ENCABEZADOS_VACACIONES = [
   'ID', 'Colaborador', 'Fecha inicio', 'Fecha fin', 'Días', 'Observaciones', 'Estado', 'Registrado'
 ];
 const ENCABEZADOS_AMONESTACIONES = [
-  'Fecha', 'Colaborador', 'Tipo', 'Motivo', 'Observaciones', 'Suspensión desde', 'Suspensión hasta', 'Registrado'
+  'Fecha', 'Colaborador', 'Tipo', 'Motivo', 'Observaciones', 'Suspensión desde', 'Suspensión hasta', 'Registrado',
+  // Columnas nuevas (2026-08-01): categoría del motivo — Llegada tardía,
+  // Falta de respeto, Consumo de licor o drogas — y, si es "Llegada
+  // tardía", la cantidad de horas para descontar de "Horas regulares" en
+  // la planilla de la quincena en que cae la fecha de la amonestación
+  // (ver sumarHorasTardanza() y abrirPeriodoPlanilla()).
+  'Motivo categoría', 'Horas tardanza'
 ];
 const ENCABEZADOS_TERMINACIONES = [
   'Colaborador', 'Tipo terminación', 'Fecha salida', 'Observaciones', 'Registrado'
@@ -1057,6 +1063,7 @@ function cambiarEstadoVacaciones(p) {
 function registrarAmonestacion(p) {
   if (!p.colaborador) throw new Error('Falta el colaborador.');
   if (!p.tipo) throw new Error('Falta el tipo de amonestación.');
+  const esTardia = p.motivo_categoria === 'Llegada tardía';
   const hoja = prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES);
   const fila = hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_AMONESTACIONES, {
@@ -1067,9 +1074,35 @@ function registrarAmonestacion(p) {
     'Observaciones': p.observaciones || '',
     'Suspensión desde': p.susp_desde || '',
     'Suspensión hasta': p.susp_hasta || '',
-    'Registrado': p.registrado_en || new Date().toISOString()
+    'Registrado': p.registrado_en || new Date().toISOString(),
+    'Motivo categoría': p.motivo_categoria || '',
+    'Horas tardanza': esTardia ? (Number(p.horas_tardanza) || 0) : ''
   });
   return { fila: fila };
+}
+
+// Suma las horas de "Llegada tardía" registradas en Amonestaciones para un
+// colaborador cuya Fecha cae dentro de [fechaInicio, fechaFin] (la quincena
+// que se está abriendo en planilla.html). Se usa para descontar ese tiempo
+// de "Horas regulares" al abrir el periodo — ver abrirPeriodoPlanilla().
+// Devuelve { horas, fechas } — fechas es la lista de fechas que aportaron,
+// para armar el comentario de la incidencia.
+function sumarHorasTardanza(colaborador, fechaInicio, fechaFin) {
+  const resultado = { horas: 0, fechas: [] };
+  if (!colaborador || !fechaInicio || !fechaFin) return resultado;
+  const hoja = prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES);
+  const buscado = String(colaborador).trim().toLowerCase();
+  filasComoObjetos(hoja).forEach(function (row) {
+    if (String(row['Colaborador'] || '').trim().toLowerCase() !== buscado) return;
+    if (String(row['Motivo categoría'] || '') !== 'Llegada tardía') return;
+    const fecha = valorComoTexto(row['Fecha'] || '');
+    if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
+    const horas = Number(row['Horas tardanza']) || 0;
+    if (horas <= 0) return;
+    resultado.horas += horas;
+    resultado.fechas.push(fecha);
+  });
+  return resultado;
 }
 
 function registrarTerminacion(p) {
@@ -2067,10 +2100,20 @@ function abrirPeriodoPlanilla(p) {
   let agregados = 0;
   confirmados.forEach(function (c) {
     if (nombresExistentes.indexOf(c.nombre.toLowerCase()) !== -1) return; // ya tenía incidencia, no resetear
+    // Si hay amonestaciones por "Llegada tardía" con fecha dentro de esta
+    // quincena, descontar esas horas de las 120 regulares y dejar el
+    // motivo en el comentario — así queda visible en el wizard (Paso 2) y
+    // en el detalle guardado de la planilla.
+    const tardanza = sumarHorasTardanza(c.nombre, p.fecha_inicio, p.fecha_fin);
+    const horasRegulares = tardanza.horas > 0 ? Math.max(120 - tardanza.horas, 0) : 120;
+    const comentario = tardanza.horas > 0
+      ? 'Tardanza: -' + tardanza.horas + 'h (amonestación ' + tardanza.fechas.join(', ') + ')'
+      : '';
     guardarIncidencia({
       periodo: p.periodo, fecha_inicio: p.fecha_inicio, fecha_fin: p.fecha_fin,
       kiosko: p.kiosko, colaborador: c.nombre,
-      horas_regulares: 120,
+      horas_regulares: horasRegulares,
+      comentario_horas_regulares: comentario,
       es_manual: c.esManual ? 'Sí' : 'No',
       salario_manual: c.esManual ? c.salario : '',
       puesto_manual: c.esManual ? c.puesto : ''

@@ -211,6 +211,24 @@
         </div>
       </div>
 
+      <div class="field-row">
+        <div class="field">
+          <label for="motivo-categoria">Motivo <span class="req">*</span></label>
+          <select id="motivo-categoria" required onchange="onMotivoCategoriaChange()">
+            <option value="" disabled selected>Seleccioná un motivo…</option>
+            <option value="Llegada tardía">Llegada tardía</option>
+            <option value="Falta de respeto">Falta de respeto</option>
+            <option value="Consumo de licor o drogas">Consumo de licor o drogas</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="field" id="horas-tardanza-wrap" style="display:none;">
+          <label for="horas-tardanza">Cantidad de horas <span class="req">*</span></label>
+          <input type="number" id="horas-tardanza" min="0" step="0.5" placeholder="Ej: 1.5">
+        </div>
+      </div>
+      <p class="hint" style="font-size:12px;color:var(--muted);margin:-.6rem 0 1rem;">Si el motivo es "Llegada tardía", las horas indicadas se descuentan de las horas regulares en la planilla de esa quincena.</p>
+
       <div class="field">
         <label for="motivo">Motivo detallado <span class="req">*</span></label>
         <textarea id="motivo" placeholder="Describí con detalle el motivo de la amonestación…" required></textarea>
@@ -336,6 +354,14 @@ function selectTipo(btn) {
   document.getElementById('susp-extra').classList.toggle('visible', esSusp);
 }
 
+// ── MOTIVO (categoría) ───────────────────────────────────────────
+function onMotivoCategoriaChange() {
+  const esTardia = document.getElementById('motivo-categoria').value === 'Llegada tardía';
+  const wrap = document.getElementById('horas-tardanza-wrap');
+  wrap.style.display = esTardia ? 'block' : 'none';
+  if (!esTardia) document.getElementById('horas-tardanza').value = '';
+}
+
 // ── TABS ──────────────────────────────────────────────────────────
 function switchTab(tab, el) {
   document.getElementById('tab-nueva').style.display     = tab === 'nueva'     ? 'block' : 'none';
@@ -367,7 +393,9 @@ async function fetchAmonestacionesServidor() {
       observaciones: r['Observaciones'] || r.observaciones || '',
       susp_desde: r['Suspensión desde'] || r.susp_desde || '',
       susp_hasta: r['Suspensión hasta'] || r.susp_hasta || '',
-      registrado_en: r['Registrado'] || r.registrado_en || ''
+      registrado_en: r['Registrado'] || r.registrado_en || '',
+      motivo_categoria: r['Motivo categoría'] || r.motivo_categoria || '',
+      horas_tardanza: r['Horas tardanza'] || r.horas_tardanza || ''
     }));
   } catch (err) {
     console.error('Error cargando amonestaciones del servidor:', err);
@@ -422,15 +450,16 @@ function renderHistorial() {
       <td style="color:var(--muted);font-size:12px;white-space:nowrap;">${r.fecha}</td>
       <td style="font-weight:500;">${r.colaborador}</td>
       <td><span class="badge ${badgeClass(r.tipo)}"><span class="badge-dot"></span>${r.tipo}</span></td>
-      <td style="max-width:260px;font-size:13px;">${r.motivo}</td>
+      <td style="font-size:12px;white-space:nowrap;">${r.motivo_categoria || '—'}${r.horas_tardanza ? ` (${r.horas_tardanza}h)` : ''}</td>
+      <td style="max-width:220px;font-size:13px;">${r.motivo}</td>
       <td style="color:var(--muted);font-size:12px;">${r.observaciones || '—'}</td>
       ${r.susp_desde ? `<td style="font-size:12px;color:var(--muted);">${r.susp_desde} → ${r.susp_hasta}</td>` : '<td style="color:var(--subtle);font-size:12px;">—</td>'}
     </tr>`).join('');
 
   cont.innerHTML = `<table>
     <thead><tr>
-      <th>Fecha</th><th>Colaborador</th><th>Tipo</th>
-      <th>Motivo</th><th>Observaciones</th><th>Período suspensión</th>
+      <th>Fecha</th><th>Colaborador</th><th>Tipo</th><th>Motivo</th>
+      <th>Detalle</th><th>Observaciones</th><th>Período suspensión</th>
     </tr></thead>
     <tbody>${filas}</tbody>
   </table>`;
@@ -441,12 +470,14 @@ async function guardar() {
   const tipo   = document.getElementById('tipo-selected').value;
   const colab  = document.getElementById('colab').value;
   const fecha  = document.getElementById('fecha').value;
+  const motivoCategoria = document.getElementById('motivo-categoria').value;
   const motivo = document.getElementById('motivo').value.trim();
   const obs    = document.getElementById('observaciones').value.trim();
 
   if (!tipo)   { showToast('Seleccioná el tipo de amonestación.', 'error'); return; }
   if (!colab)  { showToast('Seleccioná un colaborador.', 'error'); return; }
   if (!fecha)  { showToast('Seleccioná la fecha.', 'error'); return; }
+  if (!motivoCategoria) { showToast('Seleccioná el motivo.', 'error'); return; }
   if (!motivo) { showToast('Ingresá el motivo detallado.', 'error'); return; }
 
   const esSusp    = tipo === 'Suspensión sin goce de salario';
@@ -456,13 +487,21 @@ async function guardar() {
     showToast('Ingresá las fechas de suspensión.', 'error'); return;
   }
 
+  const esTardia = motivoCategoria === 'Llegada tardía';
+  const horasTardanza = Number(document.getElementById('horas-tardanza').value) || 0;
+  if (esTardia && horasTardanza <= 0) {
+    showToast('Ingresá la cantidad de horas de la tardanza.', 'error'); return;
+  }
+
   const registro = {
     modulo: 'amonestacion',
     tipo, colaborador: colab, fecha, motivo,
     observaciones: obs,
     susp_desde: esSusp ? suspDesde : '',
     susp_hasta: esSusp ? suspHasta : '',
-    registrado_en: new Date().toISOString()
+    registrado_en: new Date().toISOString(),
+    motivo_categoria: motivoCategoria,
+    horas_tardanza: esTardia ? horasTardanza : ''
   };
 
   const btn = document.getElementById('btn-guardar');
@@ -498,6 +537,9 @@ function limpiar() {
   document.getElementById('susp-desde').value = '';
   document.getElementById('susp-hasta').value = '';
   document.getElementById('susp-extra').classList.remove('visible');
+  document.getElementById('motivo-categoria').value = '';
+  document.getElementById('horas-tardanza').value = '';
+  document.getElementById('horas-tardanza-wrap').style.display = 'none';
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
