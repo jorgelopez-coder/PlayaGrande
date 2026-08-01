@@ -267,7 +267,7 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
 // Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
 // Sheet (ver cargarKioskos()/configuracion.html) antes de traer la planilla.
@@ -830,7 +830,7 @@ function aplicarVacaciones(){
       const cubierto = vacaciones.some(v=>
         v.nombre.toLowerCase()===emp.name.toLowerCase().trim() &&
         v.estado.toLowerCase()==='aprobado' &&
-        iso>=v.inicio && iso<=v.fin
+        iso>=v.inicio && iso<v.fin // fin = fecha de regreso, no cuenta como vacaciones
       );
       const cell = schedule[emp.id][i];
       if(cubierto){

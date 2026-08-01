@@ -385,7 +385,7 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
-const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // Mismo Web App que mantenimiento.html (Code-mantenimiento-backend.gs, Sheet
 // "Operaciones - Kioskos") — este módulo agrega las pestañas Mermas y
 // MermasConfig a ese mismo backend (ver README).
@@ -404,8 +404,7 @@ const EXTRACTOR_URL = 'https://script.google.com/macros/s/AKfycbyYwRDE6Y8vW79x1a
 const SQUARE_KIOSKOS = {
   'Playa Grande': { sheetId: '1a5CTWWVNfGbh_h0pS0OdbKBZ0l6rf_IVKhSb-6RhyUA', ventasTab: 'Ventas_Por_Producto' },
   'Tamarindo': { sheetId: '1jS6-2LP8UKxiwRQ1cYLrxOEXOHic4a3XP4HgJE1DMjQ', ventasTab: 'Ventas_Por_Producto' },
-  'Liberia': { sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok', ventasTab: 'Ventas_Por_Producto' },
-    'Nosara':      { sheetId: '1n6GRkOFd-6cZJP9HOZFr8hR0HjVMVuHW_pMrY4i0aRc', ventasTab: 'Ventas_Por_Producto' }
+  'Liberia': { sheetId: '1XGZe3U3Z3LaBPPhmDEM7RE3cbaumrKJun7bPzzqiMok', ventasTab: 'Ventas_Por_Producto' }
 };
 // Densidad estándar de cerveza para convertir peso (g) ↔ volumen (mismo
 // criterio que DENSIDAD_CERVEZA_G_ML en index.html) — es una aproximación.

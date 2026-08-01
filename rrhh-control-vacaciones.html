@@ -319,7 +319,7 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 const EMAIL_GERENCIA  = 'jorge.lopez@casaaguizotes.com';
 // ─────────────────────────────────────────────────────────────────
 
@@ -408,9 +408,10 @@ function calcularSaldo(p) {
 
 // ── DÍAS HÁBILES ─────────────────────────────────────────────────
 function diasHabiles(desde, hasta) {
+  // "hasta" es la fecha de regreso, no se cuenta como día de vacaciones
   let count = 0;
   const cur = new Date(desde);
-  while (cur <= hasta) {
+  while (cur < hasta) {
     const d = cur.getDay();
     if (d !== 0 && d !== 6) count++;
     cur.setDate(cur.getDate() + 1);

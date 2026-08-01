@@ -510,7 +510,7 @@ const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4
 // Mismo Web App de RRHH (pestaña "Configuracion") que usan compras.html,
 // mermas.html, recetas.html e inventario.html — para traer la lista real de
 // kioskos en vez de tenerla hardcodeada.
-const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));

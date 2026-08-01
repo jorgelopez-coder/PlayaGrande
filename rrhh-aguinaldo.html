@@ -70,15 +70,25 @@ textarea{width:100%;resize:vertical;min-height:56px;font-family:var(--font-b)}
 .btn-sm{font-size:11.5px;padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500}
 .btn-sm:hover{border-color:var(--border-h)}
 
-.calc-tabla{width:100%;border-collapse:collapse;font-size:13px}
-.calc-tabla th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 10px 8px 0;border-bottom:1px solid var(--border);white-space:nowrap}
-.calc-tabla td{padding:10px 10px 10px 0;border-bottom:1px solid var(--border);vertical-align:middle}
-.calc-tabla tr:last-child>td{border-bottom:none}
-.calc-tabla tr.fila-colab{cursor:pointer}
-.calc-tabla tr.fila-colab:hover{background:var(--surface)}
-.calc-tabla .monto{text-align:right;font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
-.calc-tabla tr.fila-detalle td{background:var(--surface);padding:14px}
 .subtit{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Agrupado por kiosko → colaborador, con el detalle siempre desplegado */
+.kiosko-group{margin-bottom:20px}
+.kiosko-group:last-child{margin-bottom:0}
+.kiosko-group-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px 8px;border-bottom:2px solid var(--border-h);margin-bottom:12px;flex-wrap:wrap}
+.kiosko-group-name{font-family:var(--font-d);font-size:15.5px;font-weight:700}
+.kiosko-group-sub{font-size:11.5px;color:var(--muted);white-space:nowrap}
+
+.colab-block{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.colab-block:last-child{margin-bottom:0}
+.colab-block-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;background:var(--card);flex-wrap:wrap}
+.colab-nombre{font-weight:600;font-size:13.5px}
+.colab-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.colab-montos{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.colab-base{font-size:11px;color:var(--muted);text-align:right;line-height:1.4}
+.colab-base b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
+.colab-monto{font-family:var(--font-d);font-size:17px;font-weight:700;color:var(--text);text-align:right;white-space:nowrap}
+.colab-detalle{padding:12px 14px;background:var(--surface);border-top:1px solid var(--border)}
 
 .estado-badge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
 .estado-badge.pendiente{background:var(--amber-bg);color:var(--amber)}
@@ -104,7 +114,8 @@ textarea{width:100%;resize:vertical;min-height:56px;font-family:var(--font-b)}
   .kiosko-bar,.periodo-bar{padding-left:1rem;padding-right:1rem}
   .field-row{grid-template-columns:1fr}
   .resumen-grid{grid-template-columns:1fr}
-  .calc-tabla{display:block;overflow-x:auto;white-space:nowrap}
+  .colab-block-head{flex-direction:column;align-items:flex-start}
+  .colab-montos{width:100%;justify-content:space-between}
 }
 </style>
 </head>
@@ -152,8 +163,8 @@ textarea{width:100%;resize:vertical;min-height:56px;font-family:var(--font-b)}
     </div>
   </div>
 
-  <div class="card" style="overflow-x:auto">
-    <p class="card-title">Aguinaldo acumulado por colaborador</p>
+  <div class="card">
+    <p class="card-title">Aguinaldo acumulado por kiosko y colaborador</p>
     <div id="tabla-cont"><div class="empty-state"><span class="spinner"></span></div></div>
   </div>
 
@@ -185,7 +196,7 @@ function kioskosPermitidos(lista) {
 }
 
 // Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs).
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwF97oX3BogjtjGjd5ZL9OfWsdU7MDGc12CuD-TGTQUdRe6I9OR6oamsiWJD_T-xNjaWQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
 const hoy = new Date();
 const fmt = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -251,7 +262,6 @@ function actualizarChipPeriodo(fechaInicio, fechaFin) {
 
 // ══════════════════════════ CARGA + RENDER ══════════════════════════
 let AGUINALDO_ACTUAL = null; // { periodo, fecha_inicio, fecha_fin, colaboradores: [...] }
-let FILA_ABIERTA = -1;
 
 async function cargarAguinaldo() {
   const kiosko = document.getElementById('ag-kiosko').value;
@@ -259,7 +269,6 @@ async function cargarAguinaldo() {
   const anio = document.getElementById('ag-anio').value;
   const cont = document.getElementById('tabla-cont');
   cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
-  FILA_ABIERTA = -1;
 
   try {
     const qs = new URLSearchParams({ modulo: 'aguinaldo_calcular', anio });
@@ -291,6 +300,9 @@ function renderResumen() {
   document.getElementById('res-pagado-sub').textContent = `${pagados.length} colaborador${pagados.length!==1?'es':''}`;
 }
 
+// Agrupa por Kiosko (en el orden en que ya vienen del backend, que ordena
+// Kiosko + Colaborador) y renderiza cada colaborador con su detalle SIEMPRE
+// desplegado debajo — no hace falta hacer click para verlo.
 function renderTabla() {
   const cont = document.getElementById('tabla-cont');
   const lista = (AGUINALDO_ACTUAL && AGUINALDO_ACTUAL.colaboradores) || [];
@@ -298,42 +310,54 @@ function renderTabla() {
     cont.innerHTML = '<div class="empty-state">No hay colaboradores activos con kiosko asignado para este filtro, o todavía no hay planillas aprobadas en este periodo.</div>';
     return;
   }
-  const mostrarKiosko = !document.getElementById('ag-kiosko').value;
 
-  let html = `<table class="calc-tabla"><thead><tr>
-    ${mostrarKiosko ? '<th>Kiosko</th>' : ''}
-    <th>Colaborador</th><th>Puesto</th><th style="text-align:right">Quincenas</th>
-    <th style="text-align:right">Base CCSS acum.</th><th style="text-align:right">Aguinaldo</th><th>Estado</th></tr></thead><tbody>`;
-
-  lista.forEach((c, i) => {
-    const monto = c.pagado ? c.monto_pagado : c.monto_aguinaldo;
-    html += `<tr class="fila-colab" onclick="toggleFila(${i})">
-      ${mostrarKiosko ? `<td>${c.kiosko}</td>` : ''}
-      <td>${c.colaborador}</td>
-      <td>${c.puesto || '—'}</td>
-      <td class="monto">${c.quincenas_incluidas}</td>
-      <td class="monto">${fmt(c.base_ccss_acumulada)}</td>
-      <td class="monto">${fmt(monto)}</td>
-      <td><span class="estado-badge ${c.pagado?'pagado':'pendiente'}">${c.pagado?'Pagado':'Pendiente'}</span></td>
-    </tr>
-    <tr class="fila-detalle" id="detalle-${i}" style="display:none"><td colspan="${mostrarKiosko?7:6}">
-      <div id="detalle-cont-${i}"></div>
-    </td></tr>`;
+  // Agrupar manteniendo el índice original de cada colaborador en
+  // AGUINALDO_ACTUAL.colaboradores (lo usan renderDetalleFila/renderFormPago/confirmarPago).
+  const grupos = []; // [{ kiosko, items: [{ idx, c }] }]
+  const porKiosko = {};
+  lista.forEach((c, idx) => {
+    if (!porKiosko[c.kiosko]) {
+      porKiosko[c.kiosko] = { kiosko: c.kiosko, items: [] };
+      grupos.push(porKiosko[c.kiosko]);
+    }
+    porKiosko[c.kiosko].items.push({ idx, c });
   });
 
-  html += '</tbody></table>';
-  cont.innerHTML = html;
-}
+  let html = '';
+  grupos.forEach(g => {
+    const pendientes = g.items.filter(x => !x.c.pagado);
+    const pagados = g.items.filter(x => x.c.pagado);
+    const totalPendiente = pendientes.reduce((acc,x) => acc + x.c.monto_aguinaldo, 0);
+    html += `<div class="kiosko-group">
+      <div class="kiosko-group-head">
+        <span class="kiosko-group-name">🏖️ ${g.kiosko}</span>
+        <span class="kiosko-group-sub">${g.items.length} colaborador${g.items.length!==1?'es':''} · ${pagados.length} pagado${pagados.length!==1?'s':''} · Pendiente del kiosko: ${fmt(totalPendiente)}</span>
+      </div>`;
+    g.items.forEach(({ idx, c }) => {
+      const monto = c.pagado ? c.monto_pagado : c.monto_aguinaldo;
+      html += `<div class="colab-block">
+        <div class="colab-block-head">
+          <div>
+            <div class="colab-nombre">${c.colaborador}</div>
+            <div class="colab-sub">${c.puesto || '—'} · ${c.quincenas_incluidas} quincena${c.quincenas_incluidas!==1?'s':''} incluida${c.quincenas_incluidas!==1?'s':''}</div>
+          </div>
+          <div class="colab-montos">
+            <div class="colab-base">Base CCSS acumulada<br><b>${fmt(c.base_ccss_acumulada)}</b></div>
+            <div class="colab-monto">${fmt(monto)}</div>
+            <span class="estado-badge ${c.pagado?'pagado':'pendiente'}">${c.pagado?'Pagado':'Pendiente'}</span>
+          </div>
+        </div>
+        <div class="colab-detalle" id="detalle-cont-${idx}"></div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
 
-function toggleFila(i) {
-  if (FILA_ABIERTA !== -1 && FILA_ABIERTA !== i) {
-    document.getElementById('detalle-' + FILA_ABIERTA).style.display = 'none';
-  }
-  const fila = document.getElementById('detalle-' + i);
-  const abrir = fila.style.display === 'none';
-  fila.style.display = abrir ? '' : 'none';
-  FILA_ABIERTA = abrir ? i : -1;
-  if (abrir) renderDetalleFila(i);
+  cont.innerHTML = html;
+  // El detalle de cada colaborador (banner de pago o formulario de
+  // confirmación) se llena después de insertar el HTML, porque busca sus
+  // propios elementos por id.
+  lista.forEach((c, idx) => renderDetalleFila(idx));
 }
 
 function renderDetalleFila(i) {
