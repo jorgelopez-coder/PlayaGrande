@@ -145,6 +145,16 @@
     .amon-detalle-label { flex-shrink:0; width:110px; color:var(--muted); font-weight:500; }
     .amon-detalle-valor { flex:1; }
 
+    /* ── HISTÓRICO DE MOVIMIENTOS ── */
+    .mov-lista { display:flex; flex-direction:column; gap:8px; }
+    .mov-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--surface); font-size:13px; }
+    .mov-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .mov-icon svg { width:14px; height:14px; }
+    .mov-tipo { font-weight:500; color:var(--text); margin-bottom:2px; }
+    .mov-cambio { font-size:12.5px; color:var(--text); margin-bottom:2px; }
+    .mov-motivo { font-size:12px; color:var(--muted); margin-bottom:2px; }
+    .mov-fecha { font-size:11px; color:var(--muted); }
+
     /* Status bar */
     .status-bar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem 1.25rem; font-size:12px; color:var(--muted); margin-top:1.5rem; }
     .sdot { width:6px; height:6px; border-radius:50%; background:var(--green); }
@@ -571,6 +581,27 @@ function iniciales(nombre) {
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── HISTÓRICO DE MOVIMIENTOS: helpers de presentación ──────────────
+function colorMovimiento(tipo) {
+  switch (tipo) {
+    case 'Salario':      return ['var(--blue-bg)', 'var(--blue)'];
+    case 'Puesto':
+    case 'Departamento':  return ['var(--purple-bg)', 'var(--purple)'];
+    case 'Kiosko':        return ['var(--amber-bg)', 'var(--amber)'];
+    case 'Estado':
+    case 'Terminación':   return ['var(--red-bg)', 'var(--red)'];
+    default:               return ['var(--surface)', 'var(--muted)'];
+  }
+}
+function formatValorMovimiento(tipo, valor) {
+  if (valor === '' || valor === null || valor === undefined) return '—';
+  if (tipo === 'Salario') {
+    const n = parseFloat(valor);
+    return isNaN(n) ? String(valor) : `₡${n.toLocaleString('es-CR')}`;
+  }
+  return String(valor) || '—';
+}
 function toggleAmonDetalle(i) {
   const det = document.getElementById(`amon-detalle-${i}`);
   const chev = document.getElementById(`amon-chevron-${i}`);
@@ -607,10 +638,11 @@ function toggleAmonDetalle(i) {
 async function cargarDatos() {
   try {
     // Personal
-    const [rP, rS, rA] = await Promise.all([
+    const [rP, rS, rA, rM] = await Promise.all([
       fetch(APPS_SCRIPT_URL + '?modulo=personal'),
       fetch(APPS_SCRIPT_URL + '?modulo=vacaciones').catch(() => ({ json: async () => ({ ok:true, registros:[] }) })),
-      fetch(APPS_SCRIPT_URL + '?modulo=amonestaciones').catch(() => ({ json: async () => ({ ok:true, registros:[] }) }))
+      fetch(APPS_SCRIPT_URL + '?modulo=amonestaciones').catch(() => ({ json: async () => ({ ok:true, registros:[] }) })),
+      fetch(APPS_SCRIPT_URL + '?modulo=movimientos').catch(() => ({ json: async () => ({ ok:true, registros:[] }) }))
     ]);
     const dP = await rP.json();
     const dS = await rS.json();
@@ -651,6 +683,21 @@ async function cargarDatos() {
     const idsAmonSheet = new Set(amonNorm.map(a => String(a.registrado_en || '')).filter(Boolean));
     const amonLocalesFiltrados = amonLocales.filter(l => !idsAmonSheet.has(String(l.registrado_en || '')));
     window._amonestaciones = [...amonNorm, ...amonLocalesFiltrados];
+
+    // Histórico de movimientos (salario, puesto, departamento, kiosko,
+    // nombre, estado, terminación) — ver ENCABEZADOS_MOVIMIENTOS en el backend.
+    const dM = await rM.json();
+    const movSheet = dM.ok ? dM.registros : [];
+    window._movimientos = movSheet.map(m => ({
+      colaborador:    m['Colaborador']     || m.colaborador     || '',
+      tipo:           m['Tipo']            || m.tipo            || '',
+      valor_anterior: m['Valor anterior']  ?? m.valor_anterior   ?? '',
+      valor_nuevo:    m['Valor nuevo']     ?? m.valor_nuevo      ?? '',
+      motivo:         m['Motivo']          || m.motivo           || '',
+      fecha_efectiva: m['Fecha efectiva']  || m.fecha_efectiva    || '',
+      registrado_por: m['Registrado por']  || m.registrado_por    || '',
+      registrado_en:  m['Registrado']      || m.registrado_en     || '',
+    }));
 
     // Acciones (amonestaciones, cambios)
     try {
@@ -883,6 +930,32 @@ function verExpediente(idx) {
       }).join('')
     : '<div class="amon-empty">Sin amonestaciones registradas</div>';
 
+  // Histórico de movimientos de este colaborador (salario, puesto,
+  // departamento, kiosko, nombre, estado, terminación) — más reciente primero.
+  const movimientos = (window._movimientos || [])
+    .filter(m => (m.colaborador || '').trim().toLowerCase() === nombre.toLowerCase())
+    .sort((a, b) => String(b.registrado_en || '').localeCompare(String(a.registrado_en || '')));
+
+  const movHtml = movimientos.length
+    ? movimientos.map(m => {
+        const [bg, col] = colorMovimiento(m.tipo);
+        const fecha = String(m.fecha_efectiva || m.registrado_en || '').substring(0, 10);
+        const antes = formatValorMovimiento(m.tipo, m.valor_anterior);
+        const despues = formatValorMovimiento(m.tipo, m.valor_nuevo);
+        return `<div class="mov-item">
+          <div class="mov-icon" style="background:${bg};color:${col};">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v4l2.5 1.5"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div class="mov-tipo">${escHtml(m.tipo)}</div>
+            <div class="mov-cambio">${escHtml(antes)} → ${escHtml(despues)}</div>
+            ${m.motivo ? `<div class="mov-motivo">${escHtml(m.motivo)}</div>` : ''}
+            <div class="mov-fecha">${fecha}${m.registrado_por ? ` · ${escHtml(m.registrado_por)}` : ''}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="amon-empty">Sin movimientos registrados</div>';
+
   // KPI color según balance
   const balClass = balance >= 15 ? 'verde' : balance >= 5 ? 'ambar' : 'rojo';
 
@@ -983,6 +1056,16 @@ function verExpediente(idx) {
         ${amones.length ? `<span class="badge" style="background:var(--red-bg);color:var(--red);margin-left:auto;">${amones.length}</span>` : ''}
       </div>
       <div class="amon-lista">${amonHtml}</div>
+    </div>
+
+    <!-- Histórico de movimientos -->
+    <div class="exp-card" style="margin-bottom:12px;">
+      <div class="exp-card-title" style="margin-bottom:${movimientos.length ? '1rem' : '0'};">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5v4l2.5 1.5"/></svg>
+        Histórico de movimientos
+        ${movimientos.length ? `<span class="badge" style="background:var(--surface);color:var(--muted);margin-left:auto;">${movimientos.length}</span>` : ''}
+      </div>
+      <div class="mov-lista">${movHtml}</div>
     </div>
   `;
 }

@@ -31,6 +31,7 @@ const HOJA_VACACIONES      = 'Vacaciones';
 const HOJA_AMONESTACIONES  = 'Amonestaciones';
 const HOJA_TERMINACIONES   = 'Terminaciones';
 const HOJA_CAMBIOS_SALARIO = 'CambiosSalario';
+const HOJA_MOVIMIENTOS     = 'HistorialMovimientos';
 const HOJA_LIQUIDACIONES   = 'Liquidaciones';
 const HOJA_HORARIOS        = 'Horarios';
 const HOJA_HORARIOS_ESTADO = 'HorariosEstado';
@@ -64,6 +65,16 @@ const ENCABEZADOS_TERMINACIONES = [
 ];
 const ENCABEZADOS_CAMBIOS_SALARIO = [
   'Colaborador', 'Salario anterior', 'Salario nuevo', 'Diferencia', 'Fecha efectiva', 'Registrado por', 'Motivo', 'Registrado'
+];
+// Histórico de movimientos del expediente (sección "Histórico de movimientos"
+// en rrhh-personal.html): un renglón por cada cambio relevante que se le hace
+// a un colaborador — salario, puesto, departamento, kiosko, nombre, estado,
+// terminación. No tiene pantalla de captura propia: se alimenta desde las
+// funciones que ya escriben esos cambios (registrarCambioSalario,
+// editarColaborador, cambiarEstado, registrarTerminacion) vía
+// registrarMovimiento().
+const ENCABEZADOS_MOVIMIENTOS = [
+  'Colaborador', 'Tipo', 'Valor anterior', 'Valor nuevo', 'Motivo', 'Fecha efectiva', 'Registrado por', 'Registrado'
 ];
 const ENCABEZADOS_LIQUIDACIONES = [
   'Colaborador', 'Fecha pago', 'Confirmado por', 'Total pagado', 'Preaviso', 'Cesantía', 'Vacaciones', 'Aguinaldo', 'Motivo', 'Registrado'
@@ -463,6 +474,7 @@ function configurarHojas() {
   prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES);
   prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES);
   prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO);
+  prepararHoja(HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS);
   prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES);
   prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS);
   prepararHoja(HOJA_HORARIOS, ENCABEZADOS_HORARIOS);
@@ -713,6 +725,7 @@ function doGet(e) {
       case 'amonestaciones':  hoja = prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES); break;
       case 'terminaciones':   hoja = prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES); break;
       case 'cambios_salario': hoja = prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO); break;
+      case 'movimientos':     hoja = prepararHoja(HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS); break;
       case 'liquidaciones':   hoja = prepararHoja(HOJA_LIQUIDACIONES, ENCABEZADOS_LIQUIDACIONES); break;
       case 'aguinaldos':      hoja = prepararHoja(HOJA_AGUINALDOS, ENCABEZADOS_AGUINALDOS); break;
       case 'aguinaldo_calcular':
@@ -954,6 +967,28 @@ function guardarImagenBase64(folder, base64, mimeType, fileName) {
   return file.getUrl();
 }
 
+// Agrega un renglón al histórico de movimientos del expediente (ver
+// ENCABEZADOS_MOVIMIENTOS). La llaman las funciones que ya modifican datos
+// sensibles de un colaborador (salario, puesto, departamento, kiosko,
+// nombre, estado, terminación) — no tiene su propia acción en doPost.
+// No lanza error si falta colaborador/tipo: es un registro "best effort"
+// que nunca debe hacer fallar la operación principal que la invoca.
+function registrarMovimiento(p) {
+  if (!p || !p.colaborador || !p.tipo) return;
+  const hoja = prepararHoja(HOJA_MOVIMIENTOS, ENCABEZADOS_MOVIMIENTOS);
+  const fila = hoja.getLastRow() + 1;
+  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_MOVIMIENTOS, {
+    'Colaborador': p.colaborador,
+    'Tipo': p.tipo,
+    'Valor anterior': (p.valor_anterior === undefined || p.valor_anterior === null) ? '' : p.valor_anterior,
+    'Valor nuevo': (p.valor_nuevo === undefined || p.valor_nuevo === null) ? '' : p.valor_nuevo,
+    'Motivo': p.motivo || '',
+    'Fecha efectiva': p.fecha_efectiva || '',
+    'Registrado por': p.registrado_por || '',
+    'Registrado': p.registrado_en || new Date().toISOString()
+  });
+}
+
 // Cambia solo el Estado (ACTIVO/INACTIVO) — usado por el toggle rápido de
 // activar/desactivar en la pestaña "Personal".
 function cambiarEstado(p) {
@@ -962,7 +997,16 @@ function cambiarEstado(p) {
   const fila = filaColaborador(hoja, p.nombre);
   if (fila === -1) throw new Error('No se encontró ese colaborador.');
   const colEstado = colPorEncabezado(hoja, 'Estado');
-  hoja.getRange(fila, colEstado).setValue(p.estado || 'INACTIVO');
+  const estadoAnterior = hoja.getRange(fila, colEstado).getValue();
+  const estadoNuevo = p.estado || 'INACTIVO';
+  hoja.getRange(fila, colEstado).setValue(estadoNuevo);
+  if (String(estadoAnterior || '') !== String(estadoNuevo)) {
+    registrarMovimiento({
+      colaborador: p.nombre, tipo: 'Estado',
+      valor_anterior: estadoAnterior, valor_nuevo: estadoNuevo,
+      registrado_por: p.registrado_por || ''
+    });
+  }
   return { fila: fila };
 }
 
@@ -1035,6 +1079,23 @@ function editarColaborador(p) {
     'Observaciones': p.observaciones || '',
     'Foto Cédula (URL)': fotoCedulaUrl
   });
+
+  // Registrar en el histórico de movimientos los campos "sensibles" que
+  // cambiaron con esta edición (Estado y Salario quedan fuera a propósito,
+  // igual que arriba: los registran cambiarEstado()/registrarCambioSalario()).
+  [
+    { tipo: 'Nombre',        antes: original,                    despues: nombreCompleto },
+    { tipo: 'Puesto',        antes: valorActual('Puesto'),        despues: p.puesto || '' },
+    { tipo: 'Departamento',  antes: valorActual('Departamento'),  despues: p.departamento || '' },
+    { tipo: 'Kiosko',        antes: valorActual('Kiosko'),        despues: p.kiosko || '' }
+  ].forEach(function (c) {
+    const antes = String(c.antes || '').trim();
+    const despues = String(c.despues || '').trim();
+    if (antes !== despues) {
+      registrarMovimiento({ colaborador: nombreCompleto, tipo: c.tipo, valor_anterior: antes, valor_nuevo: despues });
+    }
+  });
+
   return { fila: fila, nombre: nombreCompleto };
 }
 
@@ -1131,10 +1192,18 @@ function registrarTerminacion(p) {
 
   const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const filaP = filaColaborador(hojaPersonal, p.colaborador);
+  let estadoAnterior = '';
   if (filaP !== -1) {
     const colEstado = colPorEncabezado(hojaPersonal, 'Estado');
+    estadoAnterior = hojaPersonal.getRange(filaP, colEstado).getValue();
     hojaPersonal.getRange(filaP, colEstado).setValue(p.nuevo_estado || 'LIQUIDACIÓN');
   }
+  registrarMovimiento({
+    colaborador: p.colaborador, tipo: 'Terminación',
+    valor_anterior: estadoAnterior, valor_nuevo: p.nuevo_estado || 'LIQUIDACIÓN',
+    motivo: p.tipo_terminacion || '', fecha_efectiva: p.fecha_salida || '',
+    registrado_en: p.registrado_en
+  });
   return { fila: fila };
 }
 
@@ -1159,6 +1228,12 @@ function registrarCambioSalario(p) {
     const colSalario = colPorEncabezado(hojaPersonal, 'Salario');
     hojaPersonal.getRange(filaP, colSalario).setValue(Number(p.salario_nuevo) || 0);
   }
+  registrarMovimiento({
+    colaborador: p.colaborador, tipo: 'Salario',
+    valor_anterior: Number(p.salario_actual) || 0, valor_nuevo: Number(p.salario_nuevo) || 0,
+    motivo: p.motivo || '', fecha_efectiva: p.fecha_efectiva || '',
+    registrado_por: p.registrado_por || '', registrado_en: p.registrado_en
+  });
   return { fila: fila };
 }
 
@@ -2301,4 +2376,20 @@ function enviarBoletasPago(p) {
   });
 
   return { enviados: enviados, sin_correo: sinCorreo, errores: errores };
+}
+
+// TEMPORAL — solo para diagnosticar el error de permiso de MailApp. Corré
+// ESTA función a mano desde el editor (seleccionala en el desplegable de
+// arriba y clic en ▶ Ejecutar) — a diferencia de enviarBoletasPago(), esta
+// no depende de ningún parámetro, así que si el permiso de correo está bien
+// autorizado para esta cuenta, te va a llegar un correo de prueba sin
+// ningún error en el editor. Si tira el mismo error de permiso acá adentro
+// del editor (no desde el sitio), es que la autorización nunca se completó
+// de verdad — hay que repetirla. Borrala cuando terminemos de diagnosticar.
+function TEST_permisoCorreo() {
+  MailApp.sendEmail({
+    to: Session.getActiveUser().getEmail() || 'jorge.lopez@casaaguizotes.com',
+    subject: 'Prueba de permiso de correo — Planilla',
+    body: 'Si te llegó este correo, el permiso de MailApp.sendEmail ya está autorizado correctamente para esta cuenta.'
+  });
 }
