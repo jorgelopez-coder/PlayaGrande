@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -258,6 +260,21 @@
       </div>
     </div>
 
+    <!-- Contrato laboral -->
+    <div class="card">
+      <p class="card-title">Contrato laboral</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+        Genera un machote de contrato individual de trabajo por tiempo indefinido, completado con los datos
+        de arriba (nombre, cédula, puesto, salario y fecha de ingreso). Revisalo, imprimilo y hacé firmar
+        antes de marcar "Contrato" como entregado.
+      </p>
+      <div class="submit-area" style="margin-top:0;">
+        <button type="button" class="btn-clear" id="btn-generar-contrato" style="flex:1;background:var(--surface);border-color:var(--border-h);color:var(--text);font-weight:600;" onclick="generarContratoPDF()">
+          Generar contrato (PDF)
+        </button>
+      </div>
+    </div>
+
     <!-- Documentos -->
     <div class="card">
       <p class="card-title">Documentos entregados</p>
@@ -344,6 +361,11 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qD
 // Sheet (ver cargarKioskos()/configuracion.html). Este arreglo es solo el
 // respaldo si todavía no se corrió configurarHojas() o falla la conexión.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+// Datos fiscales por kiosko (Nombre Jurídico, Cédula Jurídica, Ubicación…),
+// vienen de la pestaña "Configuracion" — se usan para completar el machote
+// de contrato laboral (ver generarContratoPDF()). Vacío hasta que
+// cargarKioskos() responda.
+let KIOSKOS_CONFIG = [];
 // ───────────────────────────────────────────────────────────────
 
 // Fecha
@@ -370,6 +392,9 @@ async function cargarKioskos() {
       const data = await resp.json();
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
         KIOSKOS = kioskosPermitidos(data.kioskos);
+      }
+      if (data.ok && Array.isArray(data.registros)) {
+        KIOSKOS_CONFIG = data.registros;
       }
     } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
@@ -512,6 +537,168 @@ function quitarFotoCedula() {
 }
 
 document.getElementById('input-foto-cedula').addEventListener('change', e => handleFotoCedulaSelect(e.target.files[0]));
+
+// ── CONTRATO LABORAL (machote PDF) ─────────────────────────────
+// Colones con separador de miles al estilo CR (punto), sin decimales.
+function formatColones(monto) {
+  const n = Number(monto) || 0;
+  return '₡' + n.toLocaleString('es-CR', { maximumFractionDigits: 0 });
+}
+
+// "15 de enero de 2026"
+function formatFechaLarga(iso) {
+  if (!iso) return '____________________';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return '____________________';
+  const fecha = new Date(y, m - 1, d);
+  return fecha.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function buscarConfigKiosko(nombreKiosko) {
+  if (!nombreKiosko || !Array.isArray(KIOSKOS_CONFIG)) return null;
+  return KIOSKOS_CONFIG.find(k => (k['Kiosko'] || '').toString().trim().toLowerCase() === nombreKiosko.trim().toLowerCase()) || null;
+}
+
+async function generarContratoPDF() {
+  if (!window.html2canvas || !window.jspdf) {
+    showToast('Cargando librería de PDF, esperá un segundo…', 'error');
+    return;
+  }
+
+  const cedula    = document.getElementById('cedula').value.trim();
+  const nombre    = document.getElementById('nombre').value.trim();
+  const apellidos = document.getElementById('apellidos').value.trim();
+  const puesto    = document.getElementById('puesto').value.trim();
+  const salario   = document.getElementById('salario').value;
+  const fechaIng  = document.getElementById('fecha-ingreso').value;
+
+  if (!cedula || !nombre || !apellidos || !puesto || !salario || !fechaIng) {
+    showToast('Completá nombre, cédula, puesto, salario y fecha de ingreso antes de generar el contrato.', 'error');
+    return;
+  }
+
+  const nombreCompleto = `${nombre} ${apellidos}`;
+  const nacionalidad = document.getElementById('nacionalidad').value || '____________________';
+  const kiosko = document.getElementById('kiosko').value;
+  const cfgKiosko = buscarConfigKiosko(kiosko);
+
+  const patronoNombre  = (cfgKiosko && cfgKiosko['Nombre Jurídico']) ? cfgKiosko['Nombre Jurídico'] : 'CASA AGÜIZOTES';
+  const patronoCedula  = (cfgKiosko && cfgKiosko['Cédula Jurídica']) ? cfgKiosko['Cédula Jurídica'] : '____________________';
+  const lugarTrabajo   = kiosko
+    ? `el kiosko de ${kiosko}${cfgKiosko && cfgKiosko['Ubicación'] ? ' (' + cfgKiosko['Ubicación'] + ')' : ''}`
+    : 'cualquiera de los kioskos de EL PATRONO, según las necesidades del servicio';
+  const representante  = (PORTAL_SESION && PORTAL_SESION.nombre) ? PORTAL_SESION.nombre : '____________________';
+  const salarioTexto    = formatColones(salario);
+  const fechaIngTexto   = formatFechaLarga(fechaIng);
+  const fechaFirmaTexto = hoy.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const htmlDoc = `
+    <div style="width:760px;padding:40px;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;font-size:12.5px;line-height:1.65;">
+      <div style="text-align:center;font-size:15px;font-weight:700;text-transform:uppercase;margin-bottom:4px;letter-spacing:.03em;">
+        Contrato individual de trabajo por tiempo indefinido
+      </div>
+      <div style="text-align:center;font-size:11px;color:#555;margin-bottom:22px;">Ecosistema Kioskos</div>
+
+      <p style="margin-bottom:14px;text-align:justify;">
+        Entre <strong>${patronoNombre}</strong>, cédula jurídica ${patronoCedula}, en adelante
+        <strong>"EL PATRONO"</strong>, representado en este acto por ${representante}, y
+        <strong>${nombreCompleto}</strong>, mayor de edad, de nacionalidad ${nacionalidad},
+        portador(a) de la cédula de identidad/residencia N.° <strong>${cedula}</strong>, en adelante
+        <strong>"LA PERSONA TRABAJADORA"</strong>, ambas partes acuerdan celebrar el presente Contrato
+        Individual de Trabajo, el cual se regirá por las siguientes cláusulas y, en lo no previsto, por el
+        Código de Trabajo de Costa Rica y demás legislación laboral aplicable.
+      </p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>PRIMERA. Objeto y puesto:</strong>
+        LA PERSONA TRABAJADORA prestará sus servicios personales y subordinados a EL PATRONO,
+        desempeñando el puesto de <strong>${puesto}</strong>, en ${lugarTrabajo}.</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>SEGUNDA. Fecha de inicio y plazo:</strong>
+        La relación laboral inicia el <strong>${fechaIngTexto}</strong>. Este contrato se celebra por
+        tiempo indefinido, conforme al artículo 26 del Código de Trabajo.</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>TERCERA. Jornada:</strong>
+        La jornada será la establecida en los horarios semanales asignados por EL PATRONO, respetando
+        los límites de jornada ordinaria y descanso semanal del Código de Trabajo.</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>CUARTA. Salario:</strong>
+        EL PATRONO pagará a LA PERSONA TRABAJADORA un salario de <strong>${salarioTexto}</strong> por
+        período quincenal, pagadero por depósito o transferencia bancaria, sujeto a las deducciones de
+        ley (Caja Costarricense de Seguro Social y demás cargas sociales aplicables).</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>QUINTA. Obligaciones de la persona trabajadora:</strong>
+        cumplir con las funciones propias del puesto, acatar las instrucciones y reglamentos internos de
+        EL PATRONO, guardar la debida discreción sobre la información del negocio, y cumplir puntualmente
+        con los horarios asignados.</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>SEXTA. Vacaciones, aguinaldo y demás derechos:</strong>
+        LA PERSONA TRABAJADORA gozará de vacaciones, aguinaldo, feriados y demás derechos laborales
+        conforme al Código de Trabajo y demás legislación vigente de Costa Rica.</p>
+
+      <p style="margin-bottom:10px;text-align:justify;"><strong>SÉTIMA. Terminación:</strong>
+        Este contrato podrá darse por terminado por cualquiera de las causas previstas en el Código de
+        Trabajo, respetando los preavisos y demás derechos que correspondan a cada parte según la causa.</p>
+
+      <p style="margin-bottom:26px;text-align:justify;">
+        Leído lo anterior, las partes firman en señal de conformidad y aceptación, a los
+        <strong>${fechaFirmaTexto}</strong>.
+      </p>
+
+      <div style="display:flex;justify-content:space-between;margin-top:50px;gap:30px;">
+        <div style="width:45%;text-align:center;">
+          <div style="border-top:1px solid #333;padding-top:6px;">Firma de EL PATRONO</div>
+          <div style="margin-top:4px;">${patronoNombre}</div>
+          <div>Cédula jurídica: ${patronoCedula}</div>
+        </div>
+        <div style="width:45%;text-align:center;">
+          <div style="border-top:1px solid #333;padding-top:6px;">Firma de LA PERSONA TRABAJADORA</div>
+          <div style="margin-top:4px;">${nombreCompleto}</div>
+          <div>Cédula: ${cedula}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:34px;font-size:10px;color:#888;text-align:center;">
+        Machote generado automáticamente — revisalo antes de usarlo como contrato definitivo.
+      </div>
+    </div>`;
+
+  const holder = document.createElement('div');
+  holder.style.position = 'fixed'; holder.style.left = '-99999px'; holder.style.top = '0';
+  holder.innerHTML = htmlDoc;
+  document.body.appendChild(holder);
+  await new Promise(r => setTimeout(r, 60));
+
+  let canvas;
+  try {
+    canvas = await html2canvas(holder, { scale: 2, backgroundColor: '#ffffff' });
+  } finally {
+    document.body.removeChild(holder);
+  }
+
+  const jsPDF = window.jspdf.jsPDF;
+  const pdf   = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const imgW  = pageW;
+  const imgH  = canvas.height * imgW / canvas.width;
+  const imgData = canvas.toDataURL('image/png');
+
+  let heightLeft = imgH, position = 0;
+  pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+  heightLeft -= pageH;
+  while (heightLeft > 0) {
+    position = heightLeft - imgH;
+    pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+    heightLeft -= pageH;
+  }
+
+  const nombreArchivo = `contrato_${apellidos}_${nombre}`.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  pdf.save(`${nombreArchivo || 'contrato'}.pdf`);
+  showToast('Contrato generado — revisalo y hacé firmar', 'success');
+}
 
 // Limpiar
 document.getElementById('btn-clear').addEventListener('click', () => {
