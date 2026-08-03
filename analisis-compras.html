@@ -204,7 +204,18 @@ select:focus{border-color:var(--green)}
         <input type="text" id="filtro-producto-texto" placeholder="Nombre del producto…" oninput="renderAll()" style="width:100%;max-width:280px">
       </div>
     </div>
-    <p class="filtro-nota">Categorías y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha y kiosko.</p>
+    <div class="filtro-row">
+      <div class="filtro-group" style="flex:1;min-width:280px;">
+        <label class="grp-lbl">Proveedores
+          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="provFiltroSeleccionarTodas(true)">Todos</button>
+          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="provFiltroSeleccionarTodas(false)">Ninguno</button>
+        </label>
+        <div class="chk-wrap scroll" id="filtro-proveedor-body">
+          <span class="compare-dash">Cargando…</span>
+        </div>
+      </div>
+    </div>
+    <p class="filtro-nota">Categorías, proveedor y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha y kiosko.</p>
     <div class="filtro-resumen" id="filtro-resumen-txt">Cargando datos…</div>
   </div>
 
@@ -283,22 +294,34 @@ select:focus{border-color:var(--green)}
   <!-- ══════════════ TAB: CAMBIOS DE PRECIO ══════════════ -->
   <div class="page" id="tab-precios">
     <div class="card" style="padding:0;overflow:hidden;">
-      <div style="padding:1.1rem 1.25rem .5rem;">
-        <p class="card-title" style="margin-bottom:0;">Variación de precio por producto</p>
-        <p class="card-sub" style="margin-top:4px;margin-bottom:0;">Click en una fila para ver la evolución de precio y el desglose de facturas de compra.</p>
+      <div style="padding:1.1rem 1.25rem .5rem;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <p class="card-title" style="margin-bottom:0;">Variación de precio por producto</p>
+          <p class="card-sub" style="margin-top:4px;margin-bottom:0;">Click en una fila para ver la evolución de precio y el desglose de facturas de compra.</p>
+        </div>
+        <div class="filtro-group">
+          <label class="grp-lbl">Ordenar por</label>
+          <select id="precio-sort" onchange="renderAll()">
+            <option value="variacion">Mayor variación</option>
+            <option value="monto">Mayor monto comprado</option>
+            <option value="promedio">Mayor precio promedio</option>
+            <option value="compras">Más compras</option>
+            <option value="nombre">Nombre (A-Z)</option>
+          </select>
+        </div>
       </div>
       <div class="compare-wrap">
         <table class="compare-table">
           <thead>
-            <tr><th>Producto</th><th># Compras</th><th>Primer precio</th><th>Último precio</th><th>Variación %</th><th>Variación ₡/unidad</th><th>Precio promedio</th></tr>
+            <tr><th>Producto</th><th># Compras</th><th>Primer precio</th><th>Último precio</th><th>Variación %</th><th>Variación ₡/unidad</th><th>Precio promedio</th><th>Monto total</th></tr>
           </thead>
           <tbody id="precio-body">
-            <tr><td colspan="7"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+            <tr><td colspan="8"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
           </tbody>
         </table>
       </div>
       <div style="padding:.6rem 1.25rem;font-size:10.5px;color:var(--subtle);border-top:1px solid var(--border);">
-        Precio = precio unitario de la línea de factura (antes de impuestos), tal como lo extrajo la IA; las líneas en USD se convierten a colones con el tipo de cambio configurado arriba. Ordenado por mayor variación (en valor absoluto) primero. Los productos se agrupan por el <b>Nombre Estándar</b> homologado en Maestro de Productos; las líneas todavía no homologadas usan el nombre que propuso la IA (o el texto crudo de la factura) y pueden aparecer separadas hasta que se homologuen.
+        Precio = precio unitario de la línea de factura (antes de impuestos), tal como lo extrajo la IA; las líneas en USD se convierten a colones con el tipo de cambio configurado arriba. Los productos se agrupan por el <b>Nombre Estándar</b> homologado en Maestro de Productos; las líneas todavía no homologadas usan el nombre que propuso la IA (o el texto crudo de la factura) y pueden aparecer separadas hasta que se homologuen.
       </div>
     </div>
   </div>
@@ -468,6 +491,7 @@ function showTab(id, btn) {
 // ── DATOS CRUDOS ──────────────────────────────────────────────
 let DESGLOSE_ROWS = [];
 let CATEGORIAS_LISTA = [];
+let PROVEEDORES_LISTA = [];
 let LINEAS = [];
 let CIERRES_ROWS = [];
 let SQUARE_PRODUCT_ROWS = {};
@@ -564,6 +588,14 @@ function construirCategoriasDesdeDesglose() {
   const set = new Set();
   DESGLOSE_ROWS.forEach(r => { set.add(String(r['Categoría']||'').trim() || 'Sin categoría'); });
   CATEGORIAS_LISTA = Array.from(set).sort((a,b) => a.localeCompare(b, 'es'));
+}
+// Proveedores: igual criterio que categorías — se listan los que aparecen
+// realmente en las facturas cargadas, para poder aislar compras de un
+// proveedor puntual (comparar precio del mismo producto entre proveedores).
+function construirProveedoresDesdeDesglose() {
+  const set = new Set();
+  DESGLOSE_ROWS.forEach(r => { set.add(String(r['Proveedor']||'').trim() || 'Sin proveedor'); });
+  PROVEEDORES_LISTA = Array.from(set).sort((a,b) => a.localeCompare(b, 'es'));
 }
 
 async function cargarCierres() {
@@ -681,11 +713,25 @@ function catFiltroSeleccionarTodas(marcar) {
   document.querySelectorAll('#filtro-categoria-body input[type=checkbox]').forEach(el => { el.checked = marcar; });
   renderAll();
 }
+function renderFiltroProveedores() {
+  const cont = document.getElementById('filtro-proveedor-body');
+  if (!PROVEEDORES_LISTA.length) { cont.innerHTML = '<span class="compare-dash">Sin proveedores</span>'; return; }
+  cont.innerHTML = PROVEEDORES_LISTA.map(p =>
+    `<label class="chk-pill"><input type="checkbox" value="${escHtml(p)}" checked onchange="renderAll()"> ${escHtml(p)}</label>`
+  ).join('');
+}
+function provFiltroSeleccionarTodas(marcar) {
+  document.querySelectorAll('#filtro-proveedor-body input[type=checkbox]').forEach(el => { el.checked = marcar; });
+  renderAll();
+}
 function kioskosSeleccionados() {
   return new Set(Array.from(document.querySelectorAll('#filtro-kioskos-body input:checked')).map(el => el.value));
 }
 function categoriasSeleccionadas() {
   return new Set(Array.from(document.querySelectorAll('#filtro-categoria-body input:checked')).map(el => el.value));
+}
+function proveedoresSeleccionados() {
+  return new Set(Array.from(document.querySelectorAll('#filtro-proveedor-body input:checked')).map(el => el.value));
 }
 async function cargarTodo() {
   document.getElementById('filtro-resumen-txt').innerHTML = '<span class="spinner"></span> Cargando datos…';
@@ -693,9 +739,11 @@ async function cargarTodo() {
   await Promise.all([cargarKioskosLista(), cargarDesgloseIA(), cargarMaestroProductos(), cargarCierres(), cargarSquareProductos()]);
   construirMapaMaestro();
   construirCategoriasDesdeDesglose();
+  construirProveedoresDesdeDesglose();
   construirVentasUnificadas();
   renderFiltroKioskos();
   renderFiltroCategorias();
+  renderFiltroProveedores();
   if (!document.getElementById('filtro-desde').value) setPreset('30d');
   else renderAll();
 }
@@ -731,10 +779,11 @@ function lineasBase(desde, hasta, kioskosSel) {
     return true;
   });
 }
-// Detalle: además aplica categoría + texto de producto.
-function lineasDetalle(base, categoriasSel, textoProducto) {
+// Detalle: además aplica categoría + proveedor + texto de producto.
+function lineasDetalle(base, categoriasSel, textoProducto, proveedoresSel) {
   return base.filter(l => {
     if (!categoriasSel.has(l.categoria)) return false;
+    if (proveedoresSel && !proveedoresSel.has(l.proveedor || 'Sin proveedor')) return false;
     if (textoProducto && !l.productoNombre.toLowerCase().includes(textoProducto)) return false;
     return true;
   });
@@ -753,8 +802,9 @@ function renderAll() {
   renderResumen(base, desde, hasta, kioskosSel);
 
   const categoriasSel = categoriasSeleccionadas();
+  const proveedoresSel = proveedoresSeleccionados();
   const textoProducto = (document.getElementById('filtro-producto-texto').value || '').trim().toLowerCase();
-  const detalle = lineasDetalle(base, categoriasSel, textoProducto);
+  const detalle = lineasDetalle(base, categoriasSel, textoProducto, proveedoresSel);
   renderCambiosPrecio(detalle);
   renderCantidades(detalle);
 
@@ -941,8 +991,17 @@ function renderCambiosPrecio(detalle) {
     const montoTotal = ord.reduce((s,l) => s + l.montoCRC, 0);
     const cantidadTotal = ord.reduce((s,l) => s + l.cantidad, 0);
     const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : null;
-    return { pid, nombre: info.nombre, categoria: info.categoria, unidad: info.unidad, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio, ord };
-  }).sort((a,b) => {
+    return { pid, nombre: info.nombre, categoria: info.categoria, unidad: info.unidad, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio, montoTotal, ord };
+  });
+
+  // Orden configurable (selector arriba de la tabla) — por defecto, mayor
+  // variación primero, igual que antes.
+  const orden = (document.getElementById('precio-sort') || {}).value || 'variacion';
+  filas.sort((a,b) => {
+    if (orden === 'monto') return b.montoTotal - a.montoTotal;
+    if (orden === 'promedio') return (b.precioPromedio||0) - (a.precioPromedio||0);
+    if (orden === 'compras') return b.nCompras - a.nCompras;
+    if (orden === 'nombre') return a.nombre.localeCompare(b.nombre, 'es');
     const av = a.variacionPct == null ? -1 : Math.abs(a.variacionPct);
     const bv = b.variacionPct == null ? -1 : Math.abs(b.variacionPct);
     return bv - av;
@@ -963,11 +1022,12 @@ function renderCambiosPrecio(detalle) {
       <td>${variacionTxt}</td>
       <td>${f.variacionAbs == null ? '<span class="compare-dash">—</span>' : fmtCRC(f.variacionAbs) + '/' + escHtml(f.unidad||'u')}</td>
       <td class="compare-val">${fmtCRC(f.precioPromedio)}</td>
+      <td class="compare-val">${fmtCRC(f.montoTotal)}</td>
     </tr>
     <tr class="precio-expand-row" id="precio-expand-${f.pid}" style="display:none">
-      <td colspan="7">${contenidoExpandPrecio(f)}</td>
+      <td colspan="8">${contenidoExpandPrecio(f)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7"><div class="no-alerts">Sin compras en el rango filtrado.</div></td></tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="no-alerts">Sin compras en el rango filtrado.</div></td></tr>`;
 }
 
 // Construye, para una fila de producto ya calculada por renderCambiosPrecio,
@@ -989,8 +1049,9 @@ function contenidoExpandPrecio(f) {
   const filasDetalle = ord.slice().reverse().map(l => `
     <tr>
       <td>${l.fecha}</td>
-      <td>${escHtml(l.kiosko || '—')}</td>
+      <td class="compare-val" style="font-family:var(--font-m);">${escHtml(l.numFactura || '—')}</td>
       <td>${escHtml(l.proveedor || '—')}</td>
+      <td>${escHtml(l.kiosko || '—')}</td>
       <td class="compare-val">${fmtNum(l.cantidad)} ${escHtml(l.unidad||'')}</td>
       <td class="compare-val">${fmtCRC(l.precioUnitarioCRC)}${l.moneda==='USD' ? ` <div class="compare-sub">$${fmtNum(l.precioUnitario)}</div>` : ''}</td>
       <td class="compare-val">${fmtCRC(l.montoCRC)}</td>
@@ -1002,7 +1063,7 @@ function contenidoExpandPrecio(f) {
       <p class="card-title" style="margin:1.1rem 0 .6rem;">Facturas de compra (${f.nCompras})</p>
       <div class="compare-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:8px;">
         <table class="compare-table" style="min-width:0;">
-          <thead><tr><th>Fecha</th><th>Kiosko</th><th>Proveedor</th><th>Cantidad</th><th>Precio unitario</th><th>Costo línea</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Kiosko</th><th>Cantidad</th><th>Precio unitario</th><th>Costo línea</th></tr></thead>
           <tbody>${filasDetalle}</tbody>
         </table>
       </div>
