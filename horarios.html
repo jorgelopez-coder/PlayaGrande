@@ -174,7 +174,7 @@ tbody tr:last-child td{border-bottom:none}
     <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoy</button>
     <span id="semana-cerrada-badge" class="lock-badge" style="display:none">&#128274; Semana cerrada</span>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-      <a href="horarios-historial.html" class="btn btn-ghost btn-sm">&#128193; Historial</a>
+      <a href="horarios-historial.html" class="btn btn-ghost btn-sm">&#128193; Control por kiosko</a>
       <button class="btn btn-sm" id="btn-cerrar-semana" onclick="cerrarSemana()" style="display:none">&#128274; Cerrar horario</button>
       <button class="btn btn-sm" id="btn-reabrir-semana" onclick="reabrirSemana()" style="display:none">&#128275; Reabrir (código admin)</button>
     </div>
@@ -310,6 +310,9 @@ const HORAS_VACACIONES = 8;
 let extraTarget = null;
 
 let restos=[], employees=[], schedule={}, activeResto=null, vacaciones=[];
+// Kiosko pedido por querystring (ej. desde horarios-historial.html), para
+// abrir directo en el kiosko correcto en vez de siempre el primero de la lista.
+let qsKioskoPendiente = new URLSearchParams(location.search).get('kiosko');
 let semanaCerrada=false;
 // URL del PDF guardado en Drive al cerrar la semana actual (vacío si no está cerrada
 // o si se reabrió y todavía no se volvió a cerrar con el contenido nuevo).
@@ -651,14 +654,20 @@ async function copiarDiaAnterior(dayIdx){
 
 /* ── Cerrar / reabrir semana ──
    Una semana cerrada bloquea toda edición y habilita exportar/enviar.
-   Reabrir requiere el código de administrador. */
+   Reabrir requiere el código de administrador. El cierre es por Semana +
+   Kiosko (activeResto): cerrar el horario de un kiosko no afecta a los demás. */
 async function cargarEstadoSemana(){
   const semana=document.getElementById('week-start').value;
   horarioPdfUrl='';
   try{
     const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios_estado');
     const data=await resp.json();
-    const reg=(data.ok?data.registros:[]).find(r=>(r['Semana inicio']||'')===semana);
+    // El cierre es por Semana + Kiosko: filas viejas sin "Kiosko" (antes de
+    // este cambio) no matchean con ningún kiosko y quedan tratadas como abiertas.
+    const reg=(data.ok?data.registros:[]).find(r=>
+      (r['Semana inicio']||'')===semana &&
+      (r['Kiosko']||'').toString().trim().toLowerCase()===(activeResto||'').toString().trim().toLowerCase()
+    );
     semanaCerrada=!!(reg && (reg['Cerrado']||'').toString().trim().toLowerCase()==='sí');
     horarioPdfUrl=(reg && reg['PDF URL'])||'';
   }catch(e){
@@ -704,7 +713,7 @@ async function reabrirSemana(){
   try{
     const resp=await fetch(APPS_SCRIPT_URL,{
       method:'POST',
-      body:new URLSearchParams({data:JSON.stringify({modulo:'reabrir_horario',semana_inicio:semana})})
+      body:new URLSearchParams({data:JSON.stringify({modulo:'reabrir_horario',semana_inicio:semana,kiosko:activeResto})})
     });
     const out=await resp.json();
     if(!out.ok){toast('Error al reabrir: '+(out.error||'desconocido'));return}
@@ -774,7 +783,13 @@ function buildFromPersonal(regs){
   employees = employees.concat(extras);
   employees.forEach(emp=>initSchedule(emp));
 
-  if(!activeResto||!restos.find(r=>r.id===activeResto)) activeResto = restos[0]?.id||null;
+  if(!activeResto||!restos.find(r=>r.id===activeResto)){
+    // Primer render: preferir el kiosko pedido por ?kiosko= (case-insensitive),
+    // si existe y es válido; si no, el primero de la lista como antes.
+    const pedido = qsKioskoPendiente && restos.find(r=>r.id.toLowerCase()===qsKioskoPendiente.toLowerCase());
+    activeResto = (pedido && pedido.id) || restos[0]?.id || null;
+    qsKioskoPendiente = null; // solo se aplica una vez
+  }
   renderKioskoTabs();
   mostrarConteoActivos();
 }
@@ -804,11 +819,14 @@ document.getElementById('kiosko-tabs').addEventListener('click', function(e){
   const btn = e.target.closest('.tab');
   if(btn && btn.dataset.restoId) switchResto(btn.dataset.restoId);
 });
-function switchResto(id){
+async function switchResto(id){
   activeResto=id;
   renderKioskoTabs();
   renderAll();
   mostrarConteoActivos();
+  // El estado cerrado/abierto es por kiosko: al cambiar de pestaña hay que
+  // volver a consultarlo (antes no hacía falta porque era global).
+  await cargarEstadoSemana();
 }
 
 function normalizarVacaciones(regs){

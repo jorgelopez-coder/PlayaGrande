@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Historial de horarios · Ecosistema Kioskos</title>
+<title>Control de horarios por kiosko · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -13,6 +13,7 @@
   --text:#1a1917;--text2:#6b6860;--text3:#a09d96;
   --accent:#2d6a4f;--accent-bg:#eaf4ef;--accent-text:#1b4332;
   --warn-bg:#fef3c7;--warn-text:#78350f;--warn-border:#fcd34d;
+  --pend-bg:#f1f5f9;--pend-text:#94a1b2;--pend-border:#dbe2ea;
   --radius:8px;--radius-lg:12px;--shadow:0 1px 3px rgba(0,0,0,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -23,24 +24,39 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:0
 .back-btn:hover{color:var(--text);border-color:var(--border2)}
 .logo{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
 .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
-main{max-width:980px;margin:0 auto;padding:24px 20px}
+main{max-width:1180px;margin:0 auto;padding:24px 20px}
 h1{font-size:20px;font-weight:600;margin-bottom:4px}
-.sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+.sub{font-size:13px;color:var(--text2);margin-bottom:18px}
 .btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-family:inherit;font-weight:500;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap}
 .btn:hover{background:var(--surface2)}
 .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-primary:hover{background:#245a42}
-.tbl-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow)}
-table{width:100%;border-collapse:collapse}
-thead th{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
-tbody td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:13px}
-tbody tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:var(--surface2)}
-.semana-lbl{font-weight:600}
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
-.badge-abierta{background:var(--accent-bg);color:var(--accent-text)}
-.badge-cerrada{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border)}
-.empty-state{text-align:center;padding:50px 20px;color:var(--text3)}
 .status-msg{font-size:12px;color:var(--text2);margin-bottom:14px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;align-items:center}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.legend-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.06)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;box-shadow:var(--shadow)}
+.metric-lbl{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.metric-val{font-size:20px;font-weight:600;color:var(--text)}
+.metric-val.warn{color:var(--warn-text)}
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow);margin-bottom:20px}
+table{border-collapse:collapse;min-width:100%}
+thead th{font-size:10.5px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;padding:9px 6px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;line-height:1.35}
+thead th.kiosko-col{text-align:left;padding-left:16px;min-width:150px;position:sticky;left:0;background:var(--surface2);z-index:2}
+thead th.today-col{background:var(--accent-bg);color:var(--accent-text)}
+tbody td{padding:6px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;vertical-align:middle}
+tbody td.kiosko-col{text-align:left;padding-left:16px;font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--surface);border-right:1px solid var(--border2)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td.kiosko-col{background:var(--surface2)}
+.cell-btn{width:100%;min-width:76px;border:none;border-radius:7px;padding:8px 4px;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:opacity .15s}
+.cell-btn:hover{opacity:.8}
+.cell-icon{font-size:14px;line-height:1}
+.cell-lbl{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.cell-sub{font-size:9.5px;opacity:.85}
+.st-pendiente{background:var(--pend-bg);color:var(--pend-text)}
+.st-cargado{background:var(--accent-bg);color:var(--accent-text)}
+.st-cerrado{background:var(--warn-bg);color:var(--warn-text)}
+.empty-state{text-align:center;padding:50px 20px;color:var(--text3)}
 @media(max-width:640px){main{padding:14px 12px}header{padding:0 14px}}
 </style>
 </head>
@@ -51,14 +67,20 @@ tbody tr:hover td{background:var(--surface2)}
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Horarios
     </a>
-    <div class="logo"><div class="logo-dot"></div>Historial de horarios</div>
+    <div class="logo"><div class="logo-dot"></div>Control de horarios por kiosko</div>
   </div>
   <button class="btn" onclick="cargar()">&#8635; Actualizar</button>
 </header>
 <main>
-  <h1>Historial de horarios por semana</h1>
-  <p class="sub">Consolidado de todas las semanas guardadas. Las semanas cerradas requieren código de administrador para editarlas.</p>
+  <h1>Estado de horarios por kiosko</h1>
+  <p class="sub">Seguimiento semanal: qué kioskos tienen el horario pendiente, cargado (abierto) o cerrado. Click en una celda para abrir ese kiosko y esa semana.</p>
   <div class="status-msg" id="status-msg">Cargando…</div>
+  <div id="summary"></div>
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:var(--pend-bg)"></span>Pendiente — sin horario cargado</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--accent-bg)"></span>Cargado — abierto, editable</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--warn-bg)"></span>Cerrado — bloqueado y enviado</div>
+  </div>
   <div id="contenido"></div>
 </main>
 
@@ -79,97 +101,149 @@ function kioskosPermitidos(lista) {
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
 const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
-const ADMIN_CODE='admin';
 
-function fmtShort(iso){
-  if(!iso)return'—';
-  const d=new Date(iso+'T00:00:00');
-  return d.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit',year:'numeric'});
-}
-function semanaLabel(iso){
-  if(!iso)return'—';
-  const s=new Date(iso+'T00:00:00'),e=new Date(s);e.setDate(s.getDate()+6);
-  return s.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'})+' – '+e.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit',year:'numeric'});
-}
+// Fallback offline — igual que horarios.html, se sobreescribe con lo que
+// devuelva la pestaña "Configuracion" (?modulo=kioskos).
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
 function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmt(d){return d.toISOString().slice(0,10)}
+function getMondayOf(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);return m}
+function semanaCorta(iso){
+  const s=new Date(iso+'T00:00:00'),e=new Date(s);e.setDate(s.getDate()+6);
+  return s.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'})+'–'+e.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'});
+}
+
+// Últimas 10 semanas (incluye la actual) + próximas 2 — ventana móvil de
+// seguimiento operativo. Orden: más vieja a la izquierda, futuro a la derecha.
+function semanasVentana(){
+  const hoyLunes=getMondayOf(new Date());
+  const semanas=[];
+  for(let i=-9;i<=2;i++){
+    const d=new Date(hoyLunes);d.setDate(d.getDate()+i*7);
+    semanas.push(fmt(d));
+  }
+  return semanas;
+}
 
 async function cargar(){
   document.getElementById('status-msg').textContent='Cargando…';
   try{
-    const [rH,rE]=await Promise.all([
+    const [rK,rH,rE]=await Promise.all([
+      fetch(APPS_SCRIPT_URL+'?modulo=kioskos').catch(()=>null),
       fetch(APPS_SCRIPT_URL+'?modulo=horarios'),
       fetch(APPS_SCRIPT_URL+'?modulo=horarios_estado')
     ]);
+    const dK = rK && rK.ok ? await rK.json() : {ok:false};
+    if(dK.ok && Array.isArray(dK.kioskos) && dK.kioskos.length) KIOSKOS = dK.kioskos;
+    const kioskosVisibles = kioskosPermitidos(KIOSKOS);
+
     const dH=await rH.json();
     const dE=await rE.json();
     if(!dH.ok) throw new Error(dH.error||'No se pudo leer Horarios');
 
     const registros=dH.registros||[];
+    // key "semana||kiosko" -> {colaboradores:Set, horas}
+    const porCelda={};
+    registros.forEach(r=>{
+      const semana=(r['Semana inicio']||'').toString().trim();
+      const kiosko=(r['Kiosko']||'').toString().trim();
+      if(!semana||!kiosko)return;
+      const key=semana+'||'+kiosko.toLowerCase();
+      if(!porCelda[key]) porCelda[key]={colaboradores:new Set(),horas:0,kiosko:kiosko};
+      porCelda[key].colaboradores.add((r['Colaborador']||'').toString().trim());
+      porCelda[key].horas+=parseFloat(r['Horas']||0)||0;
+    });
+
+    // key "semana||kiosko" -> {cerrado, actualizado, pdfUrl}
     const estados={};
     (dE.ok?dE.registros:[]).forEach(r=>{
-      estados[r['Semana inicio']]=(r['Cerrado']||'').toString().trim().toLowerCase()==='sí';
+      const semana=(r['Semana inicio']||'').toString().trim();
+      const kiosko=(r['Kiosko']||'').toString().trim();
+      if(!semana||!kiosko)return;
+      const key=semana+'||'+kiosko.toLowerCase();
+      estados[key]={
+        cerrado:(r['Cerrado']||'').toString().trim().toLowerCase()==='sí',
+        actualizado:r['Actualizado']||'',
+        pdfUrl:r['PDF URL']||''
+      };
     });
 
-    const porSemana={};
-    registros.forEach(r=>{
-      const semana=r['Semana inicio'];
-      if(!semana)return;
-      if(!porSemana[semana]) porSemana[semana]={colaboradores:new Set(),horas:0,dias:0};
-      porSemana[semana].colaboradores.add((r['Colaborador']||'').toString().trim());
-      porSemana[semana].horas+=parseFloat(r['Horas']||0)||0;
-      porSemana[semana].dias++;
-    });
-
-    const semanas=Object.keys(porSemana).sort().reverse();
-    renderTabla(semanas,porSemana,estados);
-    document.getElementById('status-msg').textContent=semanas.length+' semana'+(semanas.length!==1?'s':'')+' guardada'+(semanas.length!==1?'s':'');
+    const semanas=semanasVentana();
+    renderTabla(kioskosVisibles,semanas,porCelda,estados);
+    document.getElementById('status-msg').textContent=
+      kioskosVisibles.length+' kiosko'+(kioskosVisibles.length!==1?'s':'')+' · '+
+      semanas.length+' semanas ('+semanaCorta(semanas[0])+' a '+semanaCorta(semanas[semanas.length-1])+')';
   }catch(e){
     console.error(e);
-    document.getElementById('status-msg').textContent='Error al cargar el historial: '+e.message;
+    document.getElementById('status-msg').textContent='Error al cargar el control: '+e.message;
     document.getElementById('contenido').innerHTML='<div class="empty-state">No se pudo conectar con RRHH. Probá "Actualizar".</div>';
   }
 }
 
-function renderTabla(semanas,porSemana,estados){
+function estadoCelda(porCelda,estados,semana,kiosko){
+  const key=semana+'||'+kiosko.toLowerCase();
+  const datos=porCelda[key];
+  const est=estados[key];
+  if(est && est.cerrado) return {tipo:'cerrado',datos,est};
+  if(datos && datos.colaboradores.size) return {tipo:'cargado',datos,est};
+  return {tipo:'pendiente',datos,est};
+}
+
+function renderTabla(kioskos,semanas,porCelda,estados){
   const cont=document.getElementById('contenido');
-  if(!semanas.length){
-    cont.innerHTML='<div class="empty-state">Todavía no hay semanas guardadas.<br>Guardalas desde el botón "Guardar semana" en el módulo de Horarios.</div>';
+  if(!kioskos.length){
+    cont.innerHTML='<div class="empty-state">No hay kioskos visibles para tu usuario.</div>';
+    document.getElementById('summary').innerHTML='';
     return;
   }
-  let html='<div class="tbl-wrap"><table><thead><tr><th>Semana</th><th>Colaboradores</th><th>Horas totales</th><th>Estado</th><th></th></tr></thead><tbody>';
-  semanas.forEach(semana=>{
-    const info=porSemana[semana];
-    const cerrada=!!estados[semana];
-    const badge=cerrada
-      ? '<span class="badge badge-cerrada">&#128274; Cerrada</span>'
-      : '<span class="badge badge-abierta">&#9999; Abierta</span>';
-    html+='<tr>'+
-      '<td><div class="semana-lbl">'+esc(semanaLabel(semana))+'</div></td>'+
-      '<td>'+info.colaboradores.size+'</td>'+
-      '<td>'+info.horas.toFixed(1)+'h</td>'+
-      '<td>'+badge+'</td>'+
-      '<td><button class="btn btn-primary" onclick="editar(\''+semana+'\','+cerrada+')">Editar</button></td>'+
-      '</tr>';
+  const hoySemana=fmt(getMondayOf(new Date()));
+
+  // Resumen: cuántos kioskos están pendientes/cargados/cerrados en la semana actual.
+  let nPend=0,nCarg=0,nCerr=0;
+  kioskos.forEach(k=>{
+    const e=estadoCelda(porCelda,estados,hoySemana,k);
+    if(e.tipo==='pendiente')nPend++;else if(e.tipo==='cargado')nCarg++;else nCerr++;
+  });
+  document.getElementById('summary').innerHTML=
+    '<div class="summary">'+
+    '<div class="metric"><div class="metric-lbl">Semana actual</div><div class="metric-val">'+esc(semanaCorta(hoySemana))+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Pendientes esta semana</div><div class="metric-val'+(nPend?' warn':'')+'">'+nPend+' / '+kioskos.length+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Cargados (sin cerrar)</div><div class="metric-val">'+nCarg+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Cerrados</div><div class="metric-val">'+nCerr+'</div></div>'+
+    '</div>';
+
+  let html='<div class="tbl-wrap"><table><thead><tr><th class="kiosko-col">Kiosko</th>';
+  semanas.forEach(s=>{
+    const esHoy=s===hoySemana;
+    html+='<th class="'+(esHoy?'today-col':'')+'">'+esc(semanaCorta(s))+(esHoy?'<br>HOY':'')+'</th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  kioskos.forEach(k=>{
+    html+='<tr><td class="kiosko-col">'+esc(k)+'</td>';
+    semanas.forEach(s=>{
+      const e=estadoCelda(porCelda,estados,s,k);
+      const nColab=e.datos?e.datos.colaboradores.size:0;
+      let icon='—',lbl='Pendiente',sub='',cls='st-pendiente';
+      if(e.tipo==='cargado'){icon='&#9999;';lbl='Cargado';sub=nColab+' colab.';cls='st-cargado';}
+      else if(e.tipo==='cerrado'){icon='&#128274;';lbl='Cerrado';sub=nColab+' colab.';cls='st-cerrado';}
+      html+='<td><button type="button" class="cell-btn '+cls+'" '+
+        'onclick="irAKiosko(\''+s+'\',\''+k.replace(/'/g,"\\'")+'\')" '+
+        'title="'+esc(k)+' · '+esc(semanaCorta(s))+' · '+lbl+'">'+
+        '<span class="cell-icon">'+icon+'</span>'+
+        '<span class="cell-lbl">'+lbl+'</span>'+
+        (sub?'<span class="cell-sub">'+esc(sub)+'</span>':'')+
+        '</button></td>';
+    });
+    html+='</tr>';
   });
   html+='</tbody></table></div>';
   cont.innerHTML=html;
 }
 
-async function editar(semana,cerrada){
-  if(!cerrada){
-    location.href='horarios.html?semana='+encodeURIComponent(semana);
-    return;
-  }
-  const code=prompt('Esta semana está cerrada. Ingresá el código de administrador para editarla:');
-  if(code===null)return;
-  if(code.trim().toLowerCase()!==ADMIN_CODE){alert('Código incorrecto');return}
-  try{
-    await fetch(APPS_SCRIPT_URL,{
-      method:'POST',
-      body:new URLSearchParams({data:JSON.stringify({modulo:'reabrir_horario',semana_inicio:semana})})
-    });
-  }catch(e){ /* si falla, horarios.html la sigue mostrando cerrada y se puede reabrir ahí */ }
-  location.href='horarios.html?semana='+encodeURIComponent(semana);
+function irAKiosko(semana,kiosko){
+  location.href='horarios.html?semana='+encodeURIComponent(semana)+'&kiosko='+encodeURIComponent(kiosko);
 }
 
 cargar();

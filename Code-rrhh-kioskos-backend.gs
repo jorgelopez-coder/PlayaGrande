@@ -108,8 +108,13 @@ const ENCABEZADOS_HORARIOS = [
   'Estado', 'Hora entrada', 'Hora salida', 'Horas', 'Nota', 'Detalle',
   'Hora entrada 2', 'Hora salida 2'
 ];
+// "Kiosko" agregado para que el cierre de horario sea por Semana + Kiosko,
+// no global — antes una sola fila por "Semana inicio" hacía que cerrar el
+// horario de un kiosko marcara la semana como cerrada para TODOS los
+// kioskos (aunque el PDF sí se guardaba por separado). Ver
+// cambiarEstadoHorarioSemana().
 const ENCABEZADOS_HORARIOS_ESTADO = [
-  'Semana inicio', 'Cerrado', 'Actualizado', 'PDF URL'
+  'Semana inicio', 'Kiosko', 'Cerrado', 'Actualizado', 'PDF URL'
 ];
 // Mismas abreviaturas que ENCABEZADOS_HORARIOS/horarios.html, para que el
 // horario de atención del kiosko (Configuracion) use el mismo criterio de
@@ -1516,6 +1521,25 @@ function filaPorColumna(hoja, encabezados, nombreCol, valor) {
   return -1;
 }
 
+// Como filaPorColumna pero matcheando varias columnas a la vez (ej. "Semana
+// inicio" + "Kiosko"). Devuelve la fila 1-indexada o -1 si no existe.
+function filaPorCriterios(hoja, criterios) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return -1;
+  const nCols = hoja.getLastColumn();
+  const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const datos = hoja.getRange(2, 1, nFilas, nCols).getValues();
+  const claves = Object.keys(criterios);
+  for (let i = 0; i < datos.length; i++) {
+    const coincide = claves.every(function (clave) {
+      const idx = encabezados.indexOf(clave);
+      return idx !== -1 && valorComoTexto(datos[i][idx]).trim().toLowerCase() === String(criterios[clave]).trim().toLowerCase();
+    });
+    if (coincide) return i + 2;
+  }
+  return -1;
+}
+
 // Borra todas las filas donde una columna tiene cierto valor (de abajo hacia arriba,
 // para no romper los índices mientras se borra).
 function eliminarFilasPorColumna(hoja, encabezados, nombreCol, valor) {
@@ -1569,8 +1593,12 @@ function registrarHorarioSemana(p) {
 
 function cambiarEstadoHorarioSemana(p, cerrado) {
   if (!p.semana_inicio) throw new Error('Falta la semana (semana_inicio).');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
   const hoja = prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
-  const fila = filaPorColumna(hoja, ENCABEZADOS_HORARIOS_ESTADO, 'Semana inicio', p.semana_inicio);
+  // Match por Semana + Kiosko (no solo Semana): cada kiosko cierra/reabre su
+  // propio horario sin afectar a los demás. Filas viejas sin "Kiosko" (antes
+  // de este cambio) simplemente quedan huérfanas y ya no se vuelven a matchear.
+  const fila = filaPorCriterios(hoja, { 'Semana inicio': p.semana_inicio, 'Kiosko': p.kiosko });
 
   // Al cerrar, si el front-end mandó el PDF ya generado, guardarlo en Drive.
   // Al reabrir se limpia la URL: el contenido puede cambiar antes del próximo
@@ -1582,6 +1610,7 @@ function cambiarEstadoHorarioSemana(p, cerrado) {
 
   const valores = {
     'Semana inicio': p.semana_inicio,
+    'Kiosko': p.kiosko,
     'Cerrado': cerrado,
     'Actualizado': new Date().toISOString(),
     'PDF URL': pdfUrl
@@ -1591,7 +1620,7 @@ function cambiarEstadoHorarioSemana(p, cerrado) {
   } else {
     agregarFilaPorEncabezado(hoja, ENCABEZADOS_HORARIOS_ESTADO, valores);
   }
-  return { semana: p.semana_inicio, cerrado: cerrado, pdf_url: pdfUrl };
+  return { semana: p.semana_inicio, kiosko: p.kiosko, cerrado: cerrado, pdf_url: pdfUrl };
 }
 
 // Guarda el PDF (base64) en la carpeta fija de Drive, reemplazando una copia
