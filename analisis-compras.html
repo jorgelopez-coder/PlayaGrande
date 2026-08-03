@@ -60,6 +60,38 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 .filtro-resumen{font-size:11.5px;color:var(--subtle);border-top:1px solid var(--border);padding-top:.85rem;margin-top:.25rem}
 .filtro-nota{font-size:11px;color:var(--subtle);margin-top:.5rem}
 
+/* ── DROPDOWN MULTI-SELECT (Kiosko / Categoría / Proveedor) ── */
+.msel{position:relative;min-width:190px}
+.msel-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:8px 10px;cursor:pointer;text-align:left;transition:border-color .15s}
+.msel-btn:hover{border-color:var(--border-h)}
+.msel-btn.open{border-color:var(--green)}
+.msel-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msel-chevron{width:12px;height:12px;color:var(--muted);flex-shrink:0;transition:transform .15s}
+.msel-btn.open .msel-chevron{transform:rotate(180deg)}
+.msel-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:230px;max-width:320px;max-height:290px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(28,58,40,.14);z-index:40;padding:10px}
+.msel-panel.open{display:block}
+.msel-actions{display:flex;gap:6px;margin-bottom:8px}
+.msel-search{margin-bottom:8px}
+.msel-search input{width:100%}
+.msel-options{display:flex;flex-direction:column;gap:1px}
+.msel-opt{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 6px;border-radius:6px;cursor:pointer}
+.msel-opt:hover{background:var(--surface)}
+.msel-opt input{cursor:pointer;flex-shrink:0}
+
+/* ── BADGE PRODUCTO SIN HOMOLOGAR ─────────────────────────── */
+.badge-sinhomologar{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:10px;padding:1px 7px;margin-left:7px;vertical-align:middle}
+
+/* ── INFO DE PUNTO SELECCIONADO EN GRÁFICO ───────────────── */
+.chart-pt-hit{cursor:pointer}
+.punto-info{display:none;flex-wrap:wrap;gap:16px;align-items:center;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:8px;padding:.65rem 2rem .65rem .9rem;margin-top:.65rem;font-size:12px;position:relative}
+.punto-info.open{display:flex}
+.punto-info-item{display:flex;flex-direction:column;gap:2px}
+.punto-info-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.punto-info-val{font-family:var(--font-m);font-weight:600}
+.punto-info-close{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;line-height:1}
+.punto-info-close:hover{color:var(--text)}
+.compare-table tbody tr.punto-activo td{background:var(--green-bg)}
+
 input[type=text],input[type=number]{
   background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s
@@ -182,40 +214,62 @@ select:focus{border-color:var(--green)}
       </div>
     </div>
     <div class="filtro-row">
-      <div class="filtro-group" style="flex:1;min-width:220px;">
+      <div class="filtro-group">
         <label class="grp-lbl">Kioskos</label>
-        <div class="chk-wrap" id="filtro-kioskos-body">
-          <span class="compare-dash">Cargando…</span>
+        <div class="msel" id="msel-kioskos">
+          <button type="button" class="msel-btn" onclick="mselToggle('kioskos')">
+            <span class="msel-btn-label" id="msel-kioskos-label">Cargando…</span>
+            <svg class="msel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="msel-panel" id="msel-kioskos-panel">
+            <div class="msel-actions">
+              <button type="button" class="preset-btn" onclick="kioskoFiltroSeleccionarTodas(true)">Todos</button>
+              <button type="button" class="preset-btn" onclick="kioskoFiltroSeleccionarTodas(false)">Ninguno</button>
+            </div>
+            <div class="msel-options" id="filtro-kioskos-body"><span class="compare-dash">Cargando…</span></div>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="filtro-row">
-      <div class="filtro-group" style="flex:1;min-width:280px;">
-        <label class="grp-lbl">Categorías
-          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
-          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
-        </label>
-        <div class="chk-wrap scroll" id="filtro-categoria-body">
-          <span class="compare-dash">Cargando…</span>
+      <div class="filtro-group">
+        <label class="grp-lbl">Categorías</label>
+        <div class="msel" id="msel-categorias">
+          <button type="button" class="msel-btn" onclick="mselToggle('categorias')">
+            <span class="msel-btn-label" id="msel-categorias-label">Cargando…</span>
+            <svg class="msel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="msel-panel" id="msel-categorias-panel">
+            <div class="msel-actions">
+              <button type="button" class="preset-btn" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
+              <button type="button" class="preset-btn" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
+            </div>
+            <div class="msel-search"><input type="text" placeholder="Buscar categoría…" oninput="mselFiltrarOpciones('categorias', this.value)"></div>
+            <div class="msel-options" id="filtro-categoria-body"><span class="compare-dash">Cargando…</span></div>
+          </div>
         </div>
       </div>
-      <div class="filtro-group" style="flex:1;min-width:220px;">
+      <div class="filtro-group">
+        <label class="grp-lbl">Proveedores</label>
+        <div class="msel" id="msel-proveedores">
+          <button type="button" class="msel-btn" onclick="mselToggle('proveedores')">
+            <span class="msel-btn-label" id="msel-proveedores-label">Cargando…</span>
+            <svg class="msel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="msel-panel" id="msel-proveedores-panel">
+            <div class="msel-actions">
+              <button type="button" class="preset-btn" onclick="provFiltroSeleccionarTodas(true)">Todos</button>
+              <button type="button" class="preset-btn" onclick="provFiltroSeleccionarTodas(false)">Ninguno</button>
+            </div>
+            <div class="msel-search"><input type="text" placeholder="Buscar proveedor…" oninput="mselFiltrarOpciones('proveedores', this.value)"></div>
+            <div class="msel-options" id="filtro-proveedor-body"><span class="compare-dash">Cargando…</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="filtro-group" style="flex:1;min-width:200px;">
         <label class="grp-lbl">Buscar producto</label>
         <input type="text" id="filtro-producto-texto" placeholder="Nombre del producto…" oninput="renderAll()" style="width:100%;max-width:280px">
       </div>
     </div>
-    <div class="filtro-row">
-      <div class="filtro-group" style="flex:1;min-width:280px;">
-        <label class="grp-lbl">Proveedores
-          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="provFiltroSeleccionarTodas(true)">Todos</button>
-          <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="provFiltroSeleccionarTodas(false)">Ninguno</button>
-        </label>
-        <div class="chk-wrap scroll" id="filtro-proveedor-body">
-          <span class="compare-dash">Cargando…</span>
-        </div>
-      </div>
-    </div>
-    <p class="filtro-nota">Categorías, proveedor y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha y kiosko.</p>
+    <p class="filtro-nota">Categorías, proveedor y producto aplican solo a las pestañas <b>Cambios de precio</b> y <b>Cantidades</b> — el Resumen usa fecha y kiosko. El nombre de producto usado en todo el análisis es el <b>Nombre Estándar</b> homologado en Maestro de Productos.</p>
     <div class="filtro-resumen" id="filtro-resumen-txt">Cargando datos…</div>
   </div>
 
@@ -671,13 +725,16 @@ function construirLineas() {
     const cantidad = limpiarNum(r['Cantidad']);
     const precioUnitario = limpiarNum(r['Precio unitario']);
     const totalLinea = limpiarNum(r['Total línea']);
-    // Identificación de producto: primero el Nombre Estándar homologado en
-    // Maestro_Productos (maestro-productos.html) — mismo join Proveedor+
-    // Producto que usa el backend (claveMaestro_). Si esa línea todavía no
-    // está homologada, cae al Nombre normalizado que propuso la IA, y si
-    // tampoco hay eso, al texto crudo de la factura.
+    // Identificador de producto en TODO el análisis: el Nombre Estándar
+    // homologado en Maestro_Productos (maestro-productos.html) — mismo join
+    // Proveedor+Producto que usa el backend (claveMaestro_). Si esa línea
+    // todavía no está homologada, cae al Nombre normalizado que propuso la
+    // IA, y si tampoco hay eso, al texto crudo de la factura — pero se marca
+    // `homologado:false` para que la UI lo señale (ver badge "Sin homologar"
+    // en Cambios de precio / Cantidades) en vez de mezclarlo en silencio.
     const claveJoin = claveMaestroJS(r['Proveedor'], r['Producto']);
-    const nombre = MAESTRO_MAP[claveJoin] || String(r['Nombre normalizado']||'').trim() || String(r['Producto']||'').trim() || '(sin nombre)';
+    const nombreEstandar = MAESTRO_MAP[claveJoin] || '';
+    const nombre = nombreEstandar || String(r['Nombre normalizado']||'').trim() || String(r['Producto']||'').trim() || '(sin nombre)';
     return {
       numFactura: String(r['Número de factura']||'').trim(),
       fecha,
@@ -685,6 +742,7 @@ function construirLineas() {
       proveedor: String(r['Proveedor']||'').trim(),
       categoria: String(r['Categoría']||'').trim() || 'Sin categoría',
       productoNombre: nombre,
+      homologado: !!nombreEstandar,
       unidad: String(r['Unidad de medida']||'').trim(),
       moneda,
       cantidad,
@@ -699,14 +757,14 @@ function construirLineas() {
 function renderFiltroKioskos() {
   const cont = document.getElementById('filtro-kioskos-body');
   cont.innerHTML = KIOSKOS_LISTA.map(n =>
-    `<label class="chk-pill"><input type="checkbox" value="${escHtml(n)}" checked onchange="renderAll()"> ${escHtml(n)}</label>`
+    `<label class="msel-opt"><input type="checkbox" value="${escHtml(n)}" checked onchange="renderAll()"> ${escHtml(n)}</label>`
   ).join('');
 }
 function renderFiltroCategorias() {
   const cont = document.getElementById('filtro-categoria-body');
   if (!CATEGORIAS_LISTA.length) { cont.innerHTML = '<span class="compare-dash">Sin categorías</span>'; return; }
   cont.innerHTML = CATEGORIAS_LISTA.map(c =>
-    `<label class="chk-pill"><input type="checkbox" value="${escHtml(c)}" checked onchange="renderAll()"> ${escHtml(c)}</label>`
+    `<label class="msel-opt"><input type="checkbox" value="${escHtml(c)}" checked onchange="renderAll()"> ${escHtml(c)}</label>`
   ).join('');
 }
 function catFiltroSeleccionarTodas(marcar) {
@@ -717,11 +775,15 @@ function renderFiltroProveedores() {
   const cont = document.getElementById('filtro-proveedor-body');
   if (!PROVEEDORES_LISTA.length) { cont.innerHTML = '<span class="compare-dash">Sin proveedores</span>'; return; }
   cont.innerHTML = PROVEEDORES_LISTA.map(p =>
-    `<label class="chk-pill"><input type="checkbox" value="${escHtml(p)}" checked onchange="renderAll()"> ${escHtml(p)}</label>`
+    `<label class="msel-opt"><input type="checkbox" value="${escHtml(p)}" checked onchange="renderAll()"> ${escHtml(p)}</label>`
   ).join('');
 }
 function provFiltroSeleccionarTodas(marcar) {
   document.querySelectorAll('#filtro-proveedor-body input[type=checkbox]').forEach(el => { el.checked = marcar; });
+  renderAll();
+}
+function kioskoFiltroSeleccionarTodas(marcar) {
+  document.querySelectorAll('#filtro-kioskos-body input[type=checkbox]').forEach(el => { el.checked = marcar; });
   renderAll();
 }
 function kioskosSeleccionados() {
@@ -732,6 +794,50 @@ function categoriasSeleccionadas() {
 }
 function proveedoresSeleccionados() {
   return new Set(Array.from(document.querySelectorAll('#filtro-proveedor-body input:checked')).map(el => el.value));
+}
+
+// ── DROPDOWN MULTI-SELECT (Kiosko / Categoría / Proveedor) ────
+// Componente genérico: cada filtro vive en un <div class="msel" id="msel-NOMBRE">
+// con un botón resumen y un panel con los checkboxes (que siguen siendo el
+// mismo #filtro-NOMBRE-body de siempre, así kioskosSeleccionados() etc. no
+// cambian). Solo un panel abierto a la vez; se cierra al clickear afuera.
+function mselToggle(nombre) {
+  const panel = document.getElementById('msel-' + nombre + '-panel');
+  const btn = document.querySelector('#msel-' + nombre + ' .msel-btn');
+  if (!panel || !btn) return;
+  const abierto = panel.classList.contains('open');
+  document.querySelectorAll('.msel-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.msel-btn.open').forEach(b => b.classList.remove('open'));
+  if (!abierto) { panel.classList.add('open'); btn.classList.add('open'); }
+}
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('.msel').forEach(m => {
+    if (m.contains(e.target)) return;
+    const panel = m.querySelector('.msel-panel');
+    const btn = m.querySelector('.msel-btn');
+    if (panel) panel.classList.remove('open');
+    if (btn) btn.classList.remove('open');
+  });
+});
+function mselFiltrarOpciones(nombre, texto) {
+  const t = texto.trim().toLowerCase();
+  const contId = nombre === 'categorias' ? 'filtro-categoria-body' : nombre === 'proveedores' ? 'filtro-proveedor-body' : 'filtro-kioskos-body';
+  document.querySelectorAll('#' + contId + ' .msel-opt').forEach(el => {
+    el.style.display = (!t || el.textContent.trim().toLowerCase().includes(t)) ? 'flex' : 'none';
+  });
+}
+// Actualiza el texto de cada botón dropdown según cuántas opciones hay
+// seleccionadas (se llama en cada renderAll para reflejar el filtro vigente).
+function mselActualizarResumen(nombre, contId, seleccion, total, singular) {
+  const label = document.getElementById('msel-' + nombre + '-label');
+  if (!label) return;
+  let txt;
+  if (total === 0) txt = 'Sin opciones';
+  else if (seleccion.size === 0) txt = 'Ninguno seleccionado';
+  else if (seleccion.size === total) txt = 'Todos (' + total + ')';
+  else if (seleccion.size <= 2) txt = Array.from(seleccion).join(', ');
+  else txt = seleccion.size + ' de ' + total + ' ' + singular;
+  label.textContent = txt;
 }
 async function cargarTodo() {
   document.getElementById('filtro-resumen-txt').innerHTML = '<span class="spinner"></span> Cargando datos…';
@@ -807,6 +913,10 @@ function renderAll() {
   const detalle = lineasDetalle(base, categoriasSel, textoProducto, proveedoresSel);
   renderCambiosPrecio(detalle);
   renderCantidades(detalle);
+
+  mselActualizarResumen('kioskos', 'filtro-kioskos-body', kioskosSel, KIOSKOS_LISTA.length, 'kioskos');
+  mselActualizarResumen('categorias', 'filtro-categoria-body', categoriasSel, CATEGORIAS_LISTA.length, 'categorías');
+  mselActualizarResumen('proveedores', 'filtro-proveedor-body', proveedoresSel, PROVEEDORES_LISTA.length, 'proveedores');
 
   const compras = new Set(base.map(l => l.numFactura + '|' + l.proveedor + '|' + l.kiosko));
   document.getElementById('filtro-resumen-txt').textContent =
@@ -923,7 +1033,7 @@ function renderComprasPorKiosko(base, ventasFiltradas, cfg) {
 }
 
 // ── GRÁFICO SVG DE LÍNEA (genérico, reutilizado por precios y cantidades) ──
-function svgLineChart(labels, series, yFmt) {
+function svgLineChart(labels, series, yFmt, pointClickFn) {
   const W = 900, H = 260, mL = 74, mR = 16, mT = 16, mB = 34;
   const pW = W - mL - mR, pH = H - mT - mB;
   const n = labels.length;
@@ -953,9 +1063,16 @@ function svgLineChart(labels, series, yFmt) {
   const lineasSvg = series.map(s => {
     const validos = s.puntos.map((v,i) => v==null ? null : [i,v]).filter(Boolean);
     const pts = validos.map(([i,v]) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(' ');
-    const circles = validos.map(([i,v]) =>
-      `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3" fill="${s.color}"><title>${escHtml(s.nombre)} · ${escHtml(labels[i])} · ${yFmt(v)}</title></circle>`
-    ).join('');
+    // Círculo visible (decorativo) + un círculo invisible más grande encima
+    // que sirve de área de click/hover — así el punto es fácil de acertar
+    // aunque el radio visible sea pequeño. Si se pasa pointClickFn(i), el
+    // área de click dispara esa función al seleccionar el punto.
+    const circles = validos.map(([i,v]) => {
+      const cx = xAt(i).toFixed(1), cy = yAt(v).toFixed(1);
+      const onclickAttr = pointClickFn ? ` onclick="${pointClickFn(i)}" class="chart-pt-hit"` : '';
+      return `<circle cx="${cx}" cy="${cy}" r="9" fill="transparent"${onclickAttr}><title>${escHtml(s.nombre)} · ${escHtml(labels[i])} · ${yFmt(v)}</title></circle>`
+           + `<circle cx="${cx}" cy="${cy}" r="3" fill="${s.color}" style="pointer-events:none"/>`;
+    }).join('');
     return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2"/>${circles}`;
   }).join('');
 
@@ -977,6 +1094,11 @@ function renderCambiosPrecio(detalle) {
     if (!porProducto[l.productoNombre]) porProducto[l.productoNombre] = { nombre: l.productoNombre, categoria: l.categoria, unidad: l.unidad, lineas: [] };
     porProducto[l.productoNombre].lineas.push(l);
   });
+  // Un producto se marca homologado solo si TODAS sus líneas llegaron por
+  // Nombre Estándar del Maestro — si alguna todavía usa el nombre crudo/IA
+  // (aunque coincida por texto), se avisa para no dar por sentado que el
+  // agrupado es 100% consistente entre facturas.
+  Object.values(porProducto).forEach(info => { info.homologado = info.lineas.every(l => l.homologado); });
   const porProductoArr = Object.values(porProducto);
   PRECIO_DATA = {};
   porProductoArr.forEach(info => { PRECIO_DATA[safeId(info.nombre)] = info; });
@@ -991,7 +1113,7 @@ function renderCambiosPrecio(detalle) {
     const montoTotal = ord.reduce((s,l) => s + l.montoCRC, 0);
     const cantidadTotal = ord.reduce((s,l) => s + l.cantidad, 0);
     const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : null;
-    return { pid, nombre: info.nombre, categoria: info.categoria, unidad: info.unidad, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio, montoTotal, ord };
+    return { pid, nombre: info.nombre, categoria: info.categoria, unidad: info.unidad, homologado: info.homologado, nCompras, primero, ultimo, variacionPct, variacionAbs, precioPromedio, montoTotal, ord };
   });
 
   // Orden configurable (selector arriba de la tabla) — por defecto, mayor
@@ -1014,8 +1136,9 @@ function renderCambiosPrecio(detalle) {
       const color = f.variacionPct > 0 ? 'var(--red)' : (f.variacionPct < 0 ? 'var(--green)' : 'var(--muted)');
       variacionTxt = `<span style="color:${color};font-weight:600;">${f.variacionPct>=0?'+':''}${f.variacionPct.toFixed(1)}%</span>`;
     }
+    const badge = f.homologado ? '' : '<span class="badge-sinhomologar" title="Alguna(s) línea(s) de este producto todavía no tienen Nombre Estándar confirmado en Maestro de Productos — el nombre puede no ser 100% consistente entre facturas.">Sin homologar</span>';
     return `<tr class="compare-row clickable" onclick="toggleFilaPrecio('${f.pid}')">
-      <td><div class="compare-kiosko"><span class="precio-caret" id="precio-caret-${f.pid}">▸</span>${escHtml(f.nombre)}</div><div class="compare-sub">${escHtml(f.categoria)}</div></td>
+      <td><div class="compare-kiosko"><span class="precio-caret" id="precio-caret-${f.pid}">▸</span>${escHtml(f.nombre)}${badge}</div><div class="compare-sub">${escHtml(f.categoria)}</div></td>
       <td class="compare-val">${f.nCompras}</td>
       <td class="compare-val">${fmtCRC(f.primero.precioUnitarioCRC)}<div class="compare-sub">${f.primero.fecha}</div></td>
       <td class="compare-val">${fmtCRC(f.ultimo.precioUnitarioCRC)}<div class="compare-sub">${f.ultimo.fecha}</div></td>
@@ -1043,11 +1166,15 @@ function contenidoExpandPrecio(f) {
     chartHtml = svgLineChart(
       ord.map(l => fmtFechaCorta(l.fecha)),
       [{ nombre: f.nombre, color: 'var(--green)', puntos: ord.map(l => l.precioUnitarioCRC) }],
-      v => fmtCRC(v)
+      v => fmtCRC(v),
+      i => `mostrarPuntoPrecio('${f.pid}', ${i})`
     );
   }
-  const filasDetalle = ord.slice().reverse().map(l => `
-    <tr>
+  // data-punto-idx guarda la posición en `ord` (orden cronológico, igual que
+  // los puntos del gráfico) aunque la tabla se muestre más reciente primero,
+  // así un click en un punto del gráfico puede ubicar y resaltar su fila.
+  const filasDetalle = ord.map((l, idx) => ({ l, idx })).reverse().map(({ l, idx }) => `
+    <tr id="fila-precio-${f.pid}-${idx}">
       <td>${l.fecha}</td>
       <td class="compare-val" style="font-family:var(--font-m);">${escHtml(l.numFactura || '—')}</td>
       <td>${escHtml(l.proveedor || '—')}</td>
@@ -1059,7 +1186,9 @@ function contenidoExpandPrecio(f) {
   return `
     <div style="padding:1.1rem 1.25rem;background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
       <p class="card-title" style="margin-bottom:.6rem;">Evolución de precio en el tiempo</p>
+      <p class="card-sub" style="margin-top:-.4rem;margin-bottom:.4rem;">Click en un punto para ver el detalle de esa compra.</p>
       <div class="chart-wrap">${chartHtml}</div>
+      <div class="punto-info" id="punto-info-${f.pid}"></div>
       <p class="card-title" style="margin:1.1rem 0 .6rem;">Facturas de compra (${f.nCompras})</p>
       <div class="compare-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:8px;">
         <table class="compare-table" style="min-width:0;">
@@ -1068,6 +1197,37 @@ function contenidoExpandPrecio(f) {
         </table>
       </div>
     </div>`;
+}
+
+// Se llama al hacer click en un punto del gráfico de evolución de precio:
+// muestra el detalle completo de esa compra puntual y resalta la fila
+// correspondiente en la tabla de facturas de abajo.
+function mostrarPuntoPrecio(pid, idx) {
+  const info = PRECIO_DATA[pid];
+  if (!info) return;
+  const ord = info.lineas.slice().sort((a,b) => a.fecha.localeCompare(b.fecha));
+  const l = ord[idx];
+  const box = document.getElementById('punto-info-' + pid);
+  if (!l || !box) return;
+  box.classList.add('open');
+  box.innerHTML = `
+    <div class="punto-info-item"><span class="punto-info-lbl">Fecha</span><span class="punto-info-val">${escHtml(l.fecha)}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Factura</span><span class="punto-info-val">${escHtml(l.numFactura || '—')}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Proveedor</span><span class="punto-info-val">${escHtml(l.proveedor || '—')}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Kiosko</span><span class="punto-info-val">${escHtml(l.kiosko || '—')}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Cantidad</span><span class="punto-info-val">${fmtNum(l.cantidad)} ${escHtml(l.unidad||'')}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Precio unitario</span><span class="punto-info-val">${fmtCRC(l.precioUnitarioCRC)}${l.moneda==='USD' ? ' ($'+fmtNum(l.precioUnitario)+')' : ''}</span></div>
+    <div class="punto-info-item"><span class="punto-info-lbl">Costo línea</span><span class="punto-info-val">${fmtCRC(l.montoCRC)}</span></div>
+    <button type="button" class="punto-info-close" onclick="cerrarPuntoInfo('${pid}')" title="Cerrar">✕</button>`;
+
+  document.querySelectorAll(`[id^="fila-precio-${pid}-"]`).forEach(tr => tr.classList.remove('punto-activo'));
+  const fila = document.getElementById(`fila-precio-${pid}-${idx}`);
+  if (fila) { fila.classList.add('punto-activo'); fila.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+}
+function cerrarPuntoInfo(pid) {
+  const box = document.getElementById('punto-info-' + pid);
+  if (box) { box.classList.remove('open'); box.innerHTML = ''; }
+  document.querySelectorAll(`[id^="fila-precio-${pid}-"]`).forEach(tr => tr.classList.remove('punto-activo'));
 }
 
 // Acordeón: solo una fila expandida a la vez (se cierran las demás al abrir
@@ -1102,6 +1262,7 @@ function renderCantidades(detalle) {
     if (l.unidad) p.unidades.add(l.unidad);
   });
   const porProductoArr = Object.values(porProducto);
+  porProductoArr.forEach(info => { info.homologado = info.lineas.every(l => l.homologado); });
   CANTIDAD_DATA = {};
   porProductoArr.forEach(info => { CANTIDAD_DATA[safeId(info.nombre)] = info; });
 
@@ -1119,7 +1280,7 @@ function renderCantidades(detalle) {
   const bodyProd = document.getElementById('cant-producto-body');
   bodyProd.innerHTML = filasPorMonto.length ? filasPorMonto.map(p => `
     <tr class="compare-row clickable" onclick="seleccionarProductoCantidad('${p.pid}')">
-      <td><div class="compare-kiosko">${escHtml(p.nombre)}</div><div class="compare-sub">${escHtml(p.categoria)}</div></td>
+      <td><div class="compare-kiosko">${escHtml(p.nombre)}${p.homologado ? '' : '<span class="badge-sinhomologar" title="Alguna(s) línea(s) de este producto todavía no tienen Nombre Estándar confirmado en Maestro de Productos.">Sin homologar</span>'}</div><div class="compare-sub">${escHtml(p.categoria)}</div></td>
       <td class="compare-val">${fmtNum(p.cantidad)} ${escHtml(p.unidadTxt)}</td>
       <td class="compare-val">${fmtCRC(p.monto)}</td>
       <td class="compare-val">${p.nCompras}</td>
