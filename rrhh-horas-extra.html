@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horas extra · RRHH · Ecosistema Kioskos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#faf7f0; --surface:#f2ede2; --card:#ffffff;
+      --border:#c8ddd0; --border-h:#8ab89e;
+      --text:#1c3a28; --muted:#5a8a6a; --subtle:#a0c8b0;
+      --green:#1a7a4a; --green-bg:#eef8f2; --green-lt:#d0eedd;
+      --red:#c84a20; --red-bg:#fdf0eb; --red-lt:#f0c0a8;
+      --amber:#c87820; --amber-bg:#fdf6e3; --amber-lt:#f0d890;
+      --blue:#185fa5; --blue-bg:#eef4fb;
+      --radius:12px; --font-d:'Inter Tight',sans-serif; --font-b:'Inter',sans-serif;
+    }
+    body { background:var(--bg); color:var(--text); font-family:var(--font-b); font-size:14px; line-height:1.6; min-height:100vh; }
+
+    header { height:56px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; background:var(--bg); position:sticky; top:0; z-index:20; }
+    .nav-left { display:flex; align-items:center; gap:10px; }
+    .back-btn { display:flex; align-items:center; gap:5px; font-size:13px; color:var(--muted); text-decoration:none; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); }
+    .back-btn svg { width:13px; height:13px; }
+    .back-btn:hover { color:var(--text); border-color:var(--border-h); }
+    .page-title { font-family:var(--font-d); font-size:14px; font-weight:700; }
+    .date-chip { font-size:11px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
+
+    main { max-width:860px; margin:0 auto; padding:2rem 2rem 5rem; }
+    .page-header { margin-bottom:2rem; }
+    .page-header h1 { font-family:var(--font-d); font-size:24px; font-weight:700; letter-spacing:-.02em; margin-bottom:4px; }
+    .page-header p { font-size:13px; color:var(--muted); }
+
+    .tabs { display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:1.5rem; width:fit-content; }
+    .tab { font-size:13px; font-weight:500; padding:6px 16px; border-radius:7px; border:none; cursor:pointer; background:transparent; color:var(--muted); transition:background .15s,color .15s; }
+    .tab.active { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1rem; }
+    .card-title { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:1.25rem; }
+
+    .field { margin-bottom:1.1rem; }
+    .field:last-child { margin-bottom:0; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field-row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+
+    label { display:block; font-size:13px; font-weight:500; color:var(--text); margin-bottom:5px; }
+    .req { color:var(--red); margin-left:2px; }
+    .field-hint { font-size:12px; color:var(--muted); margin-top:5px; }
+
+    input, select, textarea {
+      width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); font-family:var(--font-b); font-size:14px; padding:9px 12px;
+      outline:none; appearance:none; transition:border-color .15s,box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26,122,74,.1); }
+    input::placeholder, textarea::placeholder { color:var(--subtle); }
+    select {
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 12px center; padding-right:36px; cursor:pointer;
+    }
+    textarea { resize:vertical; min-height:80px; line-height:1.5; }
+
+    .resumen-card { background:var(--green-bg); border:1px solid var(--green-lt); border-radius:var(--radius); padding:1rem 1.25rem; display:flex; gap:1.5rem; margin-bottom:1rem; }
+    .resumen-item { flex:1; }
+    .resumen-label { font-size:11px; color:var(--muted); margin-bottom:2px; }
+    .resumen-valor { font-family:var(--font-d); font-size:22px; font-weight:700; color:var(--green); letter-spacing:-.02em; }
+
+    /* Filtros de la lista */
+    .filtros { display:flex; gap:8px; margin-bottom:1rem; flex-wrap:wrap; }
+    .filtro-chip { font-size:12px; font-weight:500; padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--muted); cursor:pointer; }
+    .filtro-chip.active { background:var(--green); border-color:var(--green); color:#fff; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:0 12px 10px 0; border-bottom:1px solid var(--border); white-space:nowrap; }
+    td { padding:11px 12px 11px 0; border-bottom:1px solid var(--border); vertical-align:top; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:var(--surface); }
+    .justificacion-celda { max-width:260px; white-space:normal; color:var(--muted); font-size:12.5px; }
+
+    .badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:500; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+    .badge-pending { background:var(--amber-bg); color:var(--amber); }
+    .badge-approved { background:var(--green-bg); color:var(--green); }
+    .badge-rejected { background:var(--red-bg); color:var(--red); }
+
+    .action-btns { display:flex; gap:6px; }
+    .btn-aprobar { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--green); background:var(--green-bg); color:var(--green); cursor:pointer; font-weight:500; transition:background .15s; white-space:nowrap; }
+    .btn-aprobar:hover { background:var(--green); color:#fff; }
+    .btn-rechazar { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--red-lt); background:var(--red-bg); color:var(--red); cursor:pointer; font-weight:500; transition:background .15s; white-space:nowrap; }
+    .btn-rechazar:hover { background:var(--red); color:#fff; }
+
+    .empty-state { text-align:center; padding:2.5rem; color:var(--subtle); font-size:13px; }
+
+    .submit-area { display:flex; align-items:center; gap:10px; margin-top:1.5rem; }
+    .btn-submit { flex:1; background:var(--green); color:#fff; border:none; border-radius:9px; font-family:var(--font-d); font-size:15px; font-weight:700; padding:12px 24px; cursor:pointer; transition:opacity .15s; }
+    .btn-submit:hover { opacity:.9; }
+    .btn-submit:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-clear { padding:12px 16px; border-radius:9px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:13px; cursor:pointer; }
+    .btn-clear:hover { color:var(--text); border-color:var(--border-h); }
+
+    .status-bar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem 1.25rem; font-size:12px; color:var(--muted); margin-top:1.5rem; }
+    .ssep { width:1px; height:14px; background:var(--border); }
+
+    .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border-h); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.success { border-color:var(--green); color:var(--green); }
+    .toast.error { border-color:var(--red); color:var(--red); }
+    .toast svg { width:16px; height:16px; flex-shrink:0; }
+
+    @media (max-width:600px) { header { padding:0 1rem; } main { padding:1.5rem 1rem 3rem; } .field-row, .field-row3 { grid-template-columns:1fr; } .resumen-card { flex-direction:column; gap:.75rem; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="nav-left">
+    <a href="rrhh-acciones.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      RRHH
+    </a>
+    <span class="page-title">Horas extra</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<main>
+  <div class="page-header">
+    <h1>Horas extra</h1>
+    <p>Reportá horas extra por fecha puntual con su justificación. Solo las solicitudes <b>Aprobadas</b> se toman en cuenta al calcular la planilla de la quincena en que cae la fecha.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('reportar',this)">Reportar</button>
+    <button class="tab" onclick="switchTab('solicitudes',this)">Solicitudes</button>
+  </div>
+
+  <!-- TAB REPORTAR -->
+  <div id="tab-reportar">
+
+    <div class="card">
+      <p class="card-title">Colaborador y fecha</p>
+      <div class="field">
+        <label for="colaborador">Nombre del colaborador <span class="req">*</span></label>
+        <select id="colaborador" required>
+          <option value="" disabled selected>Seleccioná un colaborador…</option>
+        </select>
+        <div id="colaborador-error" style="display:none;font-size:12px;color:var(--red);margin-top:6px;">
+          <span id="colaborador-error-msg"></span>
+          <a href="javascript:void(0)" onclick="cargarColaboradores()" style="color:var(--green);font-weight:600;text-decoration:none;margin-left:4px;">Reintentar</a>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fecha">Fecha trabajada <span class="req">*</span></label>
+        <input type="date" id="fecha" required>
+        <p class="field-hint">El kiosko se toma automáticamente del expediente del colaborador.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Horas extra</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="extra-50">Horas extra 50%</label>
+          <input type="number" id="extra-50" min="0" step="0.5" placeholder="0" oninput="limpiarErrorHoras()">
+        </div>
+        <div class="field">
+          <label for="extra-100">Horas extra 100%</label>
+          <input type="number" id="extra-100" min="0" step="0.5" placeholder="0" oninput="limpiarErrorHoras()">
+        </div>
+      </div>
+      <p class="field-hint" id="horas-error" style="display:none;color:var(--red);">Ingresá al menos una hora extra (50% o 100%).</p>
+      <div class="field" style="margin-top:1rem;">
+        <label for="justificacion">Justificación <span class="req">*</span></label>
+        <textarea id="justificacion" placeholder="Explicá el motivo de la hora extra (ej. cobertura de turno, evento, cierre de temporada)…"></textarea>
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button type="button" class="btn-clear" onclick="limpiarForm()">Limpiar</button>
+      <button type="button" class="btn-submit" id="btn-enviar" onclick="enviarSolicitud()">Enviar a aprobación</button>
+    </div>
+  </div>
+
+  <!-- TAB SOLICITUDES -->
+  <div id="tab-solicitudes" style="display:none;">
+    <div class="resumen-card">
+      <div class="resumen-item">
+        <div class="resumen-label">Pendientes de aprobar</div>
+        <div class="resumen-valor" id="resumen-pendientes">—</div>
+      </div>
+      <div class="resumen-item">
+        <div class="resumen-label">Aprobadas (horas 50% + 100%)</div>
+        <div class="resumen-valor" id="resumen-aprobadas">—</div>
+      </div>
+    </div>
+    <div class="filtros">
+      <button class="filtro-chip active" onclick="setFiltro('todas',this)">Todas</button>
+      <button class="filtro-chip" onclick="setFiltro('Pendiente',this)">Pendientes</button>
+      <button class="filtro-chip" onclick="setFiltro('Aprobada',this)">Aprobadas</button>
+      <button class="filtro-chip" onclick="setFiltro('Rechazada',this)">Rechazadas</button>
+    </div>
+    <div class="card">
+      <div id="solicitudes-container">
+        <div class="empty-state">No hay solicitudes registradas.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span id="status-msg">Listo</span>
+    <span class="ssep"></span>
+    <span style="margin-left:auto;">v1.0 · RRHH · Ecosistema Kioskos</span>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ─── CONFIGURACIÓN ──────────────────────────────────────────────
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('rrhh-horas-extra')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// ────────────────────────────────────────────────────────────────
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+document.getElementById('fecha').value = hoy.toISOString().slice(0,10);
+
+// Cargar colaboradores activos desde Personal (guarda Kiosko en el dataset
+// para no tener que pedirlo aparte en el formulario).
+async function cargarColaboradores() {
+  const sel    = document.getElementById('colaborador');
+  const errBox = document.getElementById('colaborador-error');
+  const errMsg = document.getElementById('colaborador-error-msg');
+  errBox.style.display = 'none';
+  sel.innerHTML = '<option value="" disabled selected>Cargando colaboradores…</option>';
+
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
+    if (!resp.ok) throw new Error(`El servidor respondió con error ${resp.status}`);
+    const data = await resp.json();
+
+    sel.innerHTML = '<option value="" disabled selected>Seleccioná un colaborador…</option>';
+
+    if (data.ok && data.registros && data.registros.length > 0) {
+      const activos = data.registros.filter(p => String(p['Estado']||'ACTIVO').toUpperCase() === 'ACTIVO');
+      const permitidosKiosko = PORTAL_SESION && PORTAL_SESION.kioskos !== 'todos' ? PORTAL_SESION.kioskos : null;
+
+      activos
+        .filter(p => !permitidosKiosko || permitidosKiosko.includes(p['Kiosko']))
+        .forEach(p => {
+          const nombre = p['Nombre completo'] || '';
+          if (!nombre.trim()) return;
+          const o = document.createElement('option');
+          o.value = nombre;
+          o.dataset.kiosko = p['Kiosko'] || '';
+          o.textContent = nombre + (p['Kiosko'] ? ` — ${p['Kiosko']}` : '');
+          sel.appendChild(o);
+        });
+
+      if (!sel.querySelector('option[value]:not([value=""])')) {
+        sel.innerHTML = '<option value="" disabled selected>No hay colaboradores activos</option>';
+      }
+    } else {
+      sel.innerHTML = '<option value="" disabled selected>Sin colaboradores registrados</option>';
+    }
+  } catch(err) {
+    console.error('Error cargando colaboradores:', err);
+    sel.innerHTML = '<option value="" disabled selected>Error al cargar colaboradores</option>';
+    errMsg.textContent = `No se pudo conectar con la base de datos (${err.message}).`;
+    errBox.style.display = 'block';
+  }
+}
+cargarColaboradores();
+
+function limpiarErrorHoras() {
+  document.getElementById('horas-error').style.display = 'none';
+}
+
+function switchTab(tab, el) {
+  document.getElementById('tab-reportar').style.display = tab==='reportar' ? 'block':'none';
+  document.getElementById('tab-solicitudes').style.display = tab==='solicitudes' ? 'block':'none';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  if (tab==='solicitudes') cargarSolicitudes();
+}
+
+function getSolicitudesLocal() {
+  try { return JSON.parse(localStorage.getItem('horas_extra_local') || '[]'); }
+  catch { return []; }
+}
+
+// Trae el historial real del Sheet (fuente compartida entre dispositivos/usuarios)
+// y lo fusiona con lo que haya quedado solo en localStorage (p.ej. por falta de red).
+async function fetchSolicitudesServidor() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=horas_extra');
+    const data = await resp.json();
+    if (!data.ok || !Array.isArray(data.registros)) return [];
+    return data.registros.map(r => ({
+      id: r['ID'],
+      colaborador: r['Colaborador'] || '',
+      kiosko: r['Kiosko'] || '',
+      fecha: r['Fecha'] || '',
+      extra_50: Number(r['Horas extra 50%']) || 0,
+      extra_100: Number(r['Horas extra 100%']) || 0,
+      justificacion: r['Justificación'] || '',
+      estado: r['Estado'] || 'Pendiente',
+      aprobado_por: r['Aprobado por'] || '',
+      registrado: r['Registrado'] || ''
+    }));
+  } catch (err) {
+    console.error('Error cargando solicitudes del servidor:', err);
+    return [];
+  }
+}
+
+let SOLICITUDES_CACHE = [];
+let FILTRO_ACTUAL = 'todas';
+
+async function cargarSolicitudes() {
+  const cont = document.getElementById('solicitudes-container');
+  cont.innerHTML = '<div class="empty-state">Cargando solicitudes…</div>';
+
+  const servidor = await fetchSolicitudesServidor();
+  const locales = getSolicitudesLocal();
+  const porId = new Map();
+  locales.forEach(s => porId.set(String(s.id), s));
+  servidor.forEach(s => porId.set(String(s.id), s)); // el Sheet manda si hay conflicto
+  SOLICITUDES_CACHE = Array.from(porId.values())
+    .sort((a,b) => new Date(b.registrado||0) - new Date(a.registrado||0));
+
+  pintarSolicitudes();
+  pintarResumen();
+}
+
+function pintarResumen() {
+  const pendientes = SOLICITUDES_CACHE.filter(s => s.estado === 'Pendiente').length;
+  const aprobadas = SOLICITUDES_CACHE.filter(s => s.estado === 'Aprobada');
+  const horas = aprobadas.reduce((acc,s) => acc + (s.extra_50||0) + (s.extra_100||0), 0);
+  document.getElementById('resumen-pendientes').textContent = pendientes;
+  document.getElementById('resumen-aprobadas').textContent = `${horas}h`;
+}
+
+function setFiltro(estado, el) {
+  FILTRO_ACTUAL = estado;
+  document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  pintarSolicitudes();
+}
+
+function badgeClase(estado) {
+  return estado === 'Aprobada' ? 'badge-approved' : estado === 'Rechazada' ? 'badge-rejected' : 'badge-pending';
+}
+
+function pintarSolicitudes() {
+  const cont = document.getElementById('solicitudes-container');
+  const lista = FILTRO_ACTUAL === 'todas' ? SOLICITUDES_CACHE : SOLICITUDES_CACHE.filter(s => s.estado === FILTRO_ACTUAL);
+
+  if (!lista.length) { cont.innerHTML = '<div class="empty-state">No hay solicitudes en esta vista.</div>'; return; }
+
+  const filas = lista.map((s,i) => {
+    const idxReal = SOLICITUDES_CACHE.indexOf(s);
+    return `
+    <tr>
+      <td style="font-weight:500">${s.colaborador}</td>
+      <td>${s.kiosko||'—'}</td>
+      <td>${s.fecha}</td>
+      <td>${s.extra_50>0?`${s.extra_50}h`:'—'}</td>
+      <td>${s.extra_100>0?`${s.extra_100}h`:'—'}</td>
+      <td class="justificacion-celda">${s.justificacion||'—'}</td>
+      <td><span class="badge ${badgeClase(s.estado)}">${s.estado}</span>${s.aprobado_por?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">por ${s.aprobado_por}</div>`:''}</td>
+      <td>
+        ${s.estado==='Pendiente' ? `
+        <div class="action-btns">
+          <button class="btn-aprobar" onclick="cambiarEstado(${idxReal},'Aprobada')">Aprobar</button>
+          <button class="btn-rechazar" onclick="cambiarEstado(${idxReal},'Rechazada')">Rechazar</button>
+        </div>` : '—'}
+      </td>
+    </tr>
+  `;
+  }).join('');
+
+  cont.innerHTML = `<table>
+    <thead><tr><th>Colaborador</th><th>Kiosko</th><th>Fecha</th><th>50%</th><th>100%</th><th>Justificación</th><th>Estado</th><th>Acción</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>`;
+}
+
+function cambiarEstado(idx, estado) {
+  const item = SOLICITUDES_CACHE[idx];
+  if (!item) return;
+  item.estado = estado;
+  item.aprobado_por = PORTAL_SESION ? (PORTAL_SESION.nombre || '') : '';
+
+  const locales = getSolicitudesLocal();
+  const i = locales.findIndex(s => String(s.id) === String(item.id));
+  if (i >= 0) locales[i] = item; else locales.unshift(item);
+  localStorage.setItem('horas_extra_local', JSON.stringify(locales));
+
+  fetch(APPS_SCRIPT_URL, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ modulo:'horas_extra_estado', id: item.id, estado, aprobado_por: item.aprobado_por })
+  }).catch(()=>{});
+
+  showToast(`Solicitud ${estado==='Aprobada'?'aprobada':'rechazada'} correctamente`, estado==='Aprobada'?'success':'error');
+  pintarSolicitudes();
+  pintarResumen();
+}
+
+async function enviarSolicitud() {
+  const sel = document.getElementById('colaborador');
+  const colaborador = sel.value;
+  const opt = sel.options[sel.selectedIndex];
+  const kiosko = opt ? (opt.dataset.kiosko || '') : '';
+  const fecha = document.getElementById('fecha').value;
+  const extra50 = parseFloat(document.getElementById('extra-50').value) || 0;
+  const extra100 = parseFloat(document.getElementById('extra-100').value) || 0;
+  const justificacion = document.getElementById('justificacion').value.trim();
+
+  if (!colaborador) { showToast('Seleccioná un colaborador.','error'); return; }
+  if (!kiosko) { showToast('El colaborador seleccionado no tiene kiosko asignado en Personal.','error'); return; }
+  if (!fecha) { showToast('Seleccioná la fecha trabajada.','error'); return; }
+  if (extra50 <= 0 && extra100 <= 0) {
+    document.getElementById('horas-error').style.display = 'block';
+    showToast('Ingresá al menos una hora extra (50% o 100%).','error');
+    return;
+  }
+  if (!justificacion) { showToast('Escribí la justificación de las horas extra.','error'); return; }
+
+  const registro = {
+    modulo:'horas_extra_guardar', id: Date.now(),
+    colaborador, kiosko, fecha,
+    extra_50: extra50, extra_100: extra100,
+    justificacion, estado:'Pendiente',
+    registrado: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(registro)
+    });
+  } catch { showToast('Sin conexión — guardado localmente.','error'); }
+
+  const lista = getSolicitudesLocal();
+  lista.unshift(registro);
+  localStorage.setItem('horas_extra_local', JSON.stringify(lista));
+
+  showToast(`Reportado — ${colaborador}, ${fecha}`,'success');
+  document.getElementById('status-msg').textContent = `Último reporte: ${colaborador} · ${fecha} · pendiente de aprobación`;
+  limpiarForm();
+  btn.disabled = false; btn.textContent = 'Enviar a aprobación';
+}
+
+function limpiarForm() {
+  document.getElementById('colaborador').value = '';
+  document.getElementById('fecha').value = hoy.toISOString().slice(0,10);
+  document.getElementById('extra-50').value = '';
+  document.getElementById('extra-100').value = '';
+  document.getElementById('justificacion').value = '';
+  document.getElementById('horas-error').style.display = 'none';
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type==='success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>

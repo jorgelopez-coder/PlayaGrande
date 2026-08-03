@@ -37,6 +37,7 @@ const HOJA_HORARIOS        = 'Horarios';
 const HOJA_HORARIOS_ESTADO = 'HorariosEstado';
 const HOJA_CONFIGURACION   = 'Configuracion';
 const HOJA_ROLES           = 'Roles';
+const HOJA_HORAS_EXTRA     = 'SolicitudesHorasExtra';
 
 // Ficha completa de personal (igual que Lorito) + "Kiosko" para saber la
 // ubicación del colaborador (Lorito es un solo punto de venta, no lo tiene).
@@ -177,6 +178,22 @@ const ENCABEZADOS_INCIDENCIAS = [
   'CCSS base ajustada'
 ];
 
+// Reporte de horas extra CON nivel de aprobación (2026-08-01): a diferencia
+// de 'Horas extra 50%/100%' en Incidencias (que quedaron como columnas
+// legacy, ya no se leen), esta hoja es ahora la única fuente para el pago de
+// horas extra en calcularPlanilla() — ver sumarHorasExtraAprobadas(). Se
+// reporta por FECHA PUNTUAL (un turno/día específico), no por quincena
+// completa: al calcular la planilla se suman todas las filas 'Aprobada' de
+// un colaborador cuya Fecha cae dentro del rango del periodo. Mientras una
+// fila está en 'Pendiente' (o si queda 'Rechazada') NO cuenta para el pago —
+// por eso el wizard de Planilla (Paso 2) ya no deja editar horas extra a
+// mano, solo muestra lo aprobado (rrhh-horas-extra.html es donde se corrige).
+const ENCABEZADOS_HORAS_EXTRA = [
+  'ID', 'Fecha', 'Colaborador', 'Kiosko',
+  'Horas extra 50%', 'Horas extra 100%', 'Justificación',
+  'Estado', 'Aprobado por', 'Registrado', 'Actualizado'
+];
+
 // Cabecera de cada corrida de planilla guardada (una por Periodo + Kiosko).
 const HOJA_PLANILLAS = 'Planillas';
 const ENCABEZADOS_PLANILLAS = [
@@ -210,7 +227,11 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   // (planilla.html, Paso 5 y vista de planilla aprobada) — check "Pagado"
   // por persona una vez que se ejecutó la transferencia, mismo patrón que
   // 'Pagado'/'Fecha pago' en ServicioRepartoDetalle. Ver marcarPlanillaPagado().
-  'Pagado', 'Fecha pago'
+  'Pagado', 'Fecha pago',
+  // Agregadas al final (2026-08-01): horas de SolicitudesHorasExtra ya
+  // 'Aprobada' dentro de este periodo, para que el snapshot guardado quede
+  // trazable sin tener que volver a esa hoja — ver sumarHorasExtraAprobadas().
+  'Horas extra 50%', 'Horas extra 100%'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -481,6 +502,7 @@ function configurarHojas() {
   prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO);
   prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS);
   prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS);
+  prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
   prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
   prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
   prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
@@ -738,6 +760,7 @@ function doGet(e) {
       case 'horarios_estado': hoja = prepararHoja(HOJA_HORARIOS_ESTADO, ENCABEZADOS_HORARIOS_ESTADO); break;
       case 'feriados':          hoja = prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS); break;
       case 'incidencias':       hoja = prepararHoja(HOJA_INCIDENCIAS, ENCABEZADOS_INCIDENCIAS); break;
+      case 'horas_extra':       hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA); break;
       case 'planillas':         hoja = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS); break;
       case 'planillas_detalle': hoja = prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE); break;
       case 'servicio_repartos': hoja = prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS); break;
@@ -836,6 +859,8 @@ function doPost(e) {
       case 'feriado_estado':        result = cambiarEstadoFeriado(payload); break;
       case 'incidencia_guardar':    result = guardarIncidencia(payload); break;
       case 'incidencias_guardar_lote': result = guardarIncidenciasLote(payload); break;
+      case 'horas_extra_guardar':   result = guardarSolicitudHorasExtra(payload); break;
+      case 'horas_extra_estado':    result = cambiarEstadoHorasExtra(payload); break;
       case 'planilla_guardar':      result = guardarPlanilla(payload); break;
       case 'planilla_abrir_periodo': result = abrirPeriodoPlanilla(payload); break;
       case 'planilla_enviar_revision':
@@ -1174,6 +1199,83 @@ function sumarHorasTardanza(colaborador, fechaInicio, fechaFin) {
     if (horas <= 0) return;
     resultado.horas += horas;
     resultado.fechas.push(fecha);
+  });
+  return resultado;
+}
+
+// ── SolicitudesHorasExtra (rrhh-horas-extra.html) ──────────────────────
+// Reporte de horas extra por fecha puntual con nivel de aprobación: se
+// reporta 'Pendiente' y solo cuenta para el pago de planilla una vez que
+// alguien la marca 'Aprobada' (ver sumarHorasExtraAprobadas(), usada por
+// calcularPlanilla()). Mismo patrón que Vacaciones (crearSolicitudVacaciones
+// / cambiarEstadoVacaciones): reportar y aprobar viven en la misma pantalla,
+// el acceso se controla a nivel de módulo completo (admin-accesos.html).
+function guardarSolicitudHorasExtra(p) {
+  if (!p.colaborador) throw new Error('Falta el colaborador.');
+  if (!p.fecha) throw new Error('Falta la fecha.');
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  const h50 = Number(p.extra_50) || 0;
+  const h100 = Number(p.extra_100) || 0;
+  if (h50 <= 0 && h100 <= 0) throw new Error('Ingresá al menos una hora extra (50% o 100%).');
+  if (!p.justificacion || !String(p.justificacion).trim()) throw new Error('Falta la justificación de las horas extra.');
+
+  const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
+  const ahora = new Date().toISOString();
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_HORAS_EXTRA, {
+    'ID': p.id || Date.now(),
+    'Fecha': p.fecha,
+    'Colaborador': p.colaborador,
+    'Kiosko': p.kiosko,
+    'Horas extra 50%': h50,
+    'Horas extra 100%': h100,
+    'Justificación': String(p.justificacion).trim(),
+    'Estado': 'Pendiente',
+    'Aprobado por': '',
+    'Registrado': ahora,
+    'Actualizado': ahora
+  });
+  return { fila: fila };
+}
+
+// Aprobar/Rechazar una solicitud — mismo mecanismo que cambiarEstadoVacaciones,
+// pero además deja registro de quién resolvió y cuándo (columnas propias de
+// esta hoja) para trazabilidad del nivel de aprobación.
+function cambiarEstadoHorasExtra(p) {
+  if (!p.id) throw new Error('Falta el ID de la solicitud.');
+  const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_HORAS_EXTRA, 'ID', p.id);
+  if (fila === -1) throw new Error('No se encontró la solicitud ' + p.id);
+  const colEstado = colPorEncabezado(hoja, 'Estado');
+  const colAprobadoPor = colPorEncabezado(hoja, 'Aprobado por');
+  const colActualizado = colPorEncabezado(hoja, 'Actualizado');
+  hoja.getRange(fila, colEstado).setValue(p.estado || 'Pendiente');
+  if (colAprobadoPor) hoja.getRange(fila, colAprobadoPor).setValue(p.aprobado_por || '');
+  if (colActualizado) hoja.getRange(fila, colActualizado).setValue(new Date().toISOString());
+  return { fila: fila };
+}
+
+// Suma las horas extra 'Aprobada' de un colaborador cuya Fecha cae dentro de
+// [fechaInicio, fechaFin] (la quincena de planilla) — única fuente de horas
+// extra para el pago desde 2026-08-01 (ver calcularPlanilla()). Las
+// 'Pendiente'/'Rechazada' NO suman. Devuelve también fechas/justificaciones
+// para mostrar de dónde salió el monto (Paso 2 de planilla.html).
+function sumarHorasExtraAprobadas(colaborador, fechaInicio, fechaFin) {
+  const resultado = { horas50: 0, horas100: 0, fechas: [], justificaciones: [] };
+  if (!colaborador || !fechaInicio || !fechaFin) return resultado;
+  const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
+  const buscado = String(colaborador).trim().toLowerCase();
+  filasComoObjetos(hoja).forEach(function (row) {
+    if (String(row['Colaborador'] || '').trim().toLowerCase() !== buscado) return;
+    if (String(row['Estado'] || '').trim().toLowerCase() !== 'aprobada') return;
+    const fecha = valorComoTexto(row['Fecha'] || '');
+    if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
+    const h50 = Number(row['Horas extra 50%']) || 0;
+    const h100 = Number(row['Horas extra 100%']) || 0;
+    if (h50 <= 0 && h100 <= 0) return;
+    resultado.horas50 += h50;
+    resultado.horas100 += h100;
+    resultado.fechas.push(fecha);
+    if (row['Justificación']) resultado.justificaciones.push(fecha + ': ' + row['Justificación']);
   });
   return resultado;
 }
@@ -1905,8 +2007,16 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const salarioHora = salarioDiario / 8;
 
     const horasRegularesMonto = (Number(inc['Horas regulares']) || 0) * salarioHora;
-    const extra50Monto = (Number(inc['Horas extra 50%']) || 0) * salarioHora * 1.5;
-    const extra100Monto = (Number(inc['Horas extra 100%']) || 0) * salarioHora * 2;
+
+    // Horas extra: SOLO cuenta lo reportado y ya 'Aprobada' en
+    // SolicitudesHorasExtra dentro de esta quincena (rrhh-horas-extra.html)
+    // — 'Horas extra 50%/100%' de Incidencias quedaron como columnas legacy,
+    // ya no se leen acá. Ver sumarHorasExtraAprobadas().
+    const horasExtra = sumarHorasExtraAprobadas(nombre, fechaInicioStr, fechaFinStr);
+    const extra50Horas = horasExtra.horas50;
+    const extra100Horas = horasExtra.horas100;
+    const extra50Monto = extra50Horas * salarioHora * 1.5;
+    const extra100Monto = extra100Horas * salarioHora * 2;
 
     // Tardanza: horas de "Llegada tardía" registradas en Amonestaciones con
     // fecha dentro de esta quincena — se muestran como línea propia en
@@ -2021,7 +2131,10 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     return {
       colaborador: nombre, puesto: puesto, esManual: esManual,
       salario: salario, salarioDiario: salarioDiario, salarioHora: salarioHora,
-      horasRegularesMonto: horasRegularesMonto, extra50Monto: extra50Monto, extra100Monto: extra100Monto,
+      horasRegularesMonto: horasRegularesMonto,
+      extra50Horas: extra50Horas, extra50Monto: extra50Monto,
+      extra100Horas: extra100Horas, extra100Monto: extra100Monto,
+      extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones,
       feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
       incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
       subsidioMonto: subsidioMonto,
@@ -2148,7 +2261,9 @@ function guardarPlanilla(p) {
       'Neto a pagar': c.neto,
       'CCSS registrado': c.ccssRegistrado ? 'Sí' : 'No',
       'Pagado': 'No',
-      'Fecha pago': ''
+      'Fecha pago': '',
+      'Horas extra 50%': c.extra50Horas,
+      'Horas extra 100%': c.extra100Horas
     });
   });
 
