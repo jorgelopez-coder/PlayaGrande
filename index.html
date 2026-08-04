@@ -140,6 +140,25 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .compare-detail-block:last-child { margin-bottom:0; }
 .compare-detail-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:.3rem 0 .2rem; }
 
+/* ── MATRIZ DE CUMPLIMIENTO (kiosko × fecha) ────────────── */
+.matrix-wrap { overflow-x:auto; }
+.matrix-table { width:100%; border-collapse:collapse; font-size:12px; min-width:760px; }
+.matrix-table th { text-align:center; font-size:9.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); padding:.55rem .4rem; border-bottom:1px solid var(--border); background:var(--surface); white-space:nowrap; }
+.matrix-table th:first-child { text-align:left; padding-left:1.1rem; }
+.matrix-table td { padding:.55rem .4rem; border-bottom:1px solid var(--border); vertical-align:middle; text-align:center; }
+.matrix-table tbody tr:last-child td { border-bottom:none; }
+.matrix-table tbody tr:hover { background:var(--surface); }
+.matrix-kiosko { text-align:left !important; padding-left:1.1rem !important; font-weight:600; white-space:nowrap; }
+.matrix-day-head { display:flex; flex-direction:column; align-items:center; line-height:1.3; }
+.matrix-day-head .d-dow { font-size:9px; color:var(--subtle); }
+.matrix-day-head .d-num { font-size:11px; color:var(--text); font-weight:600; }
+.matrix-dots { display:inline-flex; gap:3px; cursor:default; }
+.mdot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+.mdot.ok { background:var(--green); }
+.mdot.no { background:var(--red-lt); }
+.matrix-legend { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:.6rem 1.25rem; font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); }
+.matrix-legend-item { display:flex; align-items:center; gap:5px; }
+
 /* ── FILAS DE DETALLE (usadas en Comparativo por kiosko) ──── */
 .persona-row { display:flex; align-items:center; gap:10px; padding:.6rem 1.25rem; border-bottom:1px solid var(--border); }
 .persona-row:last-child { border-bottom:none; }
@@ -441,6 +460,35 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
+  <!-- Matriz de cumplimiento: por kiosko y por fecha, si se completaron las
+       tareas operativas del día (cierre de caja, mermas, inventario). El
+       horario es semanal, no diario, así que se muestra en una sola columna
+       aparte con el estado de la semana en curso (ver horarios-historial.html). -->
+  <div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-head">
+      <span class="section-title"><span class="clip"></span>Matriz de cumplimiento</span>
+      <span class="section-link" style="cursor:default; color:var(--subtle);">Últimos 7 días</span>
+    </div>
+    <div class="matrix-wrap">
+      <table class="matrix-table">
+        <thead>
+          <tr id="matriz-head-row">
+            <th>Kiosko</th>
+            <th>Horario<br>(semana)</th>
+          </tr>
+        </thead>
+        <tbody id="matriz-body">
+          <tr><td colspan="9"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="matrix-legend">
+      <span class="matrix-legend-item"><span class="mdot ok"></span> Hecho</span>
+      <span class="matrix-legend-item"><span class="mdot no"></span> Falta</span>
+      <span class="matrix-legend-item">Cada casilla diaria trae 3 puntos en orden Cierre · Mermas · Inventario (pase el mouse para ver cuál falta). "Horario (semana)" indica si el horario de la semana en curso ya quedó publicado.</span>
+    </div>
+  </div>
+
   <!-- Acciones rápidas -->
   <div class="section-card" style="margin-bottom:1.5rem;">
       <div class="section-head clickable" onclick="toggleAccionesRapidas()">
@@ -620,6 +668,14 @@ const SQUARE_KIOSKOS = {
   }
 };
 
+// URLs adicionales usadas solo por la Matriz de cumplimiento (mismas que
+// mermas.html y horarios-historial.html; ver README). Inventario no tiene
+// endpoint de listado en Apps Script — se lee directo del sheet vía gviz,
+// igual que el Square por kiosko de arriba.
+const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
+const INVENTARIO_HIST_TAB = 'HISTORIAL_inventario';
+
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
 
@@ -795,6 +851,9 @@ async function cargarKPIs() {
   // filtrados por lo que el rol logueado tiene permitido ver.
   const listaKioskos = (kioskosActivos.length ? kioskosActivos.slice() : KIOSKOS.slice());
   Object.keys(SQUARE_KIOSKOS).forEach(n => { if (!listaKioskos.includes(n) && kioskosPermitidos([n]).length) listaKioskos.push(n); });
+
+  // Matriz de cumplimiento: se carga en paralelo, no bloquea el resto.
+  cargarMatrizCumplimiento(listaKioskos);
 
   // 2. PERSONAL (solo se usa el conteo para la barra de estado inferior)
   try {
@@ -1080,6 +1139,121 @@ async function obtenerResumenHoySquare(cfg) {
     return { ...totales, sinDatos: false };
   } catch(e) {
     return null;
+  }
+}
+
+// ── MATRIZ DE CUMPLIMIENTO — por kiosko y por fecha, si se completaron
+// cierre de caja, mermas e inventario (tareas diarias), y si el horario de
+// la semana en curso quedó publicado (tarea semanal, una sola columna).
+// Fuentes: Cierres (SHEETS_URL_CIERRES?action=read, igual que el
+// comparativo de arriba), Mermas (MERMAS_URL?modulo=mermas), Horarios
+// (APPS_SCRIPT_URL?modulo=horarios_estado, columna "Cerrado"='Sí' = semana
+// publicada, ver horarios-historial.html) e Inventario (gviz directo a la
+// hoja HISTORIAL_inventario, ese backend no tiene endpoint de listado). ──
+const DIAS_ABREV_MATRIZ = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+
+function isoDate(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function mondayOf(d) {
+  const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = dt.getDay();
+  dt.setDate(dt.getDate() + ((day === 0 ? -6 : 1) - day));
+  return dt;
+}
+// Las celdas de fecha en el gviz de Sheets vienen como objeto {v,f}; v suele
+// traer "Date(año,mes0based,día)" como string y f el valor ya formateado
+// según el formato de la columna — se intenta f primero (si ya es ISO) y
+// si no se cae al parseo de Date(...) de v (mismo patrón que
+// obtenerResumenHoySquare, pero para fechas en vez de números).
+function parseGvizDateStr(cell) {
+  if (!cell) return '';
+  if (cell.f && /^\d{4}-\d{2}-\d{2}/.test(cell.f)) return cell.f.slice(0,10);
+  const v = cell.v;
+  if (typeof v === 'string' && v.indexOf('Date(') === 0) {
+    const m = v.match(/Date\((\d+),(\d+),(\d+)/);
+    if (m) return m[1] + '-' + pad(+m[2] + 1) + '-' + pad(+m[3]);
+  }
+  return String(v || '').slice(0,10);
+}
+
+async function fetchInventarioHistorial() {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${INVENTARIO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INVENTARIO_HIST_TAB)}&headers=1&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const cols = (json.table.cols || []).map(c => c.label || '');
+    const idxKiosko = cols.indexOf('Kiosko');
+    const idxFecha = cols.indexOf('Fecha toma');
+    if (idxKiosko < 0 || idxFecha < 0) return [];
+    return (json.table.rows || []).map(fila => {
+      const c = fila.c || [];
+      return { kiosko: (c[idxKiosko] && c[idxKiosko].v) || '', fecha: parseGvizDateStr(c[idxFecha]) };
+    }).filter(r => r.kiosko && r.fecha);
+  } catch(e) { return []; }
+}
+
+async function cargarMatrizCumplimiento(listaKioskos) {
+  const head = document.getElementById('matriz-head-row');
+  const body = document.getElementById('matriz-body');
+  if (!head || !body) return;
+
+  const hoyM = new Date();
+  const dias = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(hoyM); d.setDate(d.getDate() - i); dias.push(d); }
+  const lunesActual = isoDate(mondayOf(hoyM));
+  const colspan = 2 + dias.length;
+
+  head.innerHTML = '<th>Kiosko</th><th>Horario<br>(semana)</th>' +
+    dias.map(d => `<th><div class="matrix-day-head"><span class="d-dow">${DIAS_ABREV_MATRIZ[d.getDay()]}</span><span class="d-num">${d.getDate()}/${d.getMonth()+1}</span></div></th>`).join('');
+
+  if (!listaKioskos.length) {
+    body.innerHTML = `<tr><td colspan="${colspan}"><div class="no-alerts">No hay kioskos configurados.</div></td></tr>`;
+    return;
+  }
+
+  try {
+    const [respCierres, respMermas, respHorEstado, invRows] = await Promise.all([
+      fetch(SHEETS_URL_CIERRES + '?action=read'),
+      fetch(MERMAS_URL + '?modulo=mermas'),
+      fetch(APPS_SCRIPT_URL + '?modulo=horarios_estado'),
+      fetchInventarioHistorial()
+    ]);
+    const dataCierres = await respCierres.json();
+    const dataMermas = await respMermas.json();
+    const dataHorEstado = await respHorEstado.json();
+
+    const cierreSet = new Set();
+    (dataCierres.records || []).forEach(r => {
+      const fecha = String(r[1]||'').slice(0,10), kiosko = r[3] || '';
+      if (fecha && kiosko) cierreSet.add(kiosko + '|' + fecha);
+    });
+    const mermaSet = new Set();
+    (dataMermas.registros || []).forEach(r => {
+      const fecha = String(r['Fecha']||'').slice(0,10), kiosko = r['Kiosko'] || '';
+      if (fecha && kiosko) mermaSet.add(kiosko + '|' + fecha);
+    });
+    const invSet = new Set();
+    invRows.forEach(r => invSet.add(r.kiosko + '|' + r.fecha));
+    const horarioOkSet = new Set();
+    (dataHorEstado.registros || []).forEach(r => {
+      const semana = String(r['Semana inicio']||'').slice(0,10), kiosko = r['Kiosko'] || '';
+      const cerrado = String(r['Cerrado']||'').trim().toLowerCase();
+      if (semana && kiosko && (cerrado === 'sí' || cerrado === 'si')) horarioOkSet.add(kiosko + '|' + semana);
+    });
+
+    body.innerHTML = listaKioskos.map(nombre => {
+      const horOk = horarioOkSet.has(nombre + '|' + lunesActual);
+      const horBadge = `<span class="kiosko-badge ${horOk ? 'kb-ok' : 'kb-warn'}">${horOk ? 'Sí' : 'No'}</span>`;
+      const celdas = dias.map(d => {
+        const key = nombre + '|' + isoDate(d);
+        const c = cierreSet.has(key), m = mermaSet.has(key), inv = invSet.has(key);
+        return `<td><div class="matrix-dots" title="Cierre: ${c?'sí':'no'} · Mermas: ${m?'sí':'no'} · Inventario: ${inv?'sí':'no'}">` +
+          `<span class="mdot ${c?'ok':'no'}"></span><span class="mdot ${m?'ok':'no'}"></span><span class="mdot ${inv?'ok':'no'}"></span></div></td>`;
+      }).join('');
+      return `<tr><td class="matrix-kiosko">${nombre}</td><td>${horBadge}</td>${celdas}</tr>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<tr><td colspan="${colspan}"><div class="no-alerts">No se pudo cargar la matriz de cumplimiento.</div></td></tr>`;
   }
 }
 
