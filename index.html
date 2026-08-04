@@ -158,6 +158,9 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .mdot.no { background:var(--red-lt); }
 .matrix-legend { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:.6rem 1.25rem; font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); }
 .matrix-legend-item { display:flex; align-items:center; gap:5px; }
+/* Tooltip propio con JS (no title nativo): así no depende del delay del
+   navegador y no lo recorta el scroll horizontal de .matrix-wrap. */
+.matrix-tooltip { position:fixed; display:none; background:var(--text); color:var(--bg); font-family:var(--font-b); font-size:11px; padding:6px 10px; border-radius:6px; z-index:100; pointer-events:none; white-space:nowrap; box-shadow:0 8px 20px rgba(28,58,40,.22); }
 
 /* ── FILAS DE DETALLE (usadas en Comparativo por kiosko) ──── */
 .persona-row { display:flex; align-items:center; gap:10px; padding:.6rem 1.25rem; border-bottom:1px solid var(--border); }
@@ -488,6 +491,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <span class="matrix-legend-item">Cada casilla diaria trae 3 puntos en orden Cierre · Mermas · Inventario (pase el mouse para ver cuál falta). "Horario (semana)" indica si el horario de la semana en curso ya quedó publicado.</span>
     </div>
   </div>
+  <div id="matrix-tooltip" class="matrix-tooltip"></div>
 
   <!-- Acciones rápidas -->
   <div class="section-card" style="margin-bottom:1.5rem;">
@@ -1247,7 +1251,7 @@ async function cargarMatrizCumplimiento(listaKioskos) {
       const celdas = dias.map(d => {
         const key = nombre + '|' + isoDate(d);
         const c = cierreSet.has(key), m = mermaSet.has(key), inv = invSet.has(key);
-        return `<td><div class="matrix-dots" title="Cierre: ${c?'sí':'no'} · Mermas: ${m?'sí':'no'} · Inventario: ${inv?'sí':'no'}">` +
+        return `<td><div class="matrix-dots" data-tip="Cierre: ${c?'sí':'no'} · Mermas: ${m?'sí':'no'} · Inventario: ${inv?'sí':'no'}">` +
           `<span class="mdot ${c?'ok':'no'}"></span><span class="mdot ${m?'ok':'no'}"></span><span class="mdot ${inv?'ok':'no'}"></span></div></td>`;
       }).join('');
       return `<tr><td class="matrix-kiosko">${nombre}</td><td>${horBadge}</td>${celdas}</tr>`;
@@ -1257,8 +1261,32 @@ async function cargarMatrizCumplimiento(listaKioskos) {
   }
 }
 
+// Tooltip de las 3 casillas diarias — delegado en el tbody (que no se
+// reemplaza entre renders, solo su innerHTML), así funciona sin importar
+// cuántas veces se vuelva a pintar la matriz.
+function initMatrixTooltip() {
+  const tip = document.getElementById('matrix-tooltip');
+  const body = document.getElementById('matriz-body');
+  if (!tip || !body) return;
+  body.addEventListener('mouseover', e => {
+    const el = e.target.closest('.matrix-dots');
+    if (!el) return;
+    tip.textContent = el.dataset.tip || '';
+    tip.style.display = 'block';
+  });
+  body.addEventListener('mousemove', e => {
+    if (tip.style.display !== 'block') return;
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top = (e.clientY - 12) + 'px';
+  });
+  body.addEventListener('mouseout', e => {
+    if (e.target.closest('.matrix-dots') && !e.relatedTarget?.closest('.matrix-dots')) tip.style.display = 'none';
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────────
 if (sesionActual) aplicarRol(sesionActual);
+initMatrixTooltip();
 cargarKPIs();
 </script>
 </body>
