@@ -171,12 +171,12 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th>Fecha</th><th>Kiosko</th>
           <th style="text-align:right">Efectivo</th><th style="text-align:right">Tarjeta</th>
           <th style="text-align:right">SINPE</th><th style="text-align:right">Otro</th>
           <th style="text-align:right">Total</th><th>Caja</th><th>Tarjeta</th>
         </tr></thead>
-        <tbody id="tabla-ventas-body"><tr><td colspan="10" class="empty"><span class="spinner"></span></td></tr></tbody>
+        <tbody id="tabla-ventas-body"><tr><td colspan="9" class="empty"><span class="spinner"></span></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -200,10 +200,10 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th>Fecha</th><th>Kiosko</th>
           <th style="text-align:right">Monto</th><th>Estado</th><th>Fecha de pago</th><th>Referencia</th>
         </tr></thead>
-        <tbody id="tabla-propinas-body"><tr><td colspan="7" class="empty"><span class="spinner"></span></td></tr></tbody>
+        <tbody id="tabla-propinas-body"><tr><td colspan="6" class="empty"><span class="spinner"></span></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -494,13 +494,12 @@ function renderVentas(desde, hasta) {
 
   const body = document.getElementById('tabla-ventas-body');
   if (!filas.length) {
-    body.innerHTML = '<tr><td colspan="10" class="empty">No hay cierres en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty">No hay cierres en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
     return;
   }
   body.innerHTML = filas.map(f => `<tr>
     <td>${fechaLbl(f.fecha)}</td>
     <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
-    <td>${f.encargado || '—'}${f.turno ? ' · ' + f.turno : ''}</td>
     <td class="num">${fmtCRC(f.efectivo)}</td>
     <td class="num">${fmtCRC(f.tarjeta)}</td>
     <td class="num">${fmtCRC(f.sinpe)}</td>
@@ -549,13 +548,12 @@ function renderPropinas(desde, hasta) {
 
   const body = document.getElementById('tabla-propinas-body');
   if (!filas.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty">No hay propinas en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="empty">No hay propinas en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
     return;
   }
   body.innerHTML = filas.map(f => `<tr>
     <td>${fechaLbl(f.fecha)}</td>
     <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
-    <td>${f.encargado || '—'}${f.turno ? ' · ' + f.turno : ''}</td>
     <td class="num">${fmtCRC(f.monto)}</td>
     <td><span class="badge ${f.pagado?'b-ok':'b-pend'}">${f.pagado?'✅ Pagada':'⏳ Pendiente'}</span></td>
     <td>${f.fechaPago ? fechaLbl(f.fechaPago) : '—'}</td>
@@ -716,14 +714,14 @@ function sufijoArchivo() {
 
 function exportarCSVVentas() {
   if (!ultimasFilasVentas.length) { showToast('No hay datos para exportar', 'error'); return; }
-  const headers = ['Fecha','Kiosko','Encargado','Turno','Efectivo','Tarjeta','SINPE','Otro','Total','Caja cuadra','Diferencia caja','Tarjeta cuadra','Diferencia tarjeta'];
-  const rows = ultimasFilasVentas.map(f => [f.fecha, f.kiosko, f.encargado, f.turno, f.efectivo, f.tarjeta, f.sinpe, f.otras, f.total, f.cajaCuadra?'SI':'NO', f.difCaja, f.tarjetaCuadra?'SI':'NO', f.difTarjeta]);
+  const headers = ['Fecha','Kiosko','Efectivo','Tarjeta','SINPE','Otro','Total','Caja cuadra','Diferencia caja','Tarjeta cuadra','Diferencia tarjeta'];
+  const rows = ultimasFilasVentas.map(f => [f.fecha, f.kiosko, f.efectivo, f.tarjeta, f.sinpe, f.otras, f.total, f.cajaCuadra?'SI':'NO', f.difCaja, f.tarjetaCuadra?'SI':'NO', f.difTarjeta]);
   descargarCSV(toCSV(headers, rows), 'ventas_' + sufijoArchivo() + '.csv');
 }
 function exportarCSVPropinas() {
   if (!ultimasFilasPropinas.length) { showToast('No hay datos para exportar', 'error'); return; }
-  const headers = ['Fecha','Kiosko','Encargado','Turno','Monto','Estado','Fecha de pago','Referencia'];
-  const rows = ultimasFilasPropinas.map(f => [f.fecha, f.kiosko, f.encargado, f.turno, f.monto, f.pagado?'Pagada':'Pendiente', f.fechaPago, f.referencia]);
+  const headers = ['Fecha','Kiosko','Monto','Estado','Fecha de pago','Referencia'];
+  const rows = ultimasFilasPropinas.map(f => [f.fecha, f.kiosko, f.monto, f.pagado?'Pagada':'Pendiente', f.fechaPago, f.referencia]);
   descargarCSV(toCSV(headers, rows), 'propinas_' + sufijoArchivo() + '.csv');
 }
 function exportarCSVDepositos() {
