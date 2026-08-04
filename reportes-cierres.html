@@ -79,6 +79,9 @@ tr:last-child td{border-bottom:none}
 .periodo-dates input[type=date]{font-size:13px;width:150px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);padding:7px 10px;outline:none}
 .periodo-dates input[type=date]:focus{border-color:var(--green)}
 .periodo-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.periodo-mes-group{display:flex;align-items:center;gap:6px}
+.periodo-mes-group input[type=month]{font-size:13px;width:140px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);padding:7px 10px;outline:none}
+.periodo-mes-group input[type=month]:focus{border-color:var(--green)}
 
 select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;appearance:none}
 select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
@@ -137,6 +140,10 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
       <button type="button" class="chip-btn active" data-atajo="mes" onclick="aplicarAtajoFecha('mes')">Este mes</button>
       <button type="button" class="chip-btn" data-atajo="anio" onclick="aplicarAtajoFecha('anio')">Este año</button>
     </div>
+    <div class="periodo-mes-group">
+      <span class="periodo-lbl">Mes:</span>
+      <input type="month" id="periodo-mes" onchange="aplicarMesEspecifico()"/>
+    </div>
     <div class="periodo-dates">
       <span class="periodo-lbl">Personalizado:</span>
       <input type="date" id="periodo-desde" onchange="limpiarAtajoActivo();recalcularYRenderizar()"/>
@@ -160,6 +167,7 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
     </div>
   </div>
   <div class="card">
+    <div class="tab-actions"><button class="btn-sm" onclick="exportarCSVVentas()">⬇ Descargar CSV</button></div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -185,7 +193,10 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
     </div>
   </div>
   <div class="card">
-    <div class="tab-actions"><a class="btn-secondary" href="control-tips.html">Pagar propinas pendientes →</a></div>
+    <div class="tab-actions" style="justify-content:space-between">
+      <a class="btn-secondary" href="control-tips.html">Pagar propinas pendientes →</a>
+      <button class="btn-sm" onclick="exportarCSVPropinas()">⬇ Descargar CSV</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -209,7 +220,10 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
     </div>
   </div>
   <div class="card">
-    <div class="tab-actions"><a class="btn-secondary" href="depositos.html">Asignar depósito →</a></div>
+    <div class="tab-actions" style="justify-content:space-between">
+      <a class="btn-secondary" href="depositos.html">Asignar depósito →</a>
+      <button class="btn-sm" onclick="exportarCSVDepositos()">⬇ Descargar CSV</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -234,7 +248,10 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
   </div>
   <div class="card">
     <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Solo se muestran corridas en estado Aprobada — las que aún están en captura o pendientes de revisión se ven en Planilla.</p>
-    <div class="tab-actions"><a class="btn-secondary" href="planilla.html">Ir a Planilla →</a></div>
+    <div class="tab-actions" style="justify-content:space-between">
+      <a class="btn-secondary" href="planilla.html">Ir a Planilla →</a>
+      <button class="btn-sm" onclick="exportarCSVPlanillas()">⬇ Descargar CSV</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -330,6 +347,12 @@ let salidasFondoRaw = [];
 let planillasRaw = [];         // objetos (?modulo=planillas)
 let planillasDetalleRaw = [];  // objetos (?modulo=planillas_detalle)
 
+// Últimas filas renderizadas por pestaña (para exportar a CSV)
+let ultimasFilasVentas = [];
+let ultimasFilasPropinas = [];
+let ultimasFilasDepositos = [];
+let ultimasFilasPlanillas = [];
+
 // ── KIOSKO ────────────────────────────────────────────────────────
 async function cargarKioskos() {
   if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
@@ -383,6 +406,17 @@ function aplicarAtajoFecha(atajo) {
 }
 function limpiarAtajoActivo() {
   document.querySelectorAll('#periodo-atajos .chip-btn').forEach(b => b.classList.remove('active'));
+}
+function aplicarMesEspecifico() {
+  const val = document.getElementById('periodo-mes').value; // 'YYYY-MM'
+  if (!val) return;
+  const [y, m] = val.split('-').map(Number);
+  const desde = new Date(y, m - 1, 1);
+  const hasta = new Date(y, m, 0);
+  document.getElementById('periodo-desde').value = fechaISO(desde);
+  document.getElementById('periodo-hasta').value = fechaISO(hasta);
+  limpiarAtajoActivo();
+  recalcularYRenderizar();
 }
 function rangoActual() {
   return { desde: document.getElementById('periodo-desde').value, hasta: document.getElementById('periodo-hasta').value };
@@ -448,6 +482,7 @@ function renderVentas(desde, hasta) {
     .filter(f => enRango(f.fecha, desde, hasta))
     .sort((a,b) => b.fecha.localeCompare(a.fecha) || String(b.id).localeCompare(String(a.id)));
 
+  ultimasFilasVentas = filas;
   const totalVentas = filas.reduce((s,f)=>s+f.total,0);
   const totalEfectivo = filas.reduce((s,f)=>s+f.efectivo,0);
   const totalTarjeta = filas.reduce((s,f)=>s+f.tarjeta,0);
@@ -504,6 +539,7 @@ function renderPropinas(desde, hasta) {
     .filter(f => enRango(f.fecha, desde, hasta))
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
 
+  ultimasFilasPropinas = filas;
   const total = filas.reduce((s,f)=>s+f.monto,0);
   const pendiente = filas.filter(f=>!f.pagado).reduce((s,f)=>s+f.monto,0);
   const pagado = filas.filter(f=>f.pagado).reduce((s,f)=>s+f.monto,0);
@@ -584,6 +620,7 @@ function renderDepositos(desde, hasta) {
     })
     .sort((a,b) => b.fecha.localeCompare(a.fecha) || a.kiosko.localeCompare(b.kiosko));
 
+  ultimasFilasDepositos = filas;
   const pendienteCrc = filas.filter(f=>f.pendiente).reduce((s,f)=>s+f.crc,0);
   const fechasPendientes = filas.filter(f=>f.pendiente).length;
   const depositadoCrc = filas.filter(f=>!f.pendiente).reduce((s,f)=>s+f.crc,0);
@@ -631,6 +668,7 @@ function renderPlanillas(desde, hasta) {
     })
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
 
+  ultimasFilasPlanillas = filas;
   document.getElementById('kpi-plan-ingresos').textContent = fmtCRC(filas.reduce((s,f)=>s+f.totalIngresos,0));
   document.getElementById('kpi-plan-neto').textContent = fmtCRC(filas.reduce((s,f)=>s+f.neto,0));
   document.getElementById('kpi-plan-count').textContent = filas.length;
@@ -650,6 +688,55 @@ function renderPlanillas(desde, hasta) {
     <td class="num">${fmtCRC(f.neto)}</td>
     <td><span class="badge b-ok">${f.estado}</span></td>
   </tr>`).join('');
+}
+
+// ── EXPORTAR CSV ──────────────────────────────────────────────────────
+function toCSV(headers, rows) {
+  const esc = v => {
+    const s = v===null||v===undefined ? '' : String(v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r => lines.push(r.map(esc).join(',')));
+  return lines.join('\r\n');
+}
+function descargarCSV(contenido, nombreArchivo) {
+  const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombreArchivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function sufijoArchivo() {
+  const { desde, hasta } = rangoActual();
+  const kiosko = kioskoActual ? '_' + kioskoActual.replace(/\s+/g,'-') : '';
+  return (desde || 'inicio') + '_a_' + (hasta || 'hoy') + kiosko;
+}
+
+function exportarCSVVentas() {
+  if (!ultimasFilasVentas.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha','Kiosko','Encargado','Turno','Efectivo','Tarjeta','SINPE','Otro','Total','Caja cuadra','Diferencia caja','Tarjeta cuadra','Diferencia tarjeta'];
+  const rows = ultimasFilasVentas.map(f => [f.fecha, f.kiosko, f.encargado, f.turno, f.efectivo, f.tarjeta, f.sinpe, f.otras, f.total, f.cajaCuadra?'SI':'NO', f.difCaja, f.tarjetaCuadra?'SI':'NO', f.difTarjeta]);
+  descargarCSV(toCSV(headers, rows), 'ventas_' + sufijoArchivo() + '.csv');
+}
+function exportarCSVPropinas() {
+  if (!ultimasFilasPropinas.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha','Kiosko','Encargado','Turno','Monto','Estado','Fecha de pago','Referencia'];
+  const rows = ultimasFilasPropinas.map(f => [f.fecha, f.kiosko, f.encargado, f.turno, f.monto, f.pagado?'Pagada':'Pendiente', f.fechaPago, f.referencia]);
+  descargarCSV(toCSV(headers, rows), 'propinas_' + sufijoArchivo() + '.csv');
+}
+function exportarCSVDepositos() {
+  if (!ultimasFilasDepositos.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha','Kiosko','Efectivo por depositar CRC','USD','Estado','Fecha de depósito','Referencia','Diferencia CRC'];
+  const rows = ultimasFilasDepositos.map(f => [f.fecha, f.kiosko, f.crc, f.usd, f.pendiente?'Pendiente':'Depositado', f.fechaDeposito, f.referencia, f.diferenciaCrc===null?'':f.diferenciaCrc]);
+  descargarCSV(toCSV(headers, rows), 'depositos_' + sufijoArchivo() + '.csv');
+}
+function exportarCSVPlanillas() {
+  if (!ultimasFilasPlanillas.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha cálculo','Periodo','Kiosko','Total ingresos','Base CCSS','Deducciones','Neto a pagar','Estado'];
+  const rows = ultimasFilasPlanillas.map(f => [f.fecha, f.periodo, f.kiosko, f.totalIngresos, f.baseCcss, f.deducciones, f.neto, f.estado]);
+  descargarCSV(toCSV(headers, rows), 'planillas_' + sufijoArchivo() + '.csv');
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
