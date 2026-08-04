@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Reportes de Cierres · Playa Grande Brew House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.kiosko-bar{display:flex;align-items:center;gap:10px;padding:.65rem 2rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:19}
+.kiosko-bar label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.kiosko-bar select{max-width:260px;background:var(--card)}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:14px;font-weight:700;padding:11px 22px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{padding:11px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-secondary[href]{text-decoration:none;display:inline-block}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.tab-actions{display:flex;justify-content:flex-end;margin-bottom:12px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-m);white-space:nowrap}
+.empty{text-align:center;padding:2.5rem;color:var(--subtle);font-size:13px}
+.table-wrap{overflow-x:auto}
+.kiosko-tag{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.td-badges{display:flex;gap:4px;flex-wrap:wrap}
+
+.kpi-pendiente-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:24px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-pend{background:var(--amber-bg);color:var(--amber)}
+.b-dif{background:var(--red-bg);color:var(--red)}
+
+.periodo-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:1rem}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip-btn{font-size:12px;padding:6px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-weight:500;transition:all .15s;font-family:var(--font-b)}
+.chip-btn:hover{border-color:var(--border-h);color:var(--text)}
+.chip-btn.active{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:600}
+.periodo-dates{display:flex;align-items:center;gap:8px;margin-left:auto}
+.periodo-dates input[type=date]{font-size:13px;width:150px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);padding:7px 10px;outline:none}
+.periodo-dates input[type=date]:focus{border-color:var(--green)}
+.periodo-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+
+select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;outline:none;appearance:none}
+select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .kiosko-bar{padding:.65rem 1rem}
+  .periodo-dates{margin-left:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Reportes de Cierres</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="kiosko-bar">
+  <label for="rc-kiosko">🏖️ Kiosko</label>
+  <select id="rc-kiosko" onchange="alCambiarKiosko()"></select>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('ventas',this)">Ventas por medio de pago</button>
+  <button class="tab-btn" onclick="showTab('propinas',this)">Propinas</button>
+  <button class="tab-btn" onclick="showTab('depositos',this)">Depósitos de efectivo</button>
+  <button class="tab-btn" onclick="showTab('planillas',this)">Planillas</button>
+</div>
+
+<main>
+
+<!-- ── PERÍODO (compartido por las 4 pestañas) ── -->
+<div class="card">
+  <p class="card-title">Período</p>
+  <div class="periodo-bar">
+    <div class="chip-row" id="periodo-atajos">
+      <button type="button" class="chip-btn" data-atajo="hoy" onclick="aplicarAtajoFecha('hoy')">Hoy</button>
+      <button type="button" class="chip-btn" data-atajo="semana" onclick="aplicarAtajoFecha('semana')">Esta semana</button>
+      <button type="button" class="chip-btn active" data-atajo="mes" onclick="aplicarAtajoFecha('mes')">Este mes</button>
+      <button type="button" class="chip-btn" data-atajo="anio" onclick="aplicarAtajoFecha('anio')">Este año</button>
+    </div>
+    <div class="periodo-dates">
+      <span class="periodo-lbl">Personalizado:</span>
+      <input type="date" id="periodo-desde" onchange="limpiarAtajoActivo();recalcularYRenderizar()"/>
+      <span style="color:var(--subtle);font-size:12px">a</span>
+      <input type="date" id="periodo-hasta" onchange="limpiarAtajoActivo();recalcularYRenderizar()"/>
+      <button class="btn-sm" onclick="recalcularYRenderizar()">↻ Actualizar</button>
+    </div>
+  </div>
+  <p style="font-size:11px;color:var(--subtle)">El rango filtra por fecha del cierre (Ventas, Propinas) o del efectivo (Depósitos). En Planillas se compara contra el período de cada planilla (fecha inicio–fin).</p>
+</div>
+
+<!-- ══════════════ TAB 1: VENTAS POR MEDIO DE PAGO ══════════════ -->
+<div class="page active" id="tab-ventas">
+  <div class="card">
+    <p class="card-title">Ventas del período — <span id="ventas-kiosko-lbl"></span></p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box"><div class="kpi-val" id="kpi-ventas-total">₡0</div><div class="kpi-lbl">Total ventas</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-ventas-efectivo">₡0</div><div class="kpi-lbl">Efectivo</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-ventas-tarjeta">₡0</div><div class="kpi-lbl">Tarjeta</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-ventas-dif">0</div><div class="kpi-lbl">Cierres con diferencia</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th style="text-align:right">Efectivo</th><th style="text-align:right">Tarjeta</th>
+          <th style="text-align:right">SINPE</th><th style="text-align:right">Otro</th>
+          <th style="text-align:right">Total</th><th>Caja</th><th>Tarjeta</th>
+        </tr></thead>
+        <tbody id="tabla-ventas-body"><tr><td colspan="10" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TAB 2: PROPINAS ══════════════ -->
+<div class="page" id="tab-propinas">
+  <div class="card">
+    <p class="card-title">Propinas del período — <span id="propinas-kiosko-lbl"></span></p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box"><div class="kpi-val" id="kpi-prop-total">₡0</div><div class="kpi-lbl">Total propinas</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-prop-pendiente">₡0</div><div class="kpi-lbl">Pendiente de pago</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-prop-pagado">₡0</div><div class="kpi-lbl">Ya pagado</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tab-actions"><a class="btn-secondary" href="control-tips.html">Pagar propinas pendientes →</a></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th style="text-align:right">Monto</th><th>Estado</th><th>Fecha de pago</th><th>Referencia</th>
+        </tr></thead>
+        <tbody id="tabla-propinas-body"><tr><td colspan="7" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TAB 3: DEPÓSITOS DE EFECTIVO ══════════════ -->
+<div class="page" id="tab-depositos">
+  <div class="card">
+    <p class="card-title">Efectivo del período — <span id="depositos-kiosko-lbl"></span></p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box"><div class="kpi-val" id="kpi-dep-pendiente">₡0</div><div class="kpi-lbl">Pendiente de depositar</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-dep-fechas">0</div><div class="kpi-lbl">Fechas pendientes</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-dep-depositado">₡0</div><div class="kpi-lbl">Ya depositado</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tab-actions"><a class="btn-secondary" href="depositos.html">Asignar depósito →</a></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Kiosko</th><th style="text-align:right">Efectivo por depositar</th>
+          <th>Estado</th><th>Fecha de depósito</th><th>Referencia</th><th style="text-align:right">Diferencia</th>
+        </tr></thead>
+        <tbody id="tabla-depositos-body"><tr><td colspan="7" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TAB 4: PLANILLAS ══════════════ -->
+<div class="page" id="tab-planillas">
+  <div class="card">
+    <p class="card-title">Planillas aprobadas en el período — <span id="planillas-kiosko-lbl"></span></p>
+    <div class="kpi-pendiente-grid">
+      <div class="kpi-box"><div class="kpi-val" id="kpi-plan-ingresos">₡0</div><div class="kpi-lbl">Total ingresos</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-plan-neto">₡0</div><div class="kpi-lbl">Total neto a pagar</div></div>
+      <div class="kpi-box"><div class="kpi-val" id="kpi-plan-count">0</div><div class="kpi-lbl">Planillas aprobadas</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Solo se muestran corridas en estado Aprobada — las que aún están en captura o pendientes de revisión se ven en Planilla.</p>
+    <div class="tab-actions"><a class="btn-secondary" href="planilla.html">Ir a Planilla →</a></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Periodo</th><th>Kiosko</th>
+          <th style="text-align:right">Total ingresos</th><th style="text-align:right">Base CCSS</th>
+          <th style="text-align:right">Deducciones</th><th style="text-align:right">Neto a pagar</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="tabla-planillas-body"><tr><td colspan="8" class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismas URLs /exec usadas en cierres.html, depositos.html, control-tips.html
+// (Code-cierres-kioskos-backend.gs) y planilla.html/rrhh-personal.html
+// (Code-rrhh-kioskos-backend.gs) — este reporte no agrega ningún endpoint
+// nuevo, solo lee y cruza datos que esos backends ya exponen.
+const SHEETS_URL       = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('reportes-cierres')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+// Respaldo si todavía no hay conexión con Configuración.
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+
+// Índices de columnas en `records` de la hoja "Cierres" (ver
+// Code-cierres-kioskos-backend.gs → HEADERS — esquema simplificado de
+// Kioskos, sin crédito/plataformas/10% servicio).
+const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_ENCARGADO = 4, COL_TURNO = 5,
+      COL_EFECTIVO = 6, COL_TARJETA = 7, COL_SINPE = 8, COL_OTRAS = 9, COL_TOTAL_VENTAS = 10,
+      COL_FONDO = 11, COL_USD_TOTAL = 32,
+      COL_DIF_CAJA = 35, COL_CAJA_CUADRA = 36, COL_DIF_TARJETA = 38, COL_TARJETA_CUADRA = 39,
+      COL_TIPS = 43;
+const COL_BILLETES_CRC = [12,13,14,15,16,17]; // ₡50.000 … ₡1.000
+const COL_MONEDAS_CRC  = [18,19,20,21,22,23]; // ₡500 … ₡5
+const DENOMS_BILLETES_CRC = [50000,20000,10000,5000,2000,1000];
+const DENOMS_MONEDAS_CRC  = [500,100,50,25,10,5];
+
+// Índices de columnas de "TipsPagos" (HEADERS_TIPS_PAGOS): 0 ID, 1 Fecha
+// registro, 2 Fecha de pago, 3 Referencia, 4 IDs cierres cubiertos (JSON),
+// 5 Kioskos, 6 Monto total ₡, 7 Notas.
+// Índices de columnas de "Depositos" (HEADERS_DEPOSITOS): 0 ID, 1 Fecha
+// registro, 2 Fecha depósito, 3 Kiosko, 4 Número de referencia, 5 Monto CRC
+// comprobante, 6 Monto USD comprobante, 7 Fechas cubiertas (JSON),
+// 8 Monto CRC calculado, 9 Monto USD calculado, 10 Diferencia CRC,
+// 11 Diferencia USD, 12 Foto comprobante, 13 Notas.
+// Índices de "SalidasFondoCaja" (HEADERS_SALIDAS_FONDO): 0 ID, 1 Fecha
+// registro, 2 Fecha del efectivo, 3 Kiosko, 4 Monto CRC, 5 Proveedor,
+// 6 Factura, 7 Referencia, 8 Notas, 9 Origen.
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const soloFecha = f => f ? String(f).slice(0,10) : '';
+function fechaLbl(iso) {
+  if (!iso) return '—';
+  return new Date(iso+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fechaISO(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+
+// ── ESTADO ────────────────────────────────────────────────────────
+let kioskoActual = localStorage.getItem('kiosko_actual_reportes_cierres') ?? '';
+let cierresRaw = [];
+let tipsPagosRaw = [];
+let depositosRaw = [];
+let salidasFondoRaw = [];
+let planillasRaw = [];         // objetos (?modulo=planillas)
+let planillasDetalleRaw = [];  // objetos (?modulo=planillas_detalle)
+
+// ── KIOSKO ────────────────────────────────────────────────────────
+async function cargarKioskos() {
+  if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
+    try {
+      const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+      const data = await resp.json();
+      if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+        KIOSKOS = kioskosPermitidos(data.kioskos);
+      }
+    } catch (e) { /* sin conexión: sigue con el respaldo */ }
+  }
+  poblarKioskosSelect();
+}
+
+function poblarKioskosSelect() {
+  const sel = document.getElementById('rc-kiosko');
+  sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
+  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  kioskoActual = sel.value;
+  actualizarLabels();
+}
+
+function actualizarLabels() {
+  const lbl = kioskoActual || 'Todos los kioskos';
+  ['ventas-kiosko-lbl','propinas-kiosko-lbl','depositos-kiosko-lbl','planillas-kiosko-lbl'].forEach(id => {
+    document.getElementById(id).textContent = lbl;
+  });
+}
+
+function alCambiarKiosko() {
+  kioskoActual = document.getElementById('rc-kiosko').value;
+  localStorage.setItem('kiosko_actual_reportes_cierres', kioskoActual);
+  actualizarLabels();
+  recalcularYRenderizar();
+}
+
+// ── PERÍODO ───────────────────────────────────────────────────────
+function fijarRangoAtajo(atajo) {
+  const hoyD = new Date();
+  let desde = new Date(hoyD), hasta = new Date(hoyD);
+  if (atajo === 'semana') { const dow = (hoyD.getDay()+6)%7; desde.setDate(hoyD.getDate()-dow); }
+  else if (atajo === 'mes') { desde = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); }
+  else if (atajo === 'anio') { desde = new Date(hoyD.getFullYear(), 0, 1); }
+  document.getElementById('periodo-desde').value = fechaISO(desde);
+  document.getElementById('periodo-hasta').value = fechaISO(hasta);
+  document.querySelectorAll('#periodo-atajos .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.atajo === atajo));
+}
+function aplicarAtajoFecha(atajo) {
+  fijarRangoAtajo(atajo);
+  recalcularYRenderizar();
+}
+function limpiarAtajoActivo() {
+  document.querySelectorAll('#periodo-atajos .chip-btn').forEach(b => b.classList.remove('active'));
+}
+function rangoActual() {
+  return { desde: document.getElementById('periodo-desde').value, hasta: document.getElementById('periodo-hasta').value };
+}
+function enRango(fecha, desde, hasta) {
+  return !!fecha && (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
+}
+// Overlap de [iniA,finA] contra [desde,hasta] — para Planillas (cubren una
+// quincena, no un solo día).
+function rangosSolapan(iniA, finA, desde, hasta) {
+  if (!desde && !hasta) return true;
+  if (desde && finA && finA < desde) return false;
+  if (hasta && iniA && iniA > hasta) return false;
+  return true;
+}
+
+// ── CARGA DE DATOS ────────────────────────────────────────────────
+async function cargarDatos() {
+  try {
+    const [rCierres, rTips, rDepositos, rSalidas, rPlanillas, rPlanillasDet] = await Promise.all([
+      fetch(SHEETS_URL + '?action=read').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=tipspagos').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=depositos').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=salidasfondo').then(r => r.json()),
+      fetch(APPS_SCRIPT_RRHH + '?modulo=planillas').then(r => r.json()),
+      fetch(APPS_SCRIPT_RRHH + '?modulo=planillas_detalle').then(r => r.json())
+    ]);
+    cierresRaw        = rCierres.records || [];
+    tipsPagosRaw       = rTips.records || [];
+    depositosRaw       = rDepositos.records || [];
+    salidasFondoRaw    = rSalidas.records || [];
+    planillasRaw        = rPlanillas.registros || [];
+    planillasDetalleRaw = rPlanillasDet.registros || [];
+    recalcularYRenderizar();
+  } catch(e) {
+    ['tabla-ventas-body','tabla-propinas-body','tabla-depositos-body','tabla-planillas-body'].forEach(id => {
+      document.getElementById(id).innerHTML = '<tr><td colspan="10" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
+    });
+    showToast('Error de conexión: ' + e.message, 'error');
+  }
+}
+
+function recalcularYRenderizar() {
+  const { desde, hasta } = rangoActual();
+  renderVentas(desde, hasta);
+  renderPropinas(desde, hasta);
+  renderDepositos(desde, hasta);
+  renderPlanillas(desde, hasta);
+}
+
+// ── TAB 1: VENTAS POR MEDIO DE PAGO ──────────────────────────────────
+function renderVentas(desde, hasta) {
+  const filas = cierresRaw
+    .filter(r => !kioskoActual || (r[COL_KIOSKO]||'') === kioskoActual)
+    .map(r => ({
+      id: r[COL_ID], fecha: soloFecha(r[COL_FECHA]), kiosko: r[COL_KIOSKO]||'',
+      encargado: r[COL_ENCARGADO]||'', turno: r[COL_TURNO]||'',
+      efectivo: +r[COL_EFECTIVO]||0, tarjeta: +r[COL_TARJETA]||0, sinpe: +r[COL_SINPE]||0, otras: +r[COL_OTRAS]||0,
+      total: +r[COL_TOTAL_VENTAS]||0,
+      difCaja: +r[COL_DIF_CAJA]||0, cajaCuadra: String(r[COL_CAJA_CUADRA]||'').toUpperCase()==='SI',
+      difTarjeta: +r[COL_DIF_TARJETA]||0, tarjetaCuadra: String(r[COL_TARJETA_CUADRA]||'').toUpperCase()==='SI'
+    }))
+    .filter(f => enRango(f.fecha, desde, hasta))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha) || String(b.id).localeCompare(String(a.id)));
+
+  const totalVentas = filas.reduce((s,f)=>s+f.total,0);
+  const totalEfectivo = filas.reduce((s,f)=>s+f.efectivo,0);
+  const totalTarjeta = filas.reduce((s,f)=>s+f.tarjeta,0);
+  const conDiferencia = filas.filter(f=>!f.cajaCuadra || !f.tarjetaCuadra).length;
+  document.getElementById('kpi-ventas-total').textContent = fmtCRC(totalVentas);
+  document.getElementById('kpi-ventas-efectivo').textContent = fmtCRC(totalEfectivo);
+  document.getElementById('kpi-ventas-tarjeta').textContent = fmtCRC(totalTarjeta);
+  document.getElementById('kpi-ventas-dif').textContent = conDiferencia + ' / ' + filas.length;
+
+  const body = document.getElementById('tabla-ventas-body');
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="10" class="empty">No hay cierres en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    return;
+  }
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${fechaLbl(f.fecha)}</td>
+    <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
+    <td>${f.encargado || '—'}${f.turno ? ' · ' + f.turno : ''}</td>
+    <td class="num">${fmtCRC(f.efectivo)}</td>
+    <td class="num">${fmtCRC(f.tarjeta)}</td>
+    <td class="num">${fmtCRC(f.sinpe)}</td>
+    <td class="num">${fmtCRC(f.otras)}</td>
+    <td class="num">${fmtCRC(f.total)}</td>
+    <td><span class="badge ${f.cajaCuadra?'b-ok':'b-dif'}">${f.cajaCuadra?'✅':'⚠️ '+fmtCRC(f.difCaja)}</span></td>
+    <td><span class="badge ${f.tarjetaCuadra?'b-ok':'b-dif'}">${f.tarjetaCuadra?'✅':'⚠️ '+fmtCRC(f.difTarjeta)}</span></td>
+  </tr>`).join('');
+}
+
+// ── TAB 2: PROPINAS ──────────────────────────────────────────────────
+function renderPropinas(desde, hasta) {
+  // Un cierre con tips deja de estar pendiente en cuanto su ID aparece en
+  // "IDs cierres cubiertos" de CUALQUIER pago (mismo criterio que
+  // control-tips.html), sin importar el filtro de kiosko activo.
+  const pagoPorId = new Map();
+  tipsPagosRaw.forEach(r => {
+    let ids = []; try { ids = JSON.parse(r[4] || '[]'); } catch(e) { ids = []; }
+    if (!Array.isArray(ids)) return;
+    const pago = { fechaPago: soloFecha(r[2]), referencia: r[3] || '' };
+    ids.forEach(id => pagoPorId.set(String(id), pago));
+  });
+
+  const filas = cierresRaw
+    .filter(r => (+r[COL_TIPS]||0) > 0)
+    .filter(r => !kioskoActual || (r[COL_KIOSKO]||'') === kioskoActual)
+    .map(r => {
+      const id = String(r[COL_ID]);
+      const pago = pagoPorId.get(id);
+      return {
+        id, fecha: soloFecha(r[COL_FECHA]), kiosko: r[COL_KIOSKO]||'',
+        encargado: r[COL_ENCARGADO]||'', turno: r[COL_TURNO]||'', monto: +r[COL_TIPS]||0,
+        pagado: !!pago, fechaPago: pago ? pago.fechaPago : '', referencia: pago ? pago.referencia : ''
+      };
+    })
+    .filter(f => enRango(f.fecha, desde, hasta))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  const total = filas.reduce((s,f)=>s+f.monto,0);
+  const pendiente = filas.filter(f=>!f.pagado).reduce((s,f)=>s+f.monto,0);
+  const pagado = filas.filter(f=>f.pagado).reduce((s,f)=>s+f.monto,0);
+  document.getElementById('kpi-prop-total').textContent = fmtCRC(total);
+  document.getElementById('kpi-prop-pendiente').textContent = fmtCRC(pendiente);
+  document.getElementById('kpi-prop-pagado').textContent = fmtCRC(pagado);
+
+  const body = document.getElementById('tabla-propinas-body');
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">No hay propinas en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    return;
+  }
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${fechaLbl(f.fecha)}</td>
+    <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
+    <td>${f.encargado || '—'}${f.turno ? ' · ' + f.turno : ''}</td>
+    <td class="num">${fmtCRC(f.monto)}</td>
+    <td><span class="badge ${f.pagado?'b-ok':'b-pend'}">${f.pagado?'✅ Pagada':'⏳ Pendiente'}</span></td>
+    <td>${f.fechaPago ? fechaLbl(f.fechaPago) : '—'}</td>
+    <td>${f.referencia || '—'}</td>
+  </tr>`).join('');
+}
+
+// ── TAB 3: DEPÓSITOS DE EFECTIVO ─────────────────────────────────────
+// Mismo cálculo que depositos.html (agregarPorFecha/aplicarSalidasFondo),
+// generalizado a "todos los kioskos" agrupando por kiosko+fecha en vez de
+// solo fecha (depositos.html siempre trabaja con un kiosko ya elegido).
+function agregarPorKioskoFecha(records) {
+  const out = {};
+  records.forEach(r => {
+    const fecha = soloFecha(r[COL_FECHA]);
+    const kiosko = r[COL_KIOSKO] || '';
+    if (!fecha) return;
+    const key = kiosko + '|' + fecha;
+    if (!out[key]) out[key] = { fecha, kiosko, crc: 0, usd: 0 };
+    const d = out[key];
+    const fondo = +r[COL_FONDO]||0, usdTotal = +r[COL_USD_TOTAL]||0;
+    // Efectivo físico en colones = suma de billetes+monedas contados menos
+    // el fondo de caja inicial — no la columna de ventas totales (esa
+    // incluye tarjeta/SINPE). Ver nota igual en depositos.html.
+    let caja = 0;
+    COL_BILLETES_CRC.forEach((c,i) => caja += (+r[c]||0) * DENOMS_BILLETES_CRC[i]);
+    COL_MONEDAS_CRC.forEach((c,i)  => caja += (+r[c]||0) * DENOMS_MONEDAS_CRC[i]);
+    d.crc += (caja - fondo); d.usd += usdTotal;
+  });
+  return out;
+}
+function aplicarSalidasFondoTodos(porKF) {
+  salidasFondoRaw.forEach(r => {
+    if (!r[0]) return;
+    const kiosko = r[3] || '', fecha = soloFecha(r[2]);
+    const key = kiosko + '|' + fecha;
+    const d = porKF[key];
+    if (!fecha || !d) return;
+    d.crc = Math.round((d.crc - (+r[4]||0)) * 100) / 100;
+  });
+}
+
+function renderDepositos(desde, hasta) {
+  const porKF = agregarPorKioskoFecha(cierresRaw);
+  aplicarSalidasFondoTodos(porKF);
+
+  const asignadas = {}; // 'kiosko|fecha' -> depósito que la cubre
+  depositosRaw.forEach(r => {
+    let fc = []; try { fc = JSON.parse(r[7] || '[]'); } catch(e) { fc = []; }
+    if (!Array.isArray(fc)) return;
+    const kiosko = r[3] || '';
+    const dep = { fechaDeposito: soloFecha(r[2]), referencia: r[4] || '', diferenciaCrc: +r[10]||0 };
+    fc.forEach(f => { asignadas[kiosko + '|' + f] = dep; });
+  });
+
+  const filas = Object.values(porKF)
+    .filter(d => !kioskoActual || d.kiosko === kioskoActual)
+    .filter(d => enRango(d.fecha, desde, hasta))
+    .map(d => {
+      const dep = asignadas[d.kiosko + '|' + d.fecha];
+      return { ...d, pendiente: !dep, fechaDeposito: dep ? dep.fechaDeposito : '', referencia: dep ? dep.referencia : '', diferenciaCrc: dep ? dep.diferenciaCrc : null };
+    })
+    .sort((a,b) => b.fecha.localeCompare(a.fecha) || a.kiosko.localeCompare(b.kiosko));
+
+  const pendienteCrc = filas.filter(f=>f.pendiente).reduce((s,f)=>s+f.crc,0);
+  const fechasPendientes = filas.filter(f=>f.pendiente).length;
+  const depositadoCrc = filas.filter(f=>!f.pendiente).reduce((s,f)=>s+f.crc,0);
+  document.getElementById('kpi-dep-pendiente').textContent = fmtCRC(pendienteCrc);
+  document.getElementById('kpi-dep-fechas').textContent = fechasPendientes;
+  document.getElementById('kpi-dep-depositado').textContent = fmtCRC(depositadoCrc);
+
+  const body = document.getElementById('tabla-depositos-body');
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">No hay efectivo registrado en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    return;
+  }
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${fechaLbl(f.fecha)}</td>
+    <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
+    <td class="num">${fmtCRC(f.crc)}${f.usd ? ' · $' + f.usd.toFixed(2) : ''}</td>
+    <td><span class="badge ${f.pendiente?'b-pend':'b-ok'}">${f.pendiente?'⏳ Pendiente':'✅ Depositado'}</span></td>
+    <td>${f.fechaDeposito ? fechaLbl(f.fechaDeposito) : '—'}</td>
+    <td>${f.referencia || '—'}</td>
+    <td class="num">${f.diferenciaCrc===null ? '—' : fmtCRC(f.diferenciaCrc)}</td>
+  </tr>`).join('');
+}
+
+// ── TAB 4: PLANILLAS ─────────────────────────────────────────────────
+function renderPlanillas(desde, hasta) {
+  const detallePorId = {};
+  planillasDetalleRaw.forEach(d => {
+    const id = d['ID Planilla'];
+    (detallePorId[id] = detallePorId[id] || []).push(d);
+  });
+
+  const filas = planillasRaw
+    .filter(p => String(p['Estado']||'') === 'Aprobada')
+    .filter(p => !kioskoActual || (p['Kiosko']||'') === kioskoActual)
+    .filter(p => rangosSolapan(String(p['Fecha inicio']||'').slice(0,10), String(p['Fecha fin']||'').slice(0,10), desde, hasta))
+    .map(p => {
+      const detalle = detallePorId[p['ID']] || [];
+      const baseCcss = detalle.reduce((s,d) => s + (Number(d['Base CCSS utilizada'])||0), 0);
+      return {
+        fecha: String(p['Fecha cálculo']||'').slice(0,10), periodo: p['Periodo']||'', kiosko: p['Kiosko']||'',
+        totalIngresos: Number(p['Total ingresos'])||0, baseCcss,
+        deducciones: Number(p['Total deducciones'])||0, neto: Number(p['Total neto'])||0,
+        estado: p['Estado']||''
+      };
+    })
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+  document.getElementById('kpi-plan-ingresos').textContent = fmtCRC(filas.reduce((s,f)=>s+f.totalIngresos,0));
+  document.getElementById('kpi-plan-neto').textContent = fmtCRC(filas.reduce((s,f)=>s+f.neto,0));
+  document.getElementById('kpi-plan-count').textContent = filas.length;
+
+  const body = document.getElementById('tabla-planillas-body');
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="8" class="empty">No hay planillas aprobadas en este período' + (kioskoActual ? ' para ' + kioskoActual : '') + '.</td></tr>';
+    return;
+  }
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${f.fecha ? fechaLbl(f.fecha) : '—'}</td>
+    <td>${f.periodo || '—'}</td>
+    <td><span class="kiosko-tag">${f.kiosko || '—'}</span></td>
+    <td class="num">${fmtCRC(f.totalIngresos)}</td>
+    <td class="num">${fmtCRC(f.baseCcss)}</td>
+    <td class="num">${fmtCRC(f.deducciones)}</td>
+    <td class="num">${fmtCRC(f.neto)}</td>
+    <td><span class="badge b-ok">${f.estado}</span></td>
+  </tr>`).join('');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+(async function init() {
+  await cargarKioskos();
+  fijarRangoAtajo('mes'); // solo fija fechas/chip — el primer render real lo dispara cargarDatos()
+  await cargarDatos();
+})();
+</script>
+</body>
+</html>
