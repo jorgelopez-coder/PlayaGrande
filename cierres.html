@@ -241,16 +241,6 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
           </select>
         </div>
         <div class="field">
-          <label for="f-encargado">Encargado <span class="req">*</span></label>
-          <select id="f-encargado">
-            <option value="" disabled selected>Elegí el kiosko primero</option>
-          </select>
-          <div id="enc-error" style="display:none;font-size:12px;color:var(--red);margin-top:5px;">
-            <span id="enc-error-msg"></span>
-            <a href="javascript:void(0)" onclick="cargarEncargados()" style="color:var(--green);font-weight:600;margin-left:4px;">Reintentar</a>
-          </div>
-        </div>
-        <div class="field">
           <label for="f-fecha">Fecha de cierre <span class="req">*</span></label>
           <input type="date" id="f-fecha" oninput="cargarVentasSquare()"/>
         </div>
@@ -588,7 +578,6 @@ function poblarKioskos() {
 function alCambiarKiosko() {
   const kiosko = document.getElementById('f-kiosko').value;
   if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
-  cargarEncargados();
   cargarVentasSquare();
 }
 
@@ -740,36 +729,6 @@ function showToast(msg, type='success') {
 
 // ── TIPO DE CAMBIO ────────────────────────────────────────────────
 function getTC() { return parseFloat(document.getElementById('f-tc')?.value) || 0; }
-
-// ── ENCARGADOS DESDE RRHH (todos los activos, sin filtrar por kiosko) ──
-async function cargarEncargados() {
-  const sel = document.getElementById('f-encargado');
-  const errBox = document.getElementById('enc-error');
-  const errMsg = document.getElementById('enc-error-msg');
-  sel.innerHTML = '<option value="" disabled selected>Cargando…</option>';
-  errBox.style.display = 'none';
-  if (!APPS_SCRIPT_RRHH || APPS_SCRIPT_RRHH.startsWith('TODO_')) {
-    sel.innerHTML = '<option value="" disabled selected>Configurá APPS_SCRIPT_RRHH primero</option>';
-    return;
-  }
-  try {
-    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=personal');
-    if (!resp.ok) throw new Error('Error ' + resp.status);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Sin datos');
-    personalData = data.registros || [];
-    const activos = personalData.filter(p =>
-      (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
-    ).map(p => p['Nombre completo']).filter(Boolean).sort((a, b) => a.localeCompare(b));
-    sel.innerHTML = '<option value="" disabled selected>Seleccioná un encargado…</option>'
-      + activos.map(n => `<option>${n}</option>`).join('');
-    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos</option>';
-  } catch(e) {
-    sel.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
-    errMsg.textContent = 'No se pudo conectar con RRHH (' + e.message + ').';
-    errBox.style.display = 'block';
-  }
-}
 
 // ── VENTA DE TARJETA (extraída del cierre de datáfono) ────────────
 function getVentaTarjeta() {
@@ -1032,9 +991,7 @@ function irPaso(n) {
 
 function irPaso1Siguiente() {
   const kiosko = document.getElementById('f-kiosko').value;
-  const encargado = document.getElementById('f-encargado').value.trim();
   if (!kiosko) { showToast('Seleccioná un kiosko', 'error'); return; }
-  if (!encargado) { showToast('Seleccioná un encargado', 'error'); return; }
   irPaso(2);
 }
 
@@ -1051,7 +1008,6 @@ function irPaso1Siguiente() {
 //   diferenciaCaja   = cajaTotalContada − efectivoEsperado → cuadre general
 function construirPayload() {
   const kiosko = document.getElementById('f-kiosko').value;
-  const encargado = document.getElementById('f-encargado').value.trim();
   const tc = getTC();
   const { base, propina, total: ventaTotalDatafono } = getVentaTarjeta();
   const fondo = parseFloat(document.getElementById('f-fondo').value) || 0;
@@ -1089,7 +1045,7 @@ function construirPayload() {
   return {
     id: Date.now(),
     fecha, hora: new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit'}),
-    kiosko, encargado,
+    kiosko,
     efectivo: efectivoVentas, tarjeta: base, sinpe, otras: 0, totalVentas, tips: propina,
     fondoCajaInicial: fondo,
     d50000: denomDetalle[50000]||0, d20000: denomDetalle[20000]||0,
@@ -1116,9 +1072,7 @@ function construirPayload() {
 // ── SUBMIT ────────────────────────────────────────────────────────
 async function submitCierre() {
   const kiosko = document.getElementById('f-kiosko').value;
-  const encargado = document.getElementById('f-encargado').value.trim();
   if (!kiosko) { showToast('Seleccioná un kiosko', 'error'); return; }
-  if (!encargado) { showToast('Seleccioná un encargado', 'error'); return; }
   if (!SHEETS_URL || SHEETS_URL.startsWith('TODO_')) { showToast('Configurá SHEETS_URL primero', 'error'); return; }
 
   const payload = construirPayload();
@@ -1151,7 +1105,6 @@ function buildWAMessage(r) {
   return `📊 *Cierre de Caja*
 🏖️ Kiosko: ${r.kiosko || '—'}
 📅 Fecha: ${fecha}
-👤 Encargado: ${r.encargado || '—'}
 
 💰 *Ventas Netas Square: ₡${(r.efectivoEsperado||0).toLocaleString('es-CR')}*
 • Base tarjeta (datáfono): ₡${(r.tarjeta||0).toLocaleString('es-CR')}
@@ -1394,7 +1347,6 @@ function limpiarForm() {
   quitarFotoDatafono();
   document.getElementById('ia-resultado').style.display = 'none';
   irPaso(1);
-  cargarEncargados();
   cargarVentasSquare();
   calcCuadre();
 }
