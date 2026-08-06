@@ -31,6 +31,14 @@
     .nav-right { display:flex; align-items:center; gap:10px; }
     .date-chip { font-size:11px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
     .kiosko-sel { font-size:12.5px; font-weight:500; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); outline:none; cursor:pointer; }
+    button.kiosko-sel { display:flex; align-items:center; gap:6px; font-family:var(--font-b); white-space:nowrap; }
+    .kiosko-multi { position:relative; }
+    .kiosko-multi-panel { display:none; position:absolute; top:calc(100% + 6px); right:0; min-width:200px; max-height:280px; overflow-y:auto; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; z-index:30; }
+    .kiosko-multi-panel.open { display:block; }
+    .kiosko-multi-item { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:13px; cursor:pointer; user-select:none; }
+    .kiosko-multi-item:hover { background:var(--surface); }
+    .kiosko-multi-sep { height:1px; background:var(--border); margin:4px 2px; }
+    .kpi-sub-header { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-top:.6rem; padding-top:.6rem; border-top:1px dashed var(--border); }
 
     main { max-width:1200px; margin:0 auto; padding:2rem 2rem 5rem; }
     .page-header { margin-bottom:1.5rem; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
@@ -38,7 +46,7 @@
     .page-header p { font-size:13px; color:var(--muted); }
 
     /* KPIs */
-    .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.25rem; }
+    .kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:1.25rem; }
     .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; }
     .kpi-val { font-family:var(--font-d); font-size:22px; font-weight:700; letter-spacing:-.02em; color:var(--text); }
     .kpi-lbl { font-size:11px; color:var(--muted); margin-top:2px; }
@@ -215,9 +223,20 @@
     <span class="page-title">Cuentas por pagar</span>
   </div>
   <div class="nav-right">
-    <select class="kiosko-sel" id="sel-kiosko" onchange="cambiarKiosko(this.value)">
-      <option value="">Todos los kioskos</option>
-    </select>
+    <div class="kiosko-multi" id="kiosko-multi">
+      <button type="button" class="kiosko-sel" id="btn-kiosko-multi" onclick="toggleKioskoDropdown()">
+        <span id="kiosko-multi-label">Todos los kioskos</span>
+        <svg class="toggle-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="kiosko-multi-panel" id="kiosko-multi-panel">
+        <label class="kiosko-multi-item">
+          <input type="checkbox" id="chk-kiosko-todos" checked onchange="toggleKioskoTodos(this)">
+          <span>Todos los kioskos</span>
+        </label>
+        <div class="kiosko-multi-sep"></div>
+        <div id="kiosko-multi-list"></div>
+      </div>
+    </div>
     <span class="date-chip" id="date-chip"></span>
   </div>
 </header>
@@ -299,6 +318,16 @@
         <svg class="toggle-arrow" id="kpi-ico-pagado-mes" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
       </div>
       <div class="kpi-detalle" id="kpi-detalle-pagado-mes" style="display:none;"></div>
+    </div>
+    <div class="kpi-box kpi-clickable" onclick="toggleKpiDetalle('top10')">
+      <div class="kpi-box-head">
+        <div>
+          <div class="kpi-val" id="kpi-top10">₡—</div>
+          <div class="kpi-lbl">Top 10 facturas pendientes</div>
+        </div>
+        <svg class="toggle-arrow" id="kpi-ico-top10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-top10" style="display:none;"></div>
     </div>
   </div>
 
@@ -523,7 +552,7 @@
     <div style="display:flex;align-items:center;gap:6px;"><span class="sdot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
     <span class="ssep"></span>
     <span id="status-msg">—</span>
-    <span style="margin-left:auto;">v1.0 · Cuentas por pagar · Kioskos</span>
+    <span style="margin-left:auto;">v1.1 · Cuentas por pagar · Kioskos</span>
   </div>
 </main>
 
@@ -740,7 +769,13 @@ const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBs
 // ─────────────────────────────────────────────────────────────────
 
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-let kioskoActual = ''; // '' = todos los kioskos
+// 2026-08-06: filtro de kiosko en el header pasó de selección única a
+// multi-selección (pedido de Jorge). Set vacío = "Todos los kioskos" (mismo
+// significado que antes tenía kioskoActual === ''); con 1+ elementos, filtra
+// a esos kioskos nada más. Todo el resto del archivo (KPIs, tabla, pestañas)
+// sigue leyendo el dataset filtrado a través de datasetActual()/abonosVisibles(),
+// así que no hace falta tocar nada más para que el filtro les llegue.
+let kioskosSeleccionados = new Set();
 
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
@@ -771,22 +806,60 @@ async function cargarKioskos() {
     const data = await resp.json();
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
   } catch(e) { /* se queda con el respaldo hardcodeado */ }
-  const sel = document.getElementById('sel-kiosko');
-  sel.innerHTML = '<option value="">Todos los kioskos</option>' +
-    KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
+  document.getElementById('kiosko-multi-list').innerHTML = KIOSKOS.map(k => `
+    <label class="kiosko-multi-item">
+      <input type="checkbox" value="${escapeAttr(k)}" onchange="toggleKioskoItem(this,'${k.replace(/'/g,"\\'")}')">
+      <span>${k}</span>
+    </label>`).join('');
 }
 
-function cambiarKiosko(valor) {
-  kioskoActual = valor || '';
+// ── FILTRO DE KIOSKO (multi-selección, dropdown en el header) ─────
+function toggleKioskoDropdown(forzar) {
+  const panel = document.getElementById('kiosko-multi-panel');
+  const abrir = forzar != null ? forzar : !panel.classList.contains('open');
+  panel.classList.toggle('open', abrir);
+}
+document.addEventListener('click', function(e) {
+  const cont = document.getElementById('kiosko-multi');
+  if (cont && !cont.contains(e.target)) toggleKioskoDropdown(false);
+});
+
+function actualizarLabelKiosko() {
+  const label = document.getElementById('kiosko-multi-label');
+  if (!kioskosSeleccionados.size) label.textContent = 'Todos los kioskos';
+  else if (kioskosSeleccionados.size === 1) label.textContent = [...kioskosSeleccionados][0];
+  else label.textContent = kioskosSeleccionados.size + ' kioskos';
+}
+
+function toggleKioskoTodos(checkbox) {
+  if (checkbox.checked) {
+    kioskosSeleccionados.clear();
+    document.querySelectorAll('#kiosko-multi-list input[type="checkbox"]').forEach(c => c.checked = false);
+  } else if (!kioskosSeleccionados.size) {
+    // No se puede dejar la selección totalmente vacía sin marcar "Todos" —
+    // volvería a significar "todos" igual, así que se reactiva para que el
+    // estado visual del checkbox no mienta.
+    checkbox.checked = true;
+    return;
+  }
+  actualizarLabelKiosko();
   inicializar();
 }
 
-// Dataset visible según el kiosko seleccionado en el encabezado.
+function toggleKioskoItem(checkbox, kiosko) {
+  if (checkbox.checked) kioskosSeleccionados.add(kiosko);
+  else kioskosSeleccionados.delete(kiosko);
+  document.getElementById('chk-kiosko-todos').checked = kioskosSeleccionados.size === 0;
+  actualizarLabelKiosko();
+  inicializar();
+}
+
+// Dataset visible según los kioskos marcados en el encabezado (vacío = todos).
 function datasetActual() {
-  return kioskoActual ? facturasAP.filter(f => f.kiosko === kioskoActual) : facturasAP;
+  return kioskosSeleccionados.size ? facturasAP.filter(f => kioskosSeleccionados.has(f.kiosko)) : facturasAP;
 }
 function abonosVisibles() {
-  return kioskoActual ? dataAbonos.filter(a => a['Kiosko'] === kioskoActual) : dataAbonos;
+  return kioskosSeleccionados.size ? dataAbonos.filter(a => kioskosSeleccionados.has(a['Kiosko'])) : dataAbonos;
 }
 
 // ── GVIZ: leer hoja pública del Sheet de compras ──────────────────
@@ -1154,13 +1227,18 @@ function inicializar() {
   const abonosDelMes = abonosMes.reduce((a,r) => a + (parseFloat(r['Monto abonado'])||0), 0);
   const pagadoMes = pagosCompletosMes + abonosDelMes;
 
+  // Top 10 facturas pendientes por saldo (KPI nuevo, pedido de Jorge 2026-08-06).
+  const topPendientes = [...pendientes].sort((a,b) => b.saldoPendiente - a.saldoPendiente).slice(0,10);
+  const totalTop10 = topPendientes.reduce((a,f) => a + f.saldoPendiente, 0);
+
   document.getElementById('kpi-total').textContent     = fmt(totalPorPagar);
   document.getElementById('kpi-vencidas').textContent  = vencidas;
   document.getElementById('kpi-porvencer').textContent = en7dias;
   document.getElementById('kpi-pagado-mes').textContent = fmt(pagadoMes);
+  document.getElementById('kpi-top10').textContent     = fmt(totalTop10);
   document.getElementById('status-msg').textContent    = `${dataset.length} facturas · Por pagar: ${fmt(totalPorPagar)}`;
 
-  renderKpiDetalles({ pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes });
+  renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes, topPendientes });
 
   // Filtro de proveedores (según el kiosko actual)
   const provsUnicos = [...new Set(dataset.map(f => f.proveedor).filter(Boolean))].sort();
@@ -1218,7 +1296,29 @@ function filaKpiDetalle(izqTop, izqBot, derTop, derColor) {
     </div>`;
 }
 
-function renderKpiDetalles({ pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes }) {
+// Filas de desglose "Por kiosko" para un panel de detalle de KPI, o '' si solo
+// hay un kiosko visible (no aporta nada repetir el mismo dato una vez).
+function filasPorKiosko(kioskosEnVista, items, kioskoDe, valorFn, esMoneda) {
+  if (kioskosEnVista.length <= 1) return '';
+  const porKiosko = kioskosEnVista
+    .map(k => {
+      const propios = items.filter(it => kioskoDe(it) === k);
+      return { kiosko: k, count: propios.length, valor: valorFn(propios) };
+    })
+    .filter(g => g.count > 0)
+    .sort((a,b) => b.valor - a.valor);
+  if (!porKiosko.length) return '';
+  return `<div class="kpi-sub-header">Por kiosko</div>` +
+    porKiosko.map(g => filaKpiDetalle(g.kiosko, `${g.count} factura(s)`, esMoneda ? fmt(g.valor) : g.count)).join('');
+}
+
+function renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes, topPendientes }) {
+  // 2026-08-06: cuando el filtro del header deja más de un kiosko a la vista
+  // (multi-selección o "Todos"), cada panel de detalle de KPI suma, al final,
+  // una sección "Por kiosko" con el mismo dato ya calculado desglosado — sin
+  // tocar los 4 totales generales de arriba (pedido explícito de Jorge).
+  const kioskosEnVista = [...new Set(dataset.map(f => f.kiosko).filter(Boolean))];
+
   const grupos = [
     { estado: 'A tiempo', color: 'var(--green)' },
     { estado: 'Vencida',  color: 'var(--red)' },
@@ -1228,37 +1328,65 @@ function renderKpiDetalles({ pendientes, facturasVencidas, facturasPorVencer, fa
     return { ...g, count: facs.length, total: facs.reduce((a,f) => a + f.saldoPendiente, 0) };
   }).filter(g => g.count > 0);
 
-  document.getElementById('kpi-detalle-total').innerHTML = grupos.length
+  document.getElementById('kpi-detalle-total').innerHTML = (grupos.length
     ? grupos.map(g => filaKpiDetalle(g.estado, `${g.count} factura(s)`, fmt(g.total), g.color)).join('')
       + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla(['A tiempo','Vencida','Abono'])">Ver todas en la tabla →</span>`
-    : `<div class="kpi-detalle-empty">No hay facturas pendientes.</div>`;
+    : `<div class="kpi-detalle-empty">No hay facturas pendientes.</div>`)
+    + filasPorKiosko(kioskosEnVista, pendientes, f => f.kiosko, facs => facs.reduce((a,f) => a + f.saldoPendiente, 0), true);
 
   const vencidasOrdenadas = [...facturasVencidas].sort((a,b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
-  document.getElementById('kpi-detalle-vencidas').innerHTML = vencidasOrdenadas.length
+  document.getElementById('kpi-detalle-vencidas').innerHTML = (vencidasOrdenadas.length
     ? vencidasOrdenadas.slice(0,8).map(f => {
         const dias = Math.round((new Date(hoyISO) - new Date(f.fechaVencimiento)) / 86400000);
         return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · ${dias}d vencida`, fmt(f.saldoPendiente), 'var(--red)');
       }).join('')
       + (vencidasOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${vencidasOrdenadas.length - 8} más…</div>` : '')
       + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('Vencida')">Ver todas en la tabla →</span>`
-    : `<div class="kpi-detalle-empty">No hay facturas vencidas.</div>`;
+    : `<div class="kpi-detalle-empty">No hay facturas vencidas.</div>`)
+    + filasPorKiosko(kioskosEnVista, facturasVencidas, f => f.kiosko, facs => facs.length, false);
 
   const porVencerOrdenadas = [...facturasPorVencer].sort((a,b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento));
-  document.getElementById('kpi-detalle-porvencer').innerHTML = porVencerOrdenadas.length
+  document.getElementById('kpi-detalle-porvencer').innerHTML = (porVencerOrdenadas.length
     ? porVencerOrdenadas.slice(0,8).map(f => {
         const dias = Math.round((new Date(f.fechaVencimiento) - new Date(hoyISO)) / 86400000);
         return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · vence en ${dias}d`, fmt(f.saldoPendiente), 'var(--amber)');
       }).join('')
       + (porVencerOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${porVencerOrdenadas.length - 8} más…</div>` : '')
       + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('A tiempo')">Ver facturas "A tiempo" en la tabla →</span>`
-    : `<div class="kpi-detalle-empty">No hay facturas por vencer en los próximos 7 días.</div>`;
+    : `<div class="kpi-detalle-empty">No hay facturas por vencer en los próximos 7 días.</div>`)
+    + filasPorKiosko(kioskosEnVista, facturasPorVencer, f => f.kiosko, facs => facs.length, false);
 
   const filasPagadoMes = [];
   if (facturasPagadasMes.length) filasPagadoMes.push(filaKpiDetalle('Pagos completos', `${facturasPagadasMes.length} factura(s)`, fmt(pagosCompletosMes)));
   if (abonosMes.length) filasPagadoMes.push(filaKpiDetalle('Abonos parciales', `${abonosMes.length} abono(s)`, fmt(abonosDelMes)));
+  // Desglose por kiosko del pagado del mes: combina pagos completos (Registro
+  // Facturas) y abonos parciales (hoja Abonos aparte, campo 'Kiosko' propio).
+  if (kioskosEnVista.length > 1) {
+    const totalesKiosko = {};
+    facturasPagadasMes.forEach(f => { totalesKiosko[f.kiosko] = (totalesKiosko[f.kiosko]||0) + (f.montoColones - (f.totalAbonado||0)); });
+    abonosMes.forEach(a => { const k = a['Kiosko']||''; if (!k) return; totalesKiosko[k] = (totalesKiosko[k]||0) + (parseFloat(a['Monto abonado'])||0); });
+    const porKioskoPagado = Object.keys(totalesKiosko)
+      .filter(k => totalesKiosko[k] > 0)
+      .sort((a,b) => totalesKiosko[b] - totalesKiosko[a]);
+    if (porKioskoPagado.length) {
+      filasPagadoMes.push(`<div class="kpi-sub-header">Por kiosko</div>` +
+        porKioskoPagado.map(k => filaKpiDetalle(k, '', fmt(totalesKiosko[k]))).join(''));
+    }
+  }
   document.getElementById('kpi-detalle-pagado-mes').innerHTML = filasPagadoMes.length
     ? filasPagadoMes.join('')
     : `<div class="kpi-detalle-empty">No hay pagos registrados este mes.</div>`;
+
+  // Top 10 facturas pendientes por saldo (nuevo KPI, 2026-08-06).
+  document.getElementById('kpi-detalle-top10').innerHTML = topPendientes.length
+    ? topPendientes.map((f, i) => filaKpiDetalle(
+        `${i+1}. ${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`,
+        `${f.numero} · ${f.estado}`,
+        fmt(f.saldoPendiente),
+        f.estado === 'Vencida' ? 'var(--red)' : (f.estado === 'Abono' ? 'var(--amber)' : null)
+      )).join('')
+      + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla(['A tiempo','Vencida','Abono'])">Ver todas en la tabla →</span>`
+    : `<div class="kpi-detalle-empty">No hay facturas pendientes.</div>`;
 }
 
 // Lunes a domingo de la semana que contiene la fecha de hoy.
@@ -2464,7 +2592,7 @@ function cerrarModal(id) {
 function abrirModalFacturaManual() {
   const selKiosko = document.getElementById('fm-kiosko');
   selKiosko.innerHTML = KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${k}</option>`).join('');
-  if (kioskoActual) selKiosko.value = kioskoActual;
+  if (kioskosSeleccionados.size === 1) selKiosko.value = [...kioskosSeleccionados][0];
   document.getElementById('fm-fecha').value = hoyISO;
   document.getElementById('fm-proveedor').value = '';
   document.getElementById('fm-numero').value = '';
