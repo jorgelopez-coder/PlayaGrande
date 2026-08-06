@@ -77,6 +77,15 @@
  * index.html rebajen el pago del "efectivo pendiente de depositar" de esa
  * fecha. No hace falta correr nada nuevo acá — solo pegar el código completo
  * e Implementar > Gestionar implementaciones > Nueva versión.
+ *
+ * v7 (2026-08-06): nueva acción registrar_reembolso() — usada por el nuevo
+ * módulo caja-chica.html (Ecosistema-Kioskos) para registrar cuándo y con qué
+ * referencia se le devolvió el dinero a un colaborador que pagó una factura
+ * con Medio de pago = "Reembolso" (columnas dinámicas 'Fecha de reembolso'/
+ * 'Referencia reembolso' sobre Registro Facturas, creadas la primera vez que
+ * se usen, igual que 'Reembolsado a'). No hace falta correr configurarHojas()
+ * de nuevo — solo pegar el código completo e Implementar > Gestionar
+ * implementaciones > Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -362,6 +371,9 @@ function doPost(e) {
         break;
       case 'registrar_abono':
         result = registrarAbono(payload);
+        break;
+      case 'registrar_reembolso':
+        result = registrarReembolso(payload);
         break;
       case 'guardar_factura_manual':
         result = guardarFacturaManual(payload);
@@ -658,6 +670,24 @@ function registrarAbono(p) {
   hoja.getRange(fila, col).setValue(totalAbonado);
 
   return { fila: fila, total_abonado: totalAbonado };
+}
+
+// Registra cuándo y con qué referencia la empresa le devolvió el dinero a la
+// persona que pagó una factura de su bolsillo (Medio de pago = "Reembolso").
+// Son columnas separadas de "Fecha de pago"/"Referencia" (que describen
+// cuándo la persona pagó, no cuándo se le reintegró). Usado por el nuevo
+// módulo caja-chica.html (pestaña Reembolsos).
+function registrarReembolso(p) {
+  if (!p.numero_factura) throw new Error('Falta número de factura.');
+  if (!p.ordinal)        throw new Error('Falta indicar a cuál copia de la factura aplica.');
+  if (!p.fecha_reembolso) throw new Error('Falta la fecha de reembolso.');
+  requerirKiosko(p);
+  const hoja = getHoja();
+  const fila = filaFacturaPorOrdinal(hoja, p.numero_factura, p.ordinal, p.kiosko);
+  if (fila === -1) throw new Error('No se encontró esa factura.');
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Fecha de reembolso')).setValue(p.fecha_reembolso);
+  hoja.getRange(fila, columnaPorNombre(hoja, 'Referencia reembolso')).setValue(p.referencia_reembolso || '');
+  return { fila: fila };
 }
 
 // ── FACTURA MANUAL ─────────────────────────────────────────────────

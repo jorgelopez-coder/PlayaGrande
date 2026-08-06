@@ -336,6 +336,7 @@
     <button class="tab active" onclick="switchTab('facturas',this)">Facturas</button>
     <button class="tab" onclick="switchTab('proyeccion',this)">Proyección de pagos</button>
     <button class="tab" onclick="switchTab('historial',this)">Historial</button>
+    <button class="tab" onclick="switchTab('porproveedor',this)">Por proveedor</button>
     <button class="tab" id="tab-btn-duplicados" onclick="switchTab('duplicados',this)">Duplicados <span class="filtro-badge" id="dup-tab-count" style="display:none;background:var(--red);"></span></button>
     <button class="tab" onclick="switchTab('proveedores',this)">Proveedores</button>
   </div>
@@ -450,6 +451,24 @@
         Pagos registrados
       </div>
       <div class="tabla-wrap" id="tabla-historial">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB POR PROVEEDOR ════════════════════════════════════════ -->
+  <div id="tab-porproveedor" style="display:none;">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" id="s-porprov" placeholder="Buscar proveedor…" oninput="renderPorProveedor()">
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+        Resumen de cuentas por pagar por proveedor · click en una fila para ver el detalle de facturas
+      </div>
+      <div class="tabla-wrap" id="tabla-porproveedor">
         <div class="empty"><span class="spinner"></span></div>
       </div>
     </div>
@@ -1257,6 +1276,7 @@ function inicializar() {
   renderFacturas();
   renderProyeccion();
   renderHistorial();
+  renderPorProveedor();
   renderDuplicados();
   renderSemana();
   actualizarBarraSeleccion();
@@ -1719,6 +1739,120 @@ function toggleDetalle(id) {
   const open = !el.classList.contains('open');
   el.classList.toggle('open', open);
   if (ico) ico.classList.toggle('open', open);
+}
+
+// ── TAB POR PROVEEDOR: agrupa facturasAP por proveedor ────────────
+// Antigüedad = días desde la fecha de la factura pendiente más antigua
+// de ese proveedor (0 si la factura más vieja es de hoy). Si no hay
+// pendientes, se muestra "—". Se ordena por antigüedad desc. para que
+// las deudas más viejas aparezcan primero.
+function renderPorProveedor() {
+  const cont = document.getElementById('tabla-porproveedor');
+  if (!cont) return;
+  const busq = (document.getElementById('s-porprov').value || '').toLowerCase();
+  const dataset = datasetActual();
+
+  const grupos = {};
+  dataset.forEach(f => {
+    const key = f.proveedor || '(Sin proveedor)';
+    if (!grupos[key]) grupos[key] = { proveedor: key, facturas: [] };
+    grupos[key].facturas.push(f);
+  });
+
+  let lista = Object.values(grupos).map(g => {
+    const canceladas = g.facturas.filter(f => f.estado === 'Cancelada');
+    const pendientes = g.facturas.filter(f => f.estado !== 'Cancelada');
+    const saldoPendiente = pendientes.reduce((a,f) => a + (f.saldoPendiente||0), 0);
+    const antiguedadDias = pendientes.length
+      ? Math.max(...pendientes.map(f => f.fechaFactura ? Math.round((new Date(hoyISO) - new Date(f.fechaFactura)) / 86400000) : 0))
+      : null;
+    const hayVencidas = pendientes.some(f => f.estado === 'Vencida');
+    return { proveedor: g.proveedor, canceladas, pendientes, saldoPendiente, antiguedadDias, hayVencidas };
+  });
+
+  if (busq) lista = lista.filter(g => g.proveedor.toLowerCase().includes(busq));
+
+  lista.sort((a,b) => {
+    if (a.antiguedadDias == null && b.antiguedadDias == null) return a.proveedor.localeCompare(b.proveedor);
+    if (a.antiguedadDias == null) return 1;
+    if (b.antiguedadDias == null) return -1;
+    return b.antiguedadDias - a.antiguedadDias;
+  });
+
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty">Sin resultados.</div>';
+    return;
+  }
+
+  const filas = lista.map((g, idx) => {
+    const rowId = 'provap-' + idx;
+
+    const filasPendientes = [...g.pendientes]
+      .sort((a,b) => (a.fechaFactura||'').localeCompare(b.fechaFactura||''))
+      .map(f => `<tr>
+        <td>${f.numero}</td>
+        <td>${f.fechaFactura||'—'}</td>
+        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${badgeEstado(f.estado)}</td>
+        <td class="num">${fmt(f.saldoPendiente)}</td>
+      </tr>`).join('');
+
+    const filasCanceladas = [...g.canceladas]
+      .sort((a,b) => (b.fechaFactura||'').localeCompare(a.fechaFactura||''))
+      .map(f => `<tr>
+        <td>${f.numero}</td>
+        <td>${f.fechaFactura||'—'}</td>
+        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${f.fechaRealPago||'—'}</td>
+        <td class="num">${fmt(f.montoColones)}</td>
+      </tr>`).join('');
+
+    const detalleHtml = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Facturas pendientes (${g.pendientes.length})</div>
+          ${g.pendientes.length ? `
+            <table class="detail-table">
+              <thead><tr><th>Factura</th><th>Fecha</th><th>Kiosko</th><th>Estado</th><th style="text-align:right;">Saldo</th></tr></thead>
+              <tbody>${filasPendientes}</tbody>
+            </table>` : '<div style="font-size:12px;color:var(--subtle);">Sin facturas pendientes.</div>'}
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">Facturas canceladas (${g.canceladas.length})</div>
+          ${g.canceladas.length ? `
+            <table class="detail-table">
+              <thead><tr><th>Factura</th><th>Fecha factura</th><th>Kiosko</th><th>Fecha de pago</th><th style="text-align:right;">Monto</th></tr></thead>
+              <tbody>${filasCanceladas}</tbody>
+            </table>` : '<div style="font-size:12px;color:var(--subtle);">Sin facturas canceladas.</div>'}
+        </div>
+      </div>`;
+
+    return `
+      <tr class="tr-main" onclick="toggleDetalle('${rowId}')">
+        <td style="font-weight:500;">${g.proveedor}</td>
+        <td class="num">${g.canceladas.length}</td>
+        <td class="num">${g.pendientes.length}</td>
+        <td class="num" style="${g.hayVencidas?'color:var(--red);font-weight:600;':''}">${g.antiguedadDias!=null ? g.antiguedadDias + ' día' + (g.antiguedadDias!==1?'s':'') : '—'}</td>
+        <td class="num" style="font-weight:600;">${fmt(g.saldoPendiente)}</td>
+      </tr>
+      <tr class="tr-detail" id="${rowId}">
+        <td class="detail-cell" colspan="5">
+          <div class="detail-inner">${detalleHtml}</div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Proveedor</th>
+        <th style="text-align:right;">Facturas canceladas</th>
+        <th style="text-align:right;">Facturas pendientes</th>
+        <th style="text-align:right;">Antigüedad</th>
+        <th style="text-align:right;">Saldo pendiente</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
 }
 
 // ── DETALLE DE PRODUCTOS DE UNA FACTURA (hoja Desglose_IA) ────────
@@ -2279,7 +2413,7 @@ function renderPaginacion(id, total, pag, cb) {
 
 // ── TABS ──────────────────────────────────────────────────────────
 function switchTab(tab, el) {
-  ['facturas','proyeccion','historial','duplicados','proveedores'].forEach(t =>
+  ['facturas','proyeccion','historial','porproveedor','duplicados','proveedores'].forEach(t =>
     document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -2334,7 +2468,7 @@ async function enviarSalidaFondo(fecha, kiosko, monto, proveedor, factura, refer
 // Salta a la pestaña Proveedores con el nombre ya prellenado, para completar
 // ahí toda la información (categoría, contacto, condición de pago, etc.).
 function agregarProveedorRapido(nombre) {
-  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[4]);
+  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[5]);
   cancelarEdicionProveedor();
   document.getElementById('pv-nombre-juridico').value = nombre;
 }
@@ -2681,7 +2815,7 @@ function editarProveedor(id) {
   document.getElementById('pv-notas-pago').value = p.notas_pago || '';
   document.getElementById('prov-form-titulo').textContent = 'Editar proveedor';
   document.getElementById('prov-cancelar').style.display = 'inline';
-  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[4]);
+  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[5]);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
