@@ -410,8 +410,8 @@ function kioskosPermitidos(lista) {
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────
 // Sheet nuevo "Caja Chica - Kioskos" (ver Code-caja-chica-kioskos-backend.gs).
 // Reemplazá estos dos valores una vez creado y desplegado el Sheet/Web App.
-const SHEET_ID_CAJA = 'TODO_PEGAR_SHEET_ID_CAJA_CHICA';
-const APPS_SCRIPT_CAJA = 'TODO_PEGAR_URL_APPS_SCRIPT_CAJA_CHICA';
+const SHEET_ID_CAJA = '1FVlGF4-GP1L11SD3QfmvfG_XFfuSH-UI3NbkojJ_shU';
+const APPS_SCRIPT_CAJA = 'https://script.google.com/a/macros/casaaguizotes.com/s/AKfycbzIoFQ4Y6f2zMXcunmzsofzAz2KZLY_sKxP1i1N0YhStLwCzsFpVHJ5TfH--Ao1P-fshg/exec';
 // Mismo Sheet/Web App de Cuentas por Pagar (Code-cuentas-por-pagar-kioskos-backend.gs):
 // se lee "Registro Facturas" para los gastos/pagos/reembolsos, y se postea
 // registrar_reembolso — esa acción edita esa hoja, no la de este módulo.
@@ -543,8 +543,13 @@ function toggleKioskoItem(checkbox, kiosko) {
 function gvizLoad(hoja, expectedCol) {
   return new Promise(function(resolve) {
     var cb    = '_cc_' + Math.random().toString(36).slice(2,10);
+    // headers=1: sin esto, Sheets solo "adivina" que la fila 1 es encabezado
+    // comparando tipos contra las filas de datos — con la pestaña recién
+    // creada y todavía sin ninguna fila (0 períodos abiertos), no tiene con
+    // qué comparar y devuelve los encabezados vacíos. Forzarlo evita ese
+    // hueco en vez de depender de que ya haya al menos una fila cargada.
     var url   = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID_CAJA
-              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '/gviz/tq?tqx=responseHandler:' + cb + '&headers=1'
               + '&sheet=' + encodeURIComponent(hoja);
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
@@ -581,7 +586,7 @@ function gvizLoadCompras(hoja, expectedCol) {
   return new Promise(function(resolve) {
     var cb    = '_cccomp_' + Math.random().toString(36).slice(2,10);
     var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
-              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '/gviz/tq?tqx=responseHandler:' + cb + '&headers=1'
               + '&sheet=' + encodeURIComponent(hoja);
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
