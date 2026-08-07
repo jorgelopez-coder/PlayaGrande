@@ -450,6 +450,10 @@ function guardarImagenBase64(folder, base64, mimeType, fileName) {
   const bytes = Utilities.base64Decode(base64);
   const blob = Utilities.newBlob(bytes, mimeType, fileName);
   const file = folder.createFile(blob);
+  // "Cualquiera con el link" en modo solo lectura — sin esto el link que se
+  // manda por WhatsApp (ver reporte cierres.html) no abre para quien no
+  // tenga acceso directo a la carpeta de Drive.
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return file.getUrl();
 }
 

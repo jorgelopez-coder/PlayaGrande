@@ -484,6 +484,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // El extractor con IA vive en el MISMO Apps Script que SHEETS_URL (rama
 // data.type==='extraerIA' en Code-cierres-kioskos-backend.gs), así que usa
@@ -565,14 +578,17 @@ function poblarKioskos() {
   const sel = document.getElementById('f-kiosko');
   sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
     + KIOSKOS.map(k => `<option>${k}</option>`).join('');
-  const ultimo = localStorage.getItem('kiosko_actual');
-  if (ultimo && KIOSKOS.includes(ultimo)) {
-    sel.value = ultimo;
-    alCambiarKiosko();
+  if (!bloquearKioskoUnico(sel, alCambiarKiosko)) {
+    const ultimo = localStorage.getItem('kiosko_actual');
+    if (ultimo && KIOSKOS.includes(ultimo)) {
+      sel.value = ultimo;
+      alCambiarKiosko();
+    }
   }
 
   const selHist = document.getElementById('hist-kiosko');
   selHist.innerHTML = '<option value="">Kiosko</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  bloquearKioskoUnico(selHist, null);
 }
 
 function alCambiarKiosko() {
@@ -1087,9 +1103,31 @@ async function submitCierre() {
     });
     showToast('Cierre guardado correctamente — ya podés enviarlo por WhatsApp');
     btn.textContent = 'Cierre guardado ✓';
+    await recuperarFotoUrlGuardada(payload.id);
   } catch(e) {
     showToast('Error al guardar — revisá la conexión', 'error');
     btn.disabled = false; btn.textContent = 'Guardar cierre ✓';
+  }
+}
+
+// El POST de arriba usa mode:'no-cors' (Apps Script no manda headers CORS en
+// POST, ver mismo patrón en depositos.html), así que no podemos leer del
+// response el link de Drive que el backend acaba de generar para la foto del
+// datáfono. En su lugar, tras guardar, releemos el historial por GET (eso sí
+// trae CORS) y buscamos la fila recién creada por su ID para sacar
+// "Foto Cierre Datáfono (URL)" (columna 41) y así poder incluirla en el
+// reporte de WhatsApp.
+let fotoDatafonoUrlGuardada = '';
+async function recuperarFotoUrlGuardada(id) {
+  try {
+    const resp = await fetch(SHEETS_URL + '?action=read');
+    const data = await resp.json();
+    const fila = (data.records || []).find(r => String(r[0]) === String(id));
+    fotoDatafonoUrlGuardada = (fila && fila[41]) || '';
+  } catch(e) {
+    fotoDatafonoUrlGuardada = '';
+  } finally {
+    actualizarWhatsAppBtn();
   }
 }
 
@@ -1113,7 +1151,8 @@ function buildWAMessage(r) {
 
 📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(diff).toLocaleString('es-CR')})
 ${r.tips?`\n💵 Propina del día: ₡${r.tips.toLocaleString('es-CR')} (informativo)`:''}
-${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}`;
+${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}
+${r.fotoDatafonoUrl?`\n📎 Foto del cierre de tarjeta: ${r.fotoDatafonoUrl}`:''}`;
 }
 
 const WA_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.532 5.86L.057 23.428a.75.75 0 0 0 .916.916l5.569-1.475A11.943 11.943 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.694 9.694 0 0 1-4.953-1.356l-.355-.211-3.706.981.993-3.614-.23-.372A9.699 9.699 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>`;
@@ -1122,6 +1161,7 @@ function actualizarWhatsAppBtn() {
   const btns = document.getElementById('wa-buttons');
   if (!btns) return;
   const payload = construirPayload();
+  payload.fotoDatafonoUrl = fotoDatafonoUrlGuardada;
   const msg = buildWAMessage(payload);
   const numero = WA_NUMERO_DEFAULT || '';
   btns.innerHTML = `<button class="btn-wa" onclick="window.open('https://wa.me/${numero}?text='+encodeURIComponent(\`${msg.replace(/`/g,'\\`')}\`),'_blank')">${WA_SVG} Enviar resumen por WhatsApp</button>`;
@@ -1345,6 +1385,7 @@ function limpiarForm() {
   DENOMS_CRC.forEach(d => { const el=document.getElementById('d-'+d); if(el)el.value=''; });
   DENOMS_USD.forEach(({id}) => { const el=document.getElementById('d-'+id); if(el)el.value=''; });
   quitarFotoDatafono();
+  fotoDatafonoUrlGuardada = '';
   document.getElementById('ia-resultado').style.display = 'none';
   irPaso(1);
   cargarVentasSquare();
