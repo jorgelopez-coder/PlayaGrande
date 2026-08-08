@@ -194,7 +194,15 @@ const MAESTRO_ENCABEZADOS = [
   // inventario.html — no es la tara final: cada pesaje individual en la toma
   // puede tener su propia tara editable, porque la tara real depende de la
   // marca de la botella (decidido con Jorge 2026-07-27).
-  'Tipo de Control', 'Contenido Envase (ml)', 'Densidad (g/ml)', 'Tara por Defecto (g)'
+  'Tipo de Control', 'Contenido Envase (ml)', 'Densidad (g/ml)', 'Tara por Defecto (g)',
+  // 2026-08-08 — conversión compra→receta: cuánta 'Unidad Receta' trae UNA
+  // 'Presentación' (ej. 1 Litro = 1000 ml → 1000). Se usa SOLO para calcular
+  // 'Costo Real Receta' (÷ conversión ÷ rendimiento) — a propósito NO toca
+  // 'Costo por unidad' (ese sigue siendo Precio sin IVA ÷ Cantidad
+  // presentación, sin relación con la unidad de receta). Vacío/0 se trata
+  // como 1 (compra y receta ya en la misma unidad), así una fila sin este
+  // dato se comporta igual que antes de que existiera este campo.
+  'Conversión Receta'
 ];
 // "Aplica" (Sí/No) queda fuera de MAESTRO_COL a propósito: se resuelve con
 // columnaPorNombre() en vez de una posición fija, para que se pueda crear
@@ -1324,10 +1332,20 @@ function guardarFichaMaestro(p) {
 
   const precio = Number(p.precio_sin_iva) || 0;
   const cantidad = Number(p.cantidad_presentacion) || 0;
+  // "Costo por unidad" (costo de compra) = Precio sin IVA ÷ Cantidad en la
+  // presentación — a propósito NO se toca con la conversión de recetas de
+  // abajo (corregido 2026-08-08, ver nota junto a 'Conversión Receta' en
+  // MAESTRO_ENCABEZADOS).
   const costoUnidad = cantidad > 0 ? Number((precio / cantidad).toFixed(4)) : 0;
+  // "Conversión Receta": cuánta Unidad Receta trae UNA Presentación (ej. 1
+  // Litro = 1000 ml). Vacío/0 se trata como 1 (compra y receta ya en la
+  // misma unidad) — solo afecta "Costo Real Receta", nunca "Costo por unidad".
+  const conversionReceta = (p.conversion_receta !== undefined && p.conversion_receta !== '' && p.conversion_receta != null && Number(p.conversion_receta) > 0)
+    ? Number(p.conversion_receta) : 1;
+  const costoPorUnidadReceta = costoUnidad / conversionReceta;
   const rendimiento = (p.rendimiento_receta !== undefined && p.rendimiento_receta !== '' && p.rendimiento_receta != null)
     ? Number(p.rendimiento_receta) : 100;
-  const costoRealReceta = rendimiento > 0 ? Number((costoUnidad / (rendimiento / 100)).toFixed(4)) : costoUnidad;
+  const costoRealReceta = rendimiento > 0 ? Number((costoPorUnidadReceta / (rendimiento / 100)).toFixed(4)) : Number(costoPorUnidadReceta.toFixed(4));
 
   // Control de inventario por peso (2026-07-27): ver nota junto a
   // MAESTRO_ENCABEZADOS. 'peso' exige contenido de envase y densidad —
@@ -1358,6 +1376,7 @@ function guardarFichaMaestro(p) {
   const colSubfamilia = columnaPorNombre(hoja, 'Subfamilia');
   const colAplicaReceta = columnaPorNombre(hoja, 'Aplica Receta');
   const colUnidadReceta = columnaPorNombre(hoja, 'Unidad Receta');
+  const colConversionReceta = columnaPorNombre(hoja, 'Conversión Receta');
   const colRendimiento = columnaPorNombre(hoja, 'Rendimiento Receta (%)');
   const colCostoReal = columnaPorNombre(hoja, 'Costo Real Receta');
   const colUsarManual = columnaPorNombre(hoja, 'Usar Costo Manual Receta');
@@ -1382,6 +1401,7 @@ function guardarFichaMaestro(p) {
     hoja.getRange(fila, colSubfamilia).setValue(p.subfamilia || '');
     hoja.getRange(fila, colAplicaReceta).setValue(p.aplica_receta === 'No' ? 'No' : 'Sí');
     hoja.getRange(fila, colUnidadReceta).setValue(p.unidad_receta || '');
+    hoja.getRange(fila, colConversionReceta).setValue(p.conversion_receta !== '' && p.conversion_receta != null ? conversionReceta : '');
     hoja.getRange(fila, colRendimiento).setValue(rendimiento);
     hoja.getRange(fila, colCostoReal).setValue(costoRealReceta);
     hoja.getRange(fila, colUsarManual).setValue(p.usar_costo_manual_receta === true || p.usar_costo_manual_receta === 'true');

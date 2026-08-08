@@ -456,19 +456,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
       </div>
       <div class="field-row">
-        <div class="field">
-          <label>Conversión <span style="font-weight:400;color:var(--muted)">(unidades de receta por presentación)</span></label>
+        <div class="field"><label>Cantidad en la presentación</label>
           <input type="number" id="fi-cantidad" min="0" step="any" placeholder="ej: 6" oninput="actualizarCostoFichaPreview()"/>
-          <div class="field-hint">Cuántas "Unidad de medida para receta" trae una unidad de "Presentación de compra". Ej: si comprás por Caja de 6 cervezas, poné 6.</div>
+          <div class="field-hint">Cuántas piezas/unidades de compra trae la presentación completa. Ej: una Caja de 6 cervezas → 6.</div>
         </div>
         <div class="field" style="margin-bottom:0"><label>Costo de compra</label>
           <div class="costo-display" id="fi-costo-display">₡0.00</div>
-          <div class="field-hint">Precio sin IVA ÷ Conversión — se prellena con el precio de la última factura registrada</div>
+          <div class="field-hint">Precio sin IVA ÷ Cantidad — se prellena con el precio de la última factura registrada. No depende de la conversión de recetas de abajo.</div>
         </div>
-      </div>
-      <div class="suggest-box suggest-box-blue" id="fi-conversion-sugerida" style="display:none">
-        <span>🧮 Conversión calculada sola: <span id="fi-conversion-sugerida-txt">—</span></span>
-        <button class="btn-sm" type="button" onclick="usarConversionSugerida()">Usar este valor</button>
       </div>
 
       <div class="section-label">🍹 Información para recetas</div>
@@ -487,17 +482,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
             <datalist id="fi-unidad-receta-list"></datalist>
             <div class="field-hint">La unidad con la que medís el ingrediente en tus recetas.</div>
           </div>
+          <div class="field"><label>Conversión <span style="font-weight:400;color:var(--muted)">(por unidad de compra)</span></label>
+            <input type="number" id="fi-conversion-receta" min="0" step="any" placeholder="ej: 1000" oninput="actualizarCostoFichaPreview()"/>
+            <div class="field-hint">Cuánta "Unidad de medida para receta" trae UNA "Presentación de compra". Ej: 1 Litro = 1000 Mililitro → poné 1000. Si se deja vacío se asume 1 (compra y receta ya están en la misma unidad).</div>
+          </div>
+        </div>
+        <div class="suggest-box suggest-box-blue" id="fi-conversion-sugerida" style="display:none">
+          <span>🧮 Conversión calculada sola: <span id="fi-conversion-sugerida-txt">—</span></span>
+          <button class="btn-sm" type="button" onclick="usarConversionSugerida()">Usar este valor</button>
+        </div>
+        <div class="field-row">
           <div class="field"><label>Rendimiento (%)</label>
             <input type="number" id="fi-rendimiento" min="0" max="100" step="any" placeholder="100" oninput="actualizarCostoFichaPreview()"/>
             <div class="field-hint">% utilizable tras limpieza/merma.</div>
           </div>
+          <div class="field" style="margin-bottom:0"><label>Costo real por unidad de receta</label>
+            <div class="costo-display" id="fi-costo-real-display">₡0.00</div>
+            <div class="field-hint">Costo de compra ÷ Conversión ÷ Rendimiento — este es el costo que usan las recetas.</div>
+          </div>
         </div>
-        <div class="field" style="margin-bottom:1rem">
-          <label>Costo real por unidad de receta</label>
-          <div class="costo-display" id="fi-costo-real-display">₡0.00</div>
-          <div class="field-hint">Costo de compra ÷ Rendimiento — este es el costo que usan las recetas.</div>
-        </div>
-        <label class="check-row" style="margin-bottom:4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
+        <label class="check-row" style="margin:1rem 0 4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
         <div class="field-hint" style="margin-bottom:1.25rem">
           Por defecto las recetas usan el costo automático de compras (arriba en "Costo de compra") cuando existe.
           Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en su lugar — útil para
@@ -655,6 +659,10 @@ async function cargarMaestro() {
       subfamilia: r['Subfamilia'] || '',
       aplicaReceta: r['Aplica Receta'] === 'No' ? 'No' : 'Sí',
       unidadReceta: r['Unidad Receta'] || '',
+      // Conversión Receta (2026-08-08): cuánta "Unidad Receta" trae UNA
+      // "Presentación" (ej. 1 Litro = 1000 ml). Solo afecta "Costo Real
+      // Receta" — NO toca "Costo por unidad" (ver guardarFichaMaestro).
+      conversionReceta: (r['Conversión Receta'] !== '' && r['Conversión Receta'] != null) ? Number(r['Conversión Receta']) : '',
       rendimientoReceta: (r['Rendimiento Receta (%)'] !== '' && r['Rendimiento Receta (%)'] != null) ? Number(r['Rendimiento Receta (%)']) : '',
       costoRealReceta: Number(r['Costo Real Receta']) || 0,
       usarCostoManualReceta: r['Usar Costo Manual Receta'] === true || r['Usar Costo Manual Receta'] === 'TRUE',
@@ -1166,12 +1174,23 @@ function precioFichaEnCRC() {
 function actualizarCostoFichaPreview() {
   const precio = precioFichaEnCRC();
   const cantidad = Number(document.getElementById('fi-cantidad').value) || 0;
+  // "Costo de compra" = Precio sin IVA ÷ Cantidad en la presentación — no
+  // depende para nada de la Conversión de recetas de abajo (corregido
+  // 2026-08-08: antes la Conversión pisaba este cálculo por error).
   const costo = cantidad > 0 ? precio / cantidad : 0;
   document.getElementById('fi-costo-display').textContent = fmtColones(costo);
 
+  // "Costo real por unidad de receta" = Costo de compra ÷ Conversión ÷
+  // Rendimiento. Conversión vacía/0 se asume 1 (compra y receta ya están en
+  // la misma unidad), así una ficha sin este campo lleno se comporta igual
+  // que antes de que existiera la Conversión.
+  const conversionInput = document.getElementById('fi-conversion-receta').value;
+  const conversion = (conversionInput !== '' && Number(conversionInput) > 0) ? Number(conversionInput) : 1;
+  const costoPorUnidadReceta = costo / conversion;
+
   const rendimientoInput = document.getElementById('fi-rendimiento').value;
   const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
-  const costoReal = rendimiento > 0 ? costo / (rendimiento / 100) : costo;
+  const costoReal = rendimiento > 0 ? costoPorUnidadReceta / (rendimiento / 100) : costoPorUnidadReceta;
   document.getElementById('fi-costo-real-display').textContent = fmtColones(costoReal);
 }
 
@@ -1232,7 +1251,7 @@ function actualizarConversionSugerida() {
 }
 function usarConversionSugerida() {
   if (CONVERSION_SUGERIDA == null) return;
-  document.getElementById('fi-cantidad').value = Number(CONVERSION_SUGERIDA.toFixed(4));
+  document.getElementById('fi-conversion-receta').value = Number(CONVERSION_SUGERIDA.toFixed(4));
   actualizarCostoFichaPreview();
 }
 
@@ -1320,6 +1339,7 @@ function abrirFicha(clave) {
 
   document.getElementById('fi-aplica-receta').value = m.aplicaReceta === 'No' ? 'No' : 'Sí';
   document.getElementById('fi-unidad-receta').value = m.unidadReceta || '';
+  document.getElementById('fi-conversion-receta').value = m.conversionReceta !== '' ? m.conversionReceta : '';
   document.getElementById('fi-rendimiento').value = m.rendimientoReceta !== '' ? m.rendimientoReceta : 100;
   document.getElementById('fi-usar-costo-manual').checked = !!m.usarCostoManualReceta;
   onFichaAplicaRecetaChange();
@@ -1390,6 +1410,7 @@ async function guardarFicha() {
       activo: document.getElementById('fi-activo').checked,
       aplica_receta: document.getElementById('fi-aplica-receta').value,
       unidad_receta: document.getElementById('fi-unidad-receta').value.trim(),
+      conversion_receta: document.getElementById('fi-conversion-receta').value,
       rendimiento_receta: document.getElementById('fi-rendimiento').value,
       usar_costo_manual_receta: document.getElementById('fi-usar-costo-manual').checked,
       tipo_control: document.getElementById('fi-tipo-control').value,
