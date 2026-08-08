@@ -602,7 +602,6 @@ async function copiarCeldaAnterior(empId,dayIdx){
   const labelDia=dates[dayIdx].label+' '+dates[dayIdx].date;
 
   if(dayIdx>0){
-    if(!confirm('¿Copiar el turno de '+emp.name+' del '+dates[dayIdx-1].label+' a '+labelDia+'?'))return;
     if(!schedule[emp.id])initSchedule(emp);
     schedule[emp.id][dayIdx]=Object.assign({},schedule[emp.id][dayIdx-1]);
     renderAll();
@@ -614,7 +613,6 @@ async function copiarCeldaAnterior(empId,dayIdx){
   const fechaLunes=new Date(semanaActual+'T00:00:00');
   const fechaAnteriorD=new Date(fechaLunes);fechaAnteriorD.setDate(fechaAnteriorD.getDate()-1);
   const fechaAnteriorISO=fmt(fechaAnteriorD);
-  if(!confirm('¿Copiar el turno de '+emp.name+' del '+fechaAnteriorISO+' (domingo anterior) a '+labelDia+'?'))return;
   try{
     const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
     if(!resp.ok){toast('No se pudo cargar el día anterior');return}
