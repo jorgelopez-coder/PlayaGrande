@@ -192,11 +192,9 @@
     .btn-save { padding:10px 22px; border-radius:9px; background:var(--green); color:#fff; border:none; font-family:var(--font-d); font-size:14px; font-weight:700; cursor:pointer; }
     .btn-save:hover { opacity:.9; }
 
-    /* Proveedores (tab) */
+    /* Campos de formulario (factura manual, etc.) */
     .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:1rem 0 .5rem; }
-    .prov-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:.7rem 1.25rem; border-bottom:1px solid var(--border); }
-    .prov-row:last-child { border-bottom:none; }
 
     /* Toast */
     .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,.08); }
@@ -338,7 +336,6 @@
     <button class="tab" onclick="switchTab('historial',this)">Historial</button>
     <button class="tab" onclick="switchTab('porproveedor',this)">Por proveedor</button>
     <button class="tab" id="tab-btn-duplicados" onclick="switchTab('duplicados',this)">Duplicados <span class="filtro-badge" id="dup-tab-count" style="display:none;background:var(--red);"></span></button>
-    <button class="tab" onclick="switchTab('proveedores',this)">Proveedores</button>
   </div>
 
   <!-- ══ TAB FACTURAS ══════════════════════════════════════════════ -->
@@ -516,56 +513,12 @@
     </div>
   </div>
 
-  <!-- ══ TAB PROVEEDORES ══════════════════════════════════════════ -->
-  <div id="tab-proveedores" style="display:none;">
-    <div class="card" style="padding:1.25rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-        <strong id="prov-form-titulo" style="font-family:var(--font-d);font-size:14px;">Nuevo proveedor</strong>
-        <button class="btn-link" id="prov-cancelar" style="display:none;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;" onclick="cancelarEdicionProveedor()">Cancelar edición</button>
-      </div>
-      <input type="hidden" id="pv-id">
-      <div class="field-row">
-        <div class="field"><label for="pv-nombre-juridico">Nombre jurídico *</label><input type="text" id="pv-nombre-juridico" placeholder="Distribuidora XYZ S.A."></div>
-        <div class="field"><label for="pv-nombre-comercial">Nombre comercial</label><input type="text" id="pv-nombre-comercial" placeholder="Nombre con que se conoce"></div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="pv-categoria">Categoría</label>
-          <select id="pv-categoria">
-            <option value="" selected>Sin categoría</option>
-            <option>Frutas y Verduras</option><option>Carnes y Aves</option><option>Mariscos</option>
-            <option>Lácteos y Huevos</option><option>Bebidas</option><option>Abarrotes</option>
-            <option>Limpieza e Higiene</option><option>Empaques y Desechables</option>
-            <option>Panadería y Repostería</option><option>Servicios</option><option>Otro</option>
-          </select>
-        </div>
-        <div class="field"><label for="pv-contacto">Nombre de contacto</label><input type="text" id="pv-contacto" placeholder="Vendedor o encargado"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label for="pv-telefono">Teléfono</label><input type="text" id="pv-telefono" placeholder="8888-8888"></div>
-        <div class="field"><label for="pv-correo">Correo</label><input type="email" id="pv-correo" placeholder="correo@proveedor.com"></div>
-      </div>
-      <div class="field"><label for="pv-dias-pedido">Días de pedido</label><input type="text" id="pv-dias-pedido" placeholder="Lunes, Jueves…"></div>
-      <div class="field"><label for="pv-notas-contacto">Observaciones de contacto</label><input type="text" id="pv-notas-contacto" placeholder="Horario de atención, datos adicionales…"></div>
-      <div class="section-label">Info de pago</div>
-      <div class="field-row">
-        <div class="field"><label for="pv-cuenta">Número de cuenta / IBAN</label><input type="text" id="pv-cuenta" placeholder="CR21 0152 0200 1026 2840 66"></div>
-        <div class="field">
-          <label for="pv-condicion-pago">Condición de pago (días de crédito)</label>
-          <input type="number" min="0" id="pv-condicion-pago" placeholder="0" value="0">
-          <div class="field-hint">Días desde la fecha de factura hasta el vencimiento.</div>
-        </div>
-      </div>
-      <div class="field"><label for="pv-notas-pago">Observaciones de pago</label><input type="text" id="pv-notas-pago" placeholder="Banco, tipo de cuenta, datos adicionales…"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:.5rem;">
-        <button class="btn-save" onclick="guardarProveedorForm()">Guardar proveedor</button>
-      </div>
-    </div>
-    <div class="card">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">Proveedores registrados</div>
-      <div id="prov-lista"><div class="empty"><span class="spinner"></span></div></div>
-    </div>
-  </div>
+  <!-- La pestaña "Proveedores" autocontenida se retiró de acá (2026-08-08):
+       duplicaba el CRUD que ya vive en proveedores.html ("Base de
+       proveedores"), contra el mismo Sheet/hoja (ver INVENTARIO_SHEET_ID).
+       Para dar de alta o editar un proveedor, usar proveedores.html —
+       este archivo solo lee esa hoja (filtros, autocompletar, badge de
+       "sin registrar"). -->
 
   <div class="status-bar">
     <div style="display:flex;align-items:center;gap:6px;"><span class="sdot" id="conn-dot"></span><span id="conn-label">Conectando…</span></div>
@@ -776,8 +729,14 @@ const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0q
 // ordenes-compra.html, pestaña "Proveedores"), para no mantener dos catálogos
 // de proveedores separados que no se comunicaban entre sí. Mismos valores que
 // esos tres archivos.
+// 2026-08-08: además se retiró la pestaña "Proveedores" autocontenida de
+// esta pantalla (formulario + lista con Editar/Eliminar) — duplicaba el CRUD
+// de proveedores.html contra este mismo Sheet. Acá solo queda lectura
+// (gvizLoadInv más abajo, vía INVENTARIO_SHEET_ID) para el filtro de
+// facturas, el autocompletar de la factura manual y el badge "sin registrar
+// en la base de proveedores"; alta y edición se hacen siempre en
+// proveedores.html, que abre agregarProveedorRapido() más abajo.
 const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
-const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
 // 2026-07-29: mismo backend/Sheet de Cierres que usan depositos.html/
 // indicadores.html/index.html (Code-cierres-kioskos-backend.gs). Se usa solo
 // para mandar en paralelo las "Salidas de fondo de caja" (pagos/abonos a
@@ -999,7 +958,7 @@ async function cargarDatos() {
 
     construirFacturasAP();
     inicializar();
-    renderProveedoresTab();
+    renderDatalistProveedoresManual();
 
   } catch(e) {
     console.error('Error cargando cuentas por pagar:', e.message);
@@ -2413,7 +2372,7 @@ function renderPaginacion(id, total, pag, cb) {
 
 // ── TABS ──────────────────────────────────────────────────────────
 function switchTab(tab, el) {
-  ['facturas','proyeccion','historial','porproveedor','duplicados','proveedores'].forEach(t =>
+  ['facturas','proyeccion','historial','porproveedor','duplicados'].forEach(t =>
     document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -2422,18 +2381,6 @@ function switchTab(tab, el) {
 // ── ACCIONES: guardar en Apps Script ──────────────────────────────
 async function postAP(payload) {
   const resp = await fetch(APPS_SCRIPT_AP, {
-    method: 'POST',
-    body: new URLSearchParams({ data: JSON.stringify(payload) })
-  });
-  const json = await resp.json();
-  if (!json.ok) throw new Error(json.error || 'Error al guardar');
-  return json.result;
-}
-
-// Igual que postAP() pero contra el Web App del Sheet "Inventario - Kioskos"
-// (guardar_proveedor/eliminar_proveedor viven ahí, ver INVENTARIO_SHEET_ID arriba).
-async function postInv(payload) {
-  const resp = await fetch(APPS_SCRIPT_INVENTARIO, {
     method: 'POST',
     body: new URLSearchParams({ data: JSON.stringify(payload) })
   });
@@ -2465,12 +2412,11 @@ async function enviarSalidaFondo(fecha, kiosko, monto, proveedor, factura, refer
   }
 }
 
-// Salta a la pestaña Proveedores con el nombre ya prellenado, para completar
-// ahí toda la información (categoría, contacto, condición de pago, etc.).
+// Abre la Base de proveedores (proveedores.html) en una pestaña nueva con el
+// nombre ya prellenado — el alta/edición de proveedores ya no vive dentro de
+// esta pantalla (ver nota junto a INVENTARIO_SHEET_ID más arriba).
 function agregarProveedorRapido(nombre) {
-  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[5]);
-  cancelarEdicionProveedor();
-  document.getElementById('pv-nombre-juridico').value = nombre;
+  window.open('proveedores.html?nuevo=1&nombre=' + encodeURIComponent(nombre || ''), '_blank');
 }
 
 function facturaPorNumero(numero, kiosko) { return facturasAP.find(f => f.numero === numero && f.kiosko === kiosko); }
@@ -2775,115 +2721,6 @@ function renderDatalistProveedoresManual() {
 document.querySelectorAll('.modal-bg').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
 });
-
-// ── PROVEEDORES (tab autocontenido) ────────────────────────────────
-function limpiarFormProveedor() {
-  document.getElementById('pv-id').value = '';
-  document.getElementById('pv-nombre-juridico').value = '';
-  document.getElementById('pv-nombre-comercial').value = '';
-  document.getElementById('pv-categoria').value = '';
-  document.getElementById('pv-contacto').value = '';
-  document.getElementById('pv-telefono').value = '';
-  document.getElementById('pv-correo').value = '';
-  document.getElementById('pv-dias-pedido').value = '';
-  document.getElementById('pv-notas-contacto').value = '';
-  document.getElementById('pv-cuenta').value = '';
-  document.getElementById('pv-condicion-pago').value = '0';
-  document.getElementById('pv-notas-pago').value = '';
-}
-
-function cancelarEdicionProveedor() {
-  limpiarFormProveedor();
-  document.getElementById('prov-form-titulo').textContent = 'Nuevo proveedor';
-  document.getElementById('prov-cancelar').style.display = 'none';
-}
-
-function editarProveedor(id) {
-  const p = proveedores.find(x => x.id === id);
-  if (!p) return;
-  document.getElementById('pv-id').value = p.id;
-  document.getElementById('pv-nombre-juridico').value = p.nombre_juridico || '';
-  document.getElementById('pv-nombre-comercial').value = p.nombre_comercial || '';
-  document.getElementById('pv-categoria').value = p.categoria || '';
-  document.getElementById('pv-contacto').value = p.contacto || '';
-  document.getElementById('pv-telefono').value = p.telefono || '';
-  document.getElementById('pv-correo').value = p.correo || '';
-  document.getElementById('pv-dias-pedido').value = p.dias_pedido || '';
-  document.getElementById('pv-notas-contacto').value = p.notas_contacto || '';
-  document.getElementById('pv-cuenta').value = p.cuenta || '';
-  document.getElementById('pv-condicion-pago').value = p.condicion_pago || '0';
-  document.getElementById('pv-notas-pago').value = p.notas_pago || '';
-  document.getElementById('prov-form-titulo').textContent = 'Editar proveedor';
-  document.getElementById('prov-cancelar').style.display = 'inline';
-  switchTab('proveedores', document.querySelectorAll('.tabs .tab')[5]);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-async function guardarProveedorForm() {
-  const nombreJuridico = document.getElementById('pv-nombre-juridico').value.trim();
-  if (!nombreJuridico) { showToast('Ingresá el nombre jurídico del proveedor.', 'error'); return; }
-  try {
-    await postInv({
-      modulo: 'guardar_proveedor',
-      id: document.getElementById('pv-id').value || undefined,
-      nombre_juridico: nombreJuridico,
-      nombre_comercial: document.getElementById('pv-nombre-comercial').value.trim(),
-      categoria: document.getElementById('pv-categoria').value,
-      contacto: document.getElementById('pv-contacto').value.trim(),
-      telefono: document.getElementById('pv-telefono').value.trim(),
-      correo: document.getElementById('pv-correo').value.trim(),
-      dias_pedido: document.getElementById('pv-dias-pedido').value.trim(),
-      notas_contacto: document.getElementById('pv-notas-contacto').value.trim(),
-      cuenta: document.getElementById('pv-cuenta').value.trim(),
-      condicion_pago: document.getElementById('pv-condicion-pago').value || '0',
-      notas_pago: document.getElementById('pv-notas-pago').value.trim()
-    });
-    showToast('Proveedor guardado ✓', 'success');
-    cancelarEdicionProveedor();
-    const dP = await gvizLoadInv('Proveedores', 'ID').catch(() => []);
-    proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
-    construirFacturasAP();
-    inicializar();
-    renderProveedoresTab();
-  } catch(e) {
-    showToast('No se pudo guardar el proveedor: ' + e.message, 'error');
-  }
-}
-
-async function eliminarProveedorForm(id, nombre) {
-  if (!confirm(`¿Eliminar el proveedor "${nombre}"? Esta acción no se puede deshacer.`)) return;
-  try {
-    await postInv({ modulo: 'eliminar_proveedor', id: id });
-    showToast('Proveedor eliminado ✓', 'success');
-    const dP = await gvizLoadInv('Proveedores', 'ID').catch(() => []);
-    proveedores = dP.filter(r => r['ID']).map(filaAProveedor);
-    renderProveedoresTab();
-  } catch(e) {
-    showToast('No se pudo eliminar: ' + e.message, 'error');
-  }
-}
-
-function renderProveedoresTab() {
-  renderDatalistProveedoresManual();
-  const cont = document.getElementById('prov-lista');
-  if (!cont) return;
-  if (!proveedores.length) {
-    cont.innerHTML = '<div class="empty">Todavía no hay proveedores registrados.</div>';
-    return;
-  }
-  const ordenados = [...proveedores].sort((a,b) => (a.nombre_juridico||'').localeCompare(b.nombre_juridico||''));
-  cont.innerHTML = ordenados.map(p => `
-    <div class="prov-row">
-      <div style="min-width:0;">
-        <div style="font-weight:500;">${p.nombre_comercial || p.nombre_juridico}</div>
-        <div style="font-size:12px;color:var(--muted);">${p.nombre_juridico}${p.categoria?' · '+p.categoria:''}${p.condicion_pago!=null&&p.condicion_pago!==''?' · '+p.condicion_pago+' día(s) de crédito':''}</div>
-      </div>
-      <div class="row-actions">
-        <button class="btn-mini" onclick="editarProveedor('${p.id}')">Editar</button>
-        <button class="btn-mini" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);" onclick="eliminarProveedorForm('${p.id}','${(p.nombre_comercial||p.nombre_juridico).replace(/'/g,"\\'")}')">Eliminar</button>
-      </div>
-    </div>`).join('');
-}
 
 // ── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg, type='success') {

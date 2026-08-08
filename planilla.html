@@ -325,6 +325,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 
 // Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs).
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
@@ -609,8 +622,15 @@ function sumarHorasTardanzaCliente(colaborador, fechaInicio, fechaFin) {
 // cuya fecha cae dentro del periodo — 'Pendiente'/'Rechazada' no cuentan. Esta es
 // la ÚNICA fuente de horas extra para el pago desde 2026-08-01: el wizard ya no
 // deja editarlas a mano (ver renderPaso2).
+//
+// Fusión 2026-08-08: rrhh-horas-extra.html ya no separa 50%/100% al reportar
+// — un solo total en 'Horas'. El tipo de pago se define acá, en planilla
+// (ver definirTipoHorasExtra() y la tabla dentro de renderDetallePaso2), y
+// queda guardado en 'Tipo pago' por solicitud — sin definir se asume '50%'
+// (recargo ordinario) para no bloquear el cálculo. Filas de antes de la
+// fusión no traen 'Horas' y se siguen leyendo de las columnas legacy.
 function sumarHorasExtraAprobadasCliente(colaborador, fechaInicio, fechaFin) {
-  const resultado = { horas50: 0, horas100: 0, fechas: [], justificaciones: [] };
+  const resultado = { horas50: 0, horas100: 0, fechas: [], justificaciones: [], pendientesTipo: 0 };
   if (!colaborador || !fechaInicio || !fechaFin) return resultado;
   const buscado = String(colaborador).trim().toLowerCase();
   HORAS_EXTRA_CACHE.forEach(row => {
@@ -618,15 +638,45 @@ function sumarHorasExtraAprobadasCliente(colaborador, fechaInicio, fechaFin) {
     if (String(row['Estado']||'').trim().toLowerCase() !== 'aprobada') return;
     const fecha = String(row['Fecha']||'');
     if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
-    const h50 = Number(row['Horas extra 50%']) || 0;
-    const h100 = Number(row['Horas extra 100%']) || 0;
-    if (h50 <= 0 && h100 <= 0) return;
-    resultado.horas50 += h50;
-    resultado.horas100 += h100;
+
+    const horas = Number(row['Horas']) || 0;
+    if (horas > 0) {
+      const tipo = String(row['Tipo pago']||'').trim();
+      if (tipo === '100%') {
+        resultado.horas100 += horas;
+      } else {
+        resultado.horas50 += horas;
+        if (tipo !== '50%') resultado.pendientesTipo += horas;
+      }
+    } else {
+      const h50 = Number(row['Horas extra 50%']) || 0;
+      const h100 = Number(row['Horas extra 100%']) || 0;
+      if (h50 <= 0 && h100 <= 0) return;
+      resultado.horas50 += h50;
+      resultado.horas100 += h100;
+    }
     resultado.fechas.push(fecha);
     if (row['Justificación']) resultado.justificaciones.push(`${fecha}: ${row['Justificación']}`);
   });
   return resultado;
+}
+// Define si una solicitud de horas extra ya 'Aprobada' se paga al 50%
+// (recargo ordinario) o al 100% (feriado/descanso trabajado) — la decisión
+// que antes se pedía al reportar (dos campos separados en rrhh-horas-extra.html)
+// y desde la fusión 2026-08-08 se toma acá, en el detalle de "Horas extra"
+// de cada colaborador (Paso 2). Actualiza HORAS_EXTRA_CACHE de forma
+// optimista para que el preview se recalcule al toque, sin esperar la
+// respuesta del servidor.
+async function definirTipoHorasExtra(id, tipo) {
+  const row = HORAS_EXTRA_CACHE.find(h => String(h['ID']) === String(id));
+  if (row) row['Tipo pago'] = tipo;
+  renderPaso2();
+  try {
+    const res = await postBackend({ modulo: 'horas_extra_tipo', id, tipo });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+  } catch (err) {
+    showToast('No se pudo guardar el tipo de pago: ' + err.message, 'error');
+  }
 }
 // Réplica en el cliente de calcularPlanilla() (Code-rrhh-kioskos-backend.gs)
 // para dar feedback instantáneo en los Pasos 2-3 sin ida y vuelta al
@@ -1024,7 +1074,7 @@ function renderPaso2() {
         <p class="card-title" style="margin:0">Ingresos — horas de la quincena</p>
         <button class="btn-secondary" onclick="refrescarVacaciones(event.target)" title="Vuelve a traer las solicitudes de vacaciones, feriados, amonestaciones y horas extra más recientes y recalcula el preview">🔄 Refrescar cálculo</button>
       </div>
-      <p class="hint" style="display:block;margin:6px 0 10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. "Extra 50%/100%" y "Tardanza" se calculan solas (Horas extra aprobadas y Amonestaciones de Llegada tardía) — para cambiar horas extra, reportalas/aprobalas en <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a>. Usá "Detalle" para feriados, incapacidades, vacaciones y subsidio.</p>
+      <p class="hint" style="display:block;margin:6px 0 10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. "Extra 50%/100%" y "Tardanza" se calculan solas (Horas extra aprobadas y Amonestaciones de Llegada tardía) — para reportar o aprobar horas extra usá <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a>; si son al 50% o al 100% se define acá, en el "Detalle" de cada colaborador. Usá "Detalle" también para feriados, incapacidades, vacaciones y subsidio.</p>
       <table class="tabla-wizard">
         <thead><tr><th>Colaborador</th><th>Horas reg.</th><th>Extra 50%</th><th>Extra 100%</th><th>Días no trab.</th><th>Tardanza</th><th></th></tr></thead>
         <tbody>${filas}</tbody>
@@ -1123,14 +1173,28 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
     .sort((a,b) => String(a['Fecha']||'').localeCompare(String(b['Fecha']||'')));
   return subcardColapsable(scId(2,i,'comentarios'), 'Comentario horas regulares', `
       <div class="field"><label>Comentario horas regulares</label><input type="text" value="${p.comentarioHorasRegulares}" oninput="actualizarCampoSilencioso(${i},'comentarioHorasRegulares',this.value)"></div>
-  `) + subcardColapsable(scId(2,i,'extra'), `Horas extra${prev.extra50Horas+prev.extra100Horas>0?` (${prev.extra50Horas+prev.extra100Horas}h aprobadas)`:''}`, `
+  `) + subcardColapsable(scId(2,i,'extra'), `Horas extra${prev.extra50Horas+prev.extra100Horas>0?` (${prev.extra50Horas+prev.extra100Horas}h aprobadas${prev.pendientesTipo>0?`, ${prev.pendientesTipo}h sin definir tipo`:''})`:''}`, `
       ${solicitudesExtraColaborador.length ? `
         <table class="calc-tabla" style="margin-bottom:8px">
-          <thead><tr><th>Fecha</th><th style="text-align:right">50%</th><th style="text-align:right">100%</th><th>Justificación</th><th>Estado</th></tr></thead>
-          <tbody>${solicitudesExtraColaborador.map(h => `<tr><td>${fechaBonita(h['Fecha'])}</td><td class="monto">${Number(h['Horas extra 50%'])||0}</td><td class="monto">${Number(h['Horas extra 100%'])||0}</td><td class="hint">${h['Justificación']||'—'}</td><td class="hint" style="${String(h['Estado']).toLowerCase()==='aprobada'?'color:var(--green)':String(h['Estado']).toLowerCase()==='rechazada'?'color:var(--red)':''}">${h['Estado']||'Pendiente'}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Fecha</th><th style="text-align:right">Horas</th><th>Tipo</th><th>Justificación</th><th>Estado</th></tr></thead>
+          <tbody>${solicitudesExtraColaborador.map(h => {
+            const esLegacy = !(Number(h['Horas'])>0);
+            const horas = esLegacy ? ((Number(h['Horas extra 50%'])||0) + (Number(h['Horas extra 100%'])||0)) : Number(h['Horas'])||0;
+            const aprobada = String(h['Estado']||'').toLowerCase()==='aprobada';
+            const tipoActual = String(h['Tipo pago']||'').trim();
+            const tipoCelda = esLegacy
+              ? `<span class="hint">${Number(h['Horas extra 50%'])||0}h 50% / ${Number(h['Horas extra 100%'])||0}h 100%</span>`
+              : aprobada
+                ? `<select onchange="definirTipoHorasExtra('${h['ID']}', this.value)" style="font-size:12px;padding:2px 6px">
+                     <option value="50%" ${tipoActual!=='100%'?'selected':''}>50%</option>
+                     <option value="100%" ${tipoActual==='100%'?'selected':''}>100%</option>
+                   </select>${!tipoActual?' <span class="hint" style="color:var(--red)">confirmar</span>':''}`
+                : '<span class="hint">—</span>';
+            return `<tr><td>${fechaBonita(h['Fecha'])}</td><td class="monto">${horas}h</td><td>${tipoCelda}</td><td class="hint">${h['Justificación']||'—'}</td><td class="hint" style="${aprobada?'color:var(--green)':String(h['Estado']).toLowerCase()==='rechazada'?'color:var(--red)':''}">${h['Estado']||'Pendiente'}</td></tr>`;
+          }).join('')}</tbody>
         </table>
       ` : '<p class="hint" style="display:block">Sin solicitudes de horas extra registradas para este colaborador en esta quincena.</p>'}
-      <p class="hint" style="display:block;margin-top:6px">Solo lo <b>Aprobado</b> se paga en esta planilla. Para reportar o aprobar horas extra, usá <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a> y volvé a "🔄 Refrescar cálculo".</p>
+      <p class="hint" style="display:block;margin-top:6px">Solo lo <b>Aprobado</b> se paga en esta planilla. Elegí si cada solicitud se paga al 50% (recargo ordinario) o al 100% (feriado/descanso trabajado) — sin elegir queda en 50% por defecto. Para reportar o aprobar horas extra, usá <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a> y volvé a "🔄 Refrescar cálculo".</p>
   `) + subcardColapsable(scId(2,i,'feriados'), 'Feriados de esta quincena', `
       ${feriadosDelPeriodo.length ? feriadosDelPeriodo.map(f => `
         <div class="check-row">

@@ -127,7 +127,7 @@
 <main>
   <div class="page-header">
     <h1>Horas extra</h1>
-    <p>Reportá horas extra por fecha puntual con su justificación. Solo las solicitudes <b>Aprobadas</b> se toman en cuenta al calcular la planilla de la quincena en que cae la fecha.</p>
+    <p>Reportá horas extra por fecha puntual con su justificación. El tipo de pago (50% u 100%) se define después, al calcular la planilla. Solo las solicitudes <b>Aprobadas</b> se toman en cuenta al calcular la planilla de la quincena en que cae la fecha.</p>
   </div>
 
   <div class="tabs">
@@ -159,17 +159,12 @@
 
     <div class="card">
       <p class="card-title">Horas extra</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="extra-50">Horas extra 50%</label>
-          <input type="number" id="extra-50" min="0" step="0.5" placeholder="0" oninput="limpiarErrorHoras()">
-        </div>
-        <div class="field">
-          <label for="extra-100">Horas extra 100%</label>
-          <input type="number" id="extra-100" min="0" step="0.5" placeholder="0" oninput="limpiarErrorHoras()">
-        </div>
+      <div class="field">
+        <label for="horas-extra">Horas extra <span class="req">*</span></label>
+        <input type="number" id="horas-extra" min="0" step="0.5" placeholder="0" oninput="limpiarErrorHoras()">
+        <p class="field-hint">El tipo de pago (50% recargo ordinario u 100% feriado/descanso) se define al calcular la planilla de la quincena, no acá.</p>
       </div>
-      <p class="field-hint" id="horas-error" style="display:none;color:var(--red);">Ingresá al menos una hora extra (50% o 100%).</p>
+      <p class="field-hint" id="horas-error" style="display:none;color:var(--red);">Ingresá la cantidad de horas extra trabajadas.</p>
       <div class="field" style="margin-top:1rem;">
         <label for="justificacion">Justificación <span class="req">*</span></label>
         <textarea id="justificacion" placeholder="Explicá el motivo de la hora extra (ej. cobertura de turno, evento, cierre de temporada)…"></textarea>
@@ -310,18 +305,25 @@ async function fetchSolicitudesServidor() {
     const resp = await fetch(APPS_SCRIPT_URL + '?modulo=horas_extra');
     const data = await resp.json();
     if (!data.ok || !Array.isArray(data.registros)) return [];
-    return data.registros.map(r => ({
-      id: r['ID'],
-      colaborador: r['Colaborador'] || '',
-      kiosko: r['Kiosko'] || '',
-      fecha: r['Fecha'] || '',
-      extra_50: Number(r['Horas extra 50%']) || 0,
-      extra_100: Number(r['Horas extra 100%']) || 0,
-      justificacion: r['Justificación'] || '',
-      estado: r['Estado'] || 'Pendiente',
-      aprobado_por: r['Aprobado por'] || '',
-      registrado: r['Registrado'] || ''
-    }));
+    return data.registros.map(r => {
+      // 'Horas' es el campo nuevo (fusión 2026-08-08). Filas anteriores a la
+      // fusión quedaron con las columnas legacy 'Horas extra 50%'/'Horas
+      // extra 100%' — se suman acá solo para mostrar el total en la lista.
+      const horasNuevas = Number(r['Horas']) || 0;
+      const horasLegacy = (Number(r['Horas extra 50%']) || 0) + (Number(r['Horas extra 100%']) || 0);
+      return {
+        id: r['ID'],
+        colaborador: r['Colaborador'] || '',
+        kiosko: r['Kiosko'] || '',
+        fecha: r['Fecha'] || '',
+        horas: horasNuevas > 0 ? horasNuevas : horasLegacy,
+        tipo: r['Tipo pago'] || '',
+        justificacion: r['Justificación'] || '',
+        estado: r['Estado'] || 'Pendiente',
+        aprobado_por: r['Aprobado por'] || '',
+        registrado: r['Registrado'] || ''
+      };
+    });
   } catch (err) {
     console.error('Error cargando solicitudes del servidor:', err);
     return [];
@@ -350,7 +352,7 @@ async function cargarSolicitudes() {
 function pintarResumen() {
   const pendientes = SOLICITUDES_CACHE.filter(s => s.estado === 'Pendiente').length;
   const aprobadas = SOLICITUDES_CACHE.filter(s => s.estado === 'Aprobada');
-  const horas = aprobadas.reduce((acc,s) => acc + (s.extra_50||0) + (s.extra_100||0), 0);
+  const horas = aprobadas.reduce((acc,s) => acc + (s.horas||0), 0);
   document.getElementById('resumen-pendientes').textContent = pendientes;
   document.getElementById('resumen-aprobadas').textContent = `${horas}h`;
 }
@@ -374,13 +376,16 @@ function pintarSolicitudes() {
 
   const filas = lista.map((s,i) => {
     const idxReal = SOLICITUDES_CACHE.indexOf(s);
+    const tipoCelda = s.estado !== 'Aprobada' ? '—'
+      : s.tipo ? `<span class="badge" style="background:var(--blue-bg);color:var(--blue)">${s.tipo}</span>`
+      : '<span style="font-size:11px;color:var(--muted);">Por definir en planilla</span>';
     return `
     <tr>
       <td style="font-weight:500">${s.colaborador}</td>
       <td>${s.kiosko||'—'}</td>
       <td>${s.fecha}</td>
-      <td>${s.extra_50>0?`${s.extra_50}h`:'—'}</td>
-      <td>${s.extra_100>0?`${s.extra_100}h`:'—'}</td>
+      <td>${s.horas>0?`${s.horas}h`:'—'}</td>
+      <td>${tipoCelda}</td>
       <td class="justificacion-celda">${s.justificacion||'—'}</td>
       <td><span class="badge ${badgeClase(s.estado)}">${s.estado}</span>${s.aprobado_por?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">por ${s.aprobado_por}</div>`:''}</td>
       <td>
@@ -395,7 +400,7 @@ function pintarSolicitudes() {
   }).join('');
 
   cont.innerHTML = `<table>
-    <thead><tr><th>Colaborador</th><th>Kiosko</th><th>Fecha</th><th>50%</th><th>100%</th><th>Justificación</th><th>Estado</th><th>Acción</th></tr></thead>
+    <thead><tr><th>Colaborador</th><th>Kiosko</th><th>Fecha</th><th>Horas</th><th>Tipo</th><th>Justificación</th><th>Estado</th><th>Acción</th></tr></thead>
     <tbody>${filas}</tbody>
   </table>`;
 }
@@ -428,16 +433,15 @@ async function enviarSolicitud() {
   const opt = sel.options[sel.selectedIndex];
   const kiosko = opt ? (opt.dataset.kiosko || '') : '';
   const fecha = document.getElementById('fecha').value;
-  const extra50 = parseFloat(document.getElementById('extra-50').value) || 0;
-  const extra100 = parseFloat(document.getElementById('extra-100').value) || 0;
+  const horas = parseFloat(document.getElementById('horas-extra').value) || 0;
   const justificacion = document.getElementById('justificacion').value.trim();
 
   if (!colaborador) { showToast('Seleccioná un colaborador.','error'); return; }
   if (!kiosko) { showToast('El colaborador seleccionado no tiene kiosko asignado en Personal.','error'); return; }
   if (!fecha) { showToast('Seleccioná la fecha trabajada.','error'); return; }
-  if (extra50 <= 0 && extra100 <= 0) {
+  if (horas <= 0) {
     document.getElementById('horas-error').style.display = 'block';
-    showToast('Ingresá al menos una hora extra (50% o 100%).','error');
+    showToast('Ingresá la cantidad de horas extra trabajadas.','error');
     return;
   }
   if (!justificacion) { showToast('Escribí la justificación de las horas extra.','error'); return; }
@@ -445,7 +449,7 @@ async function enviarSolicitud() {
   const registro = {
     modulo:'horas_extra_guardar', id: Date.now(),
     colaborador, kiosko, fecha,
-    extra_50: extra50, extra_100: extra100,
+    horas: horas,
     justificacion, estado:'Pendiente',
     registrado: new Date().toISOString()
   };
@@ -474,8 +478,7 @@ async function enviarSolicitud() {
 function limpiarForm() {
   document.getElementById('colaborador').value = '';
   document.getElementById('fecha').value = hoy.toISOString().slice(0,10);
-  document.getElementById('extra-50').value = '';
-  document.getElementById('extra-100').value = '';
+  document.getElementById('horas-extra').value = '';
   document.getElementById('justificacion').value = '';
   document.getElementById('horas-error').style.display = 'none';
 }

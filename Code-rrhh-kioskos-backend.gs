@@ -193,10 +193,21 @@ const ENCABEZADOS_INCIDENCIAS = [
 // fila está en 'Pendiente' (o si queda 'Rechazada') NO cuenta para el pago —
 // por eso el wizard de Planilla (Paso 2) ya no deja editar horas extra a
 // mano, solo muestra lo aprobado (rrhh-horas-extra.html es donde se corrige).
+//
+// Fusión 2026-08-08: rrhh-horas-extra.html ya no pide por separado "Horas
+// extra 50%" y "Horas extra 100%" al reportar — un solo campo 'Horas'. El
+// tipo de pago se define después, al calcular la planilla (planilla.html,
+// Paso 2 → detalle de "Horas extra" de cada colaborador), y queda en 'Tipo
+// pago' ('50%' o '100%') — vacío se trata como '50%' por defecto (ver
+// sumarHorasExtraAprobadas() y cambiarTipoHorasExtra()). Filas registradas
+// ANTES de esta fusión quedan con las columnas legacy 'Horas extra
+// 50%'/'Horas extra 100%' (ya no se escriben, pero sumarHorasExtraAprobadas
+// las sigue leyendo como respaldo para no perder ese historial).
 const ENCABEZADOS_HORAS_EXTRA = [
   'ID', 'Fecha', 'Colaborador', 'Kiosko',
-  'Horas extra 50%', 'Horas extra 100%', 'Justificación',
-  'Estado', 'Aprobado por', 'Registrado', 'Actualizado'
+  'Horas', 'Justificación',
+  'Estado', 'Aprobado por', 'Registrado', 'Actualizado',
+  'Tipo pago'
 ];
 
 // Cabecera de cada corrida de planilla guardada (una por Periodo + Kiosko).
@@ -866,6 +877,7 @@ function doPost(e) {
       case 'incidencias_guardar_lote': result = guardarIncidenciasLote(payload); break;
       case 'horas_extra_guardar':   result = guardarSolicitudHorasExtra(payload); break;
       case 'horas_extra_estado':    result = cambiarEstadoHorasExtra(payload); break;
+      case 'horas_extra_tipo':      result = cambiarTipoHorasExtra(payload); break;
       case 'planilla_guardar':      result = guardarPlanilla(payload); break;
       case 'planilla_abrir_periodo': result = abrirPeriodoPlanilla(payload); break;
       case 'planilla_enviar_revision':
@@ -1219,9 +1231,8 @@ function guardarSolicitudHorasExtra(p) {
   if (!p.colaborador) throw new Error('Falta el colaborador.');
   if (!p.fecha) throw new Error('Falta la fecha.');
   if (!p.kiosko) throw new Error('Falta el kiosko.');
-  const h50 = Number(p.extra_50) || 0;
-  const h100 = Number(p.extra_100) || 0;
-  if (h50 <= 0 && h100 <= 0) throw new Error('Ingresá al menos una hora extra (50% o 100%).');
+  const horas = Number(p.horas) || 0;
+  if (horas <= 0) throw new Error('Ingresá la cantidad de horas extra.');
   if (!p.justificacion || !String(p.justificacion).trim()) throw new Error('Falta la justificación de las horas extra.');
 
   const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
@@ -1231,13 +1242,13 @@ function guardarSolicitudHorasExtra(p) {
     'Fecha': p.fecha,
     'Colaborador': p.colaborador,
     'Kiosko': p.kiosko,
-    'Horas extra 50%': h50,
-    'Horas extra 100%': h100,
+    'Horas': horas,
     'Justificación': String(p.justificacion).trim(),
     'Estado': 'Pendiente',
     'Aprobado por': '',
     'Registrado': ahora,
-    'Actualizado': ahora
+    'Actualizado': ahora,
+    'Tipo pago': ''
   });
   return { fila: fila };
 }
@@ -1259,13 +1270,40 @@ function cambiarEstadoHorasExtra(p) {
   return { fila: fila };
 }
 
+// Define (o cambia) si una solicitud se paga con recargo del 50% (ordinario)
+// o del 100% (feriado/descanso trabajado) — la decisión que antes se pedía
+// al reportar (dos campos separados) y desde la fusión 2026-08-08 se toma
+// acá, al calcular la planilla (planilla.html, Paso 2, detalle de "Horas
+// extra" de cada colaborador). No valida que la solicitud esté 'Aprobada':
+// se puede dejar definido de antemano sin que eso la apruebe.
+function cambiarTipoHorasExtra(p) {
+  if (!p.id) throw new Error('Falta el ID de la solicitud.');
+  if (p.tipo !== '50%' && p.tipo !== '100%') throw new Error('Tipo de pago inválido: ' + p.tipo);
+  const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_HORAS_EXTRA, 'ID', p.id);
+  if (fila === -1) throw new Error('No se encontró la solicitud ' + p.id);
+  const colTipo = colPorEncabezado(hoja, 'Tipo pago');
+  const colActualizado = colPorEncabezado(hoja, 'Actualizado');
+  hoja.getRange(fila, colTipo).setValue(p.tipo);
+  if (colActualizado) hoja.getRange(fila, colActualizado).setValue(new Date().toISOString());
+  return { fila: fila };
+}
+
 // Suma las horas extra 'Aprobada' de un colaborador cuya Fecha cae dentro de
 // [fechaInicio, fechaFin] (la quincena de planilla) — única fuente de horas
 // extra para el pago desde 2026-08-01 (ver calcularPlanilla()). Las
 // 'Pendiente'/'Rechazada' NO suman. Devuelve también fechas/justificaciones
 // para mostrar de dónde salió el monto (Paso 2 de planilla.html).
+//
+// Desde la fusión 2026-08-08 cada fila trae un solo total en 'Horas' + un
+// 'Tipo pago' ('50%'/'100%', definido en planilla.html) que decide en cuál
+// de los dos baldes (horas50/horas100) cae — sin tipo definido se asume
+// '50%' para no bloquear el cálculo, pero esas horas quedan contadas también
+// en 'pendientesTipo' para que la pantalla pueda avisar que falta revisarlas.
+// Filas de ANTES de la fusión no tienen 'Horas' (quedó vacío) y siguen
+// leyéndose de las columnas legacy 'Horas extra 50%'/'Horas extra 100%'.
 function sumarHorasExtraAprobadas(colaborador, fechaInicio, fechaFin) {
-  const resultado = { horas50: 0, horas100: 0, fechas: [], justificaciones: [] };
+  const resultado = { horas50: 0, horas100: 0, fechas: [], justificaciones: [], pendientesTipo: 0 };
   if (!colaborador || !fechaInicio || !fechaFin) return resultado;
   const hoja = prepararHoja(HOJA_HORAS_EXTRA, ENCABEZADOS_HORAS_EXTRA);
   const buscado = String(colaborador).trim().toLowerCase();
@@ -1274,11 +1312,23 @@ function sumarHorasExtraAprobadas(colaborador, fechaInicio, fechaFin) {
     if (String(row['Estado'] || '').trim().toLowerCase() !== 'aprobada') return;
     const fecha = valorComoTexto(row['Fecha'] || '');
     if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
-    const h50 = Number(row['Horas extra 50%']) || 0;
-    const h100 = Number(row['Horas extra 100%']) || 0;
-    if (h50 <= 0 && h100 <= 0) return;
-    resultado.horas50 += h50;
-    resultado.horas100 += h100;
+
+    const horas = Number(row['Horas']) || 0;
+    if (horas > 0) {
+      const tipo = String(row['Tipo pago'] || '').trim();
+      if (tipo === '100%') {
+        resultado.horas100 += horas;
+      } else {
+        resultado.horas50 += horas;
+        if (tipo !== '50%') resultado.pendientesTipo += horas;
+      }
+    } else {
+      const h50 = Number(row['Horas extra 50%']) || 0;
+      const h100 = Number(row['Horas extra 100%']) || 0;
+      if (h50 <= 0 && h100 <= 0) return;
+      resultado.horas50 += h50;
+      resultado.horas100 += h100;
+    }
     resultado.fechas.push(fecha);
     if (row['Justificación']) resultado.justificaciones.push(fecha + ': ' + row['Justificación']);
   });
