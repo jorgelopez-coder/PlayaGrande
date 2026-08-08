@@ -86,6 +86,32 @@
  * se usen, igual que 'Reembolsado a'). No hace falta correr configurarHojas()
  * de nuevo — solo pegar el código completo e Implementar > Gestionar
  * implementaciones > Nueva versión.
+ *
+ * v8 (2026-08-08): consolidación de nombres de proveedor. El texto de
+ * "Proveedor" sale tal cual de la extracción por IA de cada factura, así que
+ * el mismo proveedor real puede quedar escrito de formas distintas (con/sin
+ * guion, "S.A." vs "SA", etc.) y termina contando como proveedores separados
+ * en Análisis de Compras y Cuentas por Pagar. proveedores.html (pestaña
+ * "Consolidar nombres") detecta esas variantes y, al confirmar una fusión,
+ * llama a la acción nueva `fusionar_proveedor({ variantes, nombreEstandar })`
+ * de este backend, que:
+ *   1. reescribe la columna "Proveedor" en "Registro Facturas" y
+ *      "Desglose_IA" donde el texto coincide (exacto, sin mayúsculas/
+ *      espacios de más) con alguna de las variantes confirmadas;
+ *   2. hace lo mismo en "Maestro_Productos" y ADEMÁS recalcula "Clave" de
+ *      esas filas (Proveedor+Producto normalizados) para que
+ *      maestro_sincronizar() las siga reconociendo como la misma fila y no
+ *      pierda el "Nombre Estándar"/"Estado" ya confirmados a mano; si dos
+ *      filas distintas quedan con la misma Clave nueva (mismo producto
+ *      comprado bajo dos variantes del proveedor), se fusionan en una sola
+ *      (se prioriza la que ya tenía Nombre Estándar confirmado, sumando
+ *      "Veces visto").
+ * El alias en sí (qué variantes pertenecen a qué proveedor) se guarda en la
+ * ficha del proveedor en el OTRO backend/Sheet (Code-inventario-kioskos-v3-
+ * backend.gs, columna "Alias") — proveedores.html llama a los dos backends
+ * al confirmar. No hace falta correr configurarHojas() de nuevo acá — solo
+ * pegar el código completo e Implementar > Gestionar implementaciones >
+ * Nueva versión.
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -413,6 +439,9 @@ function doPost(e) {
         break;
       case 'config_subfamilia_eliminar':
         result = configSubfamiliaEliminar(payload);
+        break;
+      case 'fusionar_proveedor':
+        result = fusionarProveedor(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
@@ -813,6 +842,148 @@ function aceptarDuplicado(p) {
 // Si esta hoja "proveedores" ya tenía filas cargadas antes de este cambio,
 // hay que copiarlas a mano a la pestaña "Proveedores" del otro Sheet antes de
 // borrarla — este backend ya no las lee ni las escribe.
+
+// ── CONSOLIDACIÓN DE NOMBRES DE PROVEEDOR (2026-08-08) ─────────────
+// El texto de "Proveedor" sale tal cual de la IA que lee cada factura, sin
+// pasar por ninguna normalización — por eso el mismo proveedor real puede
+// quedar escrito de formas ligeramente distintas entre una factura y otra
+// (con/sin guion, "S.A." vs "SA", espacios de más). fusionarProveedor()
+// reescribe el texto YA GUARDADO para que todas esas variantes queden con
+// el mismo "nombre estándar" en Registro Facturas, Desglose_IA y
+// Maestro_Productos (así Análisis de Compras/Cuentas por Pagar los
+// consolidan como un solo proveedor). Solo toca filas cuyo texto coincide
+// EXACTO (ignorando mayúsculas y espacios de más) con alguna de las
+// variantes que el usuario confirmó en proveedores.html — nunca fusiona por
+// parecido automático sin confirmación.
+function fusionarProveedor(p) {
+  const nombreEstandar = String(p.nombreEstandar || '').trim();
+  if (!nombreEstandar) throw new Error('Falta el nombre estándar del proveedor.');
+
+  const variantesCrudas = Array.isArray(p.variantes) ? p.variantes : [];
+  const clavesVariantes = {};
+  variantesCrudas.concat([nombreEstandar]).forEach(function(v) {
+    const s = String(v || '').trim();
+    if (s) clavesVariantes[s.toLowerCase()] = true;
+  });
+  if (!Object.keys(clavesVariantes).length) {
+    throw new Error('No se indicaron variantes a fusionar.');
+  }
+
+  const filasFacturas = reescribirColumnaProveedor_(getHoja(), COL.PROVEEDOR, clavesVariantes, nombreEstandar);
+  const filasDesglose = reescribirColumnaProveedor_(getHojaDesglose(), DESGLOSE_COL.PROVEEDOR, clavesVariantes, nombreEstandar);
+  const resultadoMaestro = fusionarProveedorEnMaestro_(clavesVariantes, nombreEstandar);
+
+  return {
+    nombreEstandar: nombreEstandar,
+    filasFacturas: filasFacturas,
+    filasDesglose: filasDesglose,
+    filasMaestro: resultadoMaestro.filasRenombradas,
+    filasMaestroFusionadas: resultadoMaestro.filasFusionadas
+  };
+}
+
+// Reescribe in place el valor de una columna en todas las filas cuyo texto
+// (recortado, sin importar mayúsculas) está en `clavesVariantes`. Devuelve
+// cuántas filas cambió.
+function reescribirColumnaProveedor_(hoja, colIdx, clavesVariantes, nombreEstandar) {
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return 0;
+  const rango = hoja.getRange(2, colIdx, nFilas, 1);
+  const valores = rango.getValues();
+  let cambios = 0;
+  for (let i = 0; i < valores.length; i++) {
+    const actual = String(valores[i][0] || '').trim();
+    if (!actual || actual === nombreEstandar) continue;
+    if (clavesVariantes[actual.toLowerCase()]) {
+      valores[i][0] = nombreEstandar;
+      cambios++;
+    }
+  }
+  if (cambios) rango.setValues(valores);
+  return cambios;
+}
+
+// Maestro_Productos necesita algo más que renombrar: "Clave" se calcula a
+// partir de Proveedor+Producto (ver claveMaestro_ más abajo), así que al
+// renombrar el Proveedor de una fila hay que recalcular su Clave también —
+// si no, el próximo maestro_sincronizar() no la reconoce como la misma fila
+// y crea una fila nueva "pendiente", perdiendo el Nombre Estándar/Estado que
+// el usuario ya había confirmado a mano para ese producto. Si, al renombrar,
+// dos filas distintas (mismo producto, comprado bajo dos variantes del
+// proveedor) terminan con la misma Clave nueva, se fusionan en una sola.
+function fusionarProveedorEnMaestro_(clavesVariantes, nombreEstandar) {
+  const hoja = getHojaMaestro();
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) return { filasRenombradas: 0, filasFusionadas: 0 };
+
+  const ultimaCol = hoja.getLastColumn();
+  const rango = hoja.getRange(2, 1, nFilas, ultimaCol);
+  const filas = rango.getValues();
+
+  let filasRenombradas = 0;
+  filas.forEach(function(fila) {
+    const proveedorActual = String(fila[MAESTRO_COL.PROVEEDOR - 1] || '').trim();
+    if (proveedorActual && proveedorActual !== nombreEstandar && clavesVariantes[proveedorActual.toLowerCase()]) {
+      fila[MAESTRO_COL.PROVEEDOR - 1] = nombreEstandar;
+      fila[MAESTRO_COL.CLAVE - 1] = claveMaestro_(nombreEstandar, fila[MAESTRO_COL.NOMBRE_FACTURA - 1]);
+      filasRenombradas++;
+    }
+  });
+
+  // Detectar colisiones de Clave (varias filas cayeron en la misma Clave
+  // tras el renombre) y fusionarlas en una sola fila.
+  const porClave = {};
+  filas.forEach(function(fila, i) {
+    const clave = fila[MAESTRO_COL.CLAVE - 1];
+    if (!clave) return;
+    (porClave[clave] = porClave[clave] || []).push(i);
+  });
+
+  const filasAEliminar = [];
+  let filasFusionadas = 0;
+  Object.keys(porClave).forEach(function(clave) {
+    const idxs = porClave[clave];
+    if (idxs.length < 2) return;
+    // Preferí la fila que ya tiene Nombre Estándar confirmado; si hay
+    // varias o ninguna, la que tenga más "Veces visto".
+    idxs.sort(function(a, b) {
+      const confA = filas[a][MAESTRO_COL.NOMBRE_ESTANDAR - 1] ? 1 : 0;
+      const confB = filas[b][MAESTRO_COL.NOMBRE_ESTANDAR - 1] ? 1 : 0;
+      if (confA !== confB) return confB - confA;
+      return (Number(filas[b][MAESTRO_COL.VECES_VISTO - 1]) || 0) - (Number(filas[a][MAESTRO_COL.VECES_VISTO - 1]) || 0);
+    });
+    const principal = idxs[0];
+    let vecesTotal = Number(filas[principal][MAESTRO_COL.VECES_VISTO - 1]) || 0;
+    const fechas = [filas[principal][MAESTRO_COL.PRIMERA_VEZ - 1], filas[principal][MAESTRO_COL.ULTIMA_VEZ - 1]];
+    for (let k = 1; k < idxs.length; k++) {
+      const i = idxs[k];
+      vecesTotal += Number(filas[i][MAESTRO_COL.VECES_VISTO - 1]) || 0;
+      if (filas[i][MAESTRO_COL.PRIMERA_VEZ - 1]) fechas.push(filas[i][MAESTRO_COL.PRIMERA_VEZ - 1]);
+      if (filas[i][MAESTRO_COL.ULTIMA_VEZ - 1]) fechas.push(filas[i][MAESTRO_COL.ULTIMA_VEZ - 1]);
+      filasAEliminar.push(i);
+      filasFusionadas++;
+    }
+    filas[principal][MAESTRO_COL.VECES_VISTO - 1] = vecesTotal;
+    const fechasValidas = fechas.filter(function(f) { return f; }).map(function(f) { return f instanceof Date ? f : new Date(f); }).filter(function(f) { return !isNaN(f.getTime()); });
+    if (fechasValidas.length) {
+      fechasValidas.sort(function(a, b) { return a - b; });
+      filas[principal][MAESTRO_COL.PRIMERA_VEZ - 1] = fechasValidas[0];
+      filas[principal][MAESTRO_COL.ULTIMA_VEZ - 1] = fechasValidas[fechasValidas.length - 1];
+    }
+  });
+
+  if (filasRenombradas || filasFusionadas) {
+    rango.setValues(filas);
+  }
+  if (filasAEliminar.length) {
+    // Borrar de abajo hacia arriba para no correr los índices de fila.
+    filasAEliminar.sort(function(a, b) { return b - a; }).forEach(function(i) {
+      hoja.deleteRow(i + 2);
+    });
+  }
+
+  return { filasRenombradas: filasRenombradas, filasFusionadas: filasFusionadas };
+}
 
 // ── MAESTRO DE PRODUCTOS (homologación de nombres de factura) ─────
 // Agrupa las líneas de Desglose_IA por Proveedor + texto de producto (clave

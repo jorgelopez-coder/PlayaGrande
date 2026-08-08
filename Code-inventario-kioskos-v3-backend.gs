@@ -29,6 +29,20 @@
  *    (Lector), para que esas páginas puedan leer HISTORIAL_inventario,
  *    Minimos y Proveedores vía la API pública de gviz sin necesitar
  *    autenticación.
+ *
+ * v-next (2026-08-08): consolidación de nombres de proveedor — pestaña
+ * "Proveedores" gana una columna dinámica "Alias" (otras formas en que ese
+ * mismo proveedor aparece escrito en las facturas, ej. con/sin guion,
+ * "S.A." vs "SA"). guardarProveedor() ahora acepta un campo opcional
+ * `alias` (arreglo o string separado por "|"). La columna se crea sola la
+ * primera vez que se guarda un alias (mismo mecanismo columnaPorNombre()
+ * que ya usa Maestro_Productos en el otro backend) — no hace falta correr
+ * configurarHojas() de nuevo, solo pegar el código completo e Implementar >
+ * Gestionar implementaciones > Nueva versión. La reescritura retroactiva
+ * del texto ya guardado en Registro Facturas/Desglose_IA/Maestro_Productos
+ * vive en Code-cuentas-por-pagar-kioskos-backend.gs (acción
+ * `fusionar_proveedor`) — proveedores.html llama a los dos backends al
+ * confirmar una fusión desde la pestaña "Consolidar nombres".
  */
 
 const HOJA_HISTORIAL   = 'HISTORIAL_inventario';
@@ -79,6 +93,23 @@ const PROV_COL = {
   TELEFONO: 6, CORREO: 7, DIAS_PEDIDO: 8, NOTAS_CONTACTO: 9, CUENTA: 10,
   CONDICION_PAGO: 11, NOTAS_PAGO: 12, ACTUALIZADO: 13
 };
+
+// Busca una columna por nombre de encabezado; si no existe, la crea al
+// final (mismo mecanismo que columnaPorNombre() en
+// Code-cuentas-por-pagar-kioskos-backend.gs) — así la columna "Alias"
+// (2026-08-08, ver consolidación de nombres de proveedor) se agrega sola la
+// primera vez que se usa, sin tener que editar el Sheet a mano ni correr
+// riesgo de desalinear columnas ya existentes.
+function columnaPorNombre(hoja, nombre) {
+  const ultimaCol = Math.max(hoja.getLastColumn(), PROV_ENCABEZADOS.length);
+  const encabezados = hoja.getRange(1, 1, 1, ultimaCol).getValues()[0];
+  let idx = encabezados.indexOf(nombre) + 1;
+  if (idx === 0) {
+    idx = ultimaCol + 1;
+    hoja.getRange(1, idx).setValue(nombre);
+  }
+  return idx;
+}
 
 // Corré esta función UNA VEZ desde el editor de Apps Script para preparar el Sheet.
 function configurarHojas() {
@@ -281,6 +312,18 @@ function guardarProveedor(p) {
   hoja.getRange(fila, PROV_COL.CONDICION_PAGO).setValue(p.condicion_pago || '0');
   hoja.getRange(fila, PROV_COL.NOTAS_PAGO).setValue(p.notas_pago || '');
   hoja.getRange(fila, PROV_COL.ACTUALIZADO).setValue(new Date().toISOString());
+
+  // Alias (2026-08-08) — otras formas en que este mismo proveedor aparece
+  // escrito en las facturas (ver "Consolidar nombres" en proveedores.html).
+  // Columna dinámica: se crea sola la primera vez que se guarda un alias,
+  // así no hace falta editar el Sheet a mano en instalaciones que ya
+  // estaban desplegadas antes de este cambio.
+  if (p.alias !== undefined) {
+    const colAlias = columnaPorNombre(hoja, 'Alias');
+    const alias = Array.isArray(p.alias) ? p.alias : String(p.alias || '').split('|');
+    const limpio = alias.map(function(a) { return String(a || '').trim(); }).filter(Boolean);
+    hoja.getRange(fila, colAlias).setValue([...new Set(limpio)].join(' | '));
+  }
 
   return { id: id, fila: fila, nuevo: esNuevo };
 }

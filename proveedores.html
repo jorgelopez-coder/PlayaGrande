@@ -77,6 +77,11 @@
     .btn-add-rapido { padding:7px 14px; border-radius:8px; border:1px solid var(--green-lt); background:var(--green-bg); color:var(--green); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
     .btn-add-rapido:hover { background:var(--green); color:#fff; }
 
+    .fusion-variantes { display:flex; flex-direction:column; gap:6px; }
+    .fusion-variante { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .fusion-variante input[type="checkbox"] { width:15px; height:15px; accent-color:var(--green); }
+    .fusion-destino-info { font-size:13px; background:var(--green-bg); color:var(--green); border-radius:8px; padding:8px 10px; }
+
     .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:50; align-items:flex-start; justify-content:center; padding:1.5rem 1rem; overflow-y:auto; }
     .modal-bg.open { display:flex; }
     .modal { background:var(--card); border-radius:16px; width:100%; max-width:560px; margin:auto; }
@@ -144,6 +149,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('lista',this)">Proveedores</button>
     <button class="tab" onclick="switchTab('por-agregar',this)">Por agregar <span class="filtro-badge" id="por-agregar-count" style="display:none;"></span></button>
+    <button class="tab" onclick="switchTab('consolidar',this)">Consolidar nombres <span class="filtro-badge" id="consolidar-count" style="display:none;"></span></button>
     <button class="tab" onclick="switchTab('nuevo',this)">+ Nuevo</button>
   </div>
 
@@ -176,6 +182,15 @@
       Proveedores que aparecen en el Maestro de Productos pero todavía no están en esta base de proveedores.
     </p>
     <div id="lista-por-agregar"></div>
+  </div>
+
+  <div id="tab-consolidar" style="display:none;">
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem;">
+      Nombres de proveedor que aparecen escritos de más de una forma en las facturas (guiones, may/min, "S.A." vs "SA", etc.).
+      Al fusionar, se reescribe el nombre ya guardado en Registro de Facturas, Desglose de facturas y Maestro de Productos —
+      y queda registrado como alias en la ficha del proveedor para que no se vuelva a separar.
+    </p>
+    <div id="lista-consolidar"></div>
   </div>
 
   <div class="status-bar">
@@ -225,6 +240,11 @@
             <option>Otro</option>
           </select>
         </div>
+      </div>
+      <div class="field">
+        <label for="p-alias">Otras formas en que aparece en facturas</label>
+        <input type="text" id="p-alias" placeholder="Separá cada variante con | · ej: HIELO CRISTAL - INVERSIONES... | HIELO CRISTAL INVERSIONES...">
+        <div class="field-hint">Se completa solo al fusionar desde "Consolidar nombres", pero podés ajustarlo a mano.</div>
       </div>
 
       <div class="section-label">Info de contacto</div>
@@ -316,12 +336,18 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // ── CONFIG ───────────────────────────────────────────────────────
 // ID del Sheet "Inventario - Kioskos" — mismo que usa inventario.html y
 // ordenes-compra.html, contiene la hoja "Proveedores".
-const INVENTARIO_SHEET_ID = 'TODO_SHEET_ID_INVENTARIO_KIOSKOS';
+const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 // URL /exec del Web App de Code-inventario-kioskos-v3-backend.gs:
-const APPS_SCRIPT_INVENTARIO = 'TODO_APPS_SCRIPT_INVENTARIO_KIOSKOS';
+const APPS_SCRIPT_INVENTARIO = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
 // Sheet "Cuentas por Pagar - Kioskos", hoja "Maestro_Productos" — se lee
-// solo para sugerir proveedores ya vistos en facturas ("Por agregar").
+// solo para sugerir proveedores ya vistos en facturas ("Por agregar" y
+// "Consolidar nombres"). El mismo Sheet también guarda "Registro Facturas"
+// y "Desglose_IA" — APPS_SCRIPT_AP es el Web App de ese backend
+// (Code-cuentas-por-pagar-kioskos-backend.gs), usado acá SOLO para la
+// acción `fusionar_proveedor` (reescritura retroactiva del nombre de
+// proveedor ya guardado). Mismos IDs/URL que usa cuentas-por-pagar.html.
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4gy_cHh0A9Seqi3Jgwwx1yzjdGdzbLrwdpyb_s0HtJp5HSinxbMX9Q/exec';
 
 // ── GVIZ: leer hojas públicas de un Sheet ─────────────────────────
 function gvizLoad(sheetId, hoja) {
@@ -329,7 +355,8 @@ function gvizLoad(sheetId, hoja) {
     var cb    = '_prov_' + Math.random().toString(36).slice(2,10);
     var url   = 'https://docs.google.com/spreadsheets/d/' + sheetId
               + '/gviz/tq?tqx=responseHandler:' + cb
-              + '&sheet=' + encodeURIComponent(hoja);
+              + '&sheet=' + encodeURIComponent(hoja)
+              + '&headers=1';
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
       clearTimeout(timer);
@@ -371,6 +398,20 @@ async function postInventario(payload) {
   return json.result;
 }
 
+// Backend de "Cuentas por Pagar - Kioskos" — solo para fusionar_proveedor.
+async function postAP(payload) {
+  if (!APPS_SCRIPT_AP || APPS_SCRIPT_AP.indexOf('TODO_') === 0) {
+    throw new Error('Falta configurar APPS_SCRIPT_AP en el código.');
+  }
+  const resp = await fetch(APPS_SCRIPT_AP, {
+    method: 'POST',
+    body: new URLSearchParams({ data: JSON.stringify(payload) })
+  });
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al fusionar');
+  return json.result;
+}
+
 // ── DATOS: hoja "Proveedores" + Maestro_Productos (solo para "Por agregar") ──
 let proveedoresCache = [];
 let maestroProveedores = []; // solo nombres de Proveedor vistos en el Maestro
@@ -391,9 +432,14 @@ function filaAProveedor(r) {
     cuenta:            r['Cuenta'] || '',
     condicion_pago:    r['Condición de pago'] || '0',
     notas_pago:        r['Notas de pago'] || '',
+    alias:             (r['Alias'] || '').split('|').map(s=>s.trim()).filter(Boolean),
     actualizado:       r['Actualizado'] || ''
   };
 }
+
+// Filas completas del Maestro (no solo nombres) — hacen falta para agrupar
+// candidatos a fusión con su "Veces visto" en "Consolidar nombres".
+let maestroRowsCache = [];
 
 async function cargarDatos() {
   document.getElementById('status-msg').textContent = 'Conectando con Google Sheets…';
@@ -402,10 +448,12 @@ async function cargarDatos() {
     gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos')
   ]);
   proveedoresCache = provRows.filter(r => r['ID']).map(filaAProveedor);
+  maestroRowsCache = maestroRows;
   maestroProveedores = [...new Set(maestroRows.map(r => (r['Proveedor']||'').trim()).filter(Boolean))];
   actualizarFiltros();
   renderLista();
   renderPorAgregar();
+  renderConsolidar();
   document.getElementById('status-msg').textContent = getProveedores().length + ' proveedores';
 }
 
@@ -500,7 +548,8 @@ async function guardar() {
     notas_contacto:    document.getElementById('p-notas-contacto').value.trim(),
     cuenta:            document.getElementById('p-cuenta').value.trim(),
     condicion_pago:    document.getElementById('p-condicion-pago').value,
-    notas_pago:        document.getElementById('p-notas-pago').value.trim()
+    notas_pago:        document.getElementById('p-notas-pago').value.trim(),
+    alias:             document.getElementById('p-alias').value.split('|').map(s=>s.trim()).filter(Boolean)
   };
 
   const btn = document.querySelector('#modal-prov .btn-save');
@@ -544,6 +593,7 @@ function abrirEditar(id) {
   document.getElementById('p-cuenta').value                = p.cuenta || '';
   document.getElementById('p-condicion-pago').value        = p.condicion_pago || '0';
   document.getElementById('p-notas-pago').value             = p.notas_pago || '';
+  document.getElementById('p-alias').value                 = (p.alias || []).join(' | ');
   document.getElementById('modal-prov').classList.add('open');
 }
 
@@ -551,7 +601,7 @@ function abrirNuevo() {
   document.getElementById('modal-titulo').textContent = 'Nuevo proveedor';
   document.getElementById('edit-id').value = '';
   ['p-nombre-juridico','p-nombre-comercial','p-contacto','p-telefono',
-   'p-correo','p-notas-contacto','p-cuenta','p-notas-pago'].forEach(id => {
+   'p-correo','p-notas-contacto','p-cuenta','p-notas-pago','p-alias'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('p-categoria').value = '';
@@ -595,11 +645,27 @@ function actualizarFiltros() {
 // ── PROVEEDORES POR AGREGAR (vistos en el Maestro, no en la base) ─
 function nombreNormalizado(s) { return (s||'').trim().toLowerCase(); }
 
+// Clave "compacta" para detectar variantes del mismo nombre (guiones,
+// puntuación, may/min, espacios de más) — ej. "Hielo Cristal - Inversiones
+// y Servicios S.A." y "Hielo Cristal Inversiones y Servicios S.A." dan la
+// misma clave. Usada SOLO para sugerir candidatos a fusionar; la fusión en
+// sí siempre queda sujeta a que el usuario la confirme.
+function claveFusion(s) {
+  return String(s || '')
+    .toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function variantesConocidas(p) {
+  return [p.nombre_juridico, p.nombre_comercial, ...(p.alias || [])].filter(Boolean);
+}
+
 function proveedorRegistrado(nombre) {
   const n = nombreNormalizado(nombre);
   if (!n) return true;
   return getProveedores().some(p =>
-    nombreNormalizado(p.nombre_juridico) === n || nombreNormalizado(p.nombre_comercial) === n
+    variantesConocidas(p).some(v => nombreNormalizado(v) === n)
   );
 }
 
@@ -608,6 +674,184 @@ function obtenerFaltantes() {
     .filter(n => !proveedorRegistrado(n))
     .sort()
     .map(n => ({ nombre: n }));
+}
+
+// ── CONSOLIDAR NOMBRES (variantes del mismo proveedor en las facturas) ──
+const IGNORADOS_KEY = 'proveedores_fusion_ignorados';
+function fusionIgnorados() {
+  try { return new Set(JSON.parse(localStorage.getItem(IGNORADOS_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function ignorarFusion(clave) {
+  const s = fusionIgnorados();
+  s.add(clave);
+  localStorage.setItem(IGNORADOS_KEY, JSON.stringify([...s]));
+  renderConsolidar();
+}
+
+// Agrupa los nombres de proveedor vistos en Maestro_Productos (con cuántas
+// veces se vio cada uno) por clave compacta, y arma un candidato a fusión
+// por cada grupo con más de una variante o que calza con un proveedor ya
+// registrado (con un nombre ligeramente distinto al que está en la ficha).
+function calcularCandidatosFusion() {
+  const veces = {}; // texto exacto -> veces visto (suma de Maestro_Productos)
+  maestroRowsCache.forEach(r => {
+    const prov = String(r['Proveedor'] || '').trim();
+    if (!prov) return;
+    veces[prov] = (veces[prov] || 0) + (Number(r['Veces visto']) || 1);
+  });
+
+  // Clave compacta -> proveedor ya registrado (nombre_juridico/comercial/alias)
+  const claveAProveedor = {};
+  getProveedores().forEach(p => {
+    variantesConocidas(p).forEach(v => { claveAProveedor[claveFusion(v)] = p; });
+  });
+
+  const grupos = {}; // clave -> { textos: [{texto,veces}], proveedor: p|null }
+  Object.keys(veces).forEach(texto => {
+    if (proveedorRegistrado(texto)) return; // ya es una variante conocida, nada que hacer
+    const clave = claveFusion(texto);
+    if (!clave) return;
+    if (!grupos[clave]) grupos[clave] = { clave, textos: [], proveedor: claveAProveedor[clave] || null };
+    grupos[clave].textos.push({ texto, veces: veces[texto] });
+  });
+
+  const ignorados = fusionIgnorados();
+  return Object.values(grupos)
+    .filter(g => !ignorados.has(g.clave))
+    .filter(g => g.proveedor || g.textos.length > 1) // calza con uno existente, o hay 2+ variantes entre sí
+    .map(g => { g.textos.sort((a, b) => b.veces - a.veces); return g; })
+    .sort((a, b) => (b.textos.reduce((s,t)=>s+t.veces,0)) - (a.textos.reduce((s,t)=>s+t.veces,0)));
+}
+
+function renderConsolidar() {
+  const candidatos = calcularCandidatosFusion();
+  const badge = document.getElementById('consolidar-count');
+  if (candidatos.length) { badge.textContent = candidatos.length; badge.style.display = 'inline-flex'; }
+  else { badge.style.display = 'none'; }
+
+  const cont = document.getElementById('lista-consolidar');
+  if (!cont) return;
+  if (!candidatos.length) {
+    cont.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><p>No se detectaron nombres de proveedor duplicados por consolidar.</p></div>`;
+    return;
+  }
+
+  const categorias = ['Cerveza','Licores y Destilados','Insumos de Coctelería','Bebidas No Alcohólicas','Hielo','Vasos y Desechables','Snacks','Limpieza e Higiene','Equipo y Utensilios','Servicios','Otro'];
+
+  cont.innerHTML = candidatos.map(g => {
+    const total = g.textos.reduce((s,t)=>s+t.veces,0);
+    const variantesHtml = g.textos.map(t =>
+      `<label class="fusion-variante"><input type="checkbox" class="fusion-chk" value="${t.texto.replace(/"/g,'&quot;')}" checked> ${escHtmlProv(t.texto)} <span class="prov-chip chip-dia">${t.veces}×</span></label>`
+    ).join('');
+
+    const destinoHtml = g.proveedor
+      ? `<div class="fusion-destino-info">→ Ya registrado como <strong>${escHtmlProv(g.proveedor.nombre_juridico)}</strong></div>
+         <input type="hidden" class="fusion-nombre-estandar" value="${g.proveedor.nombre_juridico.replace(/"/g,'&quot;')}">
+         <input type="hidden" class="fusion-proveedor-id" value="${g.proveedor.id}">`
+      : `<div class="field" style="margin-bottom:6px;">
+           <label>Nombre estándar para este proveedor</label>
+           <input type="text" class="fusion-nombre-estandar" value="${g.textos[0].texto.replace(/"/g,'&quot;')}">
+         </div>
+         <div class="field" style="margin-bottom:0;">
+           <label>Categoría (proveedor nuevo)</label>
+           <select class="fusion-categoria">
+             <option value="" disabled selected>Seleccioná…</option>
+             ${categorias.map(c=>`<option>${c}</option>`).join('')}
+           </select>
+         </div>`;
+
+    return `<div class="missing-row" style="flex-direction:column;align-items:stretch;gap:10px;" data-clave="${g.clave}">
+      <div style="font-size:11px;color:var(--muted);">${g.textos.length} forma(s) distinta(s) · ${total} línea(s) en Maestro de Productos</div>
+      <div class="fusion-variantes">${variantesHtml}</div>
+      ${destinoHtml}
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn-sec" onclick="ignorarFusion('${g.clave}')">Ignorar</button>
+        <button class="btn-add-rapido" onclick="confirmarFusion('${g.clave}', this)">Fusionar en un solo proveedor</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtmlProv(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function confirmarFusion(clave, btn) {
+  const card = document.querySelector(`.missing-row[data-clave="${clave}"]`);
+  if (!card) return;
+  const variantes = [...card.querySelectorAll('.fusion-chk:checked')].map(c => c.value);
+  if (!variantes.length) { showToast('Marcá al menos una variante.', 'error'); return; }
+
+  const nombreEstandar = card.querySelector('.fusion-nombre-estandar').value.trim();
+  if (!nombreEstandar) { showToast('Falta el nombre estándar.', 'error'); return; }
+  const proveedorIdEl = card.querySelector('.fusion-proveedor-id');
+  const categoriaEl = card.querySelector('.fusion-categoria');
+
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Fusionando…';
+  try {
+    let proveedor;
+    if (proveedorIdEl) {
+      // Proveedor ya registrado: solo se le agregan los alias nuevos.
+      proveedor = getProveedores().find(p => p.id === proveedorIdEl.value);
+      if (!proveedor) throw new Error('No se encontró el proveedor.');
+    } else {
+      if (!categoriaEl.value) { throw new Error('Seleccioná una categoría para el proveedor nuevo.'); }
+      proveedor = { nombre_juridico: nombreEstandar, categoria: categoriaEl.value, alias: [] };
+    }
+
+    const aliasNuevo = [...new Set([...(proveedor.alias || []), ...variantes]
+      .filter(v => nombreNormalizado(v) !== nombreNormalizado(nombreEstandar)))];
+
+    // Primero se reescribe lo histórico (Registro Facturas/Desglose_IA/
+    // Maestro_Productos) y RECIÉN si eso funciona se guarda el alias en la
+    // ficha del proveedor. En ese orden, si algo falla a mitad de camino el
+    // grupo sigue apareciendo como candidato la próxima vez (no desaparece
+    // "a medias" de la pestaña sin haberse fusionado de verdad).
+    await postAP({ modulo: 'fusionar_proveedor', variantes, nombreEstandar });
+
+    const guardado = await postInventario({
+      modulo: 'guardar_proveedor',
+      id: proveedor.id || null,
+      nombre_juridico: proveedor.nombre_juridico,
+      nombre_comercial: proveedor.nombre_comercial || '',
+      categoria: proveedor.categoria,
+      contacto: proveedor.contacto || '',
+      telefono: proveedor.telefono || '',
+      correo: proveedor.correo || '',
+      dias_pedido: proveedor.dias_pedido || [],
+      notas_contacto: proveedor.notas_contacto || '',
+      cuenta: proveedor.cuenta || '',
+      condicion_pago: proveedor.condicion_pago || '0',
+      notas_pago: proveedor.notas_pago || '',
+      alias: aliasNuevo
+    });
+
+    if (proveedor.id) {
+      proveedor.alias = aliasNuevo;
+      proveedor.actualizado = new Date().toISOString();
+    } else {
+      proveedoresCache.push({ ...proveedor, id: guardado.id, alias: aliasNuevo, dia_pedido: '', dias_pedido: [], actualizado: new Date().toISOString() });
+    }
+    // El texto en Maestro_Productos ya quedó reescrito en el Sheet — se
+    // refleja acá también para que la lista no muestre variantes viejas
+    // hasta el próximo refresh completo.
+    maestroRowsCache.forEach(r => {
+      if (variantes.includes(String(r['Proveedor']||'').trim())) r['Proveedor'] = nombreEstandar;
+    });
+    maestroProveedores = [...new Set(maestroRowsCache.map(r => (r['Proveedor']||'').trim()).filter(Boolean))];
+
+    actualizarFiltros();
+    renderPorAgregar();
+    renderConsolidar();
+    showToast(`Fusionado en "${nombreEstandar}" ✓`, 'success');
+  } catch (e) {
+    showToast('No se pudo fusionar: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
 }
 
 function renderPorAgregar() {
@@ -642,6 +886,7 @@ function switchTab(tab, el) {
   document.getElementById('tab-lista').style.display = tab === 'lista' ? '' : 'none';
   document.getElementById('toolbar-lista').style.display = tab === 'lista' ? 'flex' : 'none';
   document.getElementById('tab-por-agregar').style.display = tab === 'por-agregar' ? '' : 'none';
+  document.getElementById('tab-consolidar').style.display = tab === 'consolidar' ? '' : 'none';
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
