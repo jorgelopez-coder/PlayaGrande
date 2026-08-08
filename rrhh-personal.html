@@ -733,9 +733,15 @@ function setFiltroEstado(estado, el) {
 }
 
 function filtrar() {
-  const busqueda = document.getElementById('search').value.toLowerCase().trim();
-  const area     = document.getElementById('filter-area').value;
-  const kiosko   = document.getElementById('filter-kiosko').value;
+  const busqueda   = document.getElementById('search').value.toLowerCase().trim();
+  const area       = document.getElementById('filter-area').value;
+  const kiosko     = document.getElementById('filter-kiosko').value;
+  // Comparación insensible a mayúsculas/espacios: en la hoja "Personal" el
+  // campo Kiosko se ha guardado con distinta capitalización que la lista
+  // canónica de Configuracion (ej. "PLAYA GRANDE" vs "Playa Grande", o con
+  // saltos de línea de más), lo que hacía que el filtro por kiosko nunca
+  // encontrara coincidencias con === estricto.
+  const kioskoNorm = kiosko.trim().toLowerCase();
 
   let lista = todosPersonal.filter(p => {
     const nombre  = (p['Nombre completo'] || `${p['Nombre']||''} ${p['Apellidos']||''}`).toLowerCase();
@@ -743,12 +749,12 @@ function filtrar() {
     const puesto  = (p['Puesto'] || '').toLowerCase();
     const estado  = (p['Estado'] || 'ACTIVO').toUpperCase();
     const depto   = p['Departamento'] || '';
-    const kio     = p['Kiosko'] || '';
+    const kio     = String(p['Kiosko'] || '').trim().toLowerCase();
 
     const matchBusqueda = !busqueda || nombre.includes(busqueda) || cedula.includes(busqueda) || puesto.includes(busqueda);
     const matchEstado   = !filtroEstado || estado === filtroEstado;
-    const matchArea     = !area || depto === area;
-    const matchKiosko    = !kiosko || kio === kiosko;
+    const matchArea      = !area || depto === area;
+    const matchKiosko    = !kioskoNorm || kio === kioskoNorm;
 
     return matchBusqueda && matchEstado && matchArea && matchKiosko;
   });
