@@ -236,7 +236,14 @@ const MAESTRO_ENCABEZADOS = [
 // valores no toca código, solo esta hoja.
 const HOJA_CONFIGURACION = 'Configuracion';
 const CONFIGURACION_ENCABEZADOS = ['Tipo', 'Valor', 'Extra'];
-const TIPOS_CONFIGURACION_SIMPLE = ['Area', 'Categoria', 'Familia'];
+// 'Presentacion' (2026-08-08) = catálogo de "presentación de compra"
+// (Bulto, Caja, Sifón, Galón, Litro…) y 'UnidadReceta' = catálogo de
+// "unidad de medida para receta" (Mililitro, Gramo, Kilo, Onza, Pizca…).
+// Ambos alimentan los desplegables de la Ficha de producto y, además,
+// calcularConversionAuto() en maestro-productos.html los usa para calcular
+// solo la conversión entre presentación de compra y unidad de receta
+// (ver project_maestro_conversion_compra_receta en la memoria).
+const TIPOS_CONFIGURACION_SIMPLE = ['Area', 'Categoria', 'Familia', 'Presentacion', 'UnidadReceta'];
 const CONFIGURACION_DEFAULTS = {
   Area: [
     'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
@@ -247,7 +254,9 @@ const CONFIGURACION_DEFAULTS = {
     'Bebidas No Alcohólicas', 'Hielo', 'Vasos y Desechables',
     'Snacks', 'Limpieza e Higiene', 'Equipo y Utensilios', 'Otros'
   ],
-  Familia: ['Cerveza', 'Licores', 'Cocteles', 'No alcohólicos']
+  Familia: ['Cerveza', 'Licores', 'Cocteles', 'No alcohólicos'],
+  Presentacion: ['Bulto', 'Caja', 'Unidad', 'Sifón', 'Galón', 'Litro'],
+  UnidadReceta: ['Mililitro', 'Gramo', 'Unidad', 'Kilo', 'Onza', 'Pizca']
 };
 
 function onOpen() {
@@ -267,17 +276,25 @@ function configurarHojas() {
   sembrarConfiguracionPorDefecto(prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS));
 }
 
-// Si "Configuracion" está recién creada (sin filas todavía) la llena con los
-// catálogos por defecto de arriba. Si ya tiene datos no la toca — aunque se
-// borren todos los valores de un tipo desde la pantalla, no se vuelve a
-// sembrar sola.
+// Siembra los catálogos por defecto, pero por Tipo individual: si "Tipo" ya
+// tiene aunque sea una fila en la hoja (el usuario ya lo usó o ya lo vació a
+// propósito) no lo vuelve a tocar; si el Tipo todavía no aparece ninguna vez
+// (por ejemplo 'Presentacion'/'UnidadReceta' agregados 2026-08-08 a una hoja
+// que ya tenía Area/Categoria/Familia con datos) le agrega sus valores por
+// defecto. Así un CONFIGURACION_DEFAULTS nuevo se siembra solo la primera vez
+// que corre, sin necesidad de que la hoja esté totalmente vacía.
 function sembrarConfiguracionPorDefecto(hoja) {
-  if (hoja.getLastRow() > 1) return;
+  const nFilas = hoja.getLastRow() - 1;
+  const tiposExistentes = {};
+  if (nFilas > 0) {
+    hoja.getRange(2, 1, nFilas, 1).getValues().forEach(function(f) { tiposExistentes[f[0]] = true; });
+  }
   const filas = [];
   Object.keys(CONFIGURACION_DEFAULTS).forEach(function(tipo) {
+    if (tiposExistentes[tipo]) return;
     CONFIGURACION_DEFAULTS[tipo].forEach(function(valor) { filas.push([tipo, valor, '']); });
   });
-  if (filas.length) hoja.getRange(2, 1, filas.length, CONFIGURACION_ENCABEZADOS.length).setValues(filas);
+  if (filas.length) hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, CONFIGURACION_ENCABEZADOS.length).setValues(filas);
 }
 
 function getHojaConfiguracion() {

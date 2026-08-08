@@ -82,7 +82,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* ── Modal "Ficha de producto" ─────────────────────────────────── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:200;align-items:flex-start;justify-content:center;padding:3rem 1rem;overflow-y:auto}
 .modal-overlay.open{display:flex}
-.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:620px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:660px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)}
 .modal-head h3{font-family:var(--font-d);font-size:16px}
 .modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
@@ -99,7 +99,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .suggest-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--amber);margin-bottom:1rem;flex-wrap:wrap}
 .suggest-box b{font-family:var(--font-d)}
+.suggest-box-blue{background:var(--blue-bg);border-color:var(--blue-lt);color:var(--blue)}
 .costo-display{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
+.fi-receta-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1rem .1rem}
 
 /* ── Fichas agrupadas por Nombre Estándar ──────────────────────── */
 .pf-expand-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;line-height:1;transition:transform .15s}
@@ -317,6 +319,36 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<div class="card">
+  <p class="card-title">Compra y recetas</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Catálogos que usa la Ficha de producto para calcular la <b>conversión automática</b> entre lo que
+    comprás y lo que usás en receta (ej. comprás por Galón, la receta usa Mililitro → la ficha calcula
+    sola que 1 Galón = 3.785,41 ml). Reconocemos Mililitro, Litro, Galón, Onza, Gramo, Kilo, Libra y
+    Unidad para el cálculo automático — el resto de valores (Bulto, Caja, Sifón, Pizca…) siguen
+    funcionando en la ficha, solo que ahí la conversión se completa a mano porque no tienen una
+    cantidad fija.
+  </p>
+  <div class="cfg-grid">
+    <div>
+      <div class="section-label" style="margin-top:0">Presentación de compra</div>
+      <div class="cfg-add-row">
+        <input type="text" id="cfg-presentacion-nuevo" placeholder="ej: Barril, Six pack"/>
+        <button class="btn-sm" onclick="agregarConfigValor('Presentacion','cfg-presentacion-nuevo')">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-presentacion"></div>
+    </div>
+    <div>
+      <div class="section-label" style="margin-top:0">Unidad de medida para receta</div>
+      <div class="cfg-add-row">
+        <input type="text" id="cfg-unidadreceta-nuevo" placeholder="ej: Cucharada"/>
+        <button class="btn-sm" onclick="agregarConfigValor('UnidadReceta','cfg-unidadreceta-nuevo')">+ Agregar</button>
+      </div>
+      <div class="cfg-chips" id="cfg-chips-unidadreceta"></div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 </main>
@@ -338,7 +370,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div class="field-hint">Viene del Maestro — todos los proveedores/nombres de factura homologados bajo este mismo Nombre Estándar. No se edita acá, se administra desde Homologación.</div>
       </div>
 
-      <div class="section-label">Clasificación</div>
+      <div class="section-label">📋 Clasificación</div>
       <div class="field-row">
         <div class="field"><label>Categoría</label>
           <input type="text" id="fi-categoria" list="fi-categoria-list" placeholder="ej: Cerveza"/>
@@ -360,17 +392,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Presentación del proveedor</label>
-          <input type="text" id="fi-presentacion" list="fi-presentacion-list" placeholder="ej: Caja, Six pack, Barril"/>
+        <div class="field"><label>Presentación de compra</label>
+          <input type="text" id="fi-presentacion" list="fi-presentacion-list" placeholder="ej: Caja, Six pack, Barril, Galón" oninput="actualizarConversionSugerida()"/>
           <datalist id="fi-presentacion-list"></datalist>
         </div>
         <div class="field"><label>Tamaño</label>
           <input type="text" id="fi-tamano" placeholder="ej: 355 ml, 750 ml"/>
         </div>
       </div>
-      <div class="field-hint" style="margin:-.5rem 0 1rem">Los valores de Área/Categoría/Familia se administran desde la pestaña ⚙ Configuración.</div>
+      <div class="field-hint" style="margin:-.5rem 0 1rem">Área/Categoría/Familia/Presentación se administran desde la pestaña ⚙ Configuración.</div>
 
-      <div class="section-label">Control de inventario</div>
+      <div class="section-label">📦 Control de inventario</div>
       <div class="field-row">
         <div class="field"><label>Tipo de control</label>
           <select id="fi-tipo-control" onchange="onFichaTipoControlChange()">
@@ -399,7 +431,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
       </div>
 
-      <div class="section-label">Compra y costo</div>
+      <div class="section-label">💰 Compra y costo</div>
       <div class="suggest-box" id="ficha-sugerencia" style="display:none">
         <span>💡 Costo sugerido: <b id="ficha-sugerencia-txt">—</b></span>
         <button class="btn-sm" type="button" id="ficha-sugerencia-btn" onclick="usarSugerenciaCosto()">Usar esta sugerencia</button>
@@ -424,48 +456,56 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Cantidad en la presentación</label>
+        <div class="field">
+          <label>Conversión <span style="font-weight:400;color:var(--muted)">(unidades de receta por presentación)</span></label>
           <input type="number" id="fi-cantidad" min="0" step="any" placeholder="ej: 6" oninput="actualizarCostoFichaPreview()"/>
+          <div class="field-hint">Cuántas "Unidad de medida para receta" trae una unidad de "Presentación de compra". Ej: si comprás por Caja de 6 cervezas, poné 6.</div>
         </div>
         <div class="field" style="margin-bottom:0"><label>Costo de compra</label>
           <div class="costo-display" id="fi-costo-display">₡0.00</div>
-          <div class="field-hint">Precio sin IVA ÷ cantidad — se prellena con el precio de la última factura registrada</div>
+          <div class="field-hint">Precio sin IVA ÷ Conversión — se prellena con el precio de la última factura registrada</div>
         </div>
+      </div>
+      <div class="suggest-box suggest-box-blue" id="fi-conversion-sugerida" style="display:none">
+        <span>🧮 Conversión calculada sola: <span id="fi-conversion-sugerida-txt">—</span></span>
+        <button class="btn-sm" type="button" onclick="usarConversionSugerida()">Usar este valor</button>
       </div>
 
-      <div class="section-label">Información para recetas</div>
-      <div class="field-row">
-        <div class="field"><label>Aplica para recetas</label>
-          <select id="fi-aplica-receta">
-            <option value="Sí" selected>✓ Sí</option>
-            <option value="No">✕ No</option>
-          </select>
-          <div class="field-hint">Si es "No", no aparece como ingrediente al armar recetas (ej. limpieza, empaques, servicios).</div>
-        </div>
-        <div class="field"><label>Unidad de medida para receta</label>
-          <input type="text" id="fi-unidad-receta" list="fi-unidad-receta-list" placeholder="ej: ml, g, unidad"/>
-          <datalist id="fi-unidad-receta-list"><option value="Mililitro"/><option value="Litro"/><option value="Gramo"/><option value="Kilo"/><option value="Onza"/><option value="Unidad"/></datalist>
-          <div class="field-hint">La unidad con la que medís el ingrediente en tus recetas.</div>
-        </div>
+      <div class="section-label">🍹 Información para recetas</div>
+      <div class="field">
+        <label>Aplica para recetas</label>
+        <select id="fi-aplica-receta" onchange="onFichaAplicaRecetaChange()">
+          <option value="Sí" selected>✓ Sí</option>
+          <option value="No">✕ No</option>
+        </select>
+        <div class="field-hint">Si es "No", no aparece como ingrediente al armar recetas (ej. limpieza, empaques, servicios) y se ocultan los campos de abajo.</div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Rendimiento (%)</label>
-          <input type="number" id="fi-rendimiento" min="0" max="100" step="any" placeholder="100" oninput="actualizarCostoFichaPreview()"/>
-          <div class="field-hint">% utilizable tras limpieza/merma.</div>
+      <div id="fi-wrap-receta-detalle" class="fi-receta-group">
+        <div class="field-row">
+          <div class="field"><label>Unidad de medida para receta</label>
+            <input type="text" id="fi-unidad-receta" list="fi-unidad-receta-list" placeholder="ej: Mililitro, Gramo, Unidad" oninput="actualizarConversionSugerida()"/>
+            <datalist id="fi-unidad-receta-list"></datalist>
+            <div class="field-hint">La unidad con la que medís el ingrediente en tus recetas.</div>
+          </div>
+          <div class="field"><label>Rendimiento (%)</label>
+            <input type="number" id="fi-rendimiento" min="0" max="100" step="any" placeholder="100" oninput="actualizarCostoFichaPreview()"/>
+            <div class="field-hint">% utilizable tras limpieza/merma.</div>
+          </div>
         </div>
-        <div class="field" style="margin-bottom:0"><label>Costo real por unidad</label>
+        <div class="field" style="margin-bottom:1rem">
+          <label>Costo real por unidad de receta</label>
           <div class="costo-display" id="fi-costo-real-display">₡0.00</div>
-          <div class="field-hint">Costo/u ÷ rendimiento</div>
+          <div class="field-hint">Costo de compra ÷ Rendimiento — este es el costo que usan las recetas.</div>
+        </div>
+        <label class="check-row" style="margin-bottom:4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
+        <div class="field-hint" style="margin-bottom:1.25rem">
+          Por defecto las recetas usan el costo automático de compras (arriba en "Costo de compra") cuando existe.
+          Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en su lugar — útil para
+          corregir un producto puntual sin esperar a que entren compras nuevas.
         </div>
       </div>
-      <label class="check-row" style="margin-bottom:4px"><input type="checkbox" id="fi-usar-costo-manual"/> Usar este precio manual en las recetas</label>
-      <div class="field-hint" style="margin-bottom:1.25rem">
-        Por defecto las recetas usan el costo automático de compras (arriba en "Costo de compra") cuando existe.
-        Activá esto para que las recetas usen el "Costo real por unidad" de esta sección en su lugar — útil para
-        corregir un producto puntual sin esperar a que entren compras nuevas.
-      </div>
 
-      <div class="section-label">Dónde se vende</div>
+      <div class="section-label">📍 Dónde se vende</div>
       <div class="field">
         <label class="check-row"><input type="checkbox" id="fi-kioskos-todos" checked onchange="toggleFichaKioskosTodos()"/> Todos los kioskos (incluye los que abran después)</label>
         <div class="kiosko-check-grid" id="fi-kioskos-lista" style="display:none"></div>
@@ -528,9 +568,11 @@ let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de f
 let FICHA_EN_EDICION = null; // clave del producto abierto en el modal de ficha
 let EXPANDIDOS = new Set(); // grupos con la lista de proveedores desplegada
 
-// Catálogos de clasificación (hoja "Configuracion") — Área/Categoría/Familia
-// son listas simples; Subfamilia depende de una Familia.
-let CONFIG = { areas: [], categorias: [], familias: [], subfamiliasPorFamilia: {} };
+// Catálogos de clasificación (hoja "Configuracion") — Área/Categoría/Familia/
+// Presentación/Unidad de receta son listas simples; Subfamilia depende de
+// una Familia. Presentación y Unidad de receta se agregaron 2026-08-08 para
+// alimentar la conversión automática compra→receta (ver calcularConversionAuto).
+let CONFIG = { areas: [], categorias: [], familias: [], subfamiliasPorFamilia: {}, presentaciones: [], unidadesReceta: [] };
 
 // ── GVIZ: leer hoja pública del Sheet (igual que cuentas-por-pagar.html) ──
 function gvizLoad(hoja, expectedCol) {
@@ -634,7 +676,7 @@ function renderTodo() { renderMaestro(); renderFichas(); }
 async function cargarConfiguracion() {
   try {
     const datos = await gvizLoad('Configuracion', 'Tipo');
-    const areas = [], categorias = [], familias = [], subPorFam = {};
+    const areas = [], categorias = [], familias = [], subPorFam = {}, presentaciones = [], unidadesReceta = [];
     datos.forEach(r => {
       const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
       if (!valor) return;
@@ -642,8 +684,10 @@ async function cargarConfiguracion() {
       else if (tipo === 'Categoria') categorias.push(valor);
       else if (tipo === 'Familia') familias.push(valor);
       else if (tipo === 'Subfamilia') (subPorFam[extra] = subPorFam[extra] || []).push(valor);
+      else if (tipo === 'Presentacion') presentaciones.push(valor);
+      else if (tipo === 'UnidadReceta') unidadesReceta.push(valor);
     });
-    CONFIG = { areas, categorias, familias, subfamiliasPorFamilia: subPorFam };
+    CONFIG = { areas, categorias, familias, subfamiliasPorFamilia: subPorFam, presentaciones, unidadesReceta };
   } catch (e) { /* si falla, se sigue con listas vacías (datalists quedan libres) */ }
   renderConfiguracion();
   poblarDatalistsFicha();
@@ -655,6 +699,8 @@ function renderConfiguracion() {
   chipsArea.innerHTML = chipsConfigHtml('Area', CONFIG.areas);
   document.getElementById('cfg-chips-categoria').innerHTML = chipsConfigHtml('Categoria', CONFIG.categorias);
   document.getElementById('cfg-chips-familia').innerHTML = chipsConfigHtml('Familia', CONFIG.familias);
+  document.getElementById('cfg-chips-presentacion').innerHTML = chipsConfigHtml('Presentacion', CONFIG.presentaciones);
+  document.getElementById('cfg-chips-unidadreceta').innerHTML = chipsConfigHtml('UnidadReceta', CONFIG.unidadesReceta);
 
   const sel = document.getElementById('cfg-subfamilia-familia-sel');
   const familiaSel = sel.value;
@@ -1077,19 +1123,20 @@ function leerFichaKioskos() {
 function poblarDatalistsFicha() {
   const elArea = document.getElementById('fi-area-list');
   if (!elArea) return; // todavía no cargó el DOM del modal
-  // Presentación no tiene catálogo propio en Configuración — se sigue
-  // sugiriendo con los valores ya usados en otras fichas (igual que antes).
-  const presentaciones = Array.from(new Set(MAESTRO.map(m => m.presentacion).filter(Boolean))).sort();
-  document.getElementById('fi-presentacion-list').innerHTML = presentaciones.map(p => `<option value="${escapeAttr(p)}"/>`).join('');
 
-  // Área/Categoría/Familia vienen del catálogo administrado en ⚙ Configuración
-  // (con respaldo de valores ya usados, por si todavía no se cargó/sembró).
+  // Área/Categoría/Familia/Presentación/Unidad de receta vienen del catálogo
+  // administrado en ⚙ Configuración (con respaldo de valores ya usados en
+  // otras fichas, por si todavía no se cargó/sembró ese catálogo).
   const areas = Array.from(new Set([...CONFIG.areas, ...MAESTRO.map(m => m.area).filter(Boolean)]));
   const categorias = Array.from(new Set([...CONFIG.categorias, ...MAESTRO.map(m => m.categoria).filter(Boolean)]));
   const familias = Array.from(new Set([...CONFIG.familias, ...MAESTRO.map(m => m.familia).filter(Boolean)]));
+  const presentaciones = Array.from(new Set([...CONFIG.presentaciones, ...MAESTRO.map(m => m.presentacion).filter(Boolean)]));
+  const unidadesReceta = Array.from(new Set([...CONFIG.unidadesReceta, ...MAESTRO.map(m => m.unidadReceta).filter(Boolean)]));
   document.getElementById('fi-area-list').innerHTML = areas.map(a => `<option value="${escapeAttr(a)}"/>`).join('');
   document.getElementById('fi-categoria-list').innerHTML = categorias.map(c => `<option value="${escapeAttr(c)}"/>`).join('');
   document.getElementById('fi-familia-list').innerHTML = familias.map(f => `<option value="${escapeAttr(f)}"/>`).join('');
+  document.getElementById('fi-presentacion-list').innerHTML = presentaciones.map(p => `<option value="${escapeAttr(p)}"/>`).join('');
+  document.getElementById('fi-unidad-receta-list').innerHTML = unidadesReceta.map(u => `<option value="${escapeAttr(u)}"/>`).join('');
   onFichaFamiliaChange();
 }
 
@@ -1126,6 +1173,67 @@ function actualizarCostoFichaPreview() {
   const rendimiento = rendimientoInput !== '' ? Number(rendimientoInput) : 100;
   const costoReal = rendimiento > 0 ? costo / (rendimiento / 100) : costo;
   document.getElementById('fi-costo-real-display').textContent = fmtColones(costoReal);
+}
+
+// ── Conversión automática: presentación de compra → unidad de receta ──
+// Factores a una unidad base por magnitud (ml para volumen, g para peso,
+// "pieza" para conteo). Bulto/Caja/Sifón/Pizca quedan fuera a propósito: no
+// tienen una cantidad fija (depende de cuántas piezas trae cada bulto/caja
+// puntual), así que para esos la "Conversión" de la ficha sigue siendo 100%
+// manual, igual que funcionaba antes de este cálculo automático. "Onza" se
+// trata como onza líquida (≈29.57 ml) porque en barra/coctelería es la
+// unidad de pour, no la onza de peso.
+const UNIDADES_FACTOR = {
+  'mililitro': { magnitud: 'volumen', factor: 1 },
+  'ml':        { magnitud: 'volumen', factor: 1 },
+  'litro':     { magnitud: 'volumen', factor: 1000 },
+  'l':         { magnitud: 'volumen', factor: 1000 },
+  'galon':     { magnitud: 'volumen', factor: 3785.41 },
+  'onza':      { magnitud: 'volumen', factor: 29.5735 },
+  'gramo':     { magnitud: 'peso', factor: 1 },
+  'g':         { magnitud: 'peso', factor: 1 },
+  'kilo':      { magnitud: 'peso', factor: 1000 },
+  'kilogramo': { magnitud: 'peso', factor: 1000 },
+  'kg':        { magnitud: 'peso', factor: 1000 },
+  'libra':     { magnitud: 'peso', factor: 453.592 },
+  'unidad':    { magnitud: 'conteo', factor: 1 }
+};
+function normalizarUnidadTxt_(s) {
+  return (s || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+// Devuelve el factor de conversión (cuántas "unidad de receta" trae 1
+// "presentación de compra"), o null si no reconocemos ambas unidades o son
+// de magnitudes distintas (ej. volumen vs. peso, no se puede convertir sin
+// densidad).
+function calcularConversionAuto(unidadCompraTxt, unidadRecetaTxt) {
+  const c = UNIDADES_FACTOR[normalizarUnidadTxt_(unidadCompraTxt)];
+  const r = UNIDADES_FACTOR[normalizarUnidadTxt_(unidadRecetaTxt)];
+  if (!c || !r || c.magnitud !== r.magnitud) return null;
+  return c.factor / r.factor;
+}
+
+let CONVERSION_SUGERIDA = null;
+function actualizarConversionSugerida() {
+  const box = document.getElementById('fi-conversion-sugerida');
+  if (!box) return; // todavía no cargó el DOM del modal
+  const unidadCompra = document.getElementById('fi-presentacion').value.trim();
+  const unidadReceta = document.getElementById('fi-unidad-receta').value.trim();
+  const factor = (unidadCompra && unidadReceta) ? calcularConversionAuto(unidadCompra, unidadReceta) : null;
+  if (factor == null) {
+    CONVERSION_SUGERIDA = null;
+    box.style.display = 'none';
+    return;
+  }
+  CONVERSION_SUGERIDA = factor;
+  document.getElementById('fi-conversion-sugerida-txt').innerHTML =
+    `1 <b>${escHtml(unidadCompra)}</b> = ${factor.toLocaleString('es-CR',{maximumFractionDigits:4})} <b>${escHtml(unidadReceta)}</b>`;
+  box.style.display = 'flex';
+}
+function usarConversionSugerida() {
+  if (CONVERSION_SUGERIDA == null) return;
+  document.getElementById('fi-cantidad').value = Number(CONVERSION_SUGERIDA.toFixed(4));
+  actualizarCostoFichaPreview();
 }
 
 // Costo sugerido: viene calculado por el sync (última línea de Desglose_IA
@@ -1214,9 +1322,11 @@ function abrirFicha(clave) {
   document.getElementById('fi-unidad-receta').value = m.unidadReceta || '';
   document.getElementById('fi-rendimiento').value = m.rendimientoReceta !== '' ? m.rendimientoReceta : 100;
   document.getElementById('fi-usar-costo-manual').checked = !!m.usarCostoManualReceta;
+  onFichaAplicaRecetaChange();
 
   marcarFichaKioskosEnModal(m.kioskosFicha || 'Todos');
   mostrarSugerenciaFicha(sugerido, prellenarConSugerido);
+  actualizarConversionSugerida();
   actualizarCostoFichaPreview();
 
   document.getElementById('modal-ficha').classList.add('open');
@@ -1229,6 +1339,15 @@ function cerrarFicha() {
 function onFichaTipoControlChange() {
   const esPeso = document.getElementById('fi-tipo-control').value === 'peso';
   document.getElementById('fi-wrap-peso').style.display = esPeso ? '' : 'none';
+}
+
+// "Aplica para recetas" = No → oculta unidad de receta/rendimiento/costo real
+// (no aplican) para que la ficha se sienta más corta y clara en productos que
+// no son ingredientes (limpieza, empaques, etc.). "Conversión"/"Costo de
+// compra" siguen visibles siempre porque también valorizan el inventario.
+function onFichaAplicaRecetaChange() {
+  const aplica = document.getElementById('fi-aplica-receta').value !== 'No';
+  document.getElementById('fi-wrap-receta-detalle').style.display = aplica ? '' : 'none';
 }
 
 // Stock mínimo NO vive en esta ficha — es por producto × kiosko y se
