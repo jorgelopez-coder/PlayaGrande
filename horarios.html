@@ -57,7 +57,7 @@ tbody td.ec{text-align:left;padding-left:14px;vertical-align:middle}
 tbody tr:last-child td{border-bottom:none}
 .emp-name{font-weight:500;font-size:13px;color:var(--text)}
 .emp-meta{font-size:11px;color:var(--text3);margin-top:1px}
-.day-cell{display:flex;flex-direction:column;gap:3px;align-items:center;padding:5px 2px;min-height:115px}
+.day-cell{position:relative;display:flex;flex-direction:column;gap:3px;align-items:center;padding:5px 2px;min-height:115px}
 .day-cell input[type=time]{width:82px;font-size:12px;padding:3px 4px}
 .hours-lbl{font-size:12px;font-weight:600;color:var(--accent)}
 .st-sel{font-size:11px;padding:3px 5px;border-radius:6px;width:90px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
@@ -65,7 +65,7 @@ tbody tr:last-child td{border-bottom:none}
 .si-bg .st-sel{background:var(--inc-bg);color:var(--inc-text);border-color:var(--inc-border);font-weight:500}
 .sp-bg .st-sel{background:var(--per-bg);color:var(--per-text);border-color:var(--per-border);font-weight:500}
 .sl-bg .st-sel{background:var(--lib-bg);color:var(--lib-text);border-color:var(--lib-border);font-weight:500}
-.special-td{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:115px;gap:4px;padding:7px 3px;font-size:12px;font-weight:500}
+.special-td{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:115px;gap:4px;padding:7px 3px;font-size:12px;font-weight:500}
 .special-td .sp-icon{font-size:20px;margin-bottom:1px}
 .special-td .sp-lbl{font-size:11px;font-weight:600}
 .sv-bg{background:var(--vac-bg)!important;color:var(--vac-text)}
@@ -81,6 +81,8 @@ tbody tr:last-child td{border-bottom:none}
 .th-copy-btn{font-size:9px;font-weight:600;padding:2px 7px;border-radius:12px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;margin-top:4px;white-space:nowrap}
 .th-copy-btn:hover{background:var(--surface2);color:var(--text)}
 .th-copy-btn:disabled{opacity:.35;cursor:not-allowed}
+.cell-copy-btn{position:absolute;top:2px;right:2px;font-size:11px;line-height:1;width:16px;height:16px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text3);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.cell-copy-btn:hover{background:var(--surface2);color:var(--text)}
 .extra-popover{position:fixed;z-index:300;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 6px 24px rgba(0,0,0,.14);padding:5px;min-width:165px}
 .extra-popover button{font-size:12px;font-family:inherit;text-align:left;padding:7px 9px;border:none;background:transparent;border-radius:6px;cursor:pointer;color:var(--text)}
 .extra-popover button:hover{background:var(--surface2)}
@@ -139,7 +141,7 @@ tbody tr:last-child td{border-bottom:none}
 .cov-total .cov-row-label{font-weight:600;color:var(--text)}
 .cov-empty{font-size:11px;color:var(--text3);padding:6px 0 6px 132px}
 @media print{
-  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,.th-copy-btn,#metrics,.coverage-section{display:none!important}
+  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,.th-copy-btn,.cell-copy-btn,#metrics,.coverage-section{display:none!important}
   .note-print{display:block!important}
   .tbl-wrap{border:none;overflow:visible}
   body{background:white}
@@ -585,27 +587,26 @@ async function copiarSemanaAnterior(){
   }
 }
 
-/* ── Copiar horario del día anterior ──
-   Botón por columna (ver renderSched). Para Mar-Dom el día anterior está en
-   la misma semana ya cargada en memoria, así que es una copia local directa.
-   Para Lun el día anterior (Dom) cae en la semana previa, que no está
-   cargada: se trae puntualmente de la hoja "Horarios" filtrando por esa
-   fecha exacta. Solo aplica a colaboradores que ya están en pantalla (no
-   recrea empleados extra de sesiones pasadas, a diferencia de la copia de
-   semana completa). */
-async function copiarDiaAnterior(dayIdx){
+/* ── Copiar el turno del día anterior (por colaborador) ──
+   Botón dentro de cada celda (ver buildDayCell), aplica solo a la fila de
+   ese colaborador. Para Mar-Dom el día anterior está en la misma semana ya
+   cargada en memoria, así que es una copia local directa. Para Lun el día
+   anterior (Dom) cae en la semana previa, que no está cargada: se trae
+   puntualmente de la hoja "Horarios" filtrando por esa fecha exacta y ese
+   colaborador. */
+async function copiarCeldaAnterior(empId,dayIdx){
   if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
+  const emp=employees.find(e=>e.id===empId);
+  if(!emp)return;
   const dates=getWeekDates();
   const labelDia=dates[dayIdx].label+' '+dates[dayIdx].date;
 
   if(dayIdx>0){
-    if(!confirm('¿Copiar el horario de '+dates[dayIdx-1].label+' a '+labelDia+'?\n\nSe sobreescribirán los turnos de ese día para todos los colaboradores visibles.'))return;
-    employees.forEach(emp=>{
-      if(!schedule[emp.id])initSchedule(emp);
-      schedule[emp.id][dayIdx]=Object.assign({},schedule[emp.id][dayIdx-1]);
-    });
+    if(!confirm('¿Copiar el turno de '+emp.name+' del '+dates[dayIdx-1].label+' a '+labelDia+'?'))return;
+    if(!schedule[emp.id])initSchedule(emp);
+    schedule[emp.id][dayIdx]=Object.assign({},schedule[emp.id][dayIdx-1]);
     renderAll();
-    toast('Horario de '+dates[dayIdx-1].label+' copiado a '+labelDia+' ✓ — recordá guardar');
+    toast('Turno de '+emp.name+' copiado a '+labelDia+' ✓ — recordá guardar');
     return;
   }
 
@@ -613,40 +614,32 @@ async function copiarDiaAnterior(dayIdx){
   const fechaLunes=new Date(semanaActual+'T00:00:00');
   const fechaAnteriorD=new Date(fechaLunes);fechaAnteriorD.setDate(fechaAnteriorD.getDate()-1);
   const fechaAnteriorISO=fmt(fechaAnteriorD);
-  if(!confirm('¿Copiar el horario del '+fechaAnteriorISO+' (domingo anterior) a '+labelDia+'?\n\nSe sobreescribirán los turnos de ese día para todos los colaboradores visibles.'))return;
+  if(!confirm('¿Copiar el turno de '+emp.name+' del '+fechaAnteriorISO+' (domingo anterior) a '+labelDia+'?'))return;
   try{
     const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
     if(!resp.ok){toast('No se pudo cargar el día anterior');return}
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar el día anterior');return}
-    const registros=data.registros.filter(r=>(r['Fecha']||'')===fechaAnteriorISO);
-    if(!registros.length){toast('No hay horario guardado para el '+fechaAnteriorISO);return}
-    let aplicados=0;
-    registros.forEach(r=>{
-      const nombre=(r['Colaborador']||'').toString().trim().toLowerCase();
-      if(!nombre)return;
-      const kioskoReg=(r['Kiosko']||'').toString().trim().toLowerCase();
-      let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
-      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
-      if(!emp)return; // colaborador ya no visible en pantalla: se omite
-      if(!schedule[emp.id])initSchedule(emp);
-      const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
-      schedule[emp.id][0]={
-        status: r['Estado']||'trabajo',
-        in:     r['Hora entrada']||'',
-        out:    r['Hora salida']||'',
-        note:   r['Nota']||'',
-        autoVac:false,
-        otroLabel: r['Detalle']||'',
-        split: !!(in2||out2),
-        in2, out2
-      };
-      aplicados++;
-    });
-    if(!aplicados){toast('Ningún colaborador visible coincide con el horario del '+fechaAnteriorISO);return}
+    const nombreBuscado=emp.name.trim().toLowerCase();
+    const kioskoBuscado=(emp.kiosko||emp.restoId||'').toString().trim().toLowerCase();
+    let r=data.registros.find(rr=>(rr['Fecha']||'')===fechaAnteriorISO && (rr['Colaborador']||'').toString().trim().toLowerCase()===nombreBuscado && (rr['Kiosko']||'').toString().trim().toLowerCase()===kioskoBuscado);
+    if(!r) r=data.registros.find(rr=>(rr['Fecha']||'')===fechaAnteriorISO && (rr['Colaborador']||'').toString().trim().toLowerCase()===nombreBuscado);
+    if(!r){toast('No hay horario guardado de '+emp.name+' para el '+fechaAnteriorISO);return}
+    if(!schedule[emp.id])initSchedule(emp);
+    const in2=r['Hora entrada 2']||'', out2=r['Hora salida 2']||'';
+    schedule[emp.id][0]={
+      status: r['Estado']||'trabajo',
+      in:     r['Hora entrada']||'',
+      out:    r['Hora salida']||'',
+      note:   r['Nota']||'',
+      autoVac:false,
+      otroLabel: r['Detalle']||'',
+      split: !!(in2||out2),
+      in2, out2
+    };
     aplicarVacaciones();
     renderAll();
-    toast('Horario del '+fechaAnteriorISO+' copiado ✓ — recordá guardar');
+    toast('Turno de '+emp.name+' del '+fechaAnteriorISO+' copiado ✓ — recordá guardar');
   }catch(e){
     toast('Sin conexión — no se pudo copiar el día anterior');
   }
@@ -991,12 +984,14 @@ function renderFilterAreas(){
   sel.innerHTML='<option value="">Todos los departamentos</option>'+areas.map(a=>'<option value="'+esc(a)+'"'+(cur===a?' selected':'')+'>'+esc(a)+'</option>').join('');
 }
 
-function buildDayCell(empId,i){
+function buildDayCell(empId,i,dates){
   const s=schedule[empId]?.[i]||{status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:''};
   const st=s.status||'trabajo';
   const dis=semanaCerrada?' disabled':'';
   const noteEl='<textarea class="note-ta" placeholder="Nota…" onchange="setNote(\''+empId+'\','+i+',this.value)"'+dis+'>'+esc(s.note||'')+'</textarea>'+(s.note?'<div class="note-print">'+esc(s.note)+'</div>':'');
   const extraBtn=semanaCerrada?'':'<button type="button" class="btn-extra" title="Incapacidad / permiso sin goce / otro" onclick="abrirExtra(\''+empId+'\','+i+',this)">+</button>';
+  const prevLabel=(dates&&i>0)?dates[i-1].label:'domingo anterior';
+  const copyBtn=semanaCerrada?'':'<button type="button" class="cell-copy-btn" title="Copiar el turno de '+esc(prevLabel)+' de este colaborador" onclick="copiarCeldaAnterior(\''+empId+'\','+i+')">&#8630;</button>';
 
   if(st==='trabajo'||st==='libre'){
     const selEl='<select class="st-sel" onchange="setStatus(\''+empId+'\','+i+',this.value)"'+dis+'>'+
@@ -1005,7 +1000,7 @@ function buildDayCell(empId,i){
       '</select>';
     if(st==='libre'){
       const info=ST.libre;
-      return '<td class="'+info.bgCls+'"><div class="special-td">'+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
+      return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
     }
     const h=calcH(empId,i);
     const splitRow=s.split
@@ -1014,7 +1009,7 @@ function buildDayCell(empId,i){
         '<input type="time" value="'+esc(s.out2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out2\',this.value)"'+dis+'/>'+
         (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">Quitar tramo 2</button>')
       : (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">&#8646; Partir turno</button>');
-    return '<td><div class="day-cell">'+selEl+
+    return '<td><div class="day-cell">'+copyBtn+selEl+
       '<input type="time" value="'+esc(s.in)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in\',this.value)"'+dis+'/>'+
       '<input type="time" value="'+esc(s.out)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out\',this.value)"'+dis+'/>'+
       splitRow+
@@ -1030,7 +1025,7 @@ function buildDayCell(empId,i){
   const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
-  return '<td class="'+info.bgCls+'"><div class="special-td"><div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
+  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
 }
 
 function renderSched(){
@@ -1049,9 +1044,7 @@ function renderSched(){
 
   let html='<div class="tbl-wrap"><table><thead><tr><th class="ec">Empleado</th>';
   dates.forEach((d,i)=>{
-    const copyTitle=i>0?('Copiar horario de '+dates[i-1].label+' a este día'):'Copiar horario del domingo anterior a este día';
-    const copyBtn='<br><button type="button" class="th-copy-btn" onclick="copiarDiaAnterior('+i+')" title="'+esc(copyTitle)+'"'+(semanaCerrada?' disabled':'')+'>&#8630; copiar anterior</button>';
-    html+='<th>'+d.label+'<br><span style="font-weight:400;font-size:10px;color:var(--text3)">'+d.date+'</span>'+copyBtn+'</th>';
+    html+='<th>'+d.label+'<br><span style="font-weight:400;font-size:10px;color:var(--text3)">'+d.date+'</span></th>';
   });
   html+='<th>Total hrs</th></tr></thead><tbody>';
 
@@ -1059,7 +1052,7 @@ function renderSched(){
     let tot=0;DAYS.forEach((_,i)=>{tot+=calcH(emp.id,i)});
     const coverTag=emp.cubre?'<div class="cover-tag">&#8644; Cubre desde '+esc(emp.origenKiosko)+'</div>':'';
     html+='<tr><td class="ec"><div class="emp-name">'+esc(emp.name)+'</div><div class="emp-meta">'+esc([emp.area,emp.puesto].filter(Boolean).join(' · '))+'</div>'+coverTag+((emp.extra&&!semanaCerrada)?'<button class="btn btn-danger" onclick="removeEmployee(\''+emp.id+'\')">&#x2715; quitar</button>':'')+'</td>';
-    DAYS.forEach((_,i)=>{html+=buildDayCell(emp.id,i)});
+    DAYS.forEach((_,i)=>{html+=buildDayCell(emp.id,i,dates)});
     html+='<td class="hours-lbl" id="tot-'+emp.id+'" style="font-size:13px;vertical-align:middle">'+tot.toFixed(1)+'h</td></tr>';
   });
 

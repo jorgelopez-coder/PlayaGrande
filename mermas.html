@@ -205,10 +205,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <img id="foto-preview-img" src="" alt="Vista previa"/>
         <button class="foto-remove" onclick="quitarFoto(event)">×</button>
       </div>
-      <button type="button" class="btn-ia" id="btn-extraer-ia" style="display:none" onclick="extraerConIA()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/></svg>
-        <span id="btn-extraer-ia-txt">Extraer peso con IA</span>
-      </button>
     </div>
   </div>
 
@@ -385,17 +381,24 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // Mismo Web App que mantenimiento.html (Code-mantenimiento-backend.gs, Sheet
 // "Operaciones - Kioskos") — este módulo agrega las pestañas Mermas y
 // MermasConfig a ese mismo backend (ver README).
 const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
-// Extractor de IA (Code-mermas-extractor.gs), proyecto de Apps Script
-// independiente con tu ANTHROPIC_API_KEY en Propiedades del script — pegá
-// acá la URL /exec una vez desplegado (ver instrucciones en el encabezado
-// de ese archivo). Mientras esté vacío, el botón avisa que falta configurar.
-const EXTRACTOR_URL = 'https://script.google.com/macros/s/AKfycbyYwRDE6Y8vW79x1ad-i2hWFXRq9jP0jkPmiWwRf8gmRNp8KD5_CacpjC69Xys_ocp1HQ/exec';
-
 // Mismas hojas "Square - <kiosko>" de index.html (ver SQUARE_KIOSKOS ahí) —
 // se usan acá solo para la pestaña Análisis, para sacar onzas de cerveza de
 // barril vendidas y poder calcular el % de merma sobre lo vendido. Si se
@@ -697,7 +700,6 @@ function onFotoSelected(event) {
     document.getElementById('foto-placeholder').style.display = 'none';
     document.getElementById('foto-preview-wrap').style.display = 'block';
     document.getElementById('foto-preview-img').src = fotoBase64;
-    document.getElementById('btn-extraer-ia').style.display = 'flex';
   }).catch(() => {
     showToast('No se pudo procesar la foto', 'error');
   });
@@ -708,35 +710,6 @@ function quitarFoto(event) {
   document.getElementById('merma-foto').value = '';
   document.getElementById('foto-placeholder').style.display = 'block';
   document.getElementById('foto-preview-wrap').style.display = 'none';
-  document.getElementById('btn-extraer-ia').style.display = 'none';
-}
-
-// ── EXTRACCIÓN DE PESO CON IA (Code-mermas-extractor.gs) ─────────
-async function extraerConIA() {
-  if (!fotoBase64) { showToast('Subí una foto primero', 'error'); return; }
-  if (!EXTRACTOR_URL) {
-    showToast('Falta desplegar el extractor de IA (ver Code-mermas-extractor.gs) y pegar su URL en EXTRACTOR_URL', 'error');
-    return;
-  }
-  const btn = document.getElementById('btn-extraer-ia');
-  const txt = document.getElementById('btn-extraer-ia-txt');
-  btn.disabled = true; txt.textContent = 'Leyendo báscula…';
-  try {
-    const resp = await fetchConTimeout(EXTRACTOR_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ foto: fotoBase64, tipo: 'merma' })
-    }, 30000);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'No se pudo leer la báscula');
-    document.getElementById('merma-peso-bruto').value = Math.round(data.peso);
-    actualizarNeto();
-    showToast('Peso extraído: ' + Math.round(data.peso) + ' g ✓');
-  } catch(e) {
-    showToast(e.message || 'Error al extraer con IA', 'error');
-  } finally {
-    btn.disabled = false; txt.textContent = 'Extraer peso con IA';
-  }
 }
 
 // ── CÁLCULO DE MERMA NETA ────────────────────────────────────────
