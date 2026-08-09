@@ -112,6 +112,31 @@
  * al confirmar. No hace falta correr configurarHojas() de nuevo acá — solo
  * pegar el código completo e Implementar > Gestionar implementaciones >
  * Nueva versión.
+ *
+ * v9 (2026-08-08): módulo de Menú y Recetas (recetas.html, Ecosistema
+ * Kioskos) — definición de platos/bebidas del menú con categorías Nivel1
+ * (Alimentos/Bebidas) y Nivel2 (Entradas, Plato fuerte, Cerveza artesanal
+ * draft, Licores, etc.), recetas y subrecetas con costeo, y presentaciones
+ * de venta (ej. Vaso 16oz/10oz/4oz en cerveza draft, Botella/Cuarta/Trago en
+ * licores) enlazadas a Maestro_Productos. Mismo Sheet y mismo Web App que el
+ * resto de este archivo — no hace falta un Sheet nuevo ni una implementación
+ * nueva. La MAYOR PARTE del código de este módulo vive en un archivo
+ * SEPARADO, Code-recetas-kioskos-backend.gs, que hay que pegar como un
+ * archivo más DENTRO DE ESTE MISMO proyecto de Apps Script (los archivos de
+ * un mismo proyecto comparten funciones/constantes entre sí — ver el
+ * encabezado de ese archivo para el detalle). Acá en este archivo solo
+ * quedaron los engaches que sí tienen que vivir junto a lo que ya existía:
+ * 'Nivel1' agregado a TIPOS_CONFIGURACION_SIMPLE/CONFIGURACION_DEFAULTS (es
+ * una lista simple más, como Área/Categoría/Familia), la cascada Nivel1→
+ * Nivel2 en configEliminar() (igual que Familia→Subfamilia), la creación de
+ * las pestañas "Menu_Platos"/"Menu_Recetas" en configurarHojas(), y los
+ * 8 `case` nuevos en doPost() — el despachador único tiene que quedar en un
+ * solo archivo, y este es el que ya lo tenía. Si este backend ya estaba
+ * desplegado antes de hoy: pegá el código completo de ESTE archivo Y de
+ * Code-recetas-kioskos-backend.gs, corré UNA VEZ configurarHojas() para que
+ * se creen las pestañas nuevas y se siembren los valores por defecto de
+ * Nivel1/Nivel2, y después Implementar > Gestionar implementaciones > Editar
+ * > Nueva versión (la URL /exec no cambia).
  */
 
 const HOJA_FACTURAS    = 'Registro Facturas';
@@ -251,7 +276,9 @@ const CONFIGURACION_ENCABEZADOS = ['Tipo', 'Valor', 'Extra'];
 // calcularConversionAuto() en maestro-productos.html los usa para calcular
 // solo la conversión entre presentación de compra y unidad de receta
 // (ver project_maestro_conversion_compra_receta en la memoria).
-const TIPOS_CONFIGURACION_SIMPLE = ['Area', 'Categoria', 'Familia', 'Presentacion', 'UnidadReceta'];
+// 'Nivel1' (2026-08-08) = catálogo de menú/recetas (Alimentos/Bebidas) —
+// ver módulo Menú y Recetas más abajo (HOJA_MENU_PLATOS/HOJA_MENU_RECETAS).
+const TIPOS_CONFIGURACION_SIMPLE = ['Area', 'Categoria', 'Familia', 'Presentacion', 'UnidadReceta', 'Nivel1'];
 const CONFIGURACION_DEFAULTS = {
   Area: [
     'Barra / Coctelería', 'Bodega', 'Cocina / Snacks',
@@ -264,7 +291,11 @@ const CONFIGURACION_DEFAULTS = {
   ],
   Familia: ['Cerveza', 'Licores', 'Cocteles', 'No alcohólicos'],
   Presentacion: ['Bulto', 'Caja', 'Unidad', 'Sifón', 'Galón', 'Litro'],
-  UnidadReceta: ['Mililitro', 'Gramo', 'Unidad', 'Kilo', 'Onza', 'Pizca']
+  UnidadReceta: ['Mililitro', 'Gramo', 'Unidad', 'Kilo', 'Onza', 'Pizca'],
+  // Nivel1 de menú/recetas — ver Code-recetas-kioskos-backend.gs (mismo
+  // proyecto de Apps Script, archivo aparte) para Nivel2, Menu_Platos,
+  // Menu_Recetas y toda la lógica de costeo de ese módulo.
+  Nivel1: ['Alimentos', 'Bebidas']
 };
 
 function onOpen() {
@@ -282,6 +313,14 @@ function configurarHojas() {
   prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
   prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
   sembrarConfiguracionPorDefecto(prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS));
+  // Nivel1 ya se siembra solo (arriba, es una lista simple más de
+  // CONFIGURACION_DEFAULTS); Nivel2 depende de un padre y necesita su propio
+  // seeder — ver sembrarNivel2PorDefecto().
+  sembrarNivel2PorDefecto(getHojaConfiguracion());
+  const hojaMenuPlatos = prepararHoja(HOJA_MENU_PLATOS, MENU_PLATOS_ENCABEZADOS);
+  hojaMenuPlatos.getRange(1, 6).setNote('No editar a mano — JSON generado por recetas.html.');
+  const hojaMenuRecetas = prepararHoja(HOJA_MENU_RECETAS, MENU_RECETAS_ENCABEZADOS);
+  hojaMenuRecetas.getRange(1, 7).setNote('No editar a mano — JSON generado por recetas.html.');
 }
 
 // Siembra los catálogos por defecto, pero por Tipo individual: si "Tipo" ya
@@ -350,6 +389,16 @@ function configEliminar(p) {
       const datos2 = hoja.getRange(2, 1, nFilas2, CONFIGURACION_ENCABEZADOS.length).getValues();
       for (let i = datos2.length - 1; i >= 0; i--) {
         if (datos2[i][0] === 'Subfamilia' && datos2[i][2] === p.valor) hoja.deleteRow(i + 2);
+      }
+    }
+  }
+  // Mismo criterio que Familia→Subfamilia arriba, para Nivel1→Nivel2.
+  if (p.tipo === 'Nivel1') {
+    const nFilas3 = hoja.getLastRow() - 1;
+    if (nFilas3 > 0) {
+      const datos3 = hoja.getRange(2, 1, nFilas3, CONFIGURACION_ENCABEZADOS.length).getValues();
+      for (let i = datos3.length - 1; i >= 0; i--) {
+        if (datos3[i][0] === 'Nivel2' && datos3[i][2] === p.valor) hoja.deleteRow(i + 2);
       }
     }
   }
@@ -467,6 +516,30 @@ function doPost(e) {
         break;
       case 'fusionar_proveedor':
         result = fusionarProveedor(payload);
+        break;
+      case 'nivel2_agregar':
+        result = nivel2Agregar(payload);
+        break;
+      case 'nivel2_eliminar':
+        result = nivel2Eliminar(payload);
+        break;
+      case 'nivel1_meta_costo_guardar':
+        result = nivel1MetaCostoGuardar(payload);
+        break;
+      case 'menu_plato_guardar':
+        result = menuPlatoGuardar(payload);
+        break;
+      case 'menu_plato_estado':
+        result = menuPlatoEstado(payload);
+        break;
+      case 'menu_plato_eliminar':
+        result = menuPlatoEliminar(payload);
+        break;
+      case 'menu_receta_guardar':
+        result = menuRecetaGuardar(payload);
+        break;
+      case 'menu_receta_eliminar':
+        result = menuRecetaEliminar(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);

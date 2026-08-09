@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Recetas · Ecosistema Kioskos</title>
+<title>Menú y Recetas · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -16,6 +16,8 @@
   --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
   --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
   --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --purple:#6a3a9a;--purple-bg:#f3eefb;--purple-lt:#d4b8f0;
+  --teal:#0e7a7a;--teal-bg:#eaf6f6;--teal-lt:#a8d8d8;
   --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
 }
 body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
@@ -26,19 +28,17 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 .date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
-
-main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
-
+main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
-.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;gap:10px;flex-wrap:wrap}
 .card-title-row .card-title{margin-bottom:0}
-
 .field{margin-bottom:1rem}
 .field:last-child{margin-bottom:0}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field-hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
 .req{color:var(--red);margin-left:2px}
 input[type=text],input[type=number],select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
@@ -48,53 +48,134 @@ input[type=text],input[type=number],select{
 input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
 input::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
-.checkbox-row{display:flex;align-items:center;gap:8px}
-.checkbox-row input{width:auto}
-
-.ingrediente-row{display:grid;grid-template-columns:2fr 90px 34px 32px;gap:8px;margin-bottom:8px;align-items:center}
-.ingrediente-unidad{font-size:12px;color:var(--muted);text-align:center}
-.ingrediente-quitar{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;line-height:1}
-
-.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
-.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
-.btn-primary:hover{opacity:.9}
-.btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
-.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
 .btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
 .btn-sm:hover{border-color:var(--border-h)}
-.btn-sm.btn-danger-outline{color:var(--red);border-color:var(--red-lt)}
-.btn-sm.btn-danger-outline:hover{background:var(--red-bg)}
-.btn-link{font-size:12px;color:var(--green);font-weight:600;background:none;border:none;cursor:pointer;padding:0}
-.btn-sync{width:100%;background:linear-gradient(135deg,#1a7a4a,#2a9a5f);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
-.btn-sync:hover{opacity:.9}
-.btn-sync:disabled{opacity:.5;cursor:not-allowed}
-
-.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.btn-sm:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{font-size:13px;padding:9px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;cursor:pointer;font-weight:600}
+.btn-primary:hover{opacity:.92}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger-text{background:none;border:none;color:var(--red);font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px}
+.btn-danger-text:hover{opacity:.75}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08);max-width:90vw}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
 .toast.error{border-color:var(--red);color:var(--red)}
 .toast svg{width:16px;height:16px;flex-shrink:0}
-
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
-.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
-.badge-kiosko{background:var(--blue-bg);color:var(--blue)}
-.badge-todos{background:var(--surface);color:var(--muted)}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 
-.receta-card{border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:10px}
-.receta-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.receta-nombre{font-weight:700;font-size:14px;font-family:var(--font-d)}
-.receta-ing{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.6}
-.receta-actions{display:flex;gap:6px;flex-shrink:0}
+/* ── Tabs (mismo patrón que maestro-productos.html) ─────────────── */
+.mp-tabs{display:flex;gap:6px;margin-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.mp-tab{font-family:var(--font-d);font-size:13px;font-weight:600;padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s}
+.mp-tab:hover{color:var(--text)}
+.mp-tab.active{color:var(--green);border-bottom-color:var(--green)}
 
-.sync-result{margin-top:12px;font-size:13px}
-.sync-result b{color:var(--green)}
-.sync-sinmapear{margin-top:8px;font-size:12px;color:var(--amber);background:var(--amber-bg);border-radius:8px;padding:8px 10px}
+/* ── Modales ─────────────────────────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:200;align-items:flex-start;justify-content:center;padding:3rem 1rem;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:700px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)}
+.modal-head h3{font-family:var(--font-d);font-size:16px}
+.modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:1.25rem 1.5rem;max-height:70vh;overflow-y:auto}
+.modal-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:1rem 1.5rem;border-top:1px solid var(--border)}
+.modal-foot-right{display:flex;gap:10px}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 .6rem}
+.section-label:first-child{margin-top:0}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.kiosko-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.costo-display{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
+.suggest-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--amber);margin-bottom:1rem;flex-wrap:wrap}
+
+/* ── Presentaciones / Ingredientes (filas dinámicas) ────────────── */
+.pres-row,.ing-row{display:grid;gap:8px;align-items:end;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px}
+.pres-row{grid-template-columns:1.3fr .8fr 1fr 1.3fr auto}
+.ing-row{grid-template-columns:2fr .9fr .9fr auto}
+.pres-row .field,.ing-row .field{margin-bottom:0}
+.pres-row label,.ing-row label{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+.pres-calc{grid-column:1/-1;font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:-2px}
+.pres-calc b{color:var(--text)}
+.btn-rm{width:36px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;flex-shrink:0;transition:color .15s,border-color .15s,background .15s}
+.btn-rm:hover{color:var(--red);border-color:var(--red);background:var(--red-bg)}
+.btn-rm svg{width:14px;height:14px}
+.btn-add{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:8px;padding:8px 14px;cursor:pointer;margin-top:4px;width:fit-content}
+.btn-add:hover{background:var(--green-lt)}
+.btn-add:disabled{opacity:.5;cursor:not-allowed}
+.ing-costo{font-size:12px;color:var(--purple);font-weight:600}
+
+/* ── Tipo strip (receta/subreceta) ──────────────────────────────── */
+.tipo-strip{display:flex;gap:6px;margin-bottom:1rem}
+.tipo-btn{flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);text-align:center;transition:all .15s}
+.tipo-btn:hover{border-color:var(--border-h)}
+.tipo-btn.sel-receta{border-color:var(--purple);background:var(--purple-bg);color:var(--purple)}
+.tipo-btn.sel-subreceta{border-color:var(--teal);background:var(--teal-bg);color:var(--teal)}
+.badge-sub{font-size:10px;padding:2px 6px;border-radius:20px;background:var(--teal-bg);color:var(--teal);font-weight:500}
+.badge-rec{font-size:10px;padding:2px 6px;border-radius:20px;background:var(--purple-bg);color:var(--purple);font-weight:500}
+
+/* ── Tab Platos ──────────────────────────────────────────────────── */
+.plt-toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.plt-toolbar input[type=text]{flex:1;min-width:160px}
+.plt-toolbar select{width:auto;min-width:150px}
+.plt-counts{display:flex;gap:16px;font-size:12.5px;color:var(--muted);margin-bottom:1rem;flex-wrap:wrap}
+.plt-counts b{font-weight:700}
+.plt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.plt-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;transition:border-color .15s}
+.plt-card:hover{border-color:var(--border-h)}
+.plt-card.inactivo{opacity:.5}
+.plt-nombre{font-family:var(--font-d);font-size:15px;font-weight:700}
+.plt-cat{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
+.plt-kioskos{font-size:11px;color:var(--subtle);margin-bottom:8px}
+.plt-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.plt-badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.plt-badge-ok{background:var(--green-bg);color:var(--green)}
+.plt-badge-warn{background:var(--amber-bg);color:var(--amber)}
+.plt-pres-mini{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}
+.plt-pres-mini td{padding:4px 2px;border-bottom:1px dashed var(--border);vertical-align:top}
+.plt-pres-mini tr:last-child td{border-bottom:none}
+.plt-pres-mini .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.plt-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+
+/* ── Tab Recetas ─────────────────────────────────────────────────── */
+.rec-toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.rec-toolbar input[type=text]{flex:1;min-width:160px}
+.rec-toolbar select{width:auto;min-width:150px}
+.rec-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;transition:border-color .15s}
+.rec-card:hover{border-color:var(--border-h)}
+.rec-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;gap:12px}
+.rec-nombre{font-family:var(--font-d);font-size:15px;font-weight:700}
+.rec-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.rec-costo{font-family:var(--font-d);font-size:17px;font-weight:700;color:var(--purple);white-space:nowrap}
+.rec-arrow{width:15px;height:15px;color:var(--subtle);transition:transform .2s;flex-shrink:0}
+.rec-arrow.open{transform:rotate(180deg)}
+.rec-detail{display:none;border-top:1px solid var(--border);padding:1rem 1.25rem;background:var(--surface)}
+.rec-detail.open{display:block}
+.det-table{width:100%;border-collapse:collapse;font-size:12px}
+.det-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 8px 6px 0;border-bottom:1px solid var(--border)}
+.det-table td{padding:6px 8px 6px 0;border-bottom:1px solid var(--border)}
+.det-table tr:last-child td{border-bottom:none}
+.det-num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── Configuración: catálogos en lista ──────────────────────────── */
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.cfg-add-row{display:flex;gap:8px;margin-bottom:.85rem}
+.cfg-add-row input{flex:1}
+.cfg-chips{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.cfg-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);padding:8px 12px;font-size:12.5px;border-bottom:1px solid var(--border)}
+.cfg-chip:last-child{border-bottom:none}
+.cfg-chip button{background:none;border:none;color:var(--subtle);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;border-radius:6px;flex-shrink:0}
+.cfg-chip button:hover{color:var(--red);background:var(--red-bg)}
+.cfg-meta-pct{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.cfg-meta-pct input{width:56px;padding:4px 6px;font-size:12px;text-align:right}
+.cfg-nivel2-familia{margin-bottom:.85rem;max-width:280px}
 
 @media(max-width:640px){
+  .cfg-grid{grid-template-columns:1fr}
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
-  .field-row,.field-row3{grid-template-columns:1fr}
-  .ingrediente-row{grid-template-columns:1fr 70px 28px 28px}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+  .kiosko-check-grid{grid-template-columns:1fr}
+  .pres-row{grid-template-columns:1fr 1fr}
+  .ing-row{grid-template-columns:1fr 1fr}
 }
 </style>
 </head>
@@ -106,72 +187,261 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Inicio
     </a>
-    <span class="page-title">🧾 Recetas</span>
+    <span class="page-title">🍽️ Menú y Recetas</span>
   </div>
   <span class="date-chip" id="date-chip"></span>
 </header>
 
 <main>
 
-<div class="card">
-  <p class="card-title">Consumo automático desde ventas</p>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:0">
-    Trae las ventas nuevas de Square (última semana) y descuenta el stock de
-    cada kiosko según la receta que matchee el <b>Nombre de Venta</b>, o 1:1
-    si el nombre matchea directo el campo "Nombre Venta" de un producto (venta
-    directa, sin receta). Corre sola cada hora si se configuró el trigger —
-    este botón la fuerza al momento.
-  </p>
-  <div class="field-row" style="margin-top:14px">
-    <div class="field" style="margin-bottom:0">
-      <label>Kiosko</label>
-      <select id="sync-kiosko"><option value="">Todos los kioskos con Square configurado</option></select>
-    </div>
-    <div class="field" style="margin-bottom:0;display:flex;align-items:flex-end">
-      <button class="btn-sync" id="btn-sync" onclick="sincronizarVentas()">Sincronizar ventas ahora</button>
-    </div>
-  </div>
-  <div id="sync-result"></div>
+<div class="mp-tabs">
+  <button class="mp-tab active" id="tab-btn-platos" onclick="switchTab('platos')">Platos</button>
+  <button class="mp-tab" id="tab-btn-recetas" onclick="switchTab('recetas')">Recetas</button>
+  <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
+
+<!-- ═══════════════════ TAB PLATOS ═══════════════════ -->
+<div id="tab-platos">
 
 <div class="card">
   <div class="card-title-row">
-    <p class="card-title" id="receta-form-title">Nueva receta</p>
-    <button class="btn-link" id="receta-cancelar-edicion" style="display:none" onclick="cancelarEdicionReceta()">Cancelar edición</button>
+    <p class="card-title">Menú — platos y bebidas</p>
+    <button class="btn-primary" onclick="nuevoPlato()">+ Nuevo plato</button>
   </div>
-  <input type="hidden" id="receta-id"/>
-  <div class="field-row">
-    <div class="field">
-      <label for="receta-nombre-venta">Nombre de venta <span class="req">*</span></label>
-      <input type="text" id="receta-nombre-venta" placeholder="Como aparece vendido en Square (ej. Mojito)"/>
-    </div>
-    <div class="field">
-      <label for="receta-kiosko">Kiosko</label>
-      <select id="receta-kiosko"><option value="">Todos los kioskos</option></select>
-    </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Cada tarjeta es un plato o bebida del menú, con sus presentaciones de venta (precio, costo y % de costo
+    calculados a partir de la receta enlazada). Un plato sin receta todavía no tiene costo — usá
+    "+ Crear receta" para armarla desde acá.
+  </p>
+  <div class="plt-counts">
+    <span>Sin receta: <b id="plt-count-sinreceta" style="color:var(--amber)">0</b></span>
+    <span>Sin precio: <b id="plt-count-sinprecio" style="color:var(--amber)">0</b></span>
+    <span>Sin nombre Square: <b id="plt-count-sinsquare" style="color:var(--amber)">0</b></span>
+    <span>Total: <b id="plt-count-total">0</b></span>
   </div>
-  <div class="field">
-    <label>Ingredientes <span class="req">*</span> <span style="font-weight:400;color:var(--muted)">— cantidad en la unidad del producto (según se definió en Base de Productos)</span></label>
-    <div id="ingredientes-lista"></div>
-    <button class="btn-link" onclick="agregarFilaIngrediente()">+ Agregar ingrediente</button>
+  <div class="plt-toolbar">
+    <input type="text" id="plt-buscar" placeholder="Buscar plato…" oninput="renderPlatos()"/>
+    <select id="plt-nivel1" onchange="onFiltroNivel1Change()"><option value="">Nivel 1: todos</option></select>
+    <select id="plt-nivel2"><option value="">Nivel 2: todos</option></select>
+    <select id="plt-estado" onchange="renderPlatos()">
+      <option value="">Todos los estados</option>
+      <option value="sinReceta">Sin receta</option>
+      <option value="sinPrecio">Sin precio</option>
+      <option value="sinSquare">Sin nombre Square</option>
+    </select>
+    <label class="check-row" style="font-size:12.5px"><input type="checkbox" id="plt-incluir-inactivos" onchange="renderPlatos()"/> Incluir inactivos</label>
   </div>
-  <div class="field">
-    <div class="checkbox-row">
-      <input type="checkbox" id="receta-activo" checked/>
-      <label for="receta-activo" style="margin:0">Activa</label>
-    </div>
+  <div id="plt-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ TAB RECETAS ═══════════════════ -->
+<div id="tab-recetas" style="display:none">
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Recetas y subrecetas</p>
+    <button class="btn-primary" onclick="nuevaReceta('receta')">+ Nueva receta</button>
   </div>
-  <div class="submit-area">
-    <button class="btn-primary" id="btn-receta-guardar" onclick="guardarReceta()">Guardar receta</button>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Una <b>receta</b> pertenece a un plato del menú. Una <b>subreceta</b> (ej. un barril, una salsa base) no
+    pertenece a ningún plato directamente — se usa como ingrediente dentro de otras recetas, y su costo se
+    calcula por proporción de su rendimiento total.
+  </p>
+  <div class="rec-toolbar">
+    <input type="text" id="rec-buscar" placeholder="Buscar receta o subreceta…" oninput="renderRecetas()"/>
+    <select id="rec-filtro-tipo" onchange="renderRecetas()">
+      <option value="">Todas</option>
+      <option value="receta">Solo recetas</option>
+      <option value="subreceta">Solo subrecetas</option>
+    </select>
   </div>
+  <div id="rec-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ TAB CONFIGURACIÓN ═══════════════════ -->
+<div id="tab-config" style="display:none">
+
+<div class="card">
+  <p class="card-title">Nivel 1 — Alimentos / Bebidas</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    La clasificación de más alto nivel del menú. El "% de costo meta" es el objetivo de food-cost que se usa
+    para calcular el precio sugerido de cada presentación y para colorear el % de costo real (verde ≤ meta,
+    ámbar hasta meta+5, rojo por encima). Alimentos y Bebidas suelen tener metas distintas.
+  </p>
+  <div class="cfg-add-row">
+    <input type="text" id="cfg-nivel1-nuevo" placeholder="ej: Alimentos"/>
+    <button class="btn-sm" onclick="agregarNivel1()">+ Agregar</button>
+  </div>
+  <div class="cfg-chips" id="cfg-chips-nivel1"></div>
 </div>
 
 <div class="card">
-  <p class="card-title">Recetas existentes</p>
-  <div id="recetas-lista"><div class="empty-state">Cargando recetas…</div></div>
+  <p class="card-title">Nivel 2 — categorías del menú</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Cada categoría de Nivel 2 pertenece a un Nivel 1. Ej. "Cerveza artesanal draft" y "Licores" además
+    disparan la precarga de presentaciones estándar (tamaños de vaso, botella/cuarta/trago) al crear un
+    plato nuevo en esa categoría.
+  </p>
+  <div class="field cfg-nivel2-familia">
+    <label>Nivel 1</label>
+    <select id="cfg-nivel2-nivel1-sel" onchange="renderConfigNivel2()"></select>
+  </div>
+  <div class="cfg-add-row" id="cfg-nivel2-add-row" style="display:none">
+    <input type="text" id="cfg-nivel2-nuevo" placeholder="ej: Entradas"/>
+    <button class="btn-sm" onclick="agregarNivel2()">+ Agregar</button>
+  </div>
+  <div class="cfg-chips" id="cfg-chips-nivel2"></div>
+</div>
+
 </div>
 
 </main>
+
+<!-- ═══════════════════ MODAL PLATO ═══════════════════ -->
+<div class="modal-overlay" id="modal-plato">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="plato-titulo">Nuevo plato</h3>
+      <button class="modal-close" onclick="cerrarModalPlato()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nombre <span class="req">*</span></label>
+        <input type="text" id="pm-nombre" placeholder="ej: Ceviche de camarón"/>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Nivel 1 <span class="req">*</span></label>
+          <select id="pm-nivel1" onchange="onNivel1ModalChange()"></select>
+        </div>
+        <div class="field">
+          <label>Nivel 2 (categoría) <span class="req">*</span></label>
+          <select id="pm-nivel2" onchange="onNivel2ModalChange()"></select>
+        </div>
+      </div>
+
+      <div class="section-label">📍 Kioskos</div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="pm-kioskos-todos" checked onchange="toggleKioskosPlatoTodos()"/> Todos los kioskos (incluye los que abran después)</label>
+        <div class="kiosko-check-grid" id="pm-kioskos-lista" style="display:none"></div>
+      </div>
+
+      <div class="section-label">🍽️ Receta</div>
+      <div id="pm-receta-info" style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">—</div>
+
+      <div class="section-label">💰 Presentaciones de venta</div>
+      <p class="field-hint" style="margin:-.4rem 0 .75rem">
+        Cada presentación es una forma de vender este plato (ej. "Regular" para un plato simple, o
+        "Vaso 16oz"/"Vaso 10oz"/"Vaso 4oz" para cerveza draft). La cantidad va en la unidad de rendimiento
+        de la receta enlazada — el costo y el % de costo se calculan solos por proporción.
+      </p>
+      <div id="pm-precarga-wrap"></div>
+      <div id="pm-presentaciones"></div>
+      <button type="button" class="btn-add" onclick="agregarPresentacion()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+        Agregar presentación
+      </button>
+
+      <label class="check-row" style="margin-top:1.5rem"><input type="checkbox" id="pm-activo" checked/> Plato activo</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger-text" id="pm-btn-eliminar" onclick="eliminarPlatoDuro()" style="display:none">Eliminar definitivamente</button>
+      <div class="modal-foot-right" style="margin-left:auto">
+        <button class="btn-sm" onclick="cerrarModalPlato()">Cancelar</button>
+        <button class="btn-primary" onclick="guardarPlato()">Guardar plato</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL RECETA ═══════════════════ -->
+<div class="modal-overlay" id="modal-receta">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="receta-titulo">Nueva receta</h3>
+      <button class="modal-close" onclick="cerrarModalReceta()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rm-id"/>
+      <div class="tipo-strip">
+        <button type="button" class="tipo-btn sel-receta" id="rm-tipo-receta-btn" onclick="setTipoReceta('receta')">🍽 Receta de plato</button>
+        <button type="button" class="tipo-btn" id="rm-tipo-subreceta-btn" onclick="setTipoReceta('subreceta')">🧪 Subreceta (reutilizable)</button>
+      </div>
+      <input type="hidden" id="rm-tipo" value="receta"/>
+
+      <div class="field" id="rm-plato-wrap">
+        <label>Plato del menú <span class="req">*</span></label>
+        <select id="rm-plato"></select>
+        <div class="field-hint" id="rm-plato-hint"></div>
+      </div>
+      <div class="field" id="rm-nombre-wrap" style="display:none">
+        <label>Nombre de la subreceta <span class="req">*</span></label>
+        <input type="text" id="rm-nombre" placeholder="ej: Barril IPA Local, Salsa base para ceviche"/>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Rendimiento total <span class="req">*</span></label>
+          <input type="number" id="rm-rendimiento" min="0" step="any" placeholder="ej: 1" oninput="recalcularCostoRecetaPreview()"/>
+        </div>
+        <div class="field">
+          <label>Unidad de rendimiento <span class="req">*</span></label>
+          <input type="text" id="rm-unidad" list="rm-unidad-list" placeholder="ej: porciones, ml, oz" oninput="recalcularCostoRecetaPreview()"/>
+          <datalist id="rm-unidad-list"></datalist>
+        </div>
+      </div>
+      <p class="field-hint" style="margin:-.5rem 0 1rem">
+        Ej. una receta de plato simple rinde "1 porción". Un barril de cerveza puede rendir "5000 ml" — las
+        presentaciones (Vaso 16oz, etc.) se cargan como porciones de este mismo rendimiento.
+      </p>
+
+      <div class="section-label">Ingredientes</div>
+      <div id="rm-ingredientes"></div>
+      <button type="button" class="btn-add" onclick="agregarIngrediente()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+        Agregar ingrediente
+      </button>
+
+      <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1.25rem;margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:12px;color:var(--purple)">Costo total de la receta</div>
+            <div style="font-size:11px;color:var(--purple);opacity:.85" id="rm-costo-por-unidad">Por unidad de rendimiento: ₡0</div>
+          </div>
+          <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--purple)" id="rm-costo-total">₡0</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger-text" id="rm-btn-eliminar" onclick="eliminarRecetaActual()" style="display:none">Eliminar receta</button>
+      <div class="modal-foot-right" style="margin-left:auto">
+        <button class="btn-sm" onclick="cerrarModalReceta()">Cancelar</button>
+        <button class="btn-primary" onclick="guardarReceta()">Guardar receta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL CONFIRMAR (reemplaza confirm() nativo) ═══════════════════ -->
+<div class="modal-overlay" id="modal-confirmar">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3 id="confirmar-titulo">Confirmar</h3>
+      <button class="modal-close" onclick="confirmarResolver(false)">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirmar-mensaje" style="font-size:13px;color:var(--text);line-height:1.6"></p>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <button class="btn-sm" onclick="confirmarResolver(false)">Cancelar</button>
+      <button class="btn-primary" id="confirmar-btn-ok" onclick="confirmarResolver(true)" style="background:var(--red);border-color:var(--red)">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
@@ -179,7 +449,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
-// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+// ── CONTROL DE ACCESO (mismo patrón que el resto del portal) ──────
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
   localStorage.removeItem('portal_sesion');
@@ -189,61 +459,99 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
   alert('Tu usuario no tiene acceso a este módulo.');
   window.location.href = 'index.html';
 }
-// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
 
-// ── CONFIG (mismo Web App que inventario.html y compras.html) ──────
+// ── CONFIG — mismo Sheet/Web App que maestro-productos.html / cuentas-por-pagar.html ──
+const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4gy_cHh0A9Seqi3Jgwwx1yzjdGdzbLrwdpyb_s0HtJp5HSinxbMX9Q/exec';
+// Mismo Web App de RRHH (pestaña "Configuracion") que usan el resto de páginas del portal.
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
-// URL /exec del Web App de Code-inventario-v2-backend.gs (pegar al desplegar).
-// Recetas y la sincronización de ventas siguen viviendo acá — solo el
-// catálogo de ingredientes (ver PRODUCTOS_URL abajo) se mudó a Base de
-// Productos.
-const INVENTARIO_V2_URL = 'https://script.google.com/macros/s/AKfycbwb0NOJ8gCcyu3n8wwdqJEIOKyhWmW0T7kxXDnX26HO2NsmlppJuhUgOW5_TmFA8g1lkQ/exec';
-// URL /exec del Web App de Code-productos-backend.gs (Base de Productos,
-// mismo que usa productos.html) — de acá sale la lista de ingredientes para
-// elegir en una receta. Solo se listan productos con "Aplica receta"
-// activado en el catálogo.
-const PRODUCTOS_URL = 'https://script.google.com/macros/s/AKfycbyB4WFtP4NpzlTG9Rv4bsaqnniFPGse5xXCC5Op2wux9jxC6nrIGYZJWn38OfNHYKJUaw/exec';
+let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa']; // respaldo si falla la conexión
 
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-let PRODUCTOS = [];
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+// ── ESTADO ──────────────────────────────────────────────────────────
+let MAESTRO_PRODUCTOS = []; // productos agrupados por claveAgrupacion_, ver cargarMaestroProductos()
+let CONFIG = { nivel1: [], nivel2PorNivel1: {}, metaCostoPorNivel1: {} };
+let PLATOS = [];
 let RECETAS = [];
+let EDITANDO_PLATO = null;   // copia de trabajo del plato abierto en el modal (o null)
+let EDITANDO_RECETA = null;  // copia de trabajo de la receta abierta en el modal (o null)
+let RECETA_ORIGINAL_ID = ''; // id de la receta en edición (vacío = nueva)
 
-async function fetchConTimeout(url, options = {}, timeoutMs = 60000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try { return await fetch(url, { ...options, signal: controller.signal }); }
-  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
-  finally { clearTimeout(timer); }
+// ── UTILIDADES COMPARTIDAS (mismo patrón que maestro-productos.html) ──
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-async function postInv(payload) {
-  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_V2_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
+function escapeAttr(s) { return escHtml(s); }
+const fmtCRC = n => '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtPct = n => (n == null || isNaN(n)) ? '—' : n.toFixed(1) + '%';
+function nuevoIdLocal() { return 'tmp' + Math.random().toString(36).slice(2, 9); }
+
+// Espejo EXACTO de claveAgrupacion_() en maestro-productos.html — no se
+// puede compartir código entre páginas (sin build step), así que esta copia
+// y la de Code-cuentas-por-pagar-kioskos-backend.gs deben mantenerse
+// idénticas a mano.
+function claveAgrupacion_(s) {
+  return (s || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
 }
-async function getInv(params) {
-  if (!INVENTARIO_V2_URL) throw new Error('Falta configurar INVENTARIO_V2_URL en el código.');
-  const resp = await fetchConTimeout(INVENTARIO_V2_URL + '?' + new URLSearchParams(params).toString());
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
+
+// ── GVIZ: leer hoja pública del Sheet (igual que maestro-productos.html) ──
+function gvizLoad(hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    var cb    = '_rc_' + Math.random().toString(36).slice(2,10);
+    var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '&sheet=' + encodeURIComponent(hoja)
+              + '&headers=1';
+    var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e) {}
+      try { if (s && s.parentNode) document.body.removeChild(s); } catch(e) {}
+    }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        var cols = (data.table.cols||[]).map(function(c){ return String(c.label||c.id||'').trim(); });
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        var rows = (data.table.rows||[]).filter(function(r){ return r&&r.c; }).map(function(row){
+          var obj = {};
+          cols.forEach(function(col,i){
+            var cell = row.c[i];
+            obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : '';
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    var s = document.createElement('script');
+    s.onerror = function(){ cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
 }
-async function getProd(params) {
-  if (!PRODUCTOS_URL) throw new Error('Falta configurar PRODUCTOS_URL en el código.');
-  const resp = await fetchConTimeout(PRODUCTOS_URL + '?' + new URLSearchParams(params).toString());
-  const out = await resp.json();
-  if (!out.ok) throw new Error(out.error || 'Error desconocido');
-  return out;
+
+async function postAP(payload) {
+  const resp = await fetch(APPS_SCRIPT_AP, {
+    method: 'POST',
+    body: new URLSearchParams({ data: JSON.stringify(payload) })
+  });
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar');
+  return json.result;
 }
 
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
-  document.getElementById('toast-icon').innerHTML = type === 'success'
+  document.getElementById('toast-icon').innerHTML = type==='success'
     ? '<polyline points="3 8 7 12 13 4"/>'
     : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
   document.getElementById('toast-msg').textContent = msg;
@@ -251,211 +559,915 @@ function showToast(msg, type='success') {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => t.classList.remove('show'), 3500);
 }
-function escHtml(s) {
-  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// Modal de confirmación propio (no bloqueante) — reemplaza confirm() nativo
+// para que la página sea verificable en herramientas de preview automatizado
+// y para no interrumpir con un diálogo del navegador.
+let _confirmarResolve = null;
+function confirmModal(mensaje, titulo) {
+  document.getElementById('confirmar-titulo').textContent = titulo || 'Confirmar';
+  document.getElementById('confirmar-mensaje').textContent = mensaje;
+  document.getElementById('modal-confirmar').classList.add('open');
+  return new Promise(resolve => { _confirmarResolve = resolve; });
+}
+function confirmarResolver(valor) {
+  document.getElementById('modal-confirmar').classList.remove('open');
+  if (_confirmarResolve) { _confirmarResolve(valor); _confirmarResolve = null; }
 }
 
-// ── KIOSKOS ───────────────────────────────────────────────────────
-async function cargarKioskos() {
+function switchTab(nombre) {
+  document.getElementById('tab-platos').style.display = nombre === 'platos' ? '' : 'none';
+  document.getElementById('tab-recetas').style.display = nombre === 'recetas' ? '' : 'none';
+  document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
+  document.getElementById('tab-btn-platos').classList.toggle('active', nombre === 'platos');
+  document.getElementById('tab-btn-recetas').classList.toggle('active', nombre === 'recetas');
+  document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
+}
+
+// ── CARGA DE DATOS ──────────────────────────────────────────────────
+async function cargarKioskosDisponibles() {
   try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     const data = await resp.json();
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
       KIOSKOS = kioskosPermitidos(data.kioskos);
-    } else if (data.registros && data.registros.length) {
-      const activos = data.registros
-        .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
-        .map(k => k['Kiosko']).filter(Boolean);
-      if (activos.length) KIOSKOS = activos;
     }
-  } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
-  const opciones = KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
-  document.getElementById('receta-kiosko').innerHTML = '<option value="">Todos los kioskos</option>' + opciones;
-  document.getElementById('sync-kiosko').innerHTML = '<option value="">Todos los kioskos con Square configurado</option>' + opciones;
+  } catch (e) { /* se queda con el respaldo de 4 kioskos */ }
 }
 
-// ── PRODUCTOS (para el selector de ingredientes — Base de Productos) ──
-async function cargarProductos() {
-  try {
-    const data = await getProd({ modulo: 'productos' });
-    PRODUCTOS = (data.registros || []).filter(p => p['Activo'] !== false && p['Aplica receta'] !== false);
-  } catch(e) {
-    PRODUCTOS = [];
-  }
-}
-function unidadProducto(p) {
-  return (p && p['Unidad']) ? p['Unidad'] : 'Unidad';
-}
-function opcionesProductos(seleccionadoId) {
-  return '<option value="" disabled ' + (seleccionadoId ? '' : 'selected') + '>Elegí un producto…</option>'
-    + PRODUCTOS.map(p => `<option value="${p['ID']}" ${String(p['ID'])===String(seleccionadoId)?'selected':''}>${escHtml(p['Nombre'])} (${unidadProducto(p)})</option>`).join('');
-}
-
-// ── INGREDIENTES (filas dinámicas) ─────────────────────────────────
-function agregarFilaIngrediente(productoId, cantidad) {
-  const div = document.createElement('div');
-  div.className = 'ingrediente-row';
-  div.innerHTML = `
-    <select class="ing-producto" onchange="alCambiarIngProducto(this)">${opcionesProductos(productoId)}</select>
-    <input type="number" class="ing-cantidad" step="any" min="0" placeholder="Cant." value="${cantidad !== undefined ? cantidad : ''}"/>
-    <span class="ingrediente-unidad" data-role="unidad">${productoId ? unidadProducto(PRODUCTOS.find(p => String(p['ID'])===String(productoId))) : ''}</span>
-    <button class="ingrediente-quitar" onclick="this.closest('.ingrediente-row').remove()" title="Quitar">×</button>
-  `;
-  document.getElementById('ingredientes-lista').appendChild(div);
-}
-function alCambiarIngProducto(select) {
-  const row = select.closest('.ingrediente-row');
-  const producto = PRODUCTOS.find(p => String(p['ID']) === String(select.value));
-  row.querySelector('[data-role="unidad"]').textContent = producto ? unidadProducto(producto) : '';
-}
-
-function leerIngredientes() {
-  return [...document.querySelectorAll('#ingredientes-lista .ingrediente-row')].map(row => {
-    const productoId = row.querySelector('.ing-producto').value;
-    const producto = PRODUCTOS.find(p => String(p['ID']) === String(productoId));
-    return {
-      productoId,
-      productoNombre: producto ? producto['Nombre'] : '',
-      cantidad: Number(row.querySelector('.ing-cantidad').value) || 0
+// Agrupa Maestro_Productos por producto (mismo criterio que
+// claveAgrupacion_/agruparFichas en maestro-productos.html): se queda con la
+// fila de "Ficha actualizada" más reciente por clave.
+async function cargarMaestroProductos() {
+  const datos = await gvizLoad('Maestro_Productos', 'Nombre en Factura');
+  const mapa = new Map();
+  datos.forEach(r => {
+    const nombre = r['Nombre Estándar'] || r['Nombre en Factura'] || '';
+    const clave = claveAgrupacion_(nombre);
+    if (!clave) return;
+    const fichaActualizada = r['Ficha actualizada'] || '';
+    const candidato = {
+      clave, nombre,
+      unidadReceta: r['Unidad Receta'] || '',
+      aplicaReceta: r['Aplica Receta'] === 'No' ? 'No' : 'Sí',
+      usarCostoManualReceta: r['Usar Costo Manual Receta'] === true || r['Usar Costo Manual Receta'] === 'TRUE',
+      costoRealReceta: Number(r['Costo Real Receta']) || 0,
+      costoPorUnidad: Number(r['Costo por unidad']) || 0,
+      estado: r['Estado'] || 'Pendiente',
+      fichaActualizada
     };
-  }).filter(i => i.productoId && i.cantidad > 0);
+    const existente = mapa.get(clave);
+    if (!existente) { mapa.set(clave, candidato); return; }
+    const fechaExistente = existente.fichaActualizada ? new Date(existente.fichaActualizada).getTime() || 0 : 0;
+    const fechaCandidato = fichaActualizada ? new Date(fichaActualizada).getTime() || 0 : 0;
+    if (fechaCandidato > fechaExistente) mapa.set(clave, candidato);
+  });
+  MAESTRO_PRODUCTOS = Array.from(mapa.values());
 }
 
-// ── RECETAS ────────────────────────────────────────────────────────
-async function cargarRecetas() {
-  document.getElementById('recetas-lista').innerHTML = '<div class="empty-state">Cargando recetas…</div>';
+// Solo los productos que aplican como ingrediente de receta y ya están
+// confirmados en Homologación — mismo filtro que documenta el plan.
+function productosParaIngrediente() {
+  return MAESTRO_PRODUCTOS.filter(p => p.aplicaReceta === 'Sí' && p.estado === 'Confirmado');
+}
+
+async function cargarConfiguracion() {
+  const datos = await gvizLoad('Configuracion', 'Tipo');
+  const nivel1 = [], nivel2PorNivel1 = {}, metaCostoPorNivel1 = {};
+  datos.forEach(r => {
+    const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
+    if (!valor) return;
+    if (tipo === 'Nivel1') {
+      nivel1.push(valor);
+      if (extra !== '' && extra != null && !isNaN(Number(extra))) metaCostoPorNivel1[valor] = Number(extra);
+    } else if (tipo === 'Nivel2') {
+      (nivel2PorNivel1[extra] = nivel2PorNivel1[extra] || []).push(valor);
+    }
+  });
+  CONFIG = { nivel1, nivel2PorNivel1, metaCostoPorNivel1 };
+}
+
+async function cargarMenuPlatos() {
+  const datos = await gvizLoad('Menu_Platos', 'Nombre');
+  PLATOS = datos.map(r => {
+    let presentaciones = [];
+    let corrupta = false;
+    try {
+      presentaciones = JSON.parse(r['Presentaciones'] || '[]');
+      if (!Array.isArray(presentaciones)) throw new Error('no-array');
+    } catch (e) { presentaciones = []; corrupta = true; }
+    return {
+      id: r['ID'] || '',
+      nombre: r['Nombre'] || '',
+      nivel1: r['Nivel1'] || '',
+      nivel2: r['Nivel2'] || '',
+      kioskos: r['Kioskos'] || 'Todos',
+      presentaciones,
+      presentacionesCorruptas: corrupta,
+      activo: r['Activo'] === false ? false : true
+    };
+  }).filter(p => p.id);
+}
+
+async function cargarMenuRecetas() {
+  const datos = await gvizLoad('Menu_Recetas', 'Tipo');
+  RECETAS = datos.map(r => {
+    let ingredientes = [];
+    let corrupta = false;
+    try {
+      ingredientes = JSON.parse(r['Ingredientes'] || '[]');
+      if (!Array.isArray(ingredientes)) throw new Error('no-array');
+    } catch (e) { ingredientes = []; corrupta = true; }
+    return {
+      id: r['ID'] || '',
+      tipo: r['Tipo'] === 'subreceta' ? 'subreceta' : 'receta',
+      nombre: r['Nombre'] || '',
+      platoId: r['PlatoId'] || '',
+      rendimiento: Number(r['Rendimiento']) || 0,
+      unidadRendimiento: r['UnidadRendimiento'] || '',
+      ingredientes,
+      ingredientesCorruptos: corrupta,
+      costoTotal: Number(r['CostoTotal']) || 0,
+      costoPorUnidadRendimiento: Number(r['CostoPorUnidadRendimiento']) || 0,
+      actualizado: r['Actualizado'] || ''
+    };
+  }).filter(r => r.id);
+}
+
+async function cargarTodo() {
   try {
-    const data = await getInv({ modulo: 'recetas' });
-    RECETAS = data.registros || [];
-    renderRecetas();
-  } catch(e) {
-    document.getElementById('recetas-lista').innerHTML = `<div class="empty-state">No se pudieron cargar las recetas (${escHtml(e.message)}).</div>`;
+    await Promise.all([
+      cargarMaestroProductos(), cargarConfiguracion(),
+      cargarMenuPlatos(), cargarMenuRecetas(), cargarKioskosDisponibles()
+    ]);
+  } catch (e) {
+    showToast('No se pudo cargar todo — revisá la conexión. (' + e.message + ')', 'error');
   }
+  renderPlatos();
+  renderRecetas();
+  renderConfigNivel1();
+  renderConfigNivel2();
 }
 
-function renderRecetas() {
-  const cont = document.getElementById('recetas-lista');
-  const activas = RECETAS.filter(r => r['Activo'] !== false);
-  if (!activas.length) { cont.innerHTML = '<div class="empty-state">Todavía no hay recetas. Creá la primera arriba.</div>'; return; }
-  cont.innerHTML = activas.map(r => `
-    <div class="receta-card">
-      <div class="receta-head">
-        <div>
-          <span class="receta-nombre">${escHtml(r['Nombre de Venta'])}</span>
-          ${r['Kiosko'] ? `<span class="badge badge-kiosko">${escHtml(r['Kiosko'])}</span>` : '<span class="badge badge-todos">Todos los kioskos</span>'}
-        </div>
-        <div class="receta-actions">
-          <button class="btn-sm" onclick="editarReceta('${r['ID']}')">✎ Editar</button>
-          <button class="btn-sm btn-danger-outline" onclick="eliminarReceta('${r['ID']}')">Eliminar</button>
-        </div>
-      </div>
-      <div class="receta-ing">${(r.ingredientes||[]).map(i => {
-        const prod = PRODUCTOS.find(p => String(p['ID']) === String(i['Producto ID']));
-        return `${escHtml(i['Producto Nombre'])} × ${i['Cantidad por Unidad Vendida']} ${prod ? unidadProducto(prod) : ''}`;
-      }).join(' · ') || 'Sin ingredientes'}</div>
-    </div>
-  `).join('');
+// ── HELPERS DE NEGOCIO ──────────────────────────────────────────────
+function recetaDePlato(platoId) {
+  return RECETAS.find(r => r.tipo === 'receta' && r.platoId === platoId);
 }
 
-function editarReceta(id) {
-  const r = RECETAS.find(x => String(x['ID']) === String(id));
-  if (!r) return;
-  document.getElementById('receta-id').value = r['ID'];
-  document.getElementById('receta-nombre-venta').value = r['Nombre de Venta'] || '';
-  document.getElementById('receta-kiosko').value = r['Kiosko'] || '';
-  document.getElementById('receta-activo').checked = r['Activo'] !== false;
-  document.getElementById('ingredientes-lista').innerHTML = '';
-  (r.ingredientes || []).forEach(i => agregarFilaIngrediente(i['Producto ID'], i['Cantidad por Unidad Vendida']));
-  if (!(r.ingredientes || []).length) agregarFilaIngrediente();
-  document.getElementById('receta-form-title').textContent = 'Editar receta';
-  document.getElementById('receta-cancelar-edicion').style.display = 'inline';
-  document.getElementById('btn-receta-guardar').textContent = 'Guardar cambios';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// Une productos aplicables a receta + subrecetas (excluyendo la propia
+// receta en edición, para que no pueda usarse a sí misma como ingrediente)
+// como posibles "fuentes" de un ingrediente.
+function fuentesIngrediente(excluirRecetaId) {
+  const productos = productosParaIngrediente().map(p => ({
+    tipoFuente: 'producto', ref: p.clave, nombre: p.nombre,
+    unidad: p.unidadReceta, costo: p.costoRealReceta || p.costoPorUnidad || 0
+  }));
+  const subrecetas = RECETAS.filter(r => r.tipo === 'subreceta' && r.id !== excluirRecetaId).map(r => ({
+    tipoFuente: 'subreceta', ref: r.id, nombre: r.nombre + ' (subreceta)',
+    unidad: r.unidadRendimiento, costo: r.costoPorUnidadRendimiento || 0
+  }));
+  return [...productos, ...subrecetas];
 }
 
-function cancelarEdicionReceta() {
-  document.getElementById('receta-id').value = '';
-  document.getElementById('receta-nombre-venta').value = '';
-  document.getElementById('receta-kiosko').value = '';
-  document.getElementById('receta-activo').checked = true;
-  document.getElementById('ingredientes-lista').innerHTML = '';
-  agregarFilaIngrediente();
-  document.getElementById('receta-form-title').textContent = 'Nueva receta';
-  document.getElementById('receta-cancelar-edicion').style.display = 'none';
-  document.getElementById('btn-receta-guardar').textContent = 'Guardar receta';
+function costoPresentacion(presentacion, receta) {
+  if (!receta || !receta.rendimiento) return 0;
+  return receta.costoPorUnidadRendimiento * (Number(presentacion.cantidad) || 0);
+}
+function pctCosto(costo, precioVenta) {
+  const precio = Number(precioVenta) || 0;
+  if (!precio) return null;
+  return (costo / precio) * 100;
+}
+function precioSugerido(costo, metaPct) {
+  if (!metaPct) return null;
+  return costo / (metaPct / 100);
+}
+function colorPct(pct, metaPct) {
+  if (pct == null) return 'var(--muted)';
+  const limiteAmbar = metaPct || 28;
+  const limiteRojo = metaPct ? metaPct + 5 : 35;
+  if (pct <= limiteAmbar) return 'var(--green)';
+  if (pct <= limiteRojo) return 'var(--amber)';
+  return 'var(--red)';
 }
 
-async function guardarReceta() {
-  const nombreVenta = document.getElementById('receta-nombre-venta').value.trim();
-  if (!nombreVenta) { showToast('Escribí el nombre de venta', 'error'); return; }
-  const ingredientes = leerIngredientes();
-  if (!ingredientes.length) { showToast('Agregá al menos un ingrediente con cantidad', 'error'); return; }
-
-  const payload = {
-    accion: 'receta_guardar',
-    id: document.getElementById('receta-id').value || undefined,
-    nombreVenta,
-    kiosko: document.getElementById('receta-kiosko').value,
-    activo: document.getElementById('receta-activo').checked,
-    ingredientes
+// Tres señales de estado independientes por plato — un plato puede tener
+// receta pero todavía no precio, o precio pero no nombre de Square.
+function estadoPlato(plato) {
+  const receta = recetaDePlato(plato.id);
+  const presActivas = plato.presentaciones.filter(p => p.activo !== false);
+  return {
+    sinReceta: !receta,
+    sinPrecio: !presActivas.some(p => Number(p.precioVenta) > 0),
+    sinSquare: !presActivas.some(p => (p.nombreVentaSquare||'').toString().trim())
   };
+}
 
-  const btn = document.getElementById('btn-receta-guardar');
-  btn.disabled = true;
+// ═══════════════════ TAB PLATOS ═══════════════════
+
+function onFiltroNivel1Change() {
+  poblarSelectNivel2(document.getElementById('plt-nivel1').value, 'plt-nivel2', true);
+  renderPlatos();
+}
+
+function poblarSelectNivel1(selectId, valorActual) {
+  const sel = document.getElementById(selectId);
+  const incluirTodos = selectId === 'plt-nivel1';
+  sel.innerHTML = (incluirTodos ? '<option value="">Nivel 1: todos</option>' : '<option value="" disabled selected>Seleccioná…</option>')
+    + CONFIG.nivel1.map(n => `<option value="${escapeAttr(n)}" ${n===valorActual?'selected':''}>${escHtml(n)}</option>`).join('');
+}
+
+function poblarSelectNivel2(nivel1, selectId, conTodos) {
+  const sel = document.getElementById(selectId);
+  const opciones = (CONFIG.nivel2PorNivel1[nivel1] || []);
+  sel.innerHTML = (conTodos ? '<option value="">Nivel 2: todos</option>' : '<option value="" disabled selected>Seleccioná…</option>')
+    + opciones.map(n => `<option value="${escapeAttr(n)}">${escHtml(n)}</option>`).join('');
+}
+
+function renderPlatos() {
+  const q = document.getElementById('plt-buscar').value.trim().toLowerCase();
+  const nivel1Sel = document.getElementById('plt-nivel1').value;
+  const nivel2Sel = document.getElementById('plt-nivel2').value;
+  const estadoSel = document.getElementById('plt-estado').value;
+  const incluirInactivos = document.getElementById('plt-incluir-inactivos').checked;
+
+  const conEstado = PLATOS.map(p => ({ p, estado: estadoPlato(p) }));
+  document.getElementById('plt-count-sinreceta').textContent = conEstado.filter(x => x.estado.sinReceta).length;
+  document.getElementById('plt-count-sinprecio').textContent = conEstado.filter(x => x.estado.sinPrecio).length;
+  document.getElementById('plt-count-sinsquare').textContent = conEstado.filter(x => x.estado.sinSquare).length;
+  document.getElementById('plt-count-total').textContent = PLATOS.length;
+
+  const filtrados = conEstado.filter(({p, estado}) => {
+    if (!incluirInactivos && !p.activo) return false;
+    if (nivel1Sel && p.nivel1 !== nivel1Sel) return false;
+    if (nivel2Sel && p.nivel2 !== nivel2Sel) return false;
+    if (estadoSel === 'sinReceta' && !estado.sinReceta) return false;
+    if (estadoSel === 'sinPrecio' && !estado.sinPrecio) return false;
+    if (estadoSel === 'sinSquare' && !estado.sinSquare) return false;
+    if (q && !p.nombre.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const cont = document.getElementById('plt-lista');
+  if (!PLATOS.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay platos. Tocá "+ Nuevo plato" para agregar el primero.</div>';
+    return;
+  }
+  if (!filtrados.length) {
+    cont.innerHTML = '<div class="empty-state">Sin resultados para ese filtro/búsqueda.</div>';
+    return;
+  }
+
+  cont.innerHTML = `<div class="plt-grid">${filtrados.map(({p, estado}) => {
+    const receta = recetaDePlato(p.id);
+    const metaPct = CONFIG.metaCostoPorNivel1[p.nivel1];
+    const filasPres = p.presentaciones.filter(pr => pr.activo !== false).map(pr => {
+      const costo = costoPresentacion(pr, receta);
+      const pct = pctCosto(costo, pr.precioVenta);
+      return `<tr>
+        <td>${escHtml(pr.nombre||'—')}</td>
+        <td class="num">${pr.precioVenta ? fmtCRC(pr.precioVenta) : '—'}</td>
+        <td class="num">${receta ? fmtCRC(costo) : '—'}</td>
+        <td class="num" style="color:${colorPct(pct, metaPct)};font-weight:600">${fmtPct(pct)}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div class="plt-card ${p.activo ? '' : 'inactivo'}">
+      <div class="plt-nombre">${escHtml(p.nombre)}</div>
+      <div class="plt-cat">${escHtml(p.nivel1)} › ${escHtml(p.nivel2)}</div>
+      <div class="plt-kioskos">📍 ${p.kioskos === 'Todos' ? 'Todos los kioskos' : escHtml(p.kioskos)}</div>
+      <div class="plt-badges">
+        ${estado.sinReceta ? '<span class="plt-badge plt-badge-warn">⚠ Sin receta</span>' : '<span class="plt-badge plt-badge-ok">✓ Receta</span>'}
+        ${estado.sinPrecio ? '<span class="plt-badge plt-badge-warn">⚠ Sin precio</span>' : ''}
+        ${estado.sinSquare ? '<span class="plt-badge plt-badge-warn">⚠ Sin nombre Square</span>' : ''}
+        ${p.presentacionesCorruptas ? '<span class="plt-badge plt-badge-warn">⚠ Datos dañados</span>' : ''}
+      </div>
+      ${filasPres ? `<table class="plt-pres-mini"><tbody>${filasPres}</tbody></table>` : '<div class="field-hint">Sin presentaciones activas.</div>'}
+      <div class="plt-actions">
+        <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Editar</button>
+        ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Crear receta</button>` : ''}
+        <button class="btn-sm" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function nuevoPlato() {
+  EDITANDO_PLATO = {
+    id: '', nombre: '', nivel1: CONFIG.nivel1[0] || '', nivel2: '', kioskos: 'Todos',
+    presentaciones: [{ id: nuevoIdLocal(), nombre: 'Regular', cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true }],
+    activo: true
+  };
+  abrirModalPlatoConEstado('Nuevo plato', false);
+}
+
+function abrirPlato(id) {
+  const p = PLATOS.find(x => x.id === id);
+  if (!p) return;
+  EDITANDO_PLATO = JSON.parse(JSON.stringify(p)); // copia de trabajo — Cancelar no debe mutar PLATOS
+  abrirModalPlatoConEstado('Editar plato', true);
+}
+
+function abrirModalPlatoConEstado(titulo, esEdicion) {
+  document.getElementById('plato-titulo').textContent = titulo;
+  document.getElementById('pm-nombre').value = EDITANDO_PLATO.nombre;
+  poblarSelectNivel1('pm-nivel1', EDITANDO_PLATO.nivel1);
+  poblarSelectNivel2(EDITANDO_PLATO.nivel1, 'pm-nivel2', false);
+  document.getElementById('pm-nivel2').value = EDITANDO_PLATO.nivel2;
+  document.getElementById('pm-activo').checked = EDITANDO_PLATO.activo !== false;
+  document.getElementById('pm-btn-eliminar').style.display = esEdicion ? '' : 'none';
+  marcarKioskosPlatoModal(EDITANDO_PLATO.kioskos);
+  const receta = esEdicion ? recetaDePlato(EDITANDO_PLATO.id) : null;
+  document.getElementById('pm-receta-info').innerHTML = receta
+    ? `✓ Receta enlazada — rinde ${escHtml(String(receta.rendimiento))} ${escHtml(receta.unidadRendimiento)}, costo ${fmtCRC(receta.costoTotal)} total (${fmtCRC(receta.costoPorUnidadRendimiento)} por ${escHtml(receta.unidadRendimiento)}).`
+    : (esEdicion ? '⚠ Este plato todavía no tiene una receta enlazada — guardalo y usá "+ Crear receta" desde la tarjeta del plato.' : 'Se guarda el plato primero; la receta se enlaza después desde la tarjeta del plato.');
+  renderPresentacionesModal();
+  document.getElementById('modal-plato').classList.add('open');
+}
+
+function cerrarModalPlato() {
+  document.getElementById('modal-plato').classList.remove('open');
+  EDITANDO_PLATO = null;
+}
+
+function onNivel1ModalChange() {
+  EDITANDO_PLATO.nivel1 = document.getElementById('pm-nivel1').value;
+  EDITANDO_PLATO.nivel2 = '';
+  poblarSelectNivel2(EDITANDO_PLATO.nivel1, 'pm-nivel2', false);
+  renderPresentacionesModal(); // el % costo usa la meta del nuevo Nivel1
+}
+
+function onNivel2ModalChange() {
+  EDITANDO_PLATO.nivel2 = document.getElementById('pm-nivel2').value;
+  renderPresentacionesModal(); // puede aparecer/desaparecer la precarga estándar
+}
+
+// ── Kioskos (copiado casi literal de maestro-productos.html) ───────
+function marcarKioskosPlatoModal(kioskosStr) {
+  document.getElementById('pm-kioskos-lista').innerHTML = KIOSKOS.map(k =>
+    `<label class="check-row"><input type="checkbox" class="pm-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
+  ).join('');
+  const k = kioskosStr && kioskosStr.trim() && kioskosStr.trim().toLowerCase() !== 'todos'
+    ? kioskosStr.split(',').map(s=>s.trim()).filter(Boolean)
+    : null; // null = "Todos"
+  document.getElementById('pm-kioskos-todos').checked = !k;
+  document.getElementById('pm-kioskos-lista').style.display = k ? 'grid' : 'none';
+  document.querySelectorAll('.pm-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+}
+function toggleKioskosPlatoTodos() {
+  const todos = document.getElementById('pm-kioskos-todos').checked;
+  document.getElementById('pm-kioskos-lista').style.display = todos ? 'none' : 'grid';
+}
+function leerKioskosPlatoModal() {
+  if (document.getElementById('pm-kioskos-todos').checked) return 'Todos';
+  const marcados = Array.from(document.querySelectorAll('.pm-kiosko-chk:checked')).map(c => c.value);
+  return marcados.length ? marcados.join(',') : 'Todos';
+}
+
+// ── Presentaciones ──────────────────────────────────────────────────
+const PRESENTACIONES_ESTANDAR = {
+  'cerveza artesanal draft': ['Vaso 16oz', 'Vaso 10oz', 'Vaso 4oz'],
+  'licores': ['Botella', 'Cuarta', 'Trago']
+};
+function nivel2Normalizado(n) { return (n||'').toString().trim().toLowerCase(); }
+
+// El botón solo aparece (y solo hace algo) mientras el plato sigue en su
+// estado "recién creado" — sin presentaciones o con la única "Regular" en
+// blanco todavía sin tocar. Así es idempotente sin necesitar una bandera
+// aparte: una vez que hay datos reales cargados, la condición ya no se
+// cumple y el botón desaparece solo.
+function puedePrecargarPresentaciones() {
+  const nombres = PRESENTACIONES_ESTANDAR[nivel2Normalizado(EDITANDO_PLATO.nivel2)];
+  if (!nombres) return false;
+  const pres = EDITANDO_PLATO.presentaciones;
+  if (pres.length === 0) return true;
+  if (pres.length === 1 && pres[0].nombre === 'Regular' && !pres[0].cantidad && !pres[0].precioVenta && !pres[0].nombreVentaSquare) return true;
+  return false;
+}
+function precargarPresentacionesEstandar() {
+  const nombres = PRESENTACIONES_ESTANDAR[nivel2Normalizado(EDITANDO_PLATO.nivel2)];
+  if (!nombres) return;
+  EDITANDO_PLATO.presentaciones = nombres.map(nombre => ({
+    id: nuevoIdLocal(), nombre, cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true
+  }));
+  renderPresentacionesModal();
+}
+
+function renderPresentacionesModal() {
+  const receta = EDITANDO_PLATO.id ? recetaDePlato(EDITANDO_PLATO.id) : null;
+  const metaPct = CONFIG.metaCostoPorNivel1[EDITANDO_PLATO.nivel1];
+
+  const precargaWrap = document.getElementById('pm-precarga-wrap');
+  precargaWrap.innerHTML = puedePrecargarPresentaciones()
+    ? `<div class="suggest-box"><span>💡 Esta categoría tiene presentaciones estándar.</span>
+        <button class="btn-sm" type="button" onclick="precargarPresentacionesEstandar()">Precargar Vaso/Trago/Botella según categoría</button></div>`
+    : '';
+
+  document.getElementById('pm-presentaciones').innerHTML = EDITANDO_PLATO.presentaciones.map((pr, idx) => {
+    const costo = costoPresentacion(pr, receta);
+    const pct = pctCosto(costo, pr.precioVenta);
+    const sugerido = receta ? precioSugerido(costo, metaPct) : null;
+    return `
+    <div class="pres-row" data-idx="${idx}">
+      <div class="field"><label>Nombre</label>
+        <input type="text" value="${escapeAttr(pr.nombre)}" placeholder="ej: Regular, Vaso 16oz" oninput="onPresentacionInput(${idx},'nombre',this.value)"/>
+      </div>
+      <div class="field"><label>Cantidad</label>
+        <input type="number" min="0" step="any" value="${escapeAttr(pr.cantidad)}" placeholder="0" oninput="onPresentacionInput(${idx},'cantidad',this.value)"/>
+      </div>
+      <div class="field"><label>Precio venta (₡)</label>
+        <input type="number" min="0" step="any" value="${escapeAttr(pr.precioVenta)}" placeholder="0" oninput="onPresentacionInput(${idx},'precioVenta',this.value)"/>
+      </div>
+      <div class="field"><label>Nombre de venta en Square</label>
+        <input type="text" value="${escapeAttr(pr.nombreVentaSquare)}" placeholder="Como aparece vendido en Square" oninput="onPresentacionInput(${idx},'nombreVentaSquare',this.value)"/>
+      </div>
+      <button type="button" class="btn-rm" onclick="quitarPresentacion(${idx})" title="Quitar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+      </button>
+      <div class="pres-calc">
+        ${receta
+          ? `<span>Costo: <b>${fmtCRC(costo)}</b></span><span>% costo: <b style="color:${colorPct(pct, metaPct)}">${fmtPct(pct)}</b></span>${sugerido!=null?`<span>Precio sugerido (meta ${metaPct}%): <b>${fmtCRC(sugerido)}</b></span>`:''}`
+          : '<span>Sin receta enlazada todavía — no se puede calcular costo.</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onPresentacionInput(idx, campo, valor) {
+  EDITANDO_PLATO.presentaciones[idx][campo] = valor;
+  // Re-render completo para refrescar costo/%/sugerido en vivo, pero sin
+  // perder el foco de más de una tecla — re-renderizar solo esta fila
+  // alcanza para los cálculos derivados sin reconstruir toda la lista.
+  const receta = EDITANDO_PLATO.id ? recetaDePlato(EDITANDO_PLATO.id) : null;
+  const metaPct = CONFIG.metaCostoPorNivel1[EDITANDO_PLATO.nivel1];
+  const pr = EDITANDO_PLATO.presentaciones[idx];
+  const costo = costoPresentacion(pr, receta);
+  const pct = pctCosto(costo, pr.precioVenta);
+  const sugerido = receta ? precioSugerido(costo, metaPct) : null;
+  const fila = document.querySelector(`#pm-presentaciones .pres-row[data-idx="${idx}"] .pres-calc`);
+  if (fila) {
+    fila.innerHTML = receta
+      ? `<span>Costo: <b>${fmtCRC(costo)}</b></span><span>% costo: <b style="color:${colorPct(pct, metaPct)}">${fmtPct(pct)}</b></span>${sugerido!=null?`<span>Precio sugerido (meta ${metaPct}%): <b>${fmtCRC(sugerido)}</b></span>`:''}`
+      : '<span>Sin receta enlazada todavía — no se puede calcular costo.</span>';
+  }
+  // El botón de precarga puede dejar de aplicar en cuanto se edita algo.
+  document.getElementById('pm-precarga-wrap').innerHTML = puedePrecargarPresentaciones()
+    ? `<div class="suggest-box"><span>💡 Esta categoría tiene presentaciones estándar.</span>
+        <button class="btn-sm" type="button" onclick="precargarPresentacionesEstandar()">Precargar Vaso/Trago/Botella según categoría</button></div>`
+    : '';
+}
+
+function agregarPresentacion() {
+  EDITANDO_PLATO.presentaciones.push({ id: nuevoIdLocal(), nombre: '', cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true });
+  renderPresentacionesModal();
+}
+function quitarPresentacion(idx) {
+  EDITANDO_PLATO.presentaciones.splice(idx, 1);
+  renderPresentacionesModal();
+}
+
+async function guardarPlato() {
+  EDITANDO_PLATO.nombre = document.getElementById('pm-nombre').value.trim();
+  EDITANDO_PLATO.nivel1 = document.getElementById('pm-nivel1').value;
+  EDITANDO_PLATO.nivel2 = document.getElementById('pm-nivel2').value;
+  EDITANDO_PLATO.kioskos = leerKioskosPlatoModal();
+  EDITANDO_PLATO.activo = document.getElementById('pm-activo').checked;
+
+  if (!EDITANDO_PLATO.nombre) { showToast('Ingresá el nombre del plato.', 'error'); return; }
+  if (!EDITANDO_PLATO.nivel1) { showToast('Seleccioná el Nivel 1.', 'error'); return; }
+  if (!EDITANDO_PLATO.nivel2) { showToast('Seleccioná el Nivel 2.', 'error'); return; }
+  if (!EDITANDO_PLATO.presentaciones.length) { showToast('Agregá al menos una presentación de venta.', 'error'); return; }
+  const sinNombre = EDITANDO_PLATO.presentaciones.find(p => !p.nombre.trim());
+  if (sinNombre) { showToast('Todas las presentaciones necesitan un nombre.', 'error'); return; }
+
   try {
-    await postInv(payload);
-    showToast('Receta guardada ✓');
-    cancelarEdicionReceta();
-    await cargarRecetas();
-  } catch(e) {
+    const result = await postAP({
+      modulo: 'menu_plato_guardar',
+      id: EDITANDO_PLATO.id,
+      nombre: EDITANDO_PLATO.nombre,
+      nivel1: EDITANDO_PLATO.nivel1,
+      nivel2: EDITANDO_PLATO.nivel2,
+      kioskos: EDITANDO_PLATO.kioskos,
+      activo: EDITANDO_PLATO.activo,
+      presentaciones: EDITANDO_PLATO.presentaciones
+    });
+    showToast(`Plato "${EDITANDO_PLATO.nombre}" guardado ✓`);
+    cerrarModalPlato();
+    await cargarMenuPlatos();
+    renderPlatos();
+  } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
   }
 }
 
-async function eliminarReceta(id) {
-  if (!confirm('¿Eliminar esta receta? Deja de aplicarse a nuevas ventas.')) return;
+async function toggleActivoPlato(id, activoActual) {
   try {
-    await postInv({ accion: 'receta_eliminar', id });
-    showToast('Receta eliminada ✓');
-    await cargarRecetas();
-  } catch(e) {
+    await postAP({ modulo: 'menu_plato_estado', id, activo: !activoActual });
+    showToast(activoActual ? 'Plato desactivado ✓' : 'Plato activado ✓');
+    await cargarMenuPlatos();
+    renderPlatos();
+  } catch (e) {
+    showToast('No se pudo actualizar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarPlatoDuro() {
+  if (!EDITANDO_PLATO || !EDITANDO_PLATO.id) return;
+  const ok = await confirmModal(`¿Eliminar definitivamente "${EDITANDO_PLATO.nombre}"? Esta acción no se puede deshacer. Si solo querés ocultarlo del menú, usá "Desactivar" en vez de esto.`, 'Eliminar plato');
+  if (!ok) return;
+  try {
+    await postAP({ modulo: 'menu_plato_eliminar', id: EDITANDO_PLATO.id });
+    showToast('Plato eliminado', 'success');
+    cerrarModalPlato();
+    await cargarMenuPlatos();
+    renderPlatos();
+  } catch (e) {
     showToast('No se pudo eliminar — ' + e.message, 'error');
   }
 }
 
-// ── SINCRONIZAR VENTAS ─────────────────────────────────────────────
-async function sincronizarVentas() {
-  const btn = document.getElementById('btn-sync');
-  const result = document.getElementById('sync-result');
-  const kiosko = document.getElementById('sync-kiosko').value;
-  btn.disabled = true; btn.textContent = 'Sincronizando…';
-  result.innerHTML = '';
+// ═══════════════════ TAB RECETAS ═══════════════════
+
+function renderRecetas() {
+  const q = document.getElementById('rec-buscar').value.trim().toLowerCase();
+  const filtroTipo = document.getElementById('rec-filtro-tipo').value;
+
+  const filtradas = RECETAS.filter(r => {
+    if (filtroTipo && r.tipo !== filtroTipo) return false;
+    const nombreVisible = nombreVisibleReceta(r);
+    if (q && !nombreVisible.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const cont = document.getElementById('rec-lista');
+  if (!RECETAS.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay recetas. Tocá "+ Nueva receta" para armar la primera.</div>';
+    return;
+  }
+  if (!filtradas.length) {
+    cont.innerHTML = '<div class="empty-state">Sin resultados para ese filtro/búsqueda.</div>';
+    return;
+  }
+
+  cont.innerHTML = filtradas.map(r => {
+    const isSub = r.tipo === 'subreceta';
+    const badge = isSub ? '<span class="badge-sub">Subreceta</span>' : '<span class="badge-rec">Receta</span>';
+    const nombreVisible = nombreVisibleReceta(r);
+    const filasIng = r.ingredientes.map(ing => {
+      const fuente = fuentesIngrediente(r.id).find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
+      const costoUnitario = fuente ? fuente.costo : 0;
+      return `<tr>
+        <td>${escHtml(ing.nombre)} ${ing.tipoFuente==='subreceta'?'<span class="badge-sub">sub</span>':''} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
+        <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
+        <td class="det-num">${fmtCRC(costoUnitario * (Number(ing.cantidad)||0))}</td>
+      </tr>`;
+    }).join('');
+    const rowId = 'rec-det-' + r.id;
+    return `
+      <div class="rec-card">
+        <div class="rec-head" onclick="toggleRecetaDetalle('${rowId}')">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="rec-nombre">${escHtml(nombreVisible)}</span>${badge}
+              ${r.ingredientesCorruptos?'<span class="plt-badge plt-badge-warn">⚠ Datos dañados</span>':''}
+            </div>
+            <div class="rec-meta">Rinde ${escHtml(String(r.rendimiento))} ${escHtml(r.unidadRendimiento)} · ${fmtCRC(r.costoPorUnidadRendimiento)} por ${escHtml(r.unidadRendimiento)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="rec-costo">${fmtCRC(r.costoTotal)}</span>
+            <svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </div>
+        </div>
+        <div class="rec-detail" id="${rowId}">
+          <table class="det-table">
+            <thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo</th></tr></thead>
+            <tbody>${filasIng || '<tr><td colspan="3" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody>
+          </table>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <button class="btn-sm" onclick="abrirReceta('${escapeAttr(r.id)}')">Editar</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function nombreVisibleReceta(r) {
+  if (r.tipo === 'subreceta') return r.nombre || '(sin nombre)';
+  const plato = PLATOS.find(p => p.id === r.platoId);
+  return plato ? plato.nombre : (r.nombre || '(plato no encontrado)');
+}
+
+function toggleRecetaDetalle(id) {
+  const el = document.getElementById(id);
+  const ico = document.getElementById(id + '-ico');
+  const open = !el.classList.contains('open');
+  el.classList.toggle('open', open);
+  ico.classList.toggle('open', open);
+}
+
+function nuevaReceta(tipoDefault, platoIdDefault) {
+  RECETA_ORIGINAL_ID = '';
+  EDITANDO_RECETA = {
+    id: '', tipo: tipoDefault || 'receta', nombre: '', platoId: platoIdDefault || '',
+    rendimiento: '', unidadRendimiento: '', ingredientes: []
+  };
+  abrirModalRecetaConEstado('Nueva receta', false);
+}
+
+function abrirReceta(id) {
+  const r = RECETAS.find(x => x.id === id);
+  if (!r) return;
+  RECETA_ORIGINAL_ID = id;
+  EDITANDO_RECETA = JSON.parse(JSON.stringify(r));
+  abrirModalRecetaConEstado('Editar ' + (r.tipo === 'subreceta' ? 'subreceta' : 'receta'), true);
+}
+
+function abrirModalRecetaConEstado(titulo, esEdicion) {
+  document.getElementById('receta-titulo').textContent = titulo;
+  document.getElementById('rm-id').value = EDITANDO_RECETA.id;
+  document.getElementById('rm-rendimiento').value = EDITANDO_RECETA.rendimiento;
+  document.getElementById('rm-unidad').value = EDITANDO_RECETA.unidadRendimiento;
+  document.getElementById('rm-btn-eliminar').style.display = esEdicion ? '' : 'none';
+  poblarUnidadesDatalist();
+  poblarSelectPlatoReceta();
+  setTipoReceta(EDITANDO_RECETA.tipo, true);
+  document.getElementById('rm-nombre').value = EDITANDO_RECETA.nombre || '';
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
+  document.getElementById('modal-receta').classList.add('open');
+}
+
+function cerrarModalReceta() {
+  document.getElementById('modal-receta').classList.remove('open');
+  EDITANDO_RECETA = null;
+  RECETA_ORIGINAL_ID = '';
+}
+
+function poblarUnidadesDatalist() {
+  const dl = document.getElementById('rm-unidad-list');
+  dl.innerHTML = ['porciones','ml','L','oz','g','kg','unidades'].map(u => `<option value="${escapeAttr(u)}">`).join('');
+}
+
+// Solo ofrece platos que TODAVÍA no tienen receta (más el propio, si se está
+// editando una receta existente) — mismo espíritu que poblarPlatos() de
+// Operaciones/costos-recetas.html.
+function poblarSelectPlatoReceta() {
+  const sel = document.getElementById('rm-plato');
+  const disponibles = PLATOS.filter(p => !recetaDePlato(p.id) || p.id === EDITANDO_RECETA.platoId);
+  sel.innerHTML = '<option value="" disabled selected>Seleccioná un plato…</option>' +
+    disponibles.map(p => `<option value="${escapeAttr(p.id)}" ${p.id===EDITANDO_RECETA.platoId?'selected':''}>${escHtml(p.nombre)} · ${escHtml(p.nivel1)}/${escHtml(p.nivel2)}</option>`).join('');
+  document.getElementById('rm-plato-hint').textContent = disponibles.length
+    ? ''
+    : 'Todos los platos ya tienen una receta enlazada — creá un plato nuevo primero en la tab Platos.';
+}
+
+function setTipoReceta(tipo, sinTocarPlato) {
+  EDITANDO_RECETA.tipo = tipo;
+  document.getElementById('rm-tipo').value = tipo;
+  document.getElementById('rm-tipo-receta-btn').className = 'tipo-btn' + (tipo==='receta' ? ' sel-receta' : '');
+  document.getElementById('rm-tipo-subreceta-btn').className = 'tipo-btn' + (tipo==='subreceta' ? ' sel-subreceta' : '');
+  document.getElementById('rm-plato-wrap').style.display = tipo === 'receta' ? '' : 'none';
+  document.getElementById('rm-nombre-wrap').style.display = tipo === 'subreceta' ? '' : 'none';
+  if (!sinTocarPlato && tipo === 'subreceta') EDITANDO_RECETA.platoId = '';
+  renderIngredientesModal();
+}
+
+function renderIngredientesModal() {
+  const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
+  document.getElementById('rm-ingredientes').innerHTML = EDITANDO_RECETA.ingredientes.map((ing, idx) => {
+    const valorSel = ing.ref ? `${ing.tipoFuente}::${ing.ref}` : '';
+    const opts = fuentes.map(f => `<option value="${f.tipoFuente}::${escapeAttr(f.ref)}" ${valorSel===`${f.tipoFuente}::${f.ref}`?'selected':''}>${escHtml(f.nombre)} (${escHtml(f.unidad||'—')})</option>`).join('');
+    const fuenteActual = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
+    const costoLinea = (fuenteActual ? fuenteActual.costo : 0) * (Number(ing.cantidad)||0);
+    return `
+    <div class="ing-row" data-idx="${idx}">
+      <div class="field"><label>Ingrediente / Subreceta</label>
+        <select onchange="onIngredienteFuenteChange(${idx}, this.value)">
+          <option value="" disabled ${valorSel?'':'selected'}>Seleccioná…</option>
+          ${opts}
+        </select>
+      </div>
+      <div class="field"><label>Cantidad</label>
+        <input type="number" min="0" step="any" value="${escapeAttr(ing.cantidad)}" placeholder="0" oninput="onIngredienteCantidad(${idx}, this.value)"/>
+      </div>
+      <div class="field"><label>Costo de línea</label>
+        <div class="ing-costo">${fuenteActual ? fmtCRC(costoLinea) : (ing.ref ? '⚠ no encontrado' : '—')}</div>
+      </div>
+      <button type="button" class="btn-rm" onclick="quitarIngrediente(${idx})" title="Quitar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function onIngredienteFuenteChange(idx, valor) {
+  const [tipoFuente, ref] = valor.split('::');
+  const fuente = fuentesIngrediente(RECETA_ORIGINAL_ID).find(f => f.tipoFuente===tipoFuente && f.ref===ref);
+  EDITANDO_RECETA.ingredientes[idx] = {
+    tipoFuente, ref, nombre: fuente ? fuente.nombre : ref, unidad: fuente ? fuente.unidad : '',
+    cantidad: EDITANDO_RECETA.ingredientes[idx].cantidad || ''
+  };
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
+}
+function onIngredienteCantidad(idx, valor) {
+  EDITANDO_RECETA.ingredientes[idx].cantidad = valor;
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
+}
+function agregarIngrediente() {
+  EDITANDO_RECETA.ingredientes.push({ tipoFuente:'producto', ref:'', nombre:'', unidad:'', cantidad:'' });
+  renderIngredientesModal();
+}
+function quitarIngrediente(idx) {
+  EDITANDO_RECETA.ingredientes.splice(idx, 1);
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
+}
+
+// Vista previa de costo, en memoria, antes de guardar — el backend
+// recalcula lo mismo server-side al guardar (nunca confía en este número).
+function recalcularCostoRecetaPreview() {
+  const rendimiento = Number(document.getElementById('rm-rendimiento').value) || 0;
+  const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
+  let total = 0;
+  EDITANDO_RECETA.ingredientes.forEach(ing => {
+    const fuente = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
+    total += (fuente ? fuente.costo : 0) * (Number(ing.cantidad)||0);
+  });
+  const porUnidad = rendimiento > 0 ? total / rendimiento : 0;
+  const unidad = document.getElementById('rm-unidad').value || 'unidad';
+  document.getElementById('rm-costo-total').textContent = fmtCRC(total);
+  document.getElementById('rm-costo-por-unidad').textContent = `Por ${unidad}: ${fmtCRC(porUnidad)}`;
+}
+
+async function guardarReceta() {
+  const tipo = document.getElementById('rm-tipo').value;
+  const platoId = document.getElementById('rm-plato').value;
+  const nombre = document.getElementById('rm-nombre').value.trim();
+  const rendimiento = Number(document.getElementById('rm-rendimiento').value);
+  const unidadRendimiento = document.getElementById('rm-unidad').value.trim();
+
+  if (!rendimiento || rendimiento <= 0) { showToast('El rendimiento debe ser mayor a 0.', 'error'); return; }
+  if (!unidadRendimiento) { showToast('Ingresá la unidad de rendimiento.', 'error'); return; }
+  if (tipo === 'receta' && !platoId) { showToast('Seleccioná a qué plato pertenece esta receta.', 'error'); return; }
+  if (tipo === 'subreceta' && !nombre) { showToast('Ingresá el nombre de la subreceta.', 'error'); return; }
+  const ingredientesValidos = EDITANDO_RECETA.ingredientes.filter(ing => ing.ref && Number(ing.cantidad) > 0);
+  if (!ingredientesValidos.length) { showToast('Agregá al menos un ingrediente con cantidad.', 'error'); return; }
+
   try {
-    const out = await postInv({ accion: 'sincronizar_ventas', kiosko: kiosko || undefined });
-    let html = `<div class="sync-result">Procesada(s) <b>${out.lineasProcesadas}</b> línea(s) nueva(s) de venta${kiosko ? ' — ' + escHtml(kiosko) : ' — todos los kioskos con Square configurado'}.</div>`;
-    if (out.sinMapear && out.sinMapear.length) {
-      html += `<div class="sync-sinmapear">⚠️ Sin receta ni producto de venta directa asociado: ${out.sinMapear.map(escHtml).join(', ')}. Creá una receta arriba, o completá el campo "Nombre Venta" del producto correspondiente en el Catálogo de inventario.html.</div>`;
-    }
-    result.innerHTML = html;
-    showToast('Sincronización completa ✓');
-  } catch(e) {
-    result.innerHTML = `<div class="sync-sinmapear">${escHtml(e.message)}</div>`;
-    showToast('No se pudo sincronizar — ' + e.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sincronizar ventas ahora';
+    const result = await postAP({
+      modulo: 'menu_receta_guardar',
+      id: EDITANDO_RECETA.id,
+      tipo, platoId, nombre, rendimiento, unidadRendimiento,
+      ingredientes: ingredientesValidos
+    });
+    showToast('Receta guardada ✓' + (result.ingredientesSinCosto && result.ingredientesSinCosto.length ? ' (⚠ sin costear: ' + result.ingredientesSinCosto.join(', ') + ')' : ''), result.ingredientesSinCosto && result.ingredientesSinCosto.length ? 'error' : 'success');
+    cerrarModalReceta();
+    await Promise.all([cargarMenuRecetas(), cargarMenuPlatos()]);
+    renderRecetas();
+    renderPlatos();
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarRecetaActual() {
+  if (!EDITANDO_RECETA || !EDITANDO_RECETA.id) return;
+  const ok = await confirmModal(`¿Eliminar esta ${EDITANDO_RECETA.tipo === 'subreceta' ? 'subreceta' : 'receta'}? Esta acción no se puede deshacer.`, 'Eliminar receta');
+  if (!ok) return;
+  try {
+    await postAP({ modulo: 'menu_receta_eliminar', id: EDITANDO_RECETA.id });
+    showToast('Receta eliminada', 'success');
+    cerrarModalReceta();
+    await Promise.all([cargarMenuRecetas(), cargarMenuPlatos()]);
+    renderRecetas();
+    renderPlatos();
+  } catch (e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  }
+}
+
+function crearRecetaParaPlato(platoId) {
+  switchTab('recetas');
+  nuevaReceta('receta', platoId);
+}
+
+// ═══════════════════ TAB CONFIGURACIÓN ═══════════════════
+
+function contarPlatosPorNivel1(valor) { return PLATOS.filter(p => p.nivel1 === valor).length; }
+function contarPlatosPorNivel2(nivel1, valor) { return PLATOS.filter(p => p.nivel1 === nivel1 && p.nivel2 === valor).length; }
+
+function renderConfigNivel1() {
+  const cont = document.getElementById('cfg-chips-nivel1');
+  cont.innerHTML = CONFIG.nivel1.length
+    ? CONFIG.nivel1.map(n => {
+        const meta = CONFIG.metaCostoPorNivel1[n];
+        return `<div class="cfg-chip">
+          <span>${escHtml(n)}</span>
+          <div class="cfg-meta-pct">
+            <span style="color:var(--muted)">% meta</span>
+            <input type="number" min="1" max="99" step="1" value="${meta!=null?meta:''}" placeholder="—" onchange="guardarMetaCosto('${escapeAttr(n)}', this.value)"/>
+            <button type="button" title="Quitar" onclick="eliminarNivel1('${escapeAttr(n)}')">×</button>
+          </div>
+        </div>`;
+      }).join('')
+    : '<span class="empty-state" style="padding:.6rem .75rem;display:block">Todavía no hay valores.</span>';
+
+  poblarSelectNivel1('cfg-nivel2-nivel1-sel', document.getElementById('cfg-nivel2-nivel1-sel').value);
+  renderConfigNivel2();
+  // El filtro "Nivel 1" de la tab Platos depende del mismo catálogo — se
+  // refresca acá para no necesitar un tercer lugar que lo pueble.
+  poblarSelectNivel1('plt-nivel1', document.getElementById('plt-nivel1').value);
+}
+
+async function agregarNivel1() {
+  const input = document.getElementById('cfg-nivel1-nuevo');
+  const valor = input.value.trim();
+  if (!valor) { showToast('Escribí un valor', 'error'); return; }
+  try {
+    await postAP({ modulo: 'config_agregar', tipo: 'Nivel1', valor });
+    input.value = '';
+    showToast('Agregado ✓');
+    await cargarConfiguracion();
+    renderConfigNivel1();
+  } catch (e) {
+    showToast('No se pudo agregar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarNivel1(valor) {
+  const afectados = contarPlatosPorNivel1(valor);
+  const ok = await confirmModal(`¿Quitar "${valor}" de Nivel 1?` + (afectados ? ` ${afectados} plato(s) usan esta categoría y quedarían con una clasificación inválida.` : ''), 'Quitar Nivel 1');
+  if (!ok) return;
+  try {
+    await postAP({ modulo: 'config_eliminar', tipo: 'Nivel1', valor });
+    showToast('Eliminado ✓');
+    await cargarConfiguracion();
+    renderConfigNivel1();
+  } catch (e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  }
+}
+
+async function guardarMetaCosto(valor, pct) {
+  const n = Number(pct);
+  if (!n || n <= 0) { showToast('El % meta debe ser un número mayor a 0.', 'error'); await cargarConfiguracion(); renderConfigNivel1(); return; }
+  try {
+    await postAP({ modulo: 'nivel1_meta_costo_guardar', valor, metaCostoPct: n });
+    showToast('% meta guardado ✓');
+    await cargarConfiguracion();
+    renderConfigNivel1();
+    renderPlatos();
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  }
+}
+
+function renderConfigNivel2() {
+  const nivel1 = document.getElementById('cfg-nivel2-nivel1-sel').value;
+  document.getElementById('cfg-nivel2-add-row').style.display = nivel1 ? 'flex' : 'none';
+  const cont = document.getElementById('cfg-chips-nivel2');
+  if (!nivel1) { cont.innerHTML = '<span class="empty-state" style="padding:.6rem .75rem;display:block">Elegí un Nivel 1 para ver/agregar sus categorías.</span>'; return; }
+  const valores = CONFIG.nivel2PorNivel1[nivel1] || [];
+  cont.innerHTML = valores.length
+    ? valores.map(v => `<span class="cfg-chip">${escHtml(v)}<button type="button" title="Quitar" onclick="eliminarNivel2('${escapeAttr(nivel1)}','${escapeAttr(v)}')">×</button></span>`).join('')
+    : '<span class="empty-state" style="padding:.6rem .75rem;display:block">Todavía no hay categorías para este Nivel 1.</span>';
+}
+
+async function agregarNivel2() {
+  const nivel1 = document.getElementById('cfg-nivel2-nivel1-sel').value;
+  const input = document.getElementById('cfg-nivel2-nuevo');
+  const valor = input.value.trim();
+  if (!nivel1) { showToast('Elegí un Nivel 1 primero', 'error'); return; }
+  if (!valor) { showToast('Escribí una categoría', 'error'); return; }
+  try {
+    await postAP({ modulo: 'nivel2_agregar', nivel1, valor });
+    input.value = '';
+    showToast('Agregado ✓');
+    await cargarConfiguracion();
+    renderConfigNivel2();
+  } catch (e) {
+    showToast('No se pudo agregar — ' + e.message, 'error');
+  }
+}
+
+async function eliminarNivel2(nivel1, valor) {
+  const afectados = contarPlatosPorNivel2(nivel1, valor);
+  const ok = await confirmModal(`¿Quitar "${valor}" de ${nivel1}?` + (afectados ? ` ${afectados} plato(s) usan esta categoría.` : ''), 'Quitar Nivel 2');
+  if (!ok) return;
+  try {
+    await postAP({ modulo: 'nivel2_eliminar', nivel1, valor });
+    showToast('Eliminado ✓');
+    await cargarConfiguracion();
+    renderConfigNivel2();
+  } catch (e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
   }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
-document.getElementById('date-chip').textContent =
-  new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
-cargarKioskos();
-cargarProductos().then(() => {
-  agregarFilaIngrediente();
-  cargarRecetas();
-});
+cargarTodo();
 </script>
 </body>
 </html>
