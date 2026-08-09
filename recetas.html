@@ -40,13 +40,14 @@ main{max-width:1180px;margin:0 auto;padding:2rem 2rem 5rem}
 .field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .field-hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
 .req{color:var(--red);margin-left:2px}
-input[type=text],input[type=number],select{
+input[type=text],input[type=number],select,textarea{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
   outline:none;appearance:none;transition:border-color .15s
 }
-input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
-input::placeholder{color:var(--subtle)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder,textarea::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 .btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
 .btn-sm:hover{border-color:var(--border-h)}
@@ -62,6 +63,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .toast.error{border-color:var(--red);color:var(--red)}
 .toast svg{width:16px;height:16px;flex-shrink:0}
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+
+/* ── Foto de evidencia (mismo patrón que mantenimiento.html) ────── */
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color .15s;position:relative}
+.foto-upload:hover{border-color:var(--green);color:var(--green)}
+.foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.foto-preview-wrap{position:relative;margin-top:10px;width:100%}
+.foto-preview-wrap img{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.plt-foto{width:100%;height:130px;object-fit:cover;border-radius:9px;margin-bottom:9px;display:block;background:var(--surface)}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 
 /* ── Tabs (mismo patrón que maestro-productos.html) ─────────────── */
@@ -333,6 +343,30 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="section-label">🍽️ Receta</div>
       <div id="pm-receta-info" style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">—</div>
 
+      <div class="section-label">📷 Foto del plato</div>
+      <div class="field">
+        <div class="foto-upload" id="pm-foto-upload-area">
+          <input type="file" id="pm-foto" accept="image/*" capture="environment" onchange="onFotoSeleccionadaPlato(event)"/>
+          <div id="pm-foto-placeholder">
+            <div style="font-size:26px;margin-bottom:6px">📷</div>
+            <div>Tocá para tomar foto o seleccionar de galería</div>
+            <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB</div>
+          </div>
+        </div>
+        <div class="foto-preview-wrap" id="pm-foto-preview-wrap" style="display:none">
+          <img id="pm-foto-preview-img" src="" alt="Vista previa"/>
+          <button type="button" class="foto-remove" onclick="quitarFotoPlato(event)">×</button>
+        </div>
+      </div>
+
+      <div class="section-label">📝 Indicaciones de preparación</div>
+      <p class="field-hint" style="margin:-.4rem 0 .75rem">
+        Pasos para armar o servir este plato. Más adelante esto alimenta el manual de preparación.
+      </p>
+      <div class="field">
+        <textarea id="pm-indicaciones" rows="5" placeholder="ej: 1. Calentar la salsa a fuego medio. 2. Freír el camarón 2 min por lado. 3. Emplatar con el arroz al centro…"></textarea>
+      </div>
+
       <div class="section-label">💰 Presentaciones de venta</div>
       <p class="field-hint" style="margin:-.4rem 0 .75rem">
         Cada presentación es una forma de vender este plato (ej. "Regular" para un plato simple, o
@@ -489,6 +523,8 @@ let RECETAS = [];
 let EDITANDO_PLATO = null;   // copia de trabajo del plato abierto en el modal (o null)
 let EDITANDO_RECETA = null;  // copia de trabajo de la receta abierta en el modal (o null)
 let RECETA_ORIGINAL_ID = ''; // id de la receta en edición (vacío = nueva)
+let PLATO_FOTO_BASE64 = null; // dataURL de una foto nueva recién seleccionada (null = sin cambios)
+let PLATO_FOTO_QUITADA = false; // true si se quitó explícitamente la foto existente
 
 // ── UTILIDADES COMPARTIDAS (mismo patrón que maestro-productos.html) ──
 function escHtml(s) {
@@ -517,7 +553,8 @@ function gvizLoad(sheetId, hoja, expectedCol) {
     var url   = 'https://docs.google.com/spreadsheets/d/' + sheetId
               + '/gviz/tq?tqx=responseHandler:' + cb
               + '&sheet=' + encodeURIComponent(hoja)
-              + '&headers=1';
+              + '&headers=1'
+              + '&_=' + Date.now();
     var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
     function cleanup() {
       clearTimeout(timer);
@@ -643,6 +680,19 @@ function productosParaIngrediente() {
 }
 
 async function cargarConfiguracion() {
+  // Se lee en vivo desde el backend (SpreadsheetApp, sin caché) en vez de
+  // gviz — gviz puede tardar minutos en reflejar un Nivel1/Nivel2 recién
+  // agregado, lo que hacía que no apareciera como chip y, al reintentar
+  // agregarlo, el backend lo rechazara como "ya existe" (porque sí existía).
+  // Si el backend desplegado todavía no tiene este doGet (falta redesplegar
+  // Code-recetas-kioskos-backend.gs), cae de vuelta a gviz para no romper la
+  // página mientras tanto.
+  try {
+    const resp = await fetch(APPS_SCRIPT_RECETAS + '?accion=configuracion&_=' + Date.now());
+    const json = await resp.json();
+    if (json.ok) { CONFIG = json.result; return; }
+  } catch (e) { /* sigue con el fallback de gviz */ }
+
   const datos = await gvizLoad(RECETAS_SHEET_ID, 'Configuracion', 'Tipo');
   const nivel1 = [], nivel2PorNivel1 = {}, metaCostoPorNivel1 = {};
   datos.forEach(r => {
@@ -675,7 +725,9 @@ async function cargarMenuPlatos() {
       kioskos: r['Kioskos'] || 'Todos',
       presentaciones,
       presentacionesCorruptas: corrupta,
-      activo: r['Activo'] === false ? false : true
+      activo: r['Activo'] === false ? false : true,
+      fotoUrl: r['FotoURL'] || '',
+      indicaciones: r['Indicaciones'] || ''
     };
   }).filter(p => p.id);
 }
@@ -844,6 +896,7 @@ function renderPlatos() {
     }).join('');
     return `
     <div class="plt-card ${p.activo ? '' : 'inactivo'}">
+      ${p.fotoUrl ? `<img src="${escapeAttr(p.fotoUrl)}" class="plt-foto" alt="${escapeAttr(p.nombre)}"/>` : ''}
       <div class="plt-nombre">${escHtml(p.nombre)}</div>
       <div class="plt-cat">${escHtml(p.nivel1)} › ${escHtml(p.nivel2)}</div>
       <div class="plt-kioskos">📍 ${p.kioskos === 'Todos' ? 'Todos los kioskos' : escHtml(p.kioskos)}</div>
@@ -867,7 +920,7 @@ function nuevoPlato() {
   EDITANDO_PLATO = {
     id: '', nombre: '', nivel1: CONFIG.nivel1[0] || '', nivel2: '', kioskos: 'Todos',
     presentaciones: [{ id: nuevoIdLocal(), nombre: 'Regular', cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true }],
-    activo: true
+    activo: true, fotoUrl: '', indicaciones: ''
   };
   abrirModalPlatoConEstado('Nuevo plato', false);
 }
@@ -893,12 +946,80 @@ function abrirModalPlatoConEstado(titulo, esEdicion) {
     ? `✓ Receta enlazada — rinde ${escHtml(String(receta.rendimiento))} ${escHtml(receta.unidadRendimiento)}, costo ${fmtCRC(receta.costoTotal)} total (${fmtCRC(receta.costoPorUnidadRendimiento)} por ${escHtml(receta.unidadRendimiento)}).`
     : (esEdicion ? '⚠ Este plato todavía no tiene una receta enlazada — guardalo y usá "+ Crear receta" desde la tarjeta del plato.' : 'Se guarda el plato primero; la receta se enlaza después desde la tarjeta del plato.');
   renderPresentacionesModal();
+  document.getElementById('pm-indicaciones').value = EDITANDO_PLATO.indicaciones || '';
+  PLATO_FOTO_BASE64 = null;
+  PLATO_FOTO_QUITADA = false;
+  document.getElementById('pm-foto').value = '';
+  if (EDITANDO_PLATO.fotoUrl) {
+    document.getElementById('pm-foto-upload-area').style.display = 'none';
+    document.getElementById('pm-foto-preview-wrap').style.display = 'block';
+    document.getElementById('pm-foto-preview-img').src = EDITANDO_PLATO.fotoUrl;
+  } else {
+    document.getElementById('pm-foto-upload-area').style.display = 'block';
+    document.getElementById('pm-foto-preview-wrap').style.display = 'none';
+    document.getElementById('pm-foto-preview-img').src = '';
+  }
   document.getElementById('modal-plato').classList.add('open');
 }
 
 function cerrarModalPlato() {
   document.getElementById('modal-plato').classList.remove('open');
   EDITANDO_PLATO = null;
+  PLATO_FOTO_BASE64 = null;
+  PLATO_FOTO_QUITADA = false;
+}
+
+// ── Foto del plato (mismo patrón que mantenimiento.html) ───────────
+// Las fotos de cámara de celular suelen pesar varios MB — se redimensionan y
+// recomprimen client-side antes de convertir a base64, para no colgar el
+// POST en redes móviles lentas.
+function comprimirFotoPlato(file, maxDim = 1600, calidad = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = () => resolve(e.target.result); // no se pudo decodificar/comprimir: usar la original
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function onFotoSeleccionadaPlato(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('La foto supera 5 MB', 'error'); return; }
+  comprimirFotoPlato(file).then(dataUrl => {
+    PLATO_FOTO_BASE64 = dataUrl;
+    PLATO_FOTO_QUITADA = false;
+    document.getElementById('pm-foto-upload-area').style.display = 'none';
+    document.getElementById('pm-foto-preview-wrap').style.display = 'block';
+    document.getElementById('pm-foto-preview-img').src = dataUrl;
+  }).catch(() => {
+    showToast('No se pudo procesar la foto', 'error');
+  });
+}
+
+function quitarFotoPlato(event) {
+  event.preventDefault(); event.stopPropagation();
+  PLATO_FOTO_BASE64 = null;
+  PLATO_FOTO_QUITADA = true;
+  document.getElementById('pm-foto').value = '';
+  document.getElementById('pm-foto-upload-area').style.display = 'block';
+  document.getElementById('pm-foto-preview-wrap').style.display = 'none';
+  document.getElementById('pm-foto-preview-img').src = '';
 }
 
 function onNivel1ModalChange() {
@@ -1043,6 +1164,7 @@ async function guardarPlato() {
   EDITANDO_PLATO.nivel2 = document.getElementById('pm-nivel2').value;
   EDITANDO_PLATO.kioskos = leerKioskosPlatoModal();
   EDITANDO_PLATO.activo = document.getElementById('pm-activo').checked;
+  EDITANDO_PLATO.indicaciones = document.getElementById('pm-indicaciones').value.trim();
 
   if (!EDITANDO_PLATO.nombre) { showToast('Ingresá el nombre del plato.', 'error'); return; }
   if (!EDITANDO_PLATO.nivel1) { showToast('Seleccioná el Nivel 1.', 'error'); return; }
@@ -1060,7 +1182,10 @@ async function guardarPlato() {
       nivel2: EDITANDO_PLATO.nivel2,
       kioskos: EDITANDO_PLATO.kioskos,
       activo: EDITANDO_PLATO.activo,
-      presentaciones: EDITANDO_PLATO.presentaciones
+      presentaciones: EDITANDO_PLATO.presentaciones,
+      indicaciones: EDITANDO_PLATO.indicaciones,
+      foto: PLATO_FOTO_BASE64,       // dataURL de foto nueva, o null si no se tocó
+      quitarFoto: PLATO_FOTO_QUITADA // true si se quitó la foto existente sin poner una nueva
     });
     showToast(`Plato "${EDITANDO_PLATO.nombre}" guardado ✓`);
     cerrarModalPlato();
