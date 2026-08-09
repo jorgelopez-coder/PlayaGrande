@@ -1397,7 +1397,7 @@ async function agregarNivel1() {
   const valor = input.value.trim();
   if (!valor) { showToast('Escribí un valor', 'error'); return; }
   try {
-    await postAP({ modulo: 'config_agregar', tipo: 'Nivel1', valor });
+    await postAP({ modulo: 'nivel1_agregar', valor });
     input.value = '';
     showToast('Agregado ✓');
     await cargarConfiguracion();
@@ -1412,7 +1412,7 @@ async function eliminarNivel1(valor) {
   const ok = await confirmModal(`¿Quitar "${valor}" de Nivel 1?` + (afectados ? ` ${afectados} plato(s) usan esta categoría y quedarían con una clasificación inválida.` : ''), 'Quitar Nivel 1');
   if (!ok) return;
   try {
-    await postAP({ modulo: 'config_eliminar', tipo: 'Nivel1', valor });
+    await postAP({ modulo: 'nivel1_eliminar', valor });
     showToast('Eliminado ✓');
     await cargarConfiguracion();
     renderConfigNivel1();
