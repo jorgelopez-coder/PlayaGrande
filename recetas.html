@@ -472,10 +472,7 @@ function kioskosPermitidos(lista) {
 // Code-recetas-kioskos-backend.gs.
 const MAESTRO_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E'; // "Cuentas por Pagar - Kioskos" (solo lectura acá)
 const RECETAS_SHEET_ID = '1U9nITZdHgdOmoPpHfXHC_6Cfb8tjQXH36s6QJLVJ90w'; // Sheet propio de Menú y Recetas
-// Pegá acá la URL /exec una vez que despliegues Code-recetas-kioskos-backend.gs
-// (ver el encabezado de ese archivo) — hasta entonces, guardar muestra un
-// aviso claro en vez de fallar contra una URL inválida.
-const APPS_SCRIPT_RECETAS = 'TODO_PEGAR_URL_DESPUES_DE_DESPLEGAR_CODE_RECETAS_KIOSKOS_BACKEND';
+const APPS_SCRIPT_RECETAS = 'https://script.google.com/macros/s/AKfycbzHoSGyqVANUfctfcP1yV3P8x19kUVPmPE_-HdANJ7uPiJx1zTkAxYIc3PrPLz-m8tn/exec';
 // Mismo Web App de RRHH (pestaña "Configuracion") que usan el resto de páginas del portal.
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa']; // respaldo si falla la conexión
@@ -684,7 +681,7 @@ async function cargarMenuPlatos() {
 }
 
 async function cargarMenuRecetas() {
-  const datos = await gvizLoad('Menu_Recetas', 'Tipo');
+  const datos = await gvizLoad(RECETAS_SHEET_ID, 'Menu_Recetas', 'Tipo');
   RECETAS = datos.map(r => {
     let ingredientes = [];
     let corrupta = false;
