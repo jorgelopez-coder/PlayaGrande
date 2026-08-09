@@ -229,6 +229,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <span><b id="mp-bulk-count">0</b> seleccionados</span>
     <button class="btn-sm" onclick="marcarAplicaLote('Sí')">Marcar: Aplica Sí</button>
     <button class="btn-sm" onclick="marcarAplicaLote('No')">Marcar: No aplica (servicio)</button>
+    <input type="text" id="mp-bulk-nombre" placeholder="Nombre estándar para toda la selección…" style="min-width:220px;flex:1"/>
+    <button class="btn-sm" onclick="guardarNombreEstandarLote()">Guardar nombre estándar</button>
     <button class="btn-sm" onclick="limpiarSeleccion()">Deseleccionar todo</button>
   </div>
   <div class="stock-table-wrap"><div id="mp-lista"><div class="empty-state">Cargando…</div></div></div>
@@ -1016,6 +1018,30 @@ async function marcarAplicaLote(valor) {
     showToast('No se pudo guardar en lote — ' + e.message, 'error');
   } finally {
     bar.querySelectorAll('button').forEach(b => b.disabled = false);
+  }
+}
+
+async function guardarNombreEstandarLote() {
+  if (!SELECCIONADOS.size) return;
+  const input = document.getElementById('mp-bulk-nombre');
+  const valor = input.value.trim();
+  if (!valor) { showToast('Escribí el nombre estándar para la selección', 'error'); return; }
+  const claves = Array.from(SELECCIONADOS);
+  const bar = document.getElementById('mp-bulkbar');
+  bar.querySelectorAll('button').forEach(b => b.disabled = true);
+  input.disabled = true;
+  try {
+    const r = await postAP({ modulo:'maestro_guardar_nombre_estandar_lote', claves: claves, nombre_estandar: valor });
+    MAESTRO.forEach(m => { if (SELECCIONADOS.has(m.clave)) { m.nombreEstandar = valor; m.estado = 'Confirmado'; } });
+    showToast(`${r.actualizadas} fila(s) confirmada(s) como "${valor}" ✓`);
+    input.value = '';
+    SELECCIONADOS.clear();
+    renderTodo();
+  } catch (e) {
+    showToast('No se pudo guardar en lote — ' + e.message, 'error');
+  } finally {
+    bar.querySelectorAll('button').forEach(b => b.disabled = false);
+    input.disabled = false;
   }
 }
 
