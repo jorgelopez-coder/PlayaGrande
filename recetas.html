@@ -183,6 +183,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cfg-meta-pct input{width:56px;padding:4px 6px;font-size:12px;text-align:right}
 .cfg-nivel2-familia{margin-bottom:.85rem;max-width:280px}
 
+/* ── Tab Indicadores (KPI costo por área vs. real según recetas) ─── */
+.ind-nivel1{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
+.ind-nivel1-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ind-nivel1-nombre{font-family:var(--font-d);font-size:16px;font-weight:700}
+.ind-bar-wrap{position:relative;height:10px;border-radius:6px;background:var(--surface);overflow:visible;margin:6px 0 8px}
+.ind-bar-fill{height:100%;border-radius:6px;transition:width .2s}
+.ind-bar-meta{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);border-radius:2px}
+.ind-note{font-size:11.5px;color:var(--subtle)}
+.ind-sub-toggle{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;margin-top:8px;user-select:none}
+.ind-sub-toggle:hover{color:var(--text)}
+.ind-sub-toggle svg{width:11px;height:11px;transition:transform .2s}
+.ind-sub-toggle svg.open{transform:rotate(180deg)}
+.ind-sub-table{display:none}
+.ind-sub-table.open{display:block;margin-top:10px}
+
 @media(max-width:640px){
   .cfg-grid{grid-template-columns:1fr}
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
@@ -211,6 +226,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="mp-tabs">
   <button class="mp-tab active" id="tab-btn-platos" onclick="switchTab('platos')">Platos</button>
   <button class="mp-tab" id="tab-btn-recetas" onclick="switchTab('recetas')">Recetas</button>
+  <button class="mp-tab" id="tab-btn-indicadores" onclick="switchTab('indicadores')">📊 Indicadores</button>
   <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
 
@@ -272,6 +288,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </select>
   </div>
   <div id="rec-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ TAB INDICADORES ═══════════════════ -->
+<div id="tab-indicadores" style="display:none">
+
+<div class="card">
+  <p class="card-title">Costo por área vs. costo real según recetas</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Por cada Nivel 1 (área), compara el <b>% de costo meta</b> configurado (pestaña Configuración) contra el
+    <b>% de costo real</b> calculado a partir del costo de las recetas enlazadas y el precio de venta de cada
+    presentación activa. El real se pondera por precio de venta (no por unidades vendidas, que no vive en
+    este módulo) — cada presentación pesa según cuánto ingreso representaría. Solo entran platos activos con
+    receta enlazada y precio de venta; el resto queda excluido y se cuenta aparte.
+  </p>
+  <div id="ind-lista"><div class="empty-state">Cargando…</div></div>
 </div>
 
 </div>
@@ -631,10 +664,13 @@ function confirmarResolver(valor) {
 function switchTab(nombre) {
   document.getElementById('tab-platos').style.display = nombre === 'platos' ? '' : 'none';
   document.getElementById('tab-recetas').style.display = nombre === 'recetas' ? '' : 'none';
+  document.getElementById('tab-indicadores').style.display = nombre === 'indicadores' ? '' : 'none';
   document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
   document.getElementById('tab-btn-platos').classList.toggle('active', nombre === 'platos');
   document.getElementById('tab-btn-recetas').classList.toggle('active', nombre === 'recetas');
+  document.getElementById('tab-btn-indicadores').classList.toggle('active', nombre === 'indicadores');
   document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
+  if (nombre === 'indicadores') renderIndicadores();
 }
 
 // ── CARGA DE DATOS ──────────────────────────────────────────────────
@@ -773,6 +809,7 @@ async function cargarTodo() {
   }
   renderPlatos();
   renderRecetas();
+  renderIndicadores();
   renderConfigNivel1();
   renderConfigNivel2();
 }
@@ -817,6 +854,115 @@ function colorPct(pct, metaPct) {
   if (pct <= limiteAmbar) return 'var(--green)';
   if (pct <= limiteRojo) return 'var(--amber)';
   return 'var(--red)';
+}
+// Fondo a juego con el color que devuelve colorPct — colorPct da un
+// 'var(--verde)' etc, que no se puede mezclar con opacidad inline, así que
+// para el badge de Indicadores hace falta esta segunda función que devuelve
+// el "-bg" correspondiente en vez de intentar concatenar transparencia.
+function bgParaColorPct(color) {
+  if (color === 'var(--green)') return 'var(--green-bg)';
+  if (color === 'var(--amber)') return 'var(--amber-bg)';
+  if (color === 'var(--red)') return 'var(--red-bg)';
+  return 'var(--surface)';
+}
+
+// ═══════════════════ TAB INDICADORES ═══════════════════
+// KPI "costo por área vs. costo real según las recetas": por cada Nivel1
+// (Alimentos/Bebidas) y, dentro de cada uno, por Nivel2, agrega el costo real
+// (desde Menu_Recetas, vía costoPresentacion) y el precio de venta de cada
+// presentación ACTIVA de un plato ACTIVO — y con eso arma un % de costo real
+// ponderado por precio de venta (proxy de ingreso: no hay unidades vendidas
+// en este módulo, solo precio de lista). La identidad usada es
+// pctPonderado = Σcosto / Σprecio × 100, que es equivalente a ponderar cada
+// % individual por su propio precio de venta (ver justificación en el chat
+// que originó este KPI). Presentaciones sin receta enlazada o sin precio
+// cargado quedan fuera del cálculo y se cuentan aparte, para no inflar ni
+// desinflar el % real con datos incompletos.
+function calcularIndicadoresCosto() {
+  const porNivel1 = {};
+  function nivel1Vacio(n1) {
+    return { metaPct: CONFIG.metaCostoPorNivel1[n1] != null ? CONFIG.metaCostoPorNivel1[n1] : null, sumCosto: 0, sumPrecio: 0, nIncluidas: 0, nExcluidas: 0, nivel2: {} };
+  }
+  CONFIG.nivel1.forEach(n1 => { porNivel1[n1] = nivel1Vacio(n1); });
+
+  PLATOS.filter(p => p.activo).forEach(p => {
+    if (!p.nivel1) return;
+    if (!porNivel1[p.nivel1]) porNivel1[p.nivel1] = nivel1Vacio(p.nivel1);
+    const n1 = porNivel1[p.nivel1];
+    const clave2 = p.nivel2 || '(sin categoría)';
+    if (!n1.nivel2[clave2]) n1.nivel2[clave2] = { sumCosto: 0, sumPrecio: 0, nIncluidas: 0, nExcluidas: 0 };
+    const n2 = n1.nivel2[clave2];
+    const receta = recetaDePlato(p.id);
+    (p.presentaciones || []).forEach(pr => {
+      if (pr.activo === false) return;
+      const precio = Number(pr.precioVenta) || 0;
+      if (!receta || !precio) { n1.nExcluidas++; n2.nExcluidas++; return; }
+      const costo = costoPresentacion(pr, receta);
+      n1.sumCosto += costo; n1.sumPrecio += precio; n1.nIncluidas++;
+      n2.sumCosto += costo; n2.sumPrecio += precio; n2.nIncluidas++;
+    });
+  });
+  return porNivel1;
+}
+
+function renderIndicadores() {
+  const cont = document.getElementById('ind-lista');
+  const datos = calcularIndicadoresCosto();
+  const nombres = Object.keys(datos).filter(n1 => datos[n1].nIncluidas > 0 || datos[n1].metaPct != null);
+  if (!nombres.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay datos suficientes — configurá el % de costo meta por Nivel 1 y enlazá al menos un plato activo, con receta y precio de venta.</div>';
+    return;
+  }
+  cont.innerHTML = nombres.map(n1 => {
+    const d = datos[n1];
+    const realPct = d.sumPrecio > 0 ? (d.sumCosto / d.sumPrecio) * 100 : null;
+    const color = colorPct(realPct, d.metaPct);
+    const bg = bgParaColorPct(color);
+    const diffTxt = (realPct != null && d.metaPct != null)
+      ? ((realPct - d.metaPct >= 0 ? '+' : '') + (realPct - d.metaPct).toFixed(1) + ' pts vs. meta')
+      : 'sin meta configurada';
+
+    const nivel2Filas = Object.keys(d.nivel2).sort((a, b) => a.localeCompare(b, 'es')).map(n2 => {
+      const d2 = d.nivel2[n2];
+      const real2 = d2.sumPrecio > 0 ? (d2.sumCosto / d2.sumPrecio) * 100 : null;
+      const color2 = colorPct(real2, d.metaPct);
+      const diff2 = (real2 != null && d.metaPct != null) ? ((real2 - d.metaPct >= 0 ? '+' : '') + (real2 - d.metaPct).toFixed(1) + ' pts') : '—';
+      return `<tr>
+        <td>${escHtml(n2)}</td>
+        <td class="det-num" style="color:${color2};font-weight:600">${fmtPct(real2)}</td>
+        <td class="det-num">${diff2}</td>
+        <td class="det-num">${d2.nIncluidas} / ${d2.nIncluidas + d2.nExcluidas}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+    <div class="ind-nivel1">
+      <div class="ind-nivel1-head">
+        <span class="ind-nivel1-nombre">${escHtml(n1)}</span>
+        <span class="badge" style="background:${bg};color:${color}">${fmtPct(realPct)} real · meta ${d.metaPct != null ? d.metaPct + '%' : '—'} (${diffTxt})</span>
+      </div>
+      <div class="ind-bar-wrap">
+        <div class="ind-bar-fill" style="width:${Math.max(0, Math.min(realPct || 0, 100))}%;background:${color}"></div>
+        ${d.metaPct != null ? `<div class="ind-bar-meta" style="left:${Math.max(0, Math.min(d.metaPct, 100))}%"></div>` : ''}
+      </div>
+      <div class="ind-note">${d.nIncluidas} presentación(es) consideradas, ponderadas por precio de venta · ${d.nExcluidas} excluida(s) por falta de receta o precio.</div>
+      <div class="ind-sub-toggle" onclick="toggleIndSub(this)">
+        Ver desglose por categoría (Nivel 2)
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"/></svg>
+      </div>
+      <div class="ind-sub-table">
+        <table class="det-table">
+          <thead><tr><th>Categoría</th><th style="text-align:right">Costo real</th><th style="text-align:right">Vs. meta</th><th style="text-align:right">Presentaciones</th></tr></thead>
+          <tbody>${nivel2Filas || '<tr><td colspan="4" style="color:var(--subtle)">Sin datos</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleIndSub(toggleEl) {
+  toggleEl.nextElementSibling.classList.toggle('open');
+  toggleEl.querySelector('svg').classList.toggle('open');
 }
 
 // Tres señales de estado independientes por plato — un plato puede tener
@@ -1227,6 +1373,7 @@ async function guardarPlato() {
     cerrarModalPlato();
     await cargarMenuPlatos();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
   }
@@ -1238,6 +1385,7 @@ async function toggleActivoPlato(id, activoActual) {
     showToast(activoActual ? 'Plato desactivado ✓' : 'Plato activado ✓');
     await cargarMenuPlatos();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo actualizar — ' + e.message, 'error');
   }
@@ -1253,6 +1401,7 @@ async function eliminarPlatoDuro() {
     cerrarModalPlato();
     await cargarMenuPlatos();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo eliminar — ' + e.message, 'error');
   }
@@ -1529,6 +1678,7 @@ async function guardarReceta() {
     await Promise.all([cargarMenuRecetas(), cargarMenuPlatos()]);
     renderRecetas();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
   }
@@ -1545,6 +1695,7 @@ async function eliminarRecetaActual() {
     await Promise.all([cargarMenuRecetas(), cargarMenuPlatos()]);
     renderRecetas();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo eliminar — ' + e.message, 'error');
   }
@@ -1621,6 +1772,7 @@ async function guardarMetaCosto(valor, pct) {
     await cargarConfiguracion();
     renderConfigNivel1();
     renderPlatos();
+    renderIndicadores();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
   }
