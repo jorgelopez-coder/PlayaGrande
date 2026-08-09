@@ -145,6 +145,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .plt-pres-mini tr:last-child td{border-bottom:none}
 .plt-pres-mini .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .plt-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.plt-card-head{display:flex;flex-direction:column;gap:2px}
+.plt-card-head.clicable{cursor:pointer}
+.plt-recdetail{display:none;margin:8px 0 2px;padding-top:8px;border-top:1px dashed var(--border)}
+.plt-recdetail.open{display:block}
 
 /* ── Tab Recetas ─────────────────────────────────────────────────── */
 .rec-toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
@@ -434,6 +438,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </p>
 
       <div class="section-label">Ingredientes</div>
+      <datalist id="rm-ingrediente-list"></datalist>
       <div id="rm-ingredientes"></div>
       <button type="button" class="btn-add" onclick="agregarIngrediente()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
@@ -894,11 +899,26 @@ function renderPlatos() {
         <td class="num" style="color:${colorPct(pct, metaPct)};font-weight:600">${fmtPct(pct)}</td>
       </tr>`;
     }).join('');
+    const rowId = 'plt-det-' + p.id;
+    const filasIngPlato = receta ? receta.ingredientes.map(ing => {
+      const fuente = fuentesIngrediente(receta.id).find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
+      const costoUnitario = fuente ? fuente.costo : 0;
+      return `<tr>
+        <td>${escHtml(ing.nombre)} ${ing.tipoFuente==='subreceta'?'<span class="badge-sub">sub</span>':''} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
+        <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
+        <td class="det-num">${fmtCRC(costoUnitario * (Number(ing.cantidad)||0))}</td>
+      </tr>`;
+    }).join('') : '';
     return `
     <div class="plt-card ${p.activo ? '' : 'inactivo'}">
       ${p.fotoUrl ? `<img src="${escapeAttr(p.fotoUrl)}" class="plt-foto" alt="${escapeAttr(p.nombre)}"/>` : ''}
-      <div class="plt-nombre">${escHtml(p.nombre)}</div>
-      <div class="plt-cat">${escHtml(p.nivel1)} › ${escHtml(p.nivel2)}</div>
+      <div class="plt-card-head ${receta ? 'clicable' : ''}" ${receta ? `onclick="togglePlatoDetalle('${rowId}')"` : ''}>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div class="plt-nombre">${escHtml(p.nombre)}</div>
+          ${receta ? `<svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>` : ''}
+        </div>
+        <div class="plt-cat">${escHtml(p.nivel1)} › ${escHtml(p.nivel2)}</div>
+      </div>
       <div class="plt-kioskos">📍 ${p.kioskos === 'Todos' ? 'Todos los kioskos' : escHtml(p.kioskos)}</div>
       <div class="plt-badges">
         ${estado.sinReceta ? '<span class="plt-badge plt-badge-warn">⚠ Sin receta</span>' : '<span class="plt-badge plt-badge-ok">✓ Receta</span>'}
@@ -907,6 +927,13 @@ function renderPlatos() {
         ${p.presentacionesCorruptas ? '<span class="plt-badge plt-badge-warn">⚠ Datos dañados</span>' : ''}
       </div>
       ${filasPres ? `<table class="plt-pres-mini"><tbody>${filasPres}</tbody></table>` : '<div class="field-hint">Sin presentaciones activas.</div>'}
+      ${receta ? `
+      <div class="plt-recdetail" id="${rowId}">
+        <table class="det-table">
+          <thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo</th></tr></thead>
+          <tbody>${filasIngPlato || '<tr><td colspan="3" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody>
+        </table>
+      </div>` : ''}
       <div class="plt-actions">
         <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Editar</button>
         ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Crear receta</button>` : ''}
@@ -914,6 +941,15 @@ function renderPlatos() {
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function togglePlatoDetalle(id) {
+  const el = document.getElementById(id);
+  const ico = document.getElementById(id + '-ico');
+  if (!el) return;
+  const open = !el.classList.contains('open');
+  el.classList.toggle('open', open);
+  if (ico) ico.classList.toggle('open', open);
 }
 
 function nuevoPlato() {
@@ -1368,26 +1404,32 @@ function setTipoReceta(tipo, sinTocarPlato) {
   renderIngredientesModal();
 }
 
+// El datalist es compartido por todas las filas — se llena una vez por
+// apertura de modal (las fuentes no cambian mientras el modal está abierto).
+function poblarIngredientesDatalist() {
+  const dl = document.getElementById('rm-ingrediente-list');
+  const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
+  dl.innerHTML = fuentes.map(f => `<option value="${escapeAttr(f.nombre)}">`).join('');
+}
+
 function renderIngredientesModal() {
+  poblarIngredientesDatalist();
   const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
   document.getElementById('rm-ingredientes').innerHTML = EDITANDO_RECETA.ingredientes.map((ing, idx) => {
-    const valorSel = ing.ref ? `${ing.tipoFuente}::${ing.ref}` : '';
-    const opts = fuentes.map(f => `<option value="${f.tipoFuente}::${escapeAttr(f.ref)}" ${valorSel===`${f.tipoFuente}::${f.ref}`?'selected':''}>${escHtml(f.nombre)} (${escHtml(f.unidad||'—')})</option>`).join('');
     const fuenteActual = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
     const costoLinea = (fuenteActual ? fuenteActual.costo : 0) * (Number(ing.cantidad)||0);
+    const sinCoincidencia = !fuenteActual && (ing.nombre||'').trim();
     return `
     <div class="ing-row" data-idx="${idx}">
       <div class="field"><label>Ingrediente / Subreceta</label>
-        <select onchange="onIngredienteFuenteChange(${idx}, this.value)">
-          <option value="" disabled ${valorSel?'':'selected'}>Seleccioná…</option>
-          ${opts}
-        </select>
+        <input type="text" list="rm-ingrediente-list" value="${escapeAttr(ing.nombre||'')}" placeholder="Escribí para buscar…" oninput="onIngredienteTexto(${idx}, this.value)"/>
+        <div class="field-hint" id="ing-hint-${idx}" style="color:${sinCoincidencia?'var(--red)':'var(--subtle)'}">${fuenteActual ? 'Unidad: ' + escHtml(fuenteActual.unidad||'—') : (sinCoincidencia ? '⚠ no coincide con ningún ingrediente — elegí una opción de la lista' : '')}</div>
       </div>
       <div class="field"><label>Cantidad</label>
-        <input type="number" min="0" step="any" value="${escapeAttr(ing.cantidad)}" placeholder="0" oninput="onIngredienteCantidad(${idx}, this.value)"/>
+        <input type="text" inputmode="decimal" value="${escapeAttr(ing.cantidad)}" placeholder="0" oninput="onIngredienteCantidad(${idx}, this.value)"/>
       </div>
       <div class="field"><label>Costo de línea</label>
-        <div class="ing-costo">${fuenteActual ? fmtCRC(costoLinea) : (ing.ref ? '⚠ no encontrado' : '—')}</div>
+        <div class="ing-costo">${fuenteActual ? fmtCRC(costoLinea) : (sinCoincidencia ? '⚠ no encontrado' : '—')}</div>
       </div>
       <button type="button" class="btn-rm" onclick="quitarIngrediente(${idx})" title="Quitar">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
@@ -1396,19 +1438,41 @@ function renderIngredientesModal() {
   }).join('');
 }
 
-function onIngredienteFuenteChange(idx, valor) {
-  const [tipoFuente, ref] = valor.split('::');
-  const fuente = fuentesIngrediente(RECETA_ORIGINAL_ID).find(f => f.tipoFuente===tipoFuente && f.ref===ref);
-  EDITANDO_RECETA.ingredientes[idx] = {
-    tipoFuente, ref, nombre: fuente ? fuente.nombre : ref, unidad: fuente ? fuente.unidad : '',
-    cantidad: EDITANDO_RECETA.ingredientes[idx].cantidad || ''
-  };
-  renderIngredientesModal();
+// Busca la fuente por nombre exacto (la persona escribe y elige una opción
+// del datalist) — sin re-render completo para no perder el foco mientras
+// escribe. Si el texto no coincide con ninguna opción, se guarda igual como
+// texto libre para no perder lo tecleado, pero queda marcado como "sin
+// coincidencia" y no se puede guardar así (ver guardarReceta).
+function onIngredienteTexto(idx, texto) {
+  const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
+  const match = fuentes.find(f => f.nombre.trim().toLowerCase() === texto.trim().toLowerCase());
+  const cantidadActual = EDITANDO_RECETA.ingredientes[idx].cantidad || '';
+  EDITANDO_RECETA.ingredientes[idx] = match
+    ? { tipoFuente: match.tipoFuente, ref: match.ref, nombre: match.nombre, unidad: match.unidad, cantidad: cantidadActual }
+    : { tipoFuente: '', ref: '', nombre: texto, unidad: '', cantidad: cantidadActual };
+
+  const costoLinea = (match ? match.costo : 0) * (Number(cantidadActual)||0);
+  const costoCell = document.querySelector(`#rm-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
+  const sinCoincidencia = !match && texto.trim();
+  if (costoCell) costoCell.textContent = match ? fmtCRC(costoLinea) : (sinCoincidencia ? '⚠ no encontrado' : '—');
+  const hint = document.getElementById('ing-hint-' + idx);
+  if (hint) {
+    hint.style.color = sinCoincidencia ? 'var(--red)' : 'var(--subtle)';
+    hint.textContent = match ? 'Unidad: ' + (match.unidad||'—') : (sinCoincidencia ? '⚠ no coincide con ningún ingrediente — elegí una opción de la lista' : '');
+  }
   recalcularCostoRecetaPreview();
 }
+
 function onIngredienteCantidad(idx, valor) {
   EDITANDO_RECETA.ingredientes[idx].cantidad = valor;
-  renderIngredientesModal();
+  // Actualiza solo el costo de línea (sin re-render completo) para que el
+  // campo de cantidad no pierda el foco mientras se escribe.
+  const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
+  const ing = EDITANDO_RECETA.ingredientes[idx];
+  const fuente = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
+  const costoLinea = (fuente ? fuente.costo : 0) * (Number(valor)||0);
+  const costoCell = document.querySelector(`#rm-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
+  if (costoCell) costoCell.textContent = fuente ? fmtCRC(costoLinea) : (ing.ref || (ing.nombre||'').trim() ? '⚠ no encontrado' : '—');
   recalcularCostoRecetaPreview();
 }
 function agregarIngrediente() {
@@ -1448,6 +1512,8 @@ async function guardarReceta() {
   if (!unidadRendimiento) { showToast('Ingresá la unidad de rendimiento.', 'error'); return; }
   if (tipo === 'receta' && !platoId) { showToast('Seleccioná a qué plato pertenece esta receta.', 'error'); return; }
   if (tipo === 'subreceta' && !nombre) { showToast('Ingresá el nombre de la subreceta.', 'error'); return; }
+  const sinCoincidencia = EDITANDO_RECETA.ingredientes.find(ing => !ing.ref && (ing.nombre||'').trim());
+  if (sinCoincidencia) { showToast(`"${sinCoincidencia.nombre}" no coincide con ningún ingrediente — elegilo de las opciones sugeridas.`, 'error'); return; }
   const ingredientesValidos = EDITANDO_RECETA.ingredientes.filter(ing => ing.ref && Number(ing.cantidad) > 0);
   if (!ingredientesValidos.length) { showToast('Agregá al menos un ingrediente con cantidad.', 'error'); return; }
 
