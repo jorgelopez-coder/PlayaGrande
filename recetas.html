@@ -464,9 +464,18 @@ function kioskosPermitidos(lista) {
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
 
-// ── CONFIG — mismo Sheet/Web App que maestro-productos.html / cuentas-por-pagar.html ──
-const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
-const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4gy_cHh0A9Seqi3Jgwwx1yzjdGdzbLrwdpyb_s0HtJp5HSinxbMX9Q/exec';
+// ── CONFIG — dos Sheets distintos ──────────────────────────────────
+// Maestro_Productos se sigue leyendo (solo lectura, gviz) del Sheet
+// "Cuentas por Pagar - Kioskos" — el maestro de productos no se mueve de
+// ahí. Configuracion/Menu_Platos/Menu_Recetas de ESTE módulo viven en su
+// propio Sheet aparte, con su propia implementación de Apps Script — ver
+// Code-recetas-kioskos-backend.gs.
+const MAESTRO_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E'; // "Cuentas por Pagar - Kioskos" (solo lectura acá)
+const RECETAS_SHEET_ID = '1U9nITZdHgdOmoPpHfXHC_6Cfb8tjQXH36s6QJLVJ90w'; // Sheet propio de Menú y Recetas
+// Pegá acá la URL /exec una vez que despliegues Code-recetas-kioskos-backend.gs
+// (ver el encabezado de ese archivo) — hasta entonces, guardar muestra un
+// aviso claro en vez de fallar contra una URL inválida.
+const APPS_SCRIPT_RECETAS = 'TODO_PEGAR_URL_DESPUES_DE_DESPLEGAR_CODE_RECETAS_KIOSKOS_BACKEND';
 // Mismo Web App de RRHH (pestaña "Configuracion") que usan el resto de páginas del portal.
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa']; // respaldo si falla la conexión
@@ -502,11 +511,13 @@ function claveAgrupacion_(s) {
     .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
 }
 
-// ── GVIZ: leer hoja pública del Sheet (igual que maestro-productos.html) ──
-function gvizLoad(hoja, expectedCol) {
+// ── GVIZ: leer hoja pública de un Sheet (igual que maestro-productos.html,
+// pero acá "sheetId" es explícito en cada llamada porque este módulo lee de
+// DOS Sheets distintos — ver comentario junto a MAESTRO_SHEET_ID/RECETAS_SHEET_ID). ──
+function gvizLoad(sheetId, hoja, expectedCol) {
   return new Promise(function(resolve) {
     var cb    = '_rc_' + Math.random().toString(36).slice(2,10);
-    var url   = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+    var url   = 'https://docs.google.com/spreadsheets/d/' + sheetId
               + '/gviz/tq?tqx=responseHandler:' + cb
               + '&sheet=' + encodeURIComponent(hoja)
               + '&headers=1';
@@ -540,7 +551,10 @@ function gvizLoad(hoja, expectedCol) {
 }
 
 async function postAP(payload) {
-  const resp = await fetch(APPS_SCRIPT_AP, {
+  if (!APPS_SCRIPT_RECETAS || APPS_SCRIPT_RECETAS.startsWith('TODO_')) {
+    throw new Error('Todavía no se desplegó Code-recetas-kioskos-backend.gs — pegá la URL en APPS_SCRIPT_RECETAS.');
+  }
+  const resp = await fetch(APPS_SCRIPT_RECETAS, {
     method: 'POST',
     body: new URLSearchParams({ data: JSON.stringify(payload) })
   });
@@ -599,7 +613,7 @@ async function cargarKioskosDisponibles() {
 // claveAgrupacion_/agruparFichas en maestro-productos.html): se queda con la
 // fila de "Ficha actualizada" más reciente por clave.
 async function cargarMaestroProductos() {
-  const datos = await gvizLoad('Maestro_Productos', 'Nombre en Factura');
+  const datos = await gvizLoad(MAESTRO_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
   const mapa = new Map();
   datos.forEach(r => {
     const nombre = r['Nombre Estándar'] || r['Nombre en Factura'] || '';
@@ -632,7 +646,7 @@ function productosParaIngrediente() {
 }
 
 async function cargarConfiguracion() {
-  const datos = await gvizLoad('Configuracion', 'Tipo');
+  const datos = await gvizLoad(RECETAS_SHEET_ID, 'Configuracion', 'Tipo');
   const nivel1 = [], nivel2PorNivel1 = {}, metaCostoPorNivel1 = {};
   datos.forEach(r => {
     const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
@@ -648,7 +662,7 @@ async function cargarConfiguracion() {
 }
 
 async function cargarMenuPlatos() {
-  const datos = await gvizLoad('Menu_Platos', 'Nombre');
+  const datos = await gvizLoad(RECETAS_SHEET_ID, 'Menu_Platos', 'Nombre');
   PLATOS = datos.map(r => {
     let presentaciones = [];
     let corrupta = false;
