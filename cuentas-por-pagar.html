@@ -173,6 +173,9 @@
     .ssep { width:1px; height:14px; background:var(--border); }
 
     /* MODAL */
+    .cta-popover { position:fixed; z-index:60; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); padding:12px; min-width:260px; max-width:360px; }
+    .cta-popover .detail-table { margin-top:0; }
+
     .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:50; align-items:flex-start; justify-content:center; padding:1.5rem 1rem; overflow-y:auto; }
     .modal-bg.open { display:flex; }
     .modal { background:var(--card); border-radius:16px; width:100%; max-width:440px; margin:auto; }
@@ -647,6 +650,61 @@
   </div>
 </div>
 
+<!-- MODAL PAGO PROVEEDOR (aplica a toda la línea del proveedor en Proyección) -->
+<div class="modal-bg" id="modal-pago-proveedor">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Registrar pago a proveedor</div>
+        <div class="modal-sub" id="pagoprov-sub">—</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-pago-proveedor')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pagoprov-idx">
+      <div class="field">
+        <label for="pagoprov-fecha">Fecha real de pago</label>
+        <input type="date" id="pagoprov-fecha">
+      </div>
+      <div class="field">
+        <label for="pagoprov-medio">Medio de pago</label>
+        <select id="pagoprov-medio" onchange="actualizarCamposMedioPago('pagoprov')">
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta débito">Tarjeta débito</option>
+          <option value="Caja chica">Caja chica</option>
+          <option value="Fondo de caja">Fondo de caja</option>
+          <option value="Reembolso">Reembolso</option>
+          <option value="Nota de crédito">Nota de crédito</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field" id="pagoprov-campo-reembolso" style="display:none;">
+        <label for="pagoprov-reembolso-a">Reembolsar a</label>
+        <input type="text" id="pagoprov-reembolso-a" placeholder="Nombre de la persona a reembolsar">
+      </div>
+      <div class="field" id="pagoprov-campo-notacredito" style="display:none;">
+        <label for="pagoprov-nota-credito">Nota de crédito asociada</label>
+        <input type="text" id="pagoprov-nota-credito" placeholder="Número de la nota de crédito">
+      </div>
+      <div class="field" id="pagoprov-campo-fondo" style="display:none;">
+        <label for="pagoprov-fecha-efectivo">Fecha del efectivo</label>
+        <input type="date" id="pagoprov-fecha-efectivo">
+        <div class="field-hint">Fecha del cierre de caja del que sale este pago — se rebaja de esa fecha en Depósitos.</div>
+      </div>
+      <div class="field">
+        <label for="pagoprov-referencia">Referencia bancaria</label>
+        <input type="text" id="pagoprov-referencia" placeholder="Nº de transferencia / comprobante">
+        <div class="field-hint">Misma fecha, medio y referencia para <strong id="pagoprov-cantidad">0</strong> factura(s) de este proveedor. Todas pasan a estado <strong>Cancelada</strong>.</div>
+      </div>
+      <div id="pagoprov-lista" style="font-size:11px;color:var(--muted);line-height:1.8;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModal('modal-pago-proveedor')">Cancelar</button>
+      <button class="btn-save" id="btn-guardar-pago-proveedor" onclick="guardarPagoProveedor()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL FACTURA MANUAL -->
 <div class="modal-bg" id="modal-factura-manual">
   <div class="modal">
@@ -774,6 +832,8 @@ let proveedores  = [];   // hoja "proveedores" del Sheet
 let dataAbonos   = [];   // hoja "Abonos" (pagos parciales)
 let dataDesglose = [];   // hoja "Desglose_IA" (líneas de producto por factura)
 let facturasAP   = [];   // dataset ya calculado (estado, saldo, kiosko, etc.) — TODOS los kioskos
+let proyeccionListaActual = []; // último resultado de renderProyeccion() (grupos por proveedor), para que
+                                 // el popover de cuenta y el modal "Pagar todo" puedan indexar por idx
 let pagFacturas  = 1;
 const POR_PAGINA = 100;
 const seleccionadas = new Set(); // claves compuestas "numero§kiosko" marcadas con check
@@ -1926,8 +1986,11 @@ function renderProyeccion() {
 
   const totalGeneral = lista.reduce((a,g) => a + g.total, 0);
 
+  proyeccionListaActual = lista;
+
   const filas = lista.map((g, idx) => {
     const rowId = 'proyprov-' + idx;
+    const cuenta = g.facturas[0].cuentaProveedor || '';
 
     const filasDetalle = g.facturas.map((f, fidx) => {
       const frowId = rowId + '-' + fidx;
@@ -1963,16 +2026,22 @@ function renderProyeccion() {
     return `
       <tr class="tr-main" onclick="toggleDetalle('${rowId}')">
         <td style="font-weight:500;">${g.proveedor}</td>
+        <td onclick="event.stopPropagation()">
+          <button type="button" class="btn-mini" style="font-family:monospace;" onclick="toggleCuentaPopover(event, ${idx})">
+            ${cuenta || 'Sin registrar'}
+          </button>
+        </td>
         <td>${g.kioskos.map(k => `<span class="kiosko-tag" style="margin-left:0;margin-right:4px;">${k}</span>`).join('')}</td>
         <td class="num">${g.facturas.length}</td>
         <td style="white-space:nowrap;">${g.proximaFecha}</td>
         <td class="num" style="font-weight:600;">${fmt(g.total)}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+          <button class="btn-mini pago" onclick="abrirModalPagoProveedor(${idx})">Pagar todo</button>
           <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppProveedor('${g.proveedor.replace(/'/g,"\\'")}')">WhatsApp</button>
         </td>
       </tr>
       <tr class="tr-detail" id="${rowId}">
-        <td class="detail-cell" colspan="6">
+        <td class="detail-cell" colspan="7">
           <div class="detail-inner">${detalleHtml}</div>
         </td>
       </tr>`;
@@ -1981,14 +2050,86 @@ function renderProyeccion() {
   document.getElementById('tabla-proyeccion').innerHTML = `
     <table>
       <thead><tr>
-        <th>Proveedor</th><th>Kiosko(s)</th><th style="text-align:right;">Facturas</th>
-        <th>Próxima fecha proyectada</th><th style="text-align:right;">Total proyectado</th><th>Aviso</th>
+        <th>Proveedor</th><th>Cuenta</th><th>Kiosko(s)</th><th style="text-align:right;">Facturas</th>
+        <th>Próxima fecha proyectada</th><th style="text-align:right;">Total proyectado</th><th>Acciones</th>
       </tr></thead>
       <tbody>${filas}</tbody>
     </table>`;
 
   document.getElementById('proyeccion-resumen').innerHTML =
     `${lista.length} proveedor${lista.length!==1?'es':''} · ${conFecha.length} factura${conFecha.length!==1?'s':''} con fecha proyectada · Total: <strong style="color:var(--green);">${fmt(totalGeneral)}</strong>`;
+}
+
+// ── POPOVER: número de cuenta del proveedor ────────────────────────
+// Click sobre el botón de cuenta (columna "Cuenta" de la Proyección) abre una
+// tarjeta flotante con el detalle de las facturas de ese proveedor y un botón
+// para copiar la cuenta — sin necesidad de expandir la fila completa.
+function toggleCuentaPopover(ev, idx) {
+  ev.stopPropagation();
+  const abierto = document.getElementById('cuenta-popover');
+  const eraElMismo = abierto && abierto.dataset.idx === String(idx);
+  cerrarCuentaPopover();
+  if (eraElMismo) return;
+
+  const g = proyeccionListaActual[idx];
+  if (!g) return;
+  const cuenta = g.facturas[0].cuentaProveedor || '';
+
+  const filas = [...g.facturas].sort((a,b) =>
+    a.fechaProyectada.localeCompare(b.fechaProyectada) || a.numero.localeCompare(b.numero)
+  ).map(f => `<tr>
+      <td>${f.numero}</td>
+      <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+      <td style="white-space:nowrap;">${f.fechaProyectada||'—'}</td>
+      <td class="num">${fmt(f.saldoPendiente)}</td>
+    </tr>`).join('');
+
+  const pop = document.createElement('div');
+  pop.id = 'cuenta-popover';
+  pop.className = 'cta-popover';
+  pop.dataset.idx = idx;
+  pop.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text);">${g.proveedor}</div>
+      <button type="button" class="btn-mini" onclick="copiarCuenta('${cuenta.replace(/'/g,"\\'")}')">Copiar cuenta</button>
+    </div>
+    <div style="font-family:monospace;font-size:13px;color:var(--text);margin-bottom:10px;word-break:break-all;">${cuenta || 'Sin cuenta registrada'}</div>
+    <table class="detail-table">
+      <thead><tr><th>Factura</th><th>Kiosko</th><th>Fecha</th><th style="text-align:right;">Saldo</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+  document.body.appendChild(pop);
+
+  const rect = ev.currentTarget.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8));
+  const top  = Math.min(rect.bottom + 6, window.innerHeight - pop.offsetHeight - 8);
+  pop.style.left = left + 'px';
+  pop.style.top  = Math.max(8, top) + 'px';
+
+  setTimeout(() => document.addEventListener('click', cerrarCuentaPopoverAlClickFuera, true), 0);
+}
+
+function cerrarCuentaPopover() {
+  const pop = document.getElementById('cuenta-popover');
+  if (pop) pop.remove();
+  document.removeEventListener('click', cerrarCuentaPopoverAlClickFuera, true);
+}
+
+function cerrarCuentaPopoverAlClickFuera(e) {
+  const pop = document.getElementById('cuenta-popover');
+  if (pop && !pop.contains(e.target)) cerrarCuentaPopover();
+}
+
+function copiarCuenta(cuenta) {
+  if (!cuenta) { showToast('Este proveedor no tiene cuenta registrada.', 'error'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cuenta).then(
+      () => showToast('Cuenta copiada ✓', 'success'),
+      () => showToast('No se pudo copiar la cuenta.', 'error')
+    );
+  } else {
+    showToast('No se pudo copiar la cuenta.', 'error');
+  }
 }
 
 // Arma el mensaje de WhatsApp con las facturas proyectadas de un proveedor
@@ -2652,6 +2793,86 @@ async function guardarPago() {
   } catch(e) {
     showToast('No se pudo registrar el pago: ' + e.message, 'error');
   }
+}
+
+// ── MODAL PAGO PROVEEDOR (toda la línea de un proveedor en Proyección) ────
+// A diferencia del pago por factura, acá no se pide monto: se aplica la misma
+// fecha, medio y referencia de pago a TODAS las facturas pendientes de ese
+// grupo (mismo proveedor, con fecha proyectada), una por una contra
+// registrar_pago — igual patrón que aplicarProyeccionSeleccion().
+function abrirModalPagoProveedor(idx) {
+  const g = proyeccionListaActual[idx];
+  if (!g) return;
+  const pendientes = g.facturas.filter(f => f.estado !== 'Cancelada');
+  if (!pendientes.length) { showToast('No hay facturas pendientes en este grupo.', 'error'); return; }
+
+  document.getElementById('pagoprov-idx').value = idx;
+  document.getElementById('pagoprov-sub').innerHTML =
+    `${g.proveedor} · ${pendientes.length} factura${pendientes.length!==1?'s':''} · ${fmt(pendientes.reduce((a,f)=>a+f.saldoPendiente,0))}`;
+  document.getElementById('pagoprov-fecha').value = hoyISO;
+  document.getElementById('pagoprov-medio').value = 'Transferencia';
+  document.getElementById('pagoprov-reembolso-a').value = '';
+  document.getElementById('pagoprov-nota-credito').value = '';
+  document.getElementById('pagoprov-fecha-efectivo').value = hoyISO;
+  document.getElementById('pagoprov-referencia').value = '';
+  document.getElementById('pagoprov-cantidad').textContent = pendientes.length;
+  document.getElementById('pagoprov-lista').innerHTML = pendientes
+    .map(f => `${f.numero} [${f.kiosko}] — ${fmt(f.saldoPendiente)}`)
+    .join('<br>');
+  actualizarCamposMedioPago('pagoprov');
+  document.getElementById('modal-pago-proveedor').classList.add('open');
+}
+
+async function guardarPagoProveedor() {
+  const idx = document.getElementById('pagoprov-idx').value;
+  const g = proyeccionListaActual[idx];
+  if (!g) return;
+
+  const fecha  = document.getElementById('pagoprov-fecha').value;
+  const medio  = document.getElementById('pagoprov-medio').value;
+  const reembolsoA  = document.getElementById('pagoprov-reembolso-a').value.trim();
+  const notaCredito = document.getElementById('pagoprov-nota-credito').value.trim();
+  const fechaEfectivo = document.getElementById('pagoprov-fecha-efectivo').value;
+  const referencia = document.getElementById('pagoprov-referencia').value.trim();
+  if (!fecha) { showToast('Ingresá la fecha de pago.', 'error'); return; }
+  if (medio === 'Reembolso' && !reembolsoA) { showToast('Ingresá a quién se reembolsa.', 'error'); return; }
+  if (medio === 'Nota de crédito' && !notaCredito) { showToast('Ingresá la nota de crédito asociada.', 'error'); return; }
+  if (medio === 'Fondo de caja' && !fechaEfectivo) { showToast('Ingresá la fecha del efectivo (cierre de caja).', 'error'); return; }
+
+  const pendientes = g.facturas.filter(f => f.estado !== 'Cancelada');
+  if (!pendientes.length) { showToast('No hay facturas pendientes en este grupo.', 'error'); return; }
+
+  const btn = document.getElementById('btn-guardar-pago-proveedor');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+
+  let ok = 0, fallidas = 0;
+  await Promise.all(pendientes.map(async f => {
+    try {
+      await postAP({
+        modulo: 'registrar_pago',
+        numero_factura: f.numero, kiosko: f.kiosko, ordinal: f.ordinal, proveedor: f.proveedor, fecha_factura: f.fechaFactura,
+        monto: f.monto, fecha_pago: fecha, medio_pago: medio, referencia: referencia,
+        reembolso_a: reembolsoA, nota_credito: notaCredito, fecha_efectivo: fechaEfectivo
+      });
+      if (medio === 'Fondo de caja') {
+        await enviarSalidaFondo(fechaEfectivo, f.kiosko, f.montoColones || f.monto, f.proveedor, f.numero, referencia, 'Pago total (proveedor)');
+      }
+      f.fechaRealPago = fecha;
+      f.medioPago = medio;
+      f.referenciaPago = referencia;
+      f.estado = 'Cancelada';
+      f.saldoPendiente = 0;
+      ok++;
+    } catch(e) { fallidas++; }
+  }));
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Guardar pago'; }
+  cerrarModal('modal-pago-proveedor');
+  showToast(
+    fallidas ? `Pago aplicado a ${ok} factura(s), ${fallidas} fallaron` : `Pago aplicado a ${ok} factura(s) ✓ Todas marcadas como Cancelada`,
+    fallidas ? 'error' : 'success'
+  );
+  inicializar();
 }
 
 // ── MODAL ABONO PARCIAL ────────────────────────────────────────────
