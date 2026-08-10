@@ -417,6 +417,11 @@
     <div class="card" id="seleccion-bar" style="display:none;padding:.75rem 1.25rem;margin-bottom:12px;background:var(--green-bg);border-color:var(--green-lt);align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <span style="font-size:13px;color:var(--green);"><strong id="sel-count">0</strong> factura(s) seleccionada(s)</span>
       <span style="font-size:14px;font-weight:700;color:var(--green);font-family:var(--font-d);">Total: <span id="sel-total">₡0,00</span></span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="sel-fecha-proy" style="font-size:12px;color:var(--green);">Fecha proyectada de pago</label>
+        <input type="date" id="sel-fecha-proy">
+        <button class="btn-mini pago" id="btn-aplicar-proy-sel" onclick="aplicarProyeccionSeleccion()">Aplicar a selección</button>
+      </div>
       <button class="btn-mini" onclick="limpiarSeleccion()">Limpiar selección</button>
     </div>
 
@@ -432,7 +437,7 @@
   <div id="tab-proyeccion" style="display:none;">
     <div class="card">
       <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-        Línea de tiempo de pagos proyectados
+        Pagos proyectados por proveedor · click en una fila para ver el detalle de facturas
       </div>
       <div class="tabla-wrap" id="tabla-proyeccion">
         <div class="empty"><span class="spinner"></span></div>
@@ -1884,7 +1889,9 @@ function actualizarBarraSeleccion() {
   bar.style.display = 'flex';
 }
 
-// ── RENDER PROYECCIÓN (línea de tiempo: columnas = fechas, filas = proveedor/factura) ──
+// ── RENDER PROYECCIÓN (agrupado por proveedor, mismo patrón accordion que
+// renderPorProveedor: fila de cabecera por proveedor, se despliega al hacer
+// click y muestra el detalle de cada factura con su fecha proyectada) ──
 function renderProyeccion() {
   const pendientes = datasetActual().filter(f => f.estado !== 'Cancelada');
   const conFecha = pendientes.filter(f => f.fechaProyectada);
@@ -1892,98 +1899,109 @@ function renderProyeccion() {
   if (!conFecha.length) {
     document.getElementById('tabla-proyeccion').innerHTML = '<div class="empty">Ninguna factura pendiente tiene fecha proyectada todavía.</div>';
     document.getElementById('proyeccion-resumen').innerHTML = '';
-  } else {
-    const fechas = [...new Set(conFecha.map(f => f.fechaProyectada))].sort();
+    return;
+  }
 
-    const filas = [...conFecha].sort((a,b) =>
-      a.proveedor.localeCompare(b.proveedor) || a.numero.localeCompare(b.numero));
+  const grupos = {};
+  conFecha.forEach(f => {
+    const key = f.proveedor || '(Sin proveedor)';
+    if (!grupos[key]) grupos[key] = { proveedor: key, facturas: [] };
+    grupos[key].facturas.push(f);
+  });
 
-    const totalesPorDia = {};
-    const cantidadPorDia = {};
-    fechas.forEach(fecha => {
-      const deEseDia = conFecha.filter(f => f.fechaProyectada === fecha);
-      totalesPorDia[fecha] = deEseDia.reduce((a,f) => a + f.saldoPendiente, 0);
-      cantidadPorDia[fecha] = deEseDia.length;
-    });
-    const totalGeneral = fechas.reduce((a,fecha) => a + totalesPorDia[fecha], 0);
+  let lista = Object.values(grupos).map(g => {
+    const facturas = [...g.facturas].sort((a,b) =>
+      a.fechaProyectada.localeCompare(b.fechaProyectada) || a.numero.localeCompare(b.numero));
+    const kioskos = [...new Set(facturas.map(f => f.kiosko))];
+    return {
+      proveedor: g.proveedor,
+      facturas,
+      kioskos,
+      proximaFecha: facturas[0].fechaProyectada,
+      total: facturas.reduce((a,f) => a + f.saldoPendiente, 0)
+    };
+  });
 
-    const colFija = 'position:sticky;left:0;z-index:1;';
+  lista.sort((a,b) => a.proximaFecha.localeCompare(b.proximaFecha) || a.proveedor.localeCompare(b.proveedor));
 
-    const headFechas = fechas.map(fecha => {
-      const d = new Date(fecha + 'T00:00:00');
-      const corto = d.toLocaleDateString('es-CR', { day:'2-digit', month:'short' });
-      return `<th style="text-align:center;min-width:100px;">${corto}<br><span style="font-weight:400;font-size:9px;color:var(--subtle);text-transform:none;letter-spacing:0;">${fecha}</span></th>`;
-    }).join('');
+  const totalGeneral = lista.reduce((a,g) => a + g.total, 0);
 
-    const filasHtml = filas.map(f => {
-      const celdas = fechas.map(fecha => f.fechaProyectada === fecha
-        ? `<td class="num" style="font-weight:600;">${fmt(f.saldoPendiente)}</td>`
-        : `<td class="num" style="color:var(--subtle);">·</td>`
-      ).join('');
+  const filas = lista.map((g, idx) => {
+    const rowId = 'proyprov-' + idx;
+
+    const filasDetalle = g.facturas.map((f, fidx) => {
+      const frowId = rowId + '-' + fidx;
       return `<tr>
-        <td style="${colFija}background:var(--card);white-space:nowrap;">
-          <div style="font-weight:500;">${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span></div>
-          <div style="font-size:11px;color:var(--muted);">${f.numero}</div>
+        <td>${f.numero}</td>
+        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${badgeEstado(f.estado)}</td>
+        <td>
+          <span class="proy-wrap" id="proy-${frowId}">
+            <button type="button" class="proy-toggle" onclick="event.stopPropagation(); toggleProyEdit('${frowId}')">
+              <span class="proy-txt">${f.fechaProyectada}</span>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <input type="date" class="proj-input" value="${f.fechaProyectada||''}"
+              onclick="event.stopPropagation()"
+              onchange="event.stopPropagation(); guardarProyeccionFactura('${f.numero}','${f.kiosko}', this.value, '${frowId}')">
+          </span>
         </td>
-        ${celdas}
-        <td style="white-space:nowrap;">
+        <td class="num" style="font-weight:600;">${fmt(f.saldoPendiente)}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
           <button class="btn-mini pago" onclick="abrirModalPago('${f.numero}','${f.kiosko}')">Pago total</button>
           <button class="btn-mini abono" onclick="abrirModalAbono('${f.numero}','${f.kiosko}')">Abono</button>
         </td>
       </tr>`;
     }).join('');
 
-    const filaCantidad = `
-      <tr style="background:var(--surface);">
-        <td style="${colFija}background:var(--surface);font-weight:700;">Cantidad de facturas</td>
-        ${fechas.map(fecha => `<td class="num" style="font-weight:700;">${cantidadPorDia[fecha]}</td>`).join('')}
-        <td style="background:var(--surface);"></td>
-      </tr>`;
-
-    const filaTotal = `
-      <tr style="background:var(--surface);">
-        <td style="${colFija}background:var(--surface);font-weight:700;">Total por día</td>
-        ${fechas.map(fecha => `<td class="num" style="font-weight:700;color:var(--green);">${fmt(totalesPorDia[fecha])}</td>`).join('')}
-        <td style="background:var(--surface);"></td>
-      </tr>`;
-
-    const filaWhatsapp = `
-      <tr style="background:var(--surface);">
-        <td style="${colFija}background:var(--surface);font-weight:700;">Aviso de pago</td>
-        ${fechas.map(fecha => `
-          <td style="text-align:center;">
-            <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppDia('${fecha}')">WhatsApp</button>
-          </td>`).join('')}
-        <td style="background:var(--surface);"></td>
-      </tr>`;
-
-    document.getElementById('tabla-proyeccion').innerHTML = `
-      <table>
-        <thead><tr>
-          <th style="${colFija}background:var(--surface);">Proveedor / Factura</th>
-          ${headFechas}
-          <th style="background:var(--surface);">Acción</th>
-        </tr></thead>
-        <tbody>${filasHtml}${filaCantidad}${filaTotal}${filaWhatsapp}</tbody>
+    const detalleHtml = `
+      <table class="detail-table">
+        <thead><tr><th>Factura</th><th>Kiosko</th><th>Estado</th><th>Fecha proyectada</th><th style="text-align:right;">Saldo</th><th>Acciones</th></tr></thead>
+        <tbody>${filasDetalle}</tbody>
       </table>`;
 
-    document.getElementById('proyeccion-resumen').innerHTML = `
-      ${fechas.length} fecha${fechas.length!==1?'s':''} proyectada${fechas.length!==1?'s':''} ·
-      ${conFecha.length} factura${conFecha.length!==1?'s':''} · Total: <strong style="color:var(--green);">${fmt(totalGeneral)}</strong>`;
-  }
+    return `
+      <tr class="tr-main" onclick="toggleDetalle('${rowId}')">
+        <td style="font-weight:500;">${g.proveedor}</td>
+        <td>${g.kioskos.map(k => `<span class="kiosko-tag" style="margin-left:0;margin-right:4px;">${k}</span>`).join('')}</td>
+        <td class="num">${g.facturas.length}</td>
+        <td style="white-space:nowrap;">${g.proximaFecha}</td>
+        <td class="num" style="font-weight:600;">${fmt(g.total)}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+          <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppProveedor('${g.proveedor.replace(/'/g,"\\'")}')">WhatsApp</button>
+        </td>
+      </tr>
+      <tr class="tr-detail" id="${rowId}">
+        <td class="detail-cell" colspan="6">
+          <div class="detail-inner">${detalleHtml}</div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('tabla-proyeccion').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Proveedor</th><th>Kiosko(s)</th><th style="text-align:right;">Facturas</th>
+        <th>Próxima fecha proyectada</th><th style="text-align:right;">Total proyectado</th><th>Aviso</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+
+  document.getElementById('proyeccion-resumen').innerHTML =
+    `${lista.length} proveedor${lista.length!==1?'es':''} · ${conFecha.length} factura${conFecha.length!==1?'s':''} con fecha proyectada · Total: <strong style="color:var(--green);">${fmt(totalGeneral)}</strong>`;
 }
 
-// Arma el mensaje de WhatsApp con las facturas proyectadas para una fecha
+// Arma el mensaje de WhatsApp con las facturas proyectadas de un proveedor
 // (dentro del kiosko actual) y abre el chat (sin destinatario fijo).
-function enviarWhatsAppDia(fecha) {
-  const facturasDia = datasetActual()
-    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada === fecha)
-    .sort((a,b) => a.proveedor.localeCompare(b.proveedor));
-  if (!facturasDia.length) { showToast('No hay facturas proyectadas para esa fecha.', 'error'); return; }
+function enviarWhatsAppProveedor(proveedor) {
+  const facturasProv = datasetActual()
+    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada && (f.proveedor || '(Sin proveedor)') === proveedor)
+    .sort((a,b) => a.fechaProyectada.localeCompare(b.fechaProyectada));
+  if (!facturasProv.length) { showToast('No hay facturas proyectadas para ese proveedor.', 'error'); return; }
 
-  const totalDia = facturasDia.reduce((a,f) => a + f.saldoPendiente, 0);
-  const lineas = facturasDia.map(f => `• ${f.proveedor} [${f.kiosko}] (${f.numero}): ${fmt(f.saldoPendiente)}`).join('\n');
-  const mensaje = `Estas facturas ya están listas para ser canceladas el ${fecha}:\n\n${lineas}\n\nTotal: ${fmt(totalDia)}`;
+  const total = facturasProv.reduce((a,f) => a + f.saldoPendiente, 0);
+  const lineas = facturasProv.map(f => `• [${f.kiosko}] ${f.numero}: ${fmt(f.saldoPendiente)} — vence ${f.fechaProyectada}`).join('\n');
+  const mensaje = `Pagos proyectados a ${proveedor}:\n\n${lineas}\n\nTotal: ${fmt(total)}`;
   window.open('https://wa.me/?text=' + encodeURIComponent(mensaje), '_blank');
 }
 
@@ -2444,6 +2462,43 @@ async function guardarProyeccionFactura(numero, kiosko, fecha, rowId) {
   } catch(e) {
     showToast('No se pudo guardar: ' + e.message, 'error');
   }
+}
+
+// Aplica la misma fecha proyectada de pago a todas las facturas marcadas con
+// el checkbox de la tabla (seleccion-bar, tab Facturas). Manda un guardado al
+// backend por cada factura seleccionada (mismo endpoint que
+// guardarProyeccionFactura, una por una) y refresca tabla + tab Proyección al
+// terminar. No limpia la selección al terminar, por si el usuario quiere
+// revisar o repetir la acción.
+async function aplicarProyeccionSeleccion() {
+  const fecha = document.getElementById('sel-fecha-proy').value;
+  if (!fecha) { showToast('Elegí primero una fecha proyectada.', 'error'); return; }
+  const facturas = facturasAP.filter(f => seleccionadas.has(claveF(f.numero, f.kiosko)));
+  if (!facturas.length) return;
+
+  const btn = document.getElementById('btn-aplicar-proy-sel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aplicando…'; }
+
+  let ok = 0, fallidas = 0;
+  await Promise.all(facturas.map(async f => {
+    try {
+      await postAP({
+        modulo: 'guardar_proyeccion',
+        numero_factura: f.numero, kiosko: f.kiosko, ordinal: f.ordinal, proveedor: f.proveedor,
+        fecha_factura: f.fechaFactura, monto: f.monto, fecha_proyectada: fecha
+      });
+      f.fechaProyectada = fecha;
+      ok++;
+    } catch(e) { fallidas++; }
+  }));
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Aplicar a selección'; }
+  showToast(
+    fallidas ? `Fecha aplicada a ${ok} factura(s), ${fallidas} fallaron` : `Fecha proyectada aplicada a ${ok} factura(s) ✓`,
+    fallidas ? 'error' : 'success'
+  );
+  renderFacturas();
+  renderProyeccion();
 }
 
 // ── TIPO DE CAMBIO (solo facturas en USD) ─────────────────────────
