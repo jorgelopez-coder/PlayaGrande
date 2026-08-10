@@ -1711,7 +1711,7 @@ function _renderFacturas() {
         </td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap;min-width:90px;">${f.fechaFactura||'—'}</td>
         <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
-        <td style="font-size:12px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.numero}${dupBadge}${notaBadge}</td>
+        <td style="font-size:12px;color:var(--muted);min-width:140px;white-space:nowrap;">${f.numero}${dupBadge}${notaBadge}</td>
         <td style="font-weight:500;">${f.proveedor}${sinProvBadge}</td>
         <td class="num" style="font-weight:600;">
           ${f.moneda === 'USD' ? `
@@ -2080,7 +2080,7 @@ function toggleCuentaPopover(ev, idx) {
   ).map(f => `<tr>
       <td>${f.numero}</td>
       <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
-      <td style="white-space:nowrap;">${f.fechaProyectada||'—'}</td>
+      <td style="white-space:nowrap;">${f.fechaFactura||'—'}</td>
       <td class="num">${fmt(f.saldoPendiente)}</td>
     </tr>`).join('');
 
@@ -2095,7 +2095,7 @@ function toggleCuentaPopover(ev, idx) {
     </div>
     <div style="font-family:monospace;font-size:13px;color:var(--text);margin-bottom:10px;word-break:break-all;">${cuenta || 'Sin cuenta registrada'}</div>
     <table class="detail-table">
-      <thead><tr><th>Factura</th><th>Kiosko</th><th>Fecha</th><th style="text-align:right;">Saldo</th></tr></thead>
+      <thead><tr><th>Factura</th><th>Kiosko</th><th>Fecha factura</th><th style="text-align:right;">Saldo</th></tr></thead>
       <tbody>${filas}</tbody>
     </table>`;
   document.body.appendChild(pop);
