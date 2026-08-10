@@ -2247,7 +2247,8 @@ function enviarWhatsAppSemana() {
   });
 
   const totalGeneral = lista.reduce((a,f) => a + f.saldoPendiente, 0);
-  const mensaje = `Estos son los pagos proyectados para esta semana:\n\n${bloques.join('\n\n')}\n\nTotal general: ${fmt(totalGeneral)}`;
+  const link = window.location.href.split('#')[0];
+  const mensaje = `Estos son los pagos proyectados para esta semana:\n\n${bloques.join('\n\n')}\n\nTotal general: ${fmt(totalGeneral)}\n\nVer detalle: ${link}`;
   window.open('https://wa.me/?text=' + encodeURIComponent(mensaje), '_blank');
 }
 
