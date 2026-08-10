@@ -190,6 +190,35 @@
       Al fusionar, se reescribe el nombre ya guardado en Registro de Facturas, Desglose de facturas y Maestro de Productos —
       y queda registrado como alias en la ficha del proveedor para que no se vuelva a separar.
     </p>
+
+    <div class="missing-row" style="flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <strong style="font-size:13.5px;">Fusión manual</strong>
+        <button class="btn-sec" id="fusion-manual-toggle" onclick="toggleFusionManual()">Seleccionar nombres…</button>
+      </div>
+      <div id="fusion-manual-body" style="display:none;">
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 8px;">
+          Elegí a mano dos o más nombres (aunque no se hayan agrupado solos arriba) y fusionalos en un proveedor.
+        </p>
+        <input type="text" class="search-input" id="fusion-manual-buscar" placeholder="Buscar nombre…" oninput="renderFusionManualLista()" style="margin-bottom:8px;width:100%;">
+        <div id="fusion-manual-lista" class="fusion-variantes" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;"></div>
+        <div class="field" style="margin-top:10px;margin-bottom:6px;">
+          <label>Nombre estándar de destino</label>
+          <input type="text" id="fusion-manual-nombre-estandar" list="sugerencias-proveedores" placeholder="Nombre del proveedor (ya registrado o nuevo)">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Categoría (solo si es proveedor nuevo)</label>
+          <select id="fusion-manual-categoria">
+            <option value="">Seleccioná…</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+          <button class="btn-sec" onclick="toggleFusionManual(false)">Cancelar</button>
+          <button class="btn-add-rapido" onclick="confirmarFusionManual(this)">Fusionar seleccionados</button>
+        </div>
+      </div>
+    </div>
+
     <div id="lista-consolidar"></div>
   </div>
 
@@ -411,6 +440,8 @@ async function postAP(payload) {
   if (!json.ok) throw new Error(json.error || 'Error al fusionar');
   return json.result;
 }
+
+const CATEGORIAS_PROVEEDOR = ['Cerveza','Licores y Destilados','Insumos de Coctelería','Bebidas No Alcohólicas','Hielo','Vasos y Desechables','Snacks','Limpieza e Higiene','Equipo y Utensilios','Servicios','Otro'];
 
 // ── DATOS: hoja "Proveedores" + Maestro_Productos (solo para "Por agregar") ──
 let proveedoresCache = [];
@@ -737,7 +768,7 @@ function renderConsolidar() {
     return;
   }
 
-  const categorias = ['Cerveza','Licores y Destilados','Insumos de Coctelería','Bebidas No Alcohólicas','Hielo','Vasos y Desechables','Snacks','Limpieza e Higiene','Equipo y Utensilios','Servicios','Otro'];
+  const categorias = CATEGORIAS_PROVEEDOR;
 
   cont.innerHTML = candidatos.map(g => {
     const total = g.textos.reduce((s,t)=>s+t.veces,0);
@@ -777,6 +808,61 @@ function escHtmlProv(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Lógica compartida de fusión: reescribe lo histórico (Registro Facturas/
+// Desglose_IA/Maestro_Productos) y RECIÉN si eso funciona guarda el alias en
+// la ficha del proveedor (nuevo o existente). En ese orden, si algo falla a
+// mitad de camino la fusión no queda "a medias". Usada tanto por las tarjetas
+// de candidatos automáticos como por la fusión manual.
+async function ejecutarFusion(variantes, nombreEstandar, proveedorExistente, categoriaNueva) {
+  let proveedor;
+  if (proveedorExistente) {
+    proveedor = proveedorExistente;
+  } else {
+    if (!categoriaNueva) throw new Error('Seleccioná una categoría para el proveedor nuevo.');
+    proveedor = { nombre_juridico: nombreEstandar, categoria: categoriaNueva, alias: [] };
+  }
+
+  const aliasNuevo = [...new Set([...(proveedor.alias || []), ...variantes]
+    .filter(v => nombreNormalizado(v) !== nombreNormalizado(nombreEstandar)))];
+
+  await postAP({ modulo: 'fusionar_proveedor', variantes, nombreEstandar });
+
+  const guardado = await postInventario({
+    modulo: 'guardar_proveedor',
+    id: proveedor.id || null,
+    nombre_juridico: proveedor.nombre_juridico,
+    nombre_comercial: proveedor.nombre_comercial || '',
+    categoria: proveedor.categoria,
+    contacto: proveedor.contacto || '',
+    telefono: proveedor.telefono || '',
+    correo: proveedor.correo || '',
+    dias_pedido: proveedor.dias_pedido || [],
+    notas_contacto: proveedor.notas_contacto || '',
+    cuenta: proveedor.cuenta || '',
+    condicion_pago: proveedor.condicion_pago || '0',
+    notas_pago: proveedor.notas_pago || '',
+    alias: aliasNuevo
+  });
+
+  if (proveedor.id) {
+    proveedor.alias = aliasNuevo;
+    proveedor.actualizado = new Date().toISOString();
+  } else {
+    proveedoresCache.push({ ...proveedor, id: guardado.id, alias: aliasNuevo, dia_pedido: '', dias_pedido: [], actualizado: new Date().toISOString() });
+  }
+  // El texto en Maestro_Productos ya quedó reescrito en el Sheet — se
+  // refleja acá también para que la lista no muestre variantes viejas
+  // hasta el próximo refresh completo.
+  maestroRowsCache.forEach(r => {
+    if (variantes.includes(String(r['Proveedor']||'').trim())) r['Proveedor'] = nombreEstandar;
+  });
+  maestroProveedores = [...new Set(maestroRowsCache.map(r => (r['Proveedor']||'').trim()).filter(Boolean))];
+
+  actualizarFiltros();
+  renderPorAgregar();
+  renderConsolidar();
+}
+
 async function confirmarFusion(clave, btn) {
   const card = document.querySelector(`.missing-row[data-clave="${clave}"]`);
   if (!card) return;
@@ -792,63 +878,99 @@ async function confirmarFusion(clave, btn) {
   const textoOriginal = btn.textContent;
   btn.textContent = 'Fusionando…';
   try {
-    let proveedor;
+    let proveedorExistente = null;
     if (proveedorIdEl) {
       // Proveedor ya registrado: solo se le agregan los alias nuevos.
-      proveedor = getProveedores().find(p => p.id === proveedorIdEl.value);
-      if (!proveedor) throw new Error('No se encontró el proveedor.');
-    } else {
-      if (!categoriaEl.value) { throw new Error('Seleccioná una categoría para el proveedor nuevo.'); }
-      proveedor = { nombre_juridico: nombreEstandar, categoria: categoriaEl.value, alias: [] };
+      proveedorExistente = getProveedores().find(p => p.id === proveedorIdEl.value);
+      if (!proveedorExistente) throw new Error('No se encontró el proveedor.');
     }
-
-    const aliasNuevo = [...new Set([...(proveedor.alias || []), ...variantes]
-      .filter(v => nombreNormalizado(v) !== nombreNormalizado(nombreEstandar)))];
-
-    // Primero se reescribe lo histórico (Registro Facturas/Desglose_IA/
-    // Maestro_Productos) y RECIÉN si eso funciona se guarda el alias en la
-    // ficha del proveedor. En ese orden, si algo falla a mitad de camino el
-    // grupo sigue apareciendo como candidato la próxima vez (no desaparece
-    // "a medias" de la pestaña sin haberse fusionado de verdad).
-    await postAP({ modulo: 'fusionar_proveedor', variantes, nombreEstandar });
-
-    const guardado = await postInventario({
-      modulo: 'guardar_proveedor',
-      id: proveedor.id || null,
-      nombre_juridico: proveedor.nombre_juridico,
-      nombre_comercial: proveedor.nombre_comercial || '',
-      categoria: proveedor.categoria,
-      contacto: proveedor.contacto || '',
-      telefono: proveedor.telefono || '',
-      correo: proveedor.correo || '',
-      dias_pedido: proveedor.dias_pedido || [],
-      notas_contacto: proveedor.notas_contacto || '',
-      cuenta: proveedor.cuenta || '',
-      condicion_pago: proveedor.condicion_pago || '0',
-      notas_pago: proveedor.notas_pago || '',
-      alias: aliasNuevo
-    });
-
-    if (proveedor.id) {
-      proveedor.alias = aliasNuevo;
-      proveedor.actualizado = new Date().toISOString();
-    } else {
-      proveedoresCache.push({ ...proveedor, id: guardado.id, alias: aliasNuevo, dia_pedido: '', dias_pedido: [], actualizado: new Date().toISOString() });
-    }
-    // El texto en Maestro_Productos ya quedó reescrito en el Sheet — se
-    // refleja acá también para que la lista no muestre variantes viejas
-    // hasta el próximo refresh completo.
-    maestroRowsCache.forEach(r => {
-      if (variantes.includes(String(r['Proveedor']||'').trim())) r['Proveedor'] = nombreEstandar;
-    });
-    maestroProveedores = [...new Set(maestroRowsCache.map(r => (r['Proveedor']||'').trim()).filter(Boolean))];
-
-    actualizarFiltros();
-    renderPorAgregar();
-    renderConsolidar();
+    await ejecutarFusion(variantes, nombreEstandar, proveedorExistente, categoriaEl ? categoriaEl.value : null);
     showToast(`Fusionado en "${nombreEstandar}" ✓`, 'success');
   } catch (e) {
     showToast('No se pudo fusionar: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+// ── FUSIÓN MANUAL: elegir a mano cualquier combinación de nombres vistos ──
+// (no depende de que claveFusion() los haya agrupado solos).
+function todosLosNombresVistos() {
+  const veces = {};
+  maestroRowsCache.forEach(r => {
+    const prov = String(r['Proveedor'] || '').trim();
+    if (!prov) return;
+    veces[prov] = (veces[prov] || 0) + (Number(r['Veces visto']) || 1);
+  });
+  // Además de lo visto en el Maestro, se incluyen las variantes ya
+  // registradas en la ficha de cada proveedor (nombre jurídico/comercial/
+  // alias), por si el usuario quiere re-fusionar o unir dos fichas.
+  getProveedores().forEach(p => {
+    variantesConocidas(p).forEach(v => { if (!(v in veces)) veces[v] = 0; });
+  });
+  return Object.entries(veces)
+    .map(([texto, v]) => ({ texto, veces: v }))
+    .sort((a, b) => b.veces - a.veces || a.texto.localeCompare(b.texto));
+}
+
+function toggleFusionManual(mostrar) {
+  const body = document.getElementById('fusion-manual-body');
+  const abrir = mostrar !== undefined ? mostrar : body.style.display === 'none';
+  body.style.display = abrir ? '' : 'none';
+  document.getElementById('fusion-manual-toggle').textContent = abrir ? 'Ocultar' : 'Seleccionar nombres…';
+  if (abrir) renderFusionManualLista();
+}
+
+function renderFusionManualLista() {
+  const cont = document.getElementById('fusion-manual-lista');
+  if (!cont) return;
+  const buscarEl = document.getElementById('fusion-manual-buscar');
+  const q = nombreNormalizado(buscarEl ? buscarEl.value : '');
+  const seleccionados = new Set([...cont.querySelectorAll('.fusion-manual-chk:checked')].map(c => c.value));
+  const items = todosLosNombresVistos().filter(it => !q || nombreNormalizado(it.texto).includes(q));
+
+  if (!items.length) {
+    cont.innerHTML = `<div style="font-size:12.5px;color:var(--muted);padding:4px;">Sin resultados.</div>`;
+    return;
+  }
+  cont.innerHTML = items.map(it => `
+    <label class="fusion-variante">
+      <input type="checkbox" class="fusion-manual-chk" value="${it.texto.replace(/"/g,'&quot;')}" onchange="renderFusionManualLista()" ${seleccionados.has(it.texto) ? 'checked' : ''}>
+      ${escHtmlProv(it.texto)} ${it.veces ? `<span class="prov-chip chip-dia">${it.veces}×</span>` : ''}
+    </label>`).join('');
+}
+
+async function confirmarFusionManual(btn) {
+  const cont = document.getElementById('fusion-manual-lista');
+  const variantes = [...cont.querySelectorAll('.fusion-manual-chk:checked')].map(c => c.value);
+  if (variantes.length < 2) { showToast('Marcá al menos 2 nombres para fusionar.', 'error'); return; }
+
+  const nombreEstandarEl = document.getElementById('fusion-manual-nombre-estandar');
+  const nombreEstandar = nombreEstandarEl.value.trim();
+  if (!nombreEstandar) { showToast('Falta el nombre estándar de destino.', 'error'); return; }
+
+  const proveedorExistente = getProveedores().find(p =>
+    variantesConocidas(p).some(v => nombreNormalizado(v) === nombreNormalizado(nombreEstandar))
+  ) || null;
+  const categoriaEl = document.getElementById('fusion-manual-categoria');
+  if (!proveedorExistente && !categoriaEl.value) {
+    showToast('Seleccioná una categoría (si es proveedor nuevo) o escribí el nombre exacto de uno ya registrado.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Fusionando…';
+  try {
+    await ejecutarFusion(variantes, nombreEstandar, proveedorExistente, categoriaEl.value);
+    showToast(`Fusionado en "${nombreEstandar}" ✓`, 'success');
+    document.getElementById('fusion-manual-buscar').value = '';
+    nombreEstandarEl.value = '';
+    categoriaEl.value = '';
+    toggleFusionManual(false);
+  } catch (e) {
+    showToast('No se pudo fusionar: ' + e.message, 'error');
+  } finally {
     btn.disabled = false;
     btn.textContent = textoOriginal;
   }
@@ -907,6 +1029,10 @@ document.getElementById('modal-prov').addEventListener('click', e => {
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  const selCatManual = document.getElementById('fusion-manual-categoria');
+  if (selCatManual) {
+    selCatManual.innerHTML = '<option value="">Seleccioná…</option>' + CATEGORIAS_PROVEEDOR.map(c => `<option>${c}</option>`).join('');
+  }
   await cargarDatos();
   const params = new URLSearchParams(location.search);
   if (params.get('nuevo') === '1') {
