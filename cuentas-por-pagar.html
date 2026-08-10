@@ -1451,6 +1451,8 @@ function rangoSemanaActual() {
 
 let chartSemana = null;
 const DIAS_SEMANA_CORTO = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const CHART_COLORS_SEMANA = ['#185fa5', '#1a7a4a', '#6a3a9a', '#c87820', '#c84a20', '#0891b2', '#a21caf'];
+const semanaGruposAbiertos = new Set(); // proveedores expandidos (colapsado por defecto)
 
 function renderSemana() {
   const { inicio, fin } = rangoSemanaActual();
@@ -1470,32 +1472,35 @@ function renderSemana() {
   document.getElementById('semana-count').textContent = lista.length;
   document.getElementById('semana-total').textContent = fmt(total);
 
-  // ── Gráfica de línea: monto proyectado por día, lunes a domingo ──
+  // ── Gráfica de línea: una serie por kiosko, monto proyectado por día ──
   const dias = [];
   for (let d = new Date(inicio + 'T00:00:00'); d.toISOString().slice(0,10) <= fin; d.setDate(d.getDate() + 1)) {
     dias.push(d.toISOString().slice(0,10));
   }
-  const totalesPorDia = dias.map(dia => lista.filter(f => f.fechaProyectada === dia).reduce((a,f) => a + f.saldoPendiente, 0));
   const etiquetasDias = dias.map(dia => `${DIAS_SEMANA_CORTO[new Date(dia + 'T00:00:00').getDay()]} ${dia.slice(8,10)}/${dia.slice(5,7)}`);
+
+  const kioskosEnSemana = KIOSKOS.filter(k => lista.some(f => f.kiosko === k));
+  // Por si aparece algún kiosko en los datos que no esté en KIOSKOS (edge case).
+  lista.forEach(f => { if (f.kiosko && !kioskosEnSemana.includes(f.kiosko)) kioskosEnSemana.push(f.kiosko); });
+
+  const datasets = kioskosEnSemana.map((k, i) => ({
+    label: k,
+    data: dias.map(dia => lista.filter(f => f.kiosko === k && f.fechaProyectada === dia).reduce((a,f) => a + f.saldoPendiente, 0)),
+    borderColor: CHART_COLORS_SEMANA[i % CHART_COLORS_SEMANA.length],
+    backgroundColor: CHART_COLORS_SEMANA[i % CHART_COLORS_SEMANA.length],
+    tension: .25, spanGaps: true, pointRadius: 2, borderWidth: 2
+  }));
 
   if (chartSemana) { chartSemana.destroy(); chartSemana = null; }
   if (typeof Chart !== 'undefined') {
     chartSemana = new Chart(document.getElementById('chart-semana'), {
       type: 'line',
-      data: {
-        labels: etiquetasDias,
-        datasets: [{
-          label: 'Monto proyectado',
-          data: totalesPorDia,
-          borderColor: '#185fa5', backgroundColor: 'rgba(24,95,165,.12)',
-          tension: .25, pointRadius: 3, borderWidth: 2, fill: true
-        }]
-      },
+      data: { labels: etiquetasDias, datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.y) } }
+          legend: { position: 'bottom', labels: { font: { family: "'Inter',sans-serif", size: 11 }, boxWidth: 10 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } }
         },
         scales: {
           y: { beginAtZero: true, ticks: { callback: v => '₡' + Number(v).toLocaleString('es-CR') } },
@@ -1505,7 +1510,7 @@ function renderSemana() {
     });
   }
 
-  // ── Lista agrupada por proveedor, ordenada por monto total desc ──
+  // ── Lista agrupada por proveedor (contraída), ordenada por monto total desc ──
   const grupos = new Map();
   lista.forEach(f => {
     if (!grupos.has(f.proveedor)) grupos.set(f.proveedor, { total: 0, facturas: [] });
@@ -1515,13 +1520,19 @@ function renderSemana() {
   });
   const gruposOrdenados = [...grupos.entries()].sort((a,b) => b[1].total - a[1].total);
 
-  document.getElementById('lista-semana').innerHTML = gruposOrdenados.map(([proveedor, g]) => `
-    <div style="padding:.6rem 0;border-bottom:1px solid var(--border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <strong style="font-size:13px;">${proveedor}</strong>
+  document.getElementById('lista-semana').innerHTML = gruposOrdenados.map(([proveedor, g], i) => {
+    const abierto = semanaGruposAbiertos.has(proveedor);
+    return `
+    <div style="border-bottom:1px solid var(--border);">
+      <div class="semana-grupo-head" data-idx="${i}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.6rem 0;cursor:pointer;user-select:none;">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+          <svg class="toggle-arrow${abierto ? ' open' : ''}" data-arrow-idx="${i}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;color:var(--subtle);"><path d="M4 6l4 4 4-4"/></svg>
+          <strong style="font-size:13px;">${proveedor}</strong>
+          <span style="font-size:11px;color:var(--muted);">(${g.facturas.length})</span>
+        </div>
         <span class="num" style="font-weight:700;white-space:nowrap;">${fmt(g.total)}</span>
       </div>
-      <div style="margin-top:.35rem;">
+      <div class="semana-grupo-detalle" data-detalle-idx="${i}" style="display:${abierto ? 'block' : 'none'};padding:0 0 .5rem;">
         ${g.facturas.map(f => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.3rem 0 .3rem .5rem;">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
@@ -1531,7 +1542,19 @@ function renderSemana() {
             <span class="num" style="font-size:12.5px;white-space:nowrap;">${fmt(f.saldoPendiente)}</span>
           </div>`).join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  document.querySelectorAll('#lista-semana .semana-grupo-head').forEach(el => {
+    el.onclick = () => {
+      const idx = Number(el.dataset.idx);
+      const proveedor = gruposOrdenados[idx][0];
+      const abierto = semanaGruposAbiertos.has(proveedor);
+      if (abierto) semanaGruposAbiertos.delete(proveedor); else semanaGruposAbiertos.add(proveedor);
+      document.querySelector(`#lista-semana .semana-grupo-detalle[data-detalle-idx="${idx}"]`).style.display = abierto ? 'none' : 'block';
+      document.querySelector(`#lista-semana .toggle-arrow[data-arrow-idx="${idx}"]`).classList.toggle('open', !abierto);
+    };
+  });
 }
 
 // ── RENDER FACTURAS ───────────────────────────────────────────────
