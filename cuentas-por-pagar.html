@@ -273,7 +273,10 @@
         <strong style="font-size:13px;">Pagos proyectados esta semana</strong>
         <span class="filtro-badge" id="semana-count" style="background:var(--blue);"></span>
       </div>
-      <span style="font-size:12px;color:var(--muted);">Total: <strong id="semana-total" style="color:var(--text);"></strong></span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;color:var(--muted);">Total: <strong id="semana-total" style="color:var(--text);"></strong></span>
+        <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppSemana()">WhatsApp</button>
+      </div>
     </div>
     <div style="padding:1rem 1.25rem .25rem;border-bottom:1px solid var(--border);">
       <div style="position:relative;height:170px;">
@@ -2124,7 +2127,6 @@ function renderProyeccion() {
         <td class="num" style="font-weight:600;">${fmt(g.total)}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap;">
           <button class="btn-mini pago" onclick="abrirModalPagoProveedor(${idx})">Pagar todo</button>
-          <button class="btn-mini" style="border-color:#25D36680;background:#25D36615;color:#128C4A;" onclick="enviarWhatsAppProveedor('${g.proveedor.replace(/'/g,"\\'")}')">WhatsApp</button>
         </td>
       </tr>
       <tr class="tr-detail" id="${rowId}">
@@ -2219,17 +2221,33 @@ function copiarCuenta(cuenta) {
   }
 }
 
-// Arma el mensaje de WhatsApp con las facturas proyectadas de un proveedor
-// (dentro del kiosko actual) y abre el chat (sin destinatario fijo).
-function enviarWhatsAppProveedor(proveedor) {
-  const facturasProv = datasetActual()
-    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada && (f.proveedor || '(Sin proveedor)') === proveedor)
-    .sort((a,b) => a.fechaProyectada.localeCompare(b.fechaProyectada));
-  if (!facturasProv.length) { showToast('No hay facturas proyectadas para ese proveedor.', 'error'); return; }
+// Arma el mensaje de WhatsApp con los pagos proyectados de la semana en curso,
+// agrupado por kiosko y con el total por proveedor dentro de cada kiosko.
+function enviarWhatsAppSemana() {
+  const { inicio, fin } = rangoSemanaActual();
+  const lista = datasetActual()
+    .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada && f.fechaProyectada >= inicio && f.fechaProyectada <= fin);
+  if (!lista.length) { showToast('No hay pagos proyectados esta semana.', 'error'); return; }
 
-  const total = facturasProv.reduce((a,f) => a + f.saldoPendiente, 0);
-  const lineas = facturasProv.map(f => `• [${f.kiosko}] ${f.numero}: ${fmt(f.saldoPendiente)} — vence ${f.fechaProyectada}`).join('\n');
-  const mensaje = `Pagos proyectados a ${proveedor}:\n\n${lineas}\n\nTotal: ${fmt(total)}`;
+  const porKiosko = new Map();
+  lista.forEach(f => {
+    const k = f.kiosko || '(Sin kiosko)';
+    if (!porKiosko.has(k)) porKiosko.set(k, new Map());
+    const porProveedor = porKiosko.get(k);
+    const prov = f.proveedor || '(Sin proveedor)';
+    porProveedor.set(prov, (porProveedor.get(prov) || 0) + f.saldoPendiente);
+  });
+
+  const kioskosOrdenados = [...porKiosko.keys()].sort((a,b) => a.localeCompare(b));
+  const bloques = kioskosOrdenados.map(k => {
+    const proveedores = [...porKiosko.get(k).entries()].sort((a,b) => b[1] - a[1]);
+    const totalKiosko = proveedores.reduce((a,[,m]) => a + m, 0);
+    const lineas = proveedores.map(([prov, monto]) => `• ${prov}: ${fmt(monto)}`).join('\n');
+    return `*${k}* (Total: ${fmt(totalKiosko)})\n${lineas}`;
+  });
+
+  const totalGeneral = lista.reduce((a,f) => a + f.saldoPendiente, 0);
+  const mensaje = `Estos son los pagos proyectados para esta semana:\n\n${bloques.join('\n\n')}\n\nTotal general: ${fmt(totalGeneral)}`;
   window.open('https://wa.me/?text=' + encodeURIComponent(mensaje), '_blank');
 }
 
