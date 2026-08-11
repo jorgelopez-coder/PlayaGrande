@@ -171,10 +171,10 @@ tr:last-child td{border-bottom:none}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th class="th-chk"></th><th>Fecha</th><th>Kiosko</th><th>Encargado / Turno</th>
+          <th class="th-chk"></th><th>Fecha</th><th>Kiosko</th>
           <th style="text-align:right">Tips ₡</th>
         </tr></thead>
-        <tbody id="tabla-pendientes-body"><tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr></tbody>
+        <tbody id="tabla-pendientes-body"><tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -242,6 +242,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
 // Respaldo si todavía no hay conexión con Configuración.
@@ -293,7 +306,9 @@ async function cargarKioskos() {
 function poblarKioskosSelect() {
   const sel = document.getElementById('tips-kiosko');
   sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
-  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  if (!bloquearKioskoUnico(sel, null)) {
+    sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  }
   kioskoActual = sel.value;
   actualizarLabels();
 }
@@ -322,7 +337,7 @@ async function cargarDatos() {
     tipsPagosRaw = rTipsPagos.records || [];
     recalcularYRenderizar();
   } catch(e) {
-    document.getElementById('tabla-pendientes-body').innerHTML = '<tr><td colspan="5" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
+    document.getElementById('tabla-pendientes-body').innerHTML = '<tr><td colspan="4" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
     document.getElementById('hist-lista').innerHTML = '<div class="empty-state">No se pudo cargar. Revisá la conexión.</div>';
     showToast('Error de conexión: ' + e.message, 'error');
   }
@@ -383,14 +398,13 @@ function renderKpiPendiente() {
 function renderPendientes() {
   const body = document.getElementById('tabla-pendientes-body');
   if (!tipsPendientes.length) {
-    body.innerHTML = '<tr><td colspan="5" class="empty">No hay tips pendientes de pago' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="empty">No hay tips pendientes de pago' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
     return;
   }
   body.innerHTML = tipsPendientes.map(t => `<tr>
     <td class="td-chk"><input type="checkbox" class="chk-tip" value="${t.id}" ${seleccion.has(t.id)?'checked':''} onchange="actualizarSeleccion()"></td>
     <td>${fechaLbl(t.fecha)}</td>
     <td><span class="kiosko-tag">${t.kiosko || '—'}</span></td>
-    <td>${t.encargado || '—'}${t.turno ? ' · ' + t.turno : ''}</td>
     <td class="num">${fmtCRC(t.monto)}</td>
   </tr>`).join('');
 }
