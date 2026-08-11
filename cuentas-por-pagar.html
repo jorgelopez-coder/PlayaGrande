@@ -2221,29 +2221,45 @@ function copiarCuenta(cuenta) {
   }
 }
 
+// Formatea una fecha ISO ('YYYY-MM-DD') como "Lunes 11 de agosto" sin usar
+// Date(string) directo, para evitar el corrimiento de día por zona horaria.
+function formatFechaLarga(fechaISO) {
+  const [y, m, d] = fechaISO.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${dias[dt.getDay()]} ${d} de ${meses[m - 1]}`;
+}
+
 // Arma el mensaje de WhatsApp con los pagos proyectados de la semana en curso,
-// agrupado por kiosko y con el total por proveedor dentro de cada kiosko.
+// agrupado por fecha proyectada (orden cronológico) y, dentro de cada fecha,
+// por proveedor con su kiosko.
 function enviarWhatsAppSemana() {
   const { inicio, fin } = rangoSemanaActual();
   const lista = datasetActual()
     .filter(f => f.estado !== 'Cancelada' && f.fechaProyectada && f.fechaProyectada >= inicio && f.fechaProyectada <= fin);
   if (!lista.length) { showToast('No hay pagos proyectados esta semana.', 'error'); return; }
 
-  const porKiosko = new Map();
+  const porFecha = new Map();
   lista.forEach(f => {
-    const k = f.kiosko || '(Sin kiosko)';
-    if (!porKiosko.has(k)) porKiosko.set(k, new Map());
-    const porProveedor = porKiosko.get(k);
-    const prov = f.proveedor || '(Sin proveedor)';
-    porProveedor.set(prov, (porProveedor.get(prov) || 0) + f.saldoPendiente);
+    const fecha = f.fechaProyectada;
+    if (!porFecha.has(fecha)) porFecha.set(fecha, new Map());
+    const porProveedor = porFecha.get(fecha);
+    const clave = `${f.proveedor || '(Sin proveedor)'}|||${f.kiosko || '(Sin kiosko)'}`;
+    porProveedor.set(clave, (porProveedor.get(clave) || 0) + f.saldoPendiente);
   });
 
-  const kioskosOrdenados = [...porKiosko.keys()].sort((a,b) => a.localeCompare(b));
-  const bloques = kioskosOrdenados.map(k => {
-    const proveedores = [...porKiosko.get(k).entries()].sort((a,b) => b[1] - a[1]);
-    const totalKiosko = proveedores.reduce((a,[,m]) => a + m, 0);
-    const lineas = proveedores.map(([prov, monto]) => `• ${prov}: ${fmt(monto)}`).join('\n');
-    return `*${k}* (Total: ${fmt(totalKiosko)})\n${lineas}`;
+  const fechasOrdenadas = [...porFecha.keys()].sort();
+  const bloques = fechasOrdenadas.map(fecha => {
+    const entradas = [...porFecha.get(fecha).entries()]
+      .map(([clave, monto]) => {
+        const [prov, k] = clave.split('|||');
+        return { prov, k, monto };
+      })
+      .sort((a,b) => a.k.localeCompare(b.k) || a.prov.localeCompare(b.prov));
+    const totalFecha = entradas.reduce((a,e) => a + e.monto, 0);
+    const lineas = entradas.map(e => `• ${e.prov} (${e.k}): ${fmt(e.monto)}`).join('\n');
+    return `*${formatFechaLarga(fecha)}* (Total: ${fmt(totalFecha)})\n${lineas}`;
   });
 
   const totalGeneral = lista.reduce((a,f) => a + f.saldoPendiente, 0);
