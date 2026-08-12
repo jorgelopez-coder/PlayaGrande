@@ -126,6 +126,7 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
   <button class="tab-btn" onclick="showTab('propinas',this)">Propinas</button>
   <button class="tab-btn" onclick="showTab('depositos',this)">Depósitos de efectivo</button>
   <button class="tab-btn" onclick="showTab('planillas',this)">Planillas</button>
+  <button class="tab-btn" onclick="showTab('faltantes',this)">Faltantes</button>
 </div>
 
 <main>
@@ -265,6 +266,24 @@ select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
   </div>
 </div>
 
+<!-- ══════════════ TAB 5: FALTANTES (matriz de control) ══════════════ -->
+<div class="page" id="tab-faltantes">
+  <div class="card">
+    <p class="card-title">Cierres faltantes por kiosko — cada día del período</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Cuenta como falta cualquier día del rango sin ningún cierre registrado para ese kiosko, sin importar si el kiosko estuvo abierto. El selector de kiosko de arriba no filtra esta pestaña — siempre muestra todos.</p>
+    <div class="kpi-pendiente-grid" id="kpi-faltantes-grid"></div>
+  </div>
+  <div class="card">
+    <div class="tab-actions"><button class="btn-sm" onclick="exportarCSVFaltantes()">⬇ Descargar CSV</button></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="tabla-faltantes-head"><th>Fecha</th></tr></thead>
+        <tbody id="tabla-faltantes-body"><tr><td class="empty"><span class="spinner"></span></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <div class="toast" id="toast">
@@ -295,6 +314,19 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
 }
 
 // Respaldo si todavía no hay conexión con Configuración.
@@ -352,6 +384,7 @@ let ultimasFilasVentas = [];
 let ultimasFilasPropinas = [];
 let ultimasFilasDepositos = [];
 let ultimasFilasPlanillas = [];
+let ultimasFilasFaltantes = []; // { fecha, porKiosko: {kiosko: bool} } — para exportar a CSV
 
 // ── KIOSKO ────────────────────────────────────────────────────────
 async function cargarKioskos() {
@@ -370,7 +403,9 @@ async function cargarKioskos() {
 function poblarKioskosSelect() {
   const sel = document.getElementById('rc-kiosko');
   sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${k}">${k}</option>`).join('');
-  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  if (!bloquearKioskoUnico(sel, null)) {
+    sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  }
   kioskoActual = sel.value;
   actualizarLabels();
 }
@@ -465,6 +500,7 @@ function recalcularYRenderizar() {
   renderPropinas(desde, hasta);
   renderDepositos(desde, hasta);
   renderPlanillas(desde, hasta);
+  renderFaltantes(desde, hasta);
 }
 
 // ── TAB 1: VENTAS POR MEDIO DE PAGO ──────────────────────────────────
@@ -686,6 +722,98 @@ function renderPlanillas(desde, hasta) {
     <td class="num">${fmtCRC(f.neto)}</td>
     <td><span class="badge b-ok">${f.estado}</span></td>
   </tr>`).join('');
+}
+
+// ── TAB 5: FALTANTES (matriz de control kiosko × fecha) ──────────────
+// Ignora el selector de kiosko de arriba (kioskoActual) a propósito: esta
+// pestaña siempre compara TODOS los kioskos entre sí, que es el punto de
+// una matriz de control. Cuenta cada día calendario del rango elegido
+// (atajos/mes/personalizado del período compartido) como un día "esperado"
+// para los 4 kioskos por igual — no cruza contra Control de Horarios, así
+// que un día sin cierre aparece como falta aunque el kiosko de hecho haya
+// estado cerrado ese día.
+function listaFechasEnRango(desde, hasta) {
+  const fechas = [];
+  if (!desde || !hasta) return fechas;
+  const d = new Date(desde + 'T12:00:00');
+  const h = new Date(hasta + 'T12:00:00');
+  if (isNaN(d) || isNaN(h) || d > h) return fechas;
+  // Tope de seguridad: no generar rangos absurdamente largos (ej. sin
+  // "hasta" real) que congelen el navegador.
+  let cursor = new Date(d);
+  let guard = 0;
+  while (cursor <= h && guard < 3660) {
+    fechas.push(fechaISO(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    guard++;
+  }
+  return fechas;
+}
+
+function renderFaltantes(desde, hasta) {
+  // No tiene sentido marcar como "falta" un día que todavía no llega (ej. el
+  // resto del mes en curso) — se recorta el "hasta" a hoy si el rango se
+  // extiende al futuro.
+  const hastaTope = hasta && hasta > fechaISO(hoy) ? fechaISO(hoy) : hasta;
+  const fechas = listaFechasEnRango(desde, hastaTope);
+  const kioskosCols = KIOSKOS; // ignora kioskoActual — siempre todos
+
+  const head = document.getElementById('tabla-faltantes-head');
+  head.innerHTML = '<th>Fecha</th>' + kioskosCols.map(k => `<th>${k}</th>`).join('');
+
+  const body = document.getElementById('tabla-faltantes-body');
+  const kpiGrid = document.getElementById('kpi-faltantes-grid');
+
+  if (!fechas.length) {
+    body.innerHTML = `<tr><td colspan="${kioskosCols.length+1}" class="empty">Elegí un período con fecha desde y hasta para ver la matriz.</td></tr>`;
+    kpiGrid.innerHTML = '';
+    ultimasFilasFaltantes = [];
+    return;
+  }
+
+  // presentePorKioskoFecha['kiosko|fecha'] = true si hay al menos un cierre
+  const presente = {};
+  cierresRaw.forEach(r => {
+    const fecha = soloFecha(r[COL_FECHA]);
+    const kiosko = r[COL_KIOSKO] || '';
+    if (!fecha || !kiosko) return;
+    presente[kiosko + '|' + fecha] = true;
+  });
+
+  // Fechas de más reciente a más antigua, como el resto de las pestañas.
+  const fechasDesc = [...fechas].sort((a,b) => b.localeCompare(a));
+
+  const filas = fechasDesc.map(fecha => {
+    const porKiosko = {};
+    kioskosCols.forEach(k => { porKiosko[k] = !!presente[k + '|' + fecha]; });
+    return { fecha, porKiosko };
+  });
+  ultimasFilasFaltantes = filas;
+
+  const faltantesPorKiosko = {};
+  kioskosCols.forEach(k => { faltantesPorKiosko[k] = 0; });
+  filas.forEach(f => kioskosCols.forEach(k => { if (!f.porKiosko[k]) faltantesPorKiosko[k]++; }));
+
+  kpiGrid.innerHTML = kioskosCols.map(k => `
+    <div class="kpi-box">
+      <div class="kpi-val" style="color:${faltantesPorKiosko[k] ? 'var(--red)' : 'var(--green)'}">${faltantesPorKiosko[k]}</div>
+      <div class="kpi-lbl">${k} — días sin cierre</div>
+    </div>`).join('');
+
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${fechaLbl(f.fecha)}</td>
+    ${kioskosCols.map(k => f.porKiosko[k]
+      ? `<td><span class="badge b-ok">✅</span></td>`
+      : `<td><span class="badge b-dif">⚠️ Falta</span></td>`
+    ).join('')}
+  </tr>`).join('');
+}
+
+function exportarCSVFaltantes() {
+  if (!ultimasFilasFaltantes.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha', ...KIOSKOS];
+  const rows = ultimasFilasFaltantes.map(f => [f.fecha, ...KIOSKOS.map(k => f.porKiosko[k] ? 'OK' : 'FALTA')]);
+  descargarCSV(toCSV(headers, rows), 'faltantes_cierres_' + sufijoArchivo() + '.csv');
 }
 
 // ── EXPORTAR CSV ──────────────────────────────────────────────────────
