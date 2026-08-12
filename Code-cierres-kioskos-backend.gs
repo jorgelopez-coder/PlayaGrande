@@ -170,6 +170,7 @@ function doPost(e) {
       data.tips || 0                 // Tips ₡
     ]);
 
+    invalidarCache(['cierres_v1', 'pendientes_v1']);
     return jsonOut({ result: 'ok' });
 
   } catch (err) {
@@ -213,34 +214,198 @@ function doGet(e) {
   }
 
   if (e && e.parameter && e.parameter.action === 'depositos') {
-    const depSheet = ss.getSheetByName('Depositos');
-    if (!depSheet || depSheet.getLastRow() === 0) return jsonOut({ records: [] });
-    const rows = depSheet.getDataRange().getValues();
-    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+    return jsonOut(conCache('depositos_v1', function () {
+      const depSheet = ss.getSheetByName('Depositos');
+      if (!depSheet || depSheet.getLastRow() === 0) return { records: [] };
+      const rows = depSheet.getDataRange().getValues();
+      return { records: rows.slice(1).map(normalizarFilaFechas) };
+    }));
   }
 
   if (e && e.parameter && e.parameter.action === 'tipspagos') {
-    const tipsSheet = ss.getSheetByName('TipsPagos');
-    if (!tipsSheet || tipsSheet.getLastRow() === 0) return jsonOut({ records: [] });
-    const rows = tipsSheet.getDataRange().getValues();
-    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+    return jsonOut(conCache('tipspagos_v1', function () {
+      const tipsSheet = ss.getSheetByName('TipsPagos');
+      if (!tipsSheet || tipsSheet.getLastRow() === 0) return { records: [] };
+      const rows = tipsSheet.getDataRange().getValues();
+      return { records: rows.slice(1).map(normalizarFilaFechas) };
+    }));
   }
 
   if (e && e.parameter && e.parameter.action === 'salidasfondo') {
-    const salidasSheet = ss.getSheetByName('SalidasFondoCaja');
-    if (!salidasSheet || salidasSheet.getLastRow() === 0) return jsonOut({ records: [] });
-    const rows = salidasSheet.getDataRange().getValues();
-    return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+    return jsonOut(conCache('salidasfondo_v1', function () {
+      const salidasSheet = ss.getSheetByName('SalidasFondoCaja');
+      if (!salidasSheet || salidasSheet.getLastRow() === 0) return { records: [] };
+      const rows = salidasSheet.getDataRange().getValues();
+      return { records: rows.slice(1).map(normalizarFilaFechas) };
+    }));
   }
 
-  let sheet = ss.getSheetByName('Cierres');
-  if (!sheet) sheet = ss.getActiveSheet();
-  const rows = sheet.getDataRange().getValues();
-  return jsonOut({ records: rows.slice(1).map(normalizarFilaFechas) });
+  // action=pendientes (2026-08-12): tips y efectivo pendientes de pago/
+  // depósito, calculados acá cruzando Cierres/TipsPagos/Depositos/
+  // SalidasFondoCaja — ver calcularPendientes() más abajo. Reemplaza el
+  // cálculo que antes hacía cada frontend (index.html/indicadores.html)
+  // después de traerse el historial COMPLETO de las 4 hojas: lo pendiente
+  // es casi siempre una lista chica (lo normal es que se resuelva rápido),
+  // así que no crece con los años de historial como sí crecía "action=read".
+  if (e && e.parameter && e.parameter.action === 'pendientes') {
+    return jsonOut(conCache('pendientes_v1', function () {
+      return calcularPendientes(ss);
+    }));
+  }
+
+  const desde = e && e.parameter && e.parameter.desde || '';
+  const hasta = e && e.parameter && e.parameter.hasta || '';
+
+  // Cache separado por rango cuando se pasa desde/hasta — no se invalida
+  // puntualmente en cada escritura (solo la llave sin rango, 'cierres_v1',
+  // se limpia al guardar un cierre), así que una vista con rango puede
+  // quedar hasta CACHE_TTL_SEGUNDOS (2 min) desactualizada tras guardar un
+  // cierre nuevo. Igual que "action=read" sin parámetros, sigue devolviendo
+  // TODO el historial si no se pasa ninguno de los dos — nada cambia para
+  // quien no los use.
+  const cacheKey = (desde || hasta) ? ('cierres_v1|' + desde + '|' + hasta) : 'cierres_v1';
+
+  return jsonOut(conCache(cacheKey, function () {
+    let sheet = ss.getSheetByName('Cierres');
+    if (!sheet) sheet = ss.getActiveSheet();
+    const rows = sheet.getDataRange().getValues();
+    let registros = rows.slice(1).map(normalizarFilaFechas);
+    if (desde) registros = registros.filter(function (r) { return String(r[1] || '').slice(0, 10) >= desde; });
+    if (hasta) registros = registros.filter(function (r) { return String(r[1] || '').slice(0, 10) <= hasta; });
+    return { records: registros };
+  }));
 }
 
 function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// === Cache de lecturas (2026-08-12) ===================================
+// CacheService evita releer el Sheet completo (getDataRange().getValues())
+// en cada carga de pantalla — index.html, cierres.html, depositos.html,
+// control-tips.html e indicadores.html pegan todos contra este mismo
+// doGet, muchas veces en el mismo minuto. TTL corto (2 min) para no mostrar
+// datos viejos por mucho tiempo; además cada doPost que escribe una de estas
+// hojas borra su llave de cache de inmediato (ver invalidarCache() abajo),
+// así que un cierre/depósito/pago nuevo se ve de inmediato para quien lo
+// guardó, aunque otra persona mirando el dashboard tarde hasta 2 min en
+// verlo reflejado.
+var CACHE_TTL_SEGUNDOS = 120;
+
+function conCache(key, calcular) {
+  var cache = CacheService.getScriptCache();
+  try {
+    var cached = cache.get(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { /* si falla la lectura de cache, seguimos y recalculamos */ }
+
+  var resultado = calcular();
+
+  try {
+    cache.put(key, JSON.stringify(resultado), CACHE_TTL_SEGUNDOS);
+  } catch (e) {
+    // Sheets muy grandes pueden superar el límite de ~100KB por llave de
+    // CacheService — en ese caso simplemente no se cachea, sin romper nada.
+  }
+
+  return resultado;
+}
+
+function invalidarCache(keys) {
+  try {
+    CacheService.getScriptCache().removeAll(keys);
+  } catch (e) { /* no crítico */ }
+}
+
+// === Pendientes (tips y efectivo) calculados server-side (2026-08-12) ===
+// Misma lógica que index.html (renderTipsPendientes/renderEfectivoPendiente)
+// e indicadores.html — si se cambia el cálculo acá, cambiarlo también ahí
+// (o, mejor, migrar esos frontends a consumir action=pendientes en vez de
+// recalcular con el historial completo, ver README). Índices de columna
+// tomados de HEADERS/HEADERS_DEPOSITOS/HEADERS_TIPS_PAGOS/
+// HEADERS_SALIDAS_FONDO de arriba — si esos arrays cambian, actualizar acá.
+function calcularPendientes(ss) {
+  const cierresSheet = ss.getSheetByName('Cierres');
+  const cierresRaw = (cierresSheet && cierresSheet.getLastRow() > 1)
+    ? cierresSheet.getDataRange().getValues().slice(1).map(normalizarFilaFechas)
+    : [];
+
+  const tipsSheet = ss.getSheetByName('TipsPagos');
+  const tipsPagosRaw = (tipsSheet && tipsSheet.getLastRow() > 1)
+    ? tipsSheet.getDataRange().getValues().slice(1).map(normalizarFilaFechas)
+    : [];
+
+  const depSheet = ss.getSheetByName('Depositos');
+  const depositosRaw = (depSheet && depSheet.getLastRow() > 1)
+    ? depSheet.getDataRange().getValues().slice(1).map(normalizarFilaFechas)
+    : [];
+
+  const salidasSheet = ss.getSheetByName('SalidasFondoCaja');
+  const salidasFondoRaw = (salidasSheet && salidasSheet.getLastRow() > 1)
+    ? salidasSheet.getDataRange().getValues().slice(1).map(normalizarFilaFechas)
+    : [];
+
+  // ── Tips pendientes de pago (Cierres.Tips > 0 sin cubrir en TipsPagos) ──
+  const idsPagados = {};
+  tipsPagosRaw.forEach(function (r) {
+    var ids = [];
+    try { ids = JSON.parse(r[4] || '[]'); } catch (e) { ids = []; }
+    if (Array.isArray(ids)) ids.forEach(function (id) { idsPagados[String(id)] = true; });
+  });
+  const tipsPendientes = cierresRaw
+    .filter(function (r) { return (+r[43] || 0) > 0 && !idsPagados[String(r[0])]; })
+    .map(function (r) { return { fecha: String(r[1] || '').slice(0, 10), kiosko: r[3] || '', monto: +r[43] || 0 }; })
+    .sort(function (a, b) { return b.fecha.localeCompare(a.fecha); });
+
+  // ── Efectivo pendiente de depositar (Cierres agregado por kiosko+fecha,
+  //    menos Depositos ya asignados, menos SalidasFondoCaja) ──
+  const COL_FECHA = 1, COL_KIOSKO = 3, COL_FONDO = 11, COL_USD_TOTAL = 32;
+  const COL_BILLETES_CRC = [12, 13, 14, 15, 16, 17];
+  const COL_MONEDAS_CRC = [18, 19, 20, 21, 22, 23];
+  const DENOMS_BILLETES_CRC = [50000, 20000, 10000, 5000, 2000, 1000];
+  const DENOMS_MONEDAS_CRC = [500, 100, 50, 25, 10, 5];
+
+  const porKioskoFecha = {};
+  cierresRaw.forEach(function (r) {
+    const fecha = String(r[COL_FECHA] || '').slice(0, 10);
+    const kiosko = r[COL_KIOSKO] || '';
+    if (!fecha || !kiosko) return;
+    const key = kiosko + '|' + fecha;
+    if (!porKioskoFecha[key]) porKioskoFecha[key] = { kiosko: kiosko, fecha: fecha, crc: 0, usd: 0 };
+    const fondo = +r[COL_FONDO] || 0, usdTotal = +r[COL_USD_TOTAL] || 0;
+    let caja = 0;
+    COL_BILLETES_CRC.forEach(function (c, i) { caja += (+r[c] || 0) * DENOMS_BILLETES_CRC[i]; });
+    COL_MONEDAS_CRC.forEach(function (c, i) { caja += (+r[c] || 0) * DENOMS_MONEDAS_CRC[i]; });
+    porKioskoFecha[key].crc += (caja - fondo);
+    porKioskoFecha[key].usd += usdTotal;
+  });
+
+  salidasFondoRaw.forEach(function (r) {
+    if (!r[0]) return;
+    const kiosko = r[3] || '';
+    const fecha = String(r[2] || '').slice(0, 10);
+    const key = kiosko + '|' + fecha;
+    if (!fecha || !kiosko || !porKioskoFecha[key]) return;
+    porKioskoFecha[key].crc -= (+r[4] || 0);
+  });
+
+  const cubiertas = {};
+  depositosRaw.forEach(function (r) {
+    if (!r[0]) return;
+    const kiosko = r[3] || '';
+    var fechas = [];
+    try { fechas = JSON.parse(r[7] || '[]'); } catch (e) { fechas = []; }
+    if (!Array.isArray(fechas)) fechas = [];
+    if (!cubiertas[kiosko]) cubiertas[kiosko] = {};
+    fechas.forEach(function (f) { cubiertas[kiosko][f] = true; });
+  });
+
+  const efectivoPendiente = Object.keys(porKioskoFecha)
+    .map(function (k) { return porKioskoFecha[k]; })
+    .filter(function (x) { return !(cubiertas[x.kiosko] && cubiertas[x.kiosko][x.fecha]); })
+    .sort(function (a, b) { return b.fecha.localeCompare(a.fecha); });
+
+  return { tipsPendientes: tipsPendientes, efectivoPendiente: efectivoPendiente };
 }
 
 function agregarEncabezados() {
@@ -330,6 +495,7 @@ function guardarDeposito(ss, data) {
     data.notas || ''
   ]);
 
+  invalidarCache(['depositos_v1', 'pendientes_v1']);
   return jsonOut({ result: 'ok' });
 }
 
@@ -356,6 +522,7 @@ function guardarPagoTips(ss, data) {
     data.notas || ''
   ]);
 
+  invalidarCache(['tipspagos_v1', 'pendientes_v1']);
   return jsonOut({ result: 'ok' });
 }
 
@@ -385,6 +552,7 @@ function guardarSalidaFondo(ss, data) {
     data.origen || 'Cuentas por pagar'
   ]);
 
+  invalidarCache(['salidasfondo_v1', 'pendientes_v1']);
   return jsonOut({ result: 'ok' });
 }
 

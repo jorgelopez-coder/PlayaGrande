@@ -883,17 +883,22 @@ async function cargarKPIs() {
   const compareBody = document.getElementById('compare-kioskos-body');
   const squareEntries = Object.entries(SQUARE_KIOSKOS);
   try {
-    const [respCierres, respTipsPagos, respDepositos, respSalidasFondo, ...squareResumenes] = await Promise.all([
+    // "pendientes" reemplaza las 3 lecturas completas de TipsPagos/Depositos/
+    // SalidasFondoCaja + el cálculo local (ver renderTipsPendientes/
+    // renderEfectivoPendiente más abajo, que quedan sin uso acá pero se
+    // mantienen porque indicadores.html todavía puede migrarse igual más
+    // adelante) — el backend ya cruza esas 3 hojas contra Cierres y devuelve
+    // solo lo pendiente, que normalmente es una lista chica sin importar
+    // cuántos años de historial haya. "action=read" de Cierres sigue
+    // trayendo todo el historial a propósito: este dashboard necesita poder
+    // detectar un kiosko que no cierra hace mucho, no solo lo reciente.
+    const [respCierres, respPendientes, ...squareResumenes] = await Promise.all([
       fetch(SHEETS_URL_CIERRES + '?action=read'),
-      fetch(SHEETS_URL_CIERRES + '?action=tipspagos'),
-      fetch(SHEETS_URL_CIERRES + '?action=depositos'),
-      fetch(SHEETS_URL_CIERRES + '?action=salidasfondo'),
+      fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
       ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
     ]);
     const data = await respCierres.json();
-    const dataTipsPagos = await respTipsPagos.json();
-    const dataDepositos = await respDepositos.json();
-    const dataSalidasFondo = await respSalidasFondo.json();
+    const dataPendientes = await respPendientes.json();
     const cierresRaw = data.records || [];
     const registros = cierresRaw.map(r => ({
       fecha: String(r[1]||'').slice(0,10),
@@ -905,8 +910,13 @@ async function cargarKPIs() {
     const squareResumen = {};
     squareEntries.forEach(([nombre], i) => { squareResumen[nombre] = squareResumenes[i]; });
 
-    const tipsPendientesArr = renderTipsPendientes(cierresRaw, dataTipsPagos.records || []);
-    const efectivoPendientesArr = renderEfectivoPendiente(cierresRaw, dataDepositos.records || [], dataSalidasFondo.records || []);
+    const tipsPendientesArr = dataPendientes.tipsPendientes || [];
+    const efectivoPendientesArr = dataPendientes.efectivoPendiente || [];
+    if (tipsPendientesArr.length) {
+      const totalTips = tipsPendientesArr.reduce((s,t) => s + (t.monto||0), 0);
+      document.getElementById('tips-badge-qa').innerHTML =
+        `<span class="qa-badge" style="background:var(--amber-bg);color:var(--amber);">${fmtCRC(totalTips)}</span>`;
+    }
 
     if (registros.length) {
       const ultimoGeneral = registros.reduce((a,b) => (b.fecha > a.fecha ? b : a));
@@ -937,6 +947,10 @@ async function cargarKPIs() {
 
 // ── PROPINAS PENDIENTES DE PAGO (hoja Cierres, columna Tips, vs. hoja
 // TipsPagos — ver control-tips.html/Code-cierres-kioskos-backend.gs) ──
+// SIN USO desde 2026-08-12: cargarKPIs() ya no llama a esta función, usa
+// action=pendientes (calcularPendientes() en el backend, misma lógica) en
+// su lugar para no tener que traerse TipsPagos completo. Se deja acá por si
+// hace falta como referencia o para volver atrás.
 function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
   const idsPagados = new Set();
   tipsPagosRaw.forEach(r => {
@@ -963,6 +977,8 @@ function renderTipsPendientes(cierresRaw, tipsPagosRaw) {
 // ── EFECTIVO PENDIENTE DE DEPOSITAR (hoja Cierres agregada por kiosko +
 // fecha, vs. hoja Depositos — mismo cálculo que depositos.html, restando
 // también las salidas de fondo de caja de cuentas-por-pagar.html) ──
+// SIN USO desde 2026-08-12: ver nota de renderTipsPendientes() arriba,
+// mismo motivo (reemplazada por action=pendientes).
 function renderEfectivoPendiente(cierresRaw, depositosRaw, salidasFondoRaw) {
   const porKioskoFecha = {};
   cierresRaw.forEach(r => {

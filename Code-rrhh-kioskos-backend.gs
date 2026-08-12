@@ -791,12 +791,14 @@ function doGet(e) {
         });
       case 'acciones':        return jsonOut({ ok: true, registros: [] });
       case 'kioskos':
-        hoja = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
         // "registros" trae todas las filas (para configuracion.html, que
         // también necesita ver los inactivos); "kioskos" trae solo los
         // nombres activos, en orden — eso es lo que consumen los selects
         // de cierres.html/rrhh*.html/horarios.html.
-        return jsonOut({ ok: true, registros: filasComoObjetos(hoja), kioskos: obtenerKioskosActivos() });
+        return jsonOut(rrhhConCache('kioskos', function () {
+          const h = prepararHoja(HOJA_CONFIGURACION, ENCABEZADOS_CONFIGURACION);
+          return { ok: true, registros: filasComoObjetos(h), kioskos: obtenerKioskosActivos() };
+        }));
       case 'roles':
         // Trae TODOS los roles (activos e inactivos) — admin-accesos.html
         // necesita ver los inactivos para poder reactivarlos; login.html
@@ -806,10 +808,66 @@ function doGet(e) {
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
-    return jsonOut({ ok: true, registros: filasComoObjetos(hoja) });
+    return jsonOut(rrhhConCache(modulo, function () {
+      return { ok: true, registros: filasComoObjetos(hoja) };
+    }));
   } catch (err) {
     return jsonOut({ ok: false, error: err.message });
   }
+}
+
+// === Cache de lecturas (2026-08-12) ====================================
+// Mismo problema que en Code-cierres-kioskos-backend.gs: cada pantalla de
+// RRHH (13 pantallas + planilla.html + index.html) vuelve a leer su hoja
+// completa en cada carga, sin cache. Acá el doGet está centralizado en un
+// solo switch por "modulo", así que un único wrapper alcanza para todos los
+// casos que devuelven filas de una hoja (no se aplica a los "preview" que no
+// leen una hoja completa: aguinaldo_calcular, planilla_calcular, acciones).
+//
+// A diferencia de Cierres (que invalida solo la llave puntual que tocó cada
+// escritura), acá cualquier doPost exitoso limpia TODAS las llaves de RRHH
+// de una vez (ver invalidarCacheRRHH() más abajo) — varias escrituras tocan
+// más de una hoja a la vez (ej. una terminación cambia Personal Y
+// Terminaciones; una planilla puede tocar Planillas Y PlanillasDetalle) y
+// mapear cada acción a su hoja exacta es fácil de dejar desactualizado. Es
+// una invalidación más generosa de lo estrictamente necesario, pero barata
+// (removeAll de unas ~20 llaves) y evita mostrar datos viejos después de
+// guardar algo.
+var RRHH_CACHE_TTL_SEGUNDOS = 120;
+var RRHH_CACHE_MODULOS = [
+  'personal', 'vacaciones', 'amonestaciones', 'terminaciones',
+  'cambios_salario', 'movimientos', 'liquidaciones', 'aguinaldos',
+  'horarios', 'horarios_estado', 'feriados', 'incidencias', 'horas_extra',
+  'planillas', 'planillas_detalle', 'servicio_repartos', 'servicio_detalle',
+  'kioskos', 'roles'
+];
+
+function rrhhConCache(modulo, calcular) {
+  var key = 'rrhh_' + modulo;
+  var cache = CacheService.getScriptCache();
+  try {
+    var cached = cache.get(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { /* si falla la lectura de cache, seguimos y recalculamos */ }
+
+  var resultado = calcular();
+
+  try {
+    cache.put(key, JSON.stringify(resultado), RRHH_CACHE_TTL_SEGUNDOS);
+  } catch (e) {
+    // Hojas muy grandes (Personal con muchas columnas, o históricos largos
+    // de Incidencias/Horarios) pueden superar el límite de ~100KB por
+    // llave de CacheService — en ese caso simplemente no se cachea esa
+    // llave puntual, sin romper la respuesta.
+  }
+
+  return resultado;
+}
+
+function invalidarCacheRRHH() {
+  try {
+    CacheService.getScriptCache().removeAll(RRHH_CACHE_MODULOS.map(function (m) { return 'rrhh_' + m; }));
+  } catch (e) { /* no crítico */ }
 }
 
 // Mapea las filas de una hoja a objetos usando la fila 1 como claves de encabezado.
@@ -893,6 +951,7 @@ function doPost(e) {
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
     }
+    invalidarCacheRRHH();
     return jsonOut({ ok: true, result: result });
   } catch (err) {
     return jsonOut({ ok: false, error: err.message });

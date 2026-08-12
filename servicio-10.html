@@ -180,6 +180,13 @@ tr:last-child td{border-bottom:none}
         <input type="date" id="sv-fecha-fin"/>
       </div>
     </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="sv-incluir-tips" checked style="width:16px;height:16px;accent-color:var(--green)"/>
+        Incluir tips pendientes en este reparto
+      </label>
+      <p class="field-hint">Si se destilda, este cálculo reparte solo el Servicio 10% — los tips pendientes quedan sin tocar para incluirlos después (acá o en Control de Tips).</p>
+    </div>
     <div class="submit-area">
       <button class="btn-primary" id="btn-calcular" onclick="calcularReparto()">Calcular reparto</button>
     </div>
@@ -209,8 +216,8 @@ tr:last-child td{border-bottom:none}
       <p class="card-title" style="margin-top:1.5rem">Resumen por colaborador</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Días</th><th style="text-align:right">Monto ₡</th></tr></thead>
-          <tbody id="sv-resumen-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+          <thead><tr><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Días</th><th style="text-align:right">10% ₡</th><th style="text-align:right">Tips ₡</th><th style="text-align:right">Total ₡</th></tr></thead>
+          <tbody id="sv-resumen-body"><tr><td colspan="6" class="empty">—</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -359,6 +366,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 
 // Respaldo si todavía no hay conexión con Configuración.
 let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
@@ -495,7 +515,9 @@ async function cargarKioskos() {
 function poblarKioskosSelect() {
   const sel = document.getElementById('servicio-kiosko');
   sel.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('');
-  sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  if (!bloquearKioskoUnico(sel, null)) {
+    sel.value = KIOSKOS.includes(kioskoActual) ? kioskoActual : '';
+  }
   kioskoActual = sel.value;
   actualizarLabels();
 }
@@ -526,12 +548,14 @@ async function calcularReparto() {
   if (!fi || !ff) { showToast('Completá el periodo (fecha inicio y fin)', 'error'); return; }
   if (fi > ff) { showToast('La fecha inicio no puede ser posterior a la fecha fin', 'error'); return; }
 
+  const incluirTips = document.getElementById('sv-incluir-tips').checked;
+
   const btn = document.getElementById('btn-calcular');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando…';
   try {
     const [ventasPorFecha, tipsPorFecha, rHorarios, rPersonal, rDetalle] = await Promise.all([
       obtenerVentasPorFecha(kioskoActual, fi, ff),
-      obtenerTipsPendientesPorFecha(kioskoActual, fi, ff),
+      incluirTips ? obtenerTipsPendientesPorFecha(kioskoActual, fi, ff) : Promise.resolve(new Map()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=horarios').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
@@ -753,14 +777,20 @@ function actualizarDiaResumen(i) {
   actualizarResumenReparto();
 }
 
+// Servicio y tips se redondean por separado, por persona seleccionada ese
+// día (mismo criterio que cerrarCalculo() al guardar), así el resumen que
+// se ve acá coincide con lo que realmente queda archivado al cerrar.
 function calcularResumenColaboradores() {
   const map = new Map();
-  diasCalculados.forEach((d, i) => {
-    const { montoCU } = diaResumenTexto(i);
-    d.colaboradores.filter(c => c.recibe).forEach(c => {
-      if (!map.has(c.colaborador)) map.set(c.colaborador, { colaborador: c.colaborador, puesto: c.puesto, dias: 0, monto: 0 });
+  diasCalculados.forEach(d => {
+    const seleccionados = d.colaboradores.filter(c => c.recibe);
+    if (!seleccionados.length) return;
+    const servicioCU = Math.round(d.montoServicio / seleccionados.length);
+    const tipsCU = d.tipsMonto ? Math.round(d.tipsMonto / seleccionados.length) : 0;
+    seleccionados.forEach(c => {
+      if (!map.has(c.colaborador)) map.set(c.colaborador, { colaborador: c.colaborador, puesto: c.puesto, dias: 0, servicio: 0, tips: 0, monto: 0 });
       const e = map.get(c.colaborador);
-      e.dias += 1; e.monto += montoCU;
+      e.dias += 1; e.servicio += servicioCU; e.tips += tipsCU; e.monto += servicioCU + tipsCU;
       if (c.puesto) e.puesto = c.puesto;
     });
   });
@@ -771,8 +801,8 @@ function actualizarResumenReparto() {
   const resumen = calcularResumenColaboradores();
   const cont = document.getElementById('sv-resumen-body');
   cont.innerHTML = resumen.length
-    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.monto)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty">Sin colaboradores asignados todavía.</td></tr>';
+    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.servicio)}</td><td class="num">${fmtCRC(r.tips)}</td><td class="num">${fmtCRC(r.monto)}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Sin colaboradores asignados todavía.</td></tr>';
 
   const totalVentaNeta = diasCalculados.reduce((s, d) => s + d.ventaNeta, 0);
   const totalServicio = diasCalculados.reduce((s, d) => s + d.montoServicio, 0);
@@ -902,6 +932,8 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
       <td style="padding:5px;border:1px solid #c8ddd0">${escHtml(r.colaborador)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0">${escHtml(r.puesto) || '—'}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${r.dias}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.servicio)}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.tips)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>
     </tr>`).join('');
   const tipsLinea = totalTips > 0 ? ` · Tips pendientes: ${fmtCRC(totalTips)}` : '';
@@ -915,7 +947,7 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
     </table>
     <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador (Servicio + Tips)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">Monto ₡</th></tr></thead>
+      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">10% ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Total ₡</th></tr></thead>
       <tbody>${filasResumen}</tbody>
     </table>
   </div>`;

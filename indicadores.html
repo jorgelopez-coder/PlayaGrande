@@ -377,6 +377,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 const APPS_SCRIPT_RRHH   = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 const MERMAS_URL         = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauRZHv99JUkNYNbPtoVBeYw7la0BXneKoUTlPuLPNmK8_RliP_1g/exec';
@@ -688,17 +701,32 @@ function mermasPorDiaKiosko(mermasRaw, kiosko, desde, hasta) {
   return porDia;
 }
 
-// ── FUENTE 3: CIERRES (Tips por rango, todos los kioskos) + DEPOSITOS
+// ── FUENTE 3: CIERRES (Tips por rango, todos los kioskos) + PENDIENTES
 // (efectivo pendiente de depositar — saldo actual, no depende del rango) ──
-async function obtenerCierresYDepositos() {
+// 2026-08-12: antes esto traía el historial COMPLETO de Cierres/Depositos/
+// SalidasFondoCaja en cada cargarTodo() (cada vez que se cambia el rango de
+// fechas del selector) solo para poder calcular el efectivo pendiente, que
+// en realidad no depende del rango. Ahora se separan las dos necesidades:
+// - obtenerCierresRango(desde,hasta): Cierres acotado al rango elegido en
+//   pantalla (el backend filtra server-side), para "tips por día".
+// - obtenerPendientes(): efectivo/tips pendientes ya calculados en el
+//   backend cruzando las 4 hojas — ver action=pendientes/
+//   calcularPendientes() en Code-cierres-kioskos-backend.gs. Es chico sin
+//   importar cuánto historial haya, porque solo trae lo NO resuelto.
+async function obtenerCierresRango(desde, hasta) {
   try {
-    const [rCierres, rDepositos, rSalidasFondo] = await Promise.all([
-      fetch(SHEETS_URL_CIERRES + '?action=read').then(r=>r.json()),
-      fetch(SHEETS_URL_CIERRES + '?action=depositos').then(r=>r.json()),
-      fetch(SHEETS_URL_CIERRES + '?action=salidasfondo').then(r=>r.json())
-    ]);
-    return { cierres: rCierres.records || [], depositos: rDepositos.records || [], salidasFondo: rSalidasFondo.records || [] };
-  } catch(e) { return { cierres:[], depositos:[], salidasFondo:[] }; }
+    const params = new URLSearchParams({ action: 'read' });
+    if (desde) params.set('desde', desde);
+    if (hasta) params.set('hasta', hasta);
+    const r = await fetch(SHEETS_URL_CIERRES + '?' + params.toString()).then(r => r.json());
+    return r.records || [];
+  } catch(e) { return []; }
+}
+async function obtenerPendientes() {
+  try {
+    const r = await fetch(SHEETS_URL_CIERRES + '?action=pendientes').then(r => r.json());
+    return { tipsPendientes: r.tipsPendientes || [], efectivoPendiente: r.efectivoPendiente || [] };
+  } catch(e) { return { tipsPendientes: [], efectivoPendiente: [] }; }
 }
 function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
   const porDia = {};
@@ -710,43 +738,17 @@ function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
   });
   return porDia;
 }
-// Efectivo pendiente de depositar — mismo cálculo que depositos.html/index.html:
-// (billetes+monedas contados) - fondo de caja - salidas de fondo de caja
-// (pagos a proveedor con Medio de pago = "Fondo de caja", ver
-// SalidasFondoCaja en Code-cierres-kioskos-backend.gs), por fecha,
-// excluyendo fechas que ya tengan un depósito asignado. Es un saldo
-// acumulado a hoy, no se filtra por el rango de fechas del selector.
-function efectivoPendienteKiosko(cierresRaw, depositosRaw, salidasFondoRaw, kiosko) {
-  const porFecha = {};
-  cierresRaw.forEach(r => {
-    if ((r[COL_KIOSKO]||'') !== kiosko) return;
-    const fecha = String(r[COL_FECHA]||'').slice(0,10);
-    if (!fecha) return;
-    let caja = 0;
-    COL_BILLETES_CRC.forEach((c,i) => { caja += (+r[c]||0) * DENOMS_BILLETES_CRC[i]; });
-    COL_MONEDAS_CRC.forEach((c,i)  => { caja += (+r[c]||0) * DENOMS_MONEDAS_CRC[i]; });
-    const fondo = +r[COL_FONDO]||0, usdTotal = +r[COL_USD_TOTAL]||0;
-    if (!porFecha[fecha]) porFecha[fecha] = { crc:0, usd:0 };
-    porFecha[fecha].crc += (caja - fondo);
-    porFecha[fecha].usd += usdTotal;
-  });
-  (salidasFondoRaw||[]).forEach(r => {
-    if (!r[0] || (r[3]||'') !== kiosko) return;
-    const fecha = String(r[2]||'').slice(0,10);
-    if (!fecha || !porFecha[fecha]) return;
-    porFecha[fecha].crc -= (+r[4]||0);
-  });
-  const cubiertas = new Set();
-  depositosRaw.forEach(r => {
-    if (!r[0] || (r[3]||'') !== kiosko) return;
-    let fechas = [];
-    try { fechas = JSON.parse(r[7]||'[]'); } catch(e) { fechas = []; }
-    if (Array.isArray(fechas)) fechas.forEach(f => cubiertas.add(f));
-  });
+// Efectivo pendiente de depositar por kiosko, a partir de la lista ya
+// calculada server-side (action=pendientes) — mismo cálculo que antes,
+// solo que ahora el cruce Cierres×Depositos×SalidasFondoCaja lo hace el
+// backend una sola vez para todos los kioskos (ver calcularPendientes() en
+// Code-cierres-kioskos-backend.gs) en vez de repetirlo acá con el
+// historial completo. Sigue sin depender del rango de fechas del selector.
+function efectivoPendienteKiosko(efectivoPendienteArr, kiosko) {
   let crc = 0, usd = 0, nFechas = 0;
-  Object.entries(porFecha).forEach(([fecha,d]) => {
-    if (cubiertas.has(fecha)) return;
-    crc += d.crc; usd += d.usd; nFechas++;
+  (efectivoPendienteArr||[]).forEach(x => {
+    if (x.kiosko !== kiosko) return;
+    crc += x.crc||0; usd += x.usd||0; nFechas++;
   });
   return { crc, usd, nFechas };
 }
@@ -992,19 +994,20 @@ function toggleRrhhDetalle() {
 // ── CÁLCULO GENERAL: arma un objeto por kiosko con todos los indicadores
 // para el rango de fechas activo ──
 let mermasRawCache = [];
-let cierresDepositosCache = { cierres:[], depositos:[] };
+let cierresDepositosCache = { cierres:[], pendientes:{ tipsPendientes:[], efectivoPendiente:[] } };
 
 async function calcularIndicadores() {
   const { desde, hasta } = rangoActual();
   const squareEntries = Object.entries(SQUARE_KIOSKOS);
 
-  const [ventasResultados, mermasRaw, cierresDepositos] = await Promise.all([
+  const [ventasResultados, mermasRaw, cierresRango, pendientes] = await Promise.all([
     Promise.all(squareEntries.map(([,cfg]) => obtenerVentasOnzasRango(cfg, desde, hasta))),
     obtenerMermasTodas(),
-    obtenerCierresYDepositos()
+    obtenerCierresRango(desde, hasta),
+    obtenerPendientes()
   ]);
   mermasRawCache = mermasRaw;
-  cierresDepositosCache = cierresDepositos;
+  cierresDepositosCache = { cierres: cierresRango, pendientes };
 
   const ventasPorKiosko = {};
   squareEntries.forEach(([nombre], i) => { ventasPorKiosko[nombre] = ventasResultados[i]; });
@@ -1014,9 +1017,9 @@ async function calcularIndicadores() {
     const sq = ventasPorKiosko[kiosko]; // undefined si no tiene Square propio
     const mermaPorDia = mermasPorDiaKiosko(mermasRaw, kiosko, desde, hasta);
     const mermaTotalG = Object.values(mermaPorDia).reduce((s,g)=>s+g,0);
-    const tipsPorDia = tipsPorDiaKiosko(cierresDepositos.cierres, kiosko, desde, hasta);
+    const tipsPorDia = tipsPorDiaKiosko(cierresRango, kiosko, desde, hasta);
     const tipsTotal = Object.values(tipsPorDia).reduce((s,t)=>s+t,0);
-    const efPend = efectivoPendienteKiosko(cierresDepositos.cierres, cierresDepositos.depositos, cierresDepositos.salidasFondo, kiosko);
+    const efPend = efectivoPendienteKiosko(pendientes.efectivoPendiente, kiosko);
 
     let ventasTotal = null, onzasTotal = null, mermaPct = null, tipsVentasPct = null;
     if (sq && sq.ok) {
