@@ -187,6 +187,27 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 .ia-box.ia-warn{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--text)}
 .ia-box.ia-error{background:var(--red-bg);border:1px solid var(--red-lt);color:var(--text)}
 
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.kpi-pendiente-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.kpi-val{font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--text)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.periodo-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:0}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip-btn{font-size:12px;padding:6px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-weight:500;transition:all .15s;font-family:var(--font-b)}
+.chip-btn:hover{border-color:var(--border-h);color:var(--text)}
+.chip-btn.active{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:600}
+.periodo-dates{display:flex;align-items:center;gap:8px;margin-left:auto}
+.periodo-dates input[type=date]{font-size:13px;width:145px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);padding:7px 10px;outline:none}
+.periodo-dates input[type=date]:focus{border-color:var(--green)}
+.periodo-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.tab-actions{display:flex;justify-content:flex-end;margin-bottom:12px}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+
 @media(max-width:600px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
@@ -215,6 +236,7 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('form',this)">Registrar cierre</button>
   <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
+  <button class="tab-btn" onclick="showTab('faltantes',this)">Faltantes</button>
 </div>
 
 <main>
@@ -455,6 +477,43 @@ input[readonly]{opacity:.7;cursor:default;background:var(--surface)}
   </div>
   <div id="hist-lista">
     <div class="empty-state">Cargando historial…</div>
+  </div>
+</div>
+
+<!-- ── TAB FALTANTES (matriz de control) ── -->
+<div class="page" id="tab-faltantes">
+  <div class="card">
+    <p class="card-title">Período</p>
+    <div class="periodo-bar">
+      <div class="chip-row" id="falt-periodo-atajos">
+        <button type="button" class="chip-btn" data-atajo="semana" onclick="aplicarAtajoFaltantes('semana')">Esta semana</button>
+        <button type="button" class="chip-btn active" data-atajo="mes" onclick="aplicarAtajoFaltantes('mes')">Este mes</button>
+        <button type="button" class="chip-btn" data-atajo="anio" onclick="aplicarAtajoFaltantes('anio')">Este año</button>
+      </div>
+      <div class="periodo-dates">
+        <span class="periodo-lbl">Personalizado:</span>
+        <input type="date" id="falt-desde" onchange="limpiarAtajoFaltantes();renderFaltantes()"/>
+        <span style="color:var(--subtle);font-size:12px">a</span>
+        <input type="date" id="falt-hasta" onchange="limpiarAtajoFaltantes();renderFaltantes()"/>
+        <button class="btn-sm" onclick="renderFaltantes()">↻ Actualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Cierres faltantes por kiosko — cada día del período</p>
+    <p style="font-size:11px;color:var(--subtle);margin-bottom:1rem">Cuenta como falta cualquier día del rango sin ningún cierre registrado para ese kiosko, sin importar si el kiosko estuvo abierto ese día.</p>
+    <div class="kpi-pendiente-grid" id="kpi-faltantes-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="tab-actions"><button class="btn-sm" onclick="exportarCSVFaltantes()">⬇ Descargar CSV</button></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="tabla-faltantes-head"><th>Fecha</th></tr></thead>
+        <tbody id="tabla-faltantes-body"><tr><td class="empty-state">Cargando…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -729,6 +788,7 @@ function showTab(tab, el) {
   document.getElementById('tab-' + tab).classList.add('active');
   el.classList.add('active');
   if (tab === 'historial') cargarHistorial();
+  if (tab === 'faltantes') { if (!historialData.length) cargarHistorial(); else renderFaltantes(); }
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
@@ -1219,6 +1279,7 @@ async function cargarHistorial() {
     renderDashboardKiosko();
     renderDashboardMensual();
     renderHistorial();
+    renderFaltantes();
   } catch(e) {
     document.getElementById('hist-lista').innerHTML =
       '<div class="empty-state">No se pudo cargar el historial. Revisá la conexión.</div>';
@@ -1390,6 +1451,133 @@ function limpiarForm() {
   irPaso(1);
   cargarVentasSquare();
   calcCuadre();
+}
+
+// ── FALTANTES (matriz de control kiosko × fecha) ─────────────────
+// Reutiliza historialData (ya cargado por cargarHistorial(), acción=read
+// del mismo backend) — no agrega ningún fetch ni backend nuevo. Cuenta cada
+// día calendario del rango elegido como un día "esperado" para los 4
+// kioskos por igual (no cruza contra Control de Horarios), y compara ese
+// listado de fechas contra los días que sí tienen al menos un cierre
+// registrado para ese kiosko.
+let ultimasFilasFaltantes = [];
+
+function pad2(n) { return String(n).padStart(2,'0'); }
+function fechaISOFaltantes(d) { return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function fechaLblFaltantes(iso) {
+  if (!iso) return '—';
+  return new Date(iso+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
+
+function fijarRangoAtajoFaltantes(atajo) {
+  const hoyD = new Date();
+  let desde = new Date(hoyD), hasta = new Date(hoyD);
+  if (atajo === 'semana') { const dow = (hoyD.getDay()+6)%7; desde.setDate(hoyD.getDate()-dow); }
+  else if (atajo === 'mes') { desde = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); }
+  else if (atajo === 'anio') { desde = new Date(hoyD.getFullYear(), 0, 1); }
+  document.getElementById('falt-desde').value = fechaISOFaltantes(desde);
+  document.getElementById('falt-hasta').value = fechaISOFaltantes(hasta);
+  document.querySelectorAll('#falt-periodo-atajos .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.atajo === atajo));
+}
+function aplicarAtajoFaltantes(atajo) { fijarRangoAtajoFaltantes(atajo); renderFaltantes(); }
+function limpiarAtajoFaltantes() { document.querySelectorAll('#falt-periodo-atajos .chip-btn').forEach(b => b.classList.remove('active')); }
+
+function listaFechasEnRango(desde, hasta) {
+  const fechas = [];
+  if (!desde || !hasta) return fechas;
+  const d = new Date(desde + 'T12:00:00');
+  const h = new Date(hasta + 'T12:00:00');
+  if (isNaN(d) || isNaN(h) || d > h) return fechas;
+  let cursor = new Date(d);
+  let guard = 0;
+  while (cursor <= h && guard < 3660) { // tope de seguridad contra rangos absurdos
+    fechas.push(fechaISOFaltantes(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    guard++;
+  }
+  return fechas;
+}
+
+function renderFaltantes() {
+  const head = document.getElementById('tabla-faltantes-head');
+  const body = document.getElementById('tabla-faltantes-body');
+  const kpiGrid = document.getElementById('kpi-faltantes-grid');
+  if (!head || !body) return; // la pestaña todavía no se pintó en el DOM
+
+  if (!document.getElementById('falt-desde').value) fijarRangoAtajoFaltantes('mes');
+  let desde = document.getElementById('falt-desde').value;
+  let hasta = document.getElementById('falt-hasta').value;
+  // No tiene sentido marcar como "falta" un día que todavía no llega — se
+  // recorta el "hasta" a hoy si el rango se extiende al futuro.
+  const hoyISO = hoy();
+  if (hasta && hasta > hoyISO) hasta = hoyISO;
+
+  const fechas = listaFechasEnRango(desde, hasta);
+  const kioskosCols = KIOSKOS;
+  head.innerHTML = '<th>Fecha</th>' + kioskosCols.map(k => `<th>${k}</th>`).join('');
+
+  if (!fechas.length) {
+    body.innerHTML = `<tr><td colspan="${kioskosCols.length+1}" class="empty-state">Elegí un período con fecha desde y hasta para ver la matriz.</td></tr>`;
+    kpiGrid.innerHTML = '';
+    ultimasFilasFaltantes = [];
+    return;
+  }
+
+  const presente = {}; // 'kiosko|fecha' -> true si hay al menos un cierre
+  historialData.forEach(r => {
+    if (!r.fecha || !r.kiosko) return;
+    presente[r.kiosko + '|' + r.fecha] = true;
+  });
+
+  const fechasDesc = [...fechas].sort((a,b) => b.localeCompare(a));
+  const filas = fechasDesc.map(fecha => {
+    const porKiosko = {};
+    kioskosCols.forEach(k => { porKiosko[k] = !!presente[k + '|' + fecha]; });
+    return { fecha, porKiosko };
+  });
+  ultimasFilasFaltantes = filas;
+
+  const faltantesPorKiosko = {};
+  kioskosCols.forEach(k => { faltantesPorKiosko[k] = 0; });
+  filas.forEach(f => kioskosCols.forEach(k => { if (!f.porKiosko[k]) faltantesPorKiosko[k]++; }));
+
+  kpiGrid.innerHTML = kioskosCols.map(k => `
+    <div class="kpi-box">
+      <div class="kpi-val" style="color:${faltantesPorKiosko[k] ? 'var(--red)' : 'var(--green)'}">${faltantesPorKiosko[k]}</div>
+      <div class="kpi-lbl">${k} — días sin cierre</div>
+    </div>`).join('');
+
+  body.innerHTML = filas.map(f => `<tr>
+    <td>${fechaLblFaltantes(f.fecha)}</td>
+    ${kioskosCols.map(k => f.porKiosko[k]
+      ? `<td><span class="badge badge-ok">✅</span></td>`
+      : `<td><span class="badge badge-warn">⚠️ Falta</span></td>`
+    ).join('')}
+  </tr>`).join('');
+}
+
+function toCSVFaltantes(headers, rows) {
+  const esc = v => {
+    const s = v===null||v===undefined ? '' : String(v);
+    return /[",\n;]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const lines = [headers.map(esc).join(',')];
+  rows.forEach(r => lines.push(r.map(esc).join(',')));
+  return lines.join('\r\n');
+}
+function exportarCSVFaltantes() {
+  if (!ultimasFilasFaltantes.length) { showToast('No hay datos para exportar', 'error'); return; }
+  const headers = ['Fecha', ...KIOSKOS];
+  const rows = ultimasFilasFaltantes.map(f => [f.fecha, ...KIOSKOS.map(k => f.porKiosko[k] ? 'OK' : 'FALTA')]);
+  const contenido = toCSVFaltantes(headers, rows);
+  const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const desde = document.getElementById('falt-desde').value || 'inicio';
+  const hasta = document.getElementById('falt-hasta').value || 'hoy';
+  a.href = url; a.download = 'faltantes_cierres_' + desde + '_a_' + hasta + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
