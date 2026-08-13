@@ -1224,7 +1224,14 @@ function actualizarWhatsAppBtn() {
   payload.fotoDatafonoUrl = fotoDatafonoUrlGuardada;
   const msg = buildWAMessage(payload);
   const numero = WA_NUMERO_DEFAULT || '';
-  btns.innerHTML = `<button class="btn-wa" onclick="window.open('https://wa.me/${numero}?text='+encodeURIComponent(\`${msg.replace(/`/g,'\\`')}\`),'_blank')">${WA_SVG} Enviar resumen por WhatsApp</button>`;
+  // wa.me EXIGE un número en la ruta (wa.me/<numero>) — sin número, "wa.me/"
+  // no abre el flujo de enviar, simplemente no funciona. Cuando no hay
+  // WA_NUMERO_DEFAULT configurado (caso actual: se deja elegir el contacto),
+  // hay que usar api.whatsapp.com/send, que sí soporta enviar sin destinatario fijo.
+  const waUrl = numero
+    ? `https://wa.me/${numero}?text=`
+    : `https://api.whatsapp.com/send?text=`;
+  btns.innerHTML = `<button class="btn-wa" onclick="window.open('${waUrl}'+encodeURIComponent(\`${msg.replace(/`/g,'\\`')}\`),'_blank')">${WA_SVG} Enviar resumen por WhatsApp</button>`;
 }
 
 // ── HISTORIAL ─────────────────────────────────────────────────────
