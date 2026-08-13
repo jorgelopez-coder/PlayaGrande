@@ -292,26 +292,28 @@ tr:last-child td{border-bottom:none}
 <!-- ── TAB 4: CONTROL DE FECHAS ── -->
 <div class="page" id="tab-control">
   <div class="card">
-    <p class="card-title">Verificar cobertura de fechas — <span id="ctrl-kiosko-lbl"></span></p>
-    <p class="card-note">Compara los días con ventas registradas en Cierres contra los que ya quedaron incluidos en algún reparto cerrado de Servicio 10%, para el kiosko elegido arriba.</p>
+    <p class="card-title">Matriz de control de fechas — todos los kioskos</p>
+    <p class="card-note">Para cada fecha con ventas registradas en Cierres, muestra el estado del Servicio 10% en cada kiosko: 🔴 pendiente de repartir, 🟡 ya calculado en un reparto cerrado pero con pago pendiente, 🟢 pagado por completo. Una celda vacía ("–") significa que ese kiosko no tuvo ventas registradas ese día. Pasá el mouse sobre un ícono para ver el detalle. No depende del kiosko elegido arriba — siempre muestra todos los kioskos habilitados.</p>
     <div class="field-row">
       <div class="field"><label for="ctrl-fecha-inicio">Fecha inicio</label><input type="date" id="ctrl-fecha-inicio"/></div>
       <div class="field"><label for="ctrl-fecha-fin">Fecha fin</label><input type="date" id="ctrl-fecha-fin"/></div>
     </div>
-    <div class="submit-area"><button class="btn-primary" onclick="calcularControlFechas()">Verificar</button></div>
+    <div class="submit-area"><button class="btn-primary" id="btn-ctrl-verificar" onclick="calcularControlFechas()">Verificar</button></div>
   </div>
 
   <div id="ctrl-resultado" style="display:none">
     <div class="card">
       <div class="kpi-pendiente-grid">
-        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-total">0</div><div class="kpi-lbl">Fechas con ventas en el periodo</div></div>
-        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-faltan">0</div><div class="kpi-lbl">Fechas sin reparto cerrado</div></div>
+        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-total">0</div><div class="kpi-lbl">Días×kiosko con ventas</div></div>
+        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-pendiente">0</div><div class="kpi-lbl">🔴 Pendientes de repartir</div></div>
+        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-calculado">0</div><div class="kpi-lbl">🟡 Calculados, pago pendiente</div></div>
+        <div class="kpi-box"><div class="kpi-val" id="kpi-ctrl-pagado">0</div><div class="kpi-lbl">🟢 Pagados</div></div>
       </div>
     </div>
     <div class="card">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fecha</th><th style="text-align:right">Venta Neta ₡</th><th>Estado</th></tr></thead>
+          <thead><tr id="ctrl-matriz-head"><th>Fecha</th></tr></thead>
           <tbody id="ctrl-tabla-body"></tbody>
         </table>
       </div>
@@ -418,21 +420,6 @@ function postRRHH(payload, timeoutMs) {
   return fetchConTimeout(APPS_SCRIPT_RRHH, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) }, timeoutMs || 30000)
     .then(r => r.json());
 }
-// Trae, para un kiosko y rango de fechas, el Total Ventas ₡ sumado por
-// fecha (Map fecha -> total con servicio incluido) — usado tanto para
-// calcular un reparto nuevo como para el Control de fechas.
-async function obtenerVentasPorFecha(kiosko, fi, ff) {
-  const resp = await fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json());
-  const cierres = resp.records || [];
-  const map = new Map();
-  cierres.filter(r => mismoKiosko(r[COL_KIOSKO], kiosko)).forEach(r => {
-    const f = soloFecha(r[COL_FECHA]);
-    if (!f || f < fi || f > ff) return;
-    map.set(f, (map.get(f) || 0) + (Number(r[COL_TOTAL_VENTAS]) || 0));
-  });
-  return map;
-}
-
 // IDs de cierre cuyo tip ya está cubierto por algún pago registrado en
 // "TipsPagos" (control-tips.html) — mismo criterio que control-tips.html
 // usa para su propia lista de pendientes, sin filtrar por kiosko (un cierre
@@ -529,7 +516,6 @@ function actualizarLabels() {
   document.getElementById('sv-kiosko-lbl').textContent = kioskoActual || '—';
   document.getElementById('pend-kiosko-lbl').textContent = lbl;
   document.getElementById('historial-kiosko-lbl').textContent = lbl;
-  document.getElementById('ctrl-kiosko-lbl').textContent = kioskoActual || '—';
 }
 
 function alCambiarKiosko() {
@@ -539,7 +525,6 @@ function alCambiarKiosko() {
   limpiarFormReparto();
   recalcularPendientes();
   renderHistorialServicio();
-  document.getElementById('ctrl-resultado').style.display = 'none';
 }
 
 // ── TAB 1: NUEVO REPARTO ──────────────────────────────────────────
@@ -1087,7 +1072,7 @@ function renderTablaPendientes() {
   }
   body.innerHTML = gruposPendientes.map((g, i) => `<tr>
     <td class="td-chk"><input type="checkbox" class="chk-servicio" value="${i}" ${seleccionServicio.has(String(i)) ? 'checked' : ''} onchange="actualizarSeleccionServicio()"></td>
-    <td>${escHtml(g.colaborador) || '—'}</td>
+    <td style="cursor:pointer" onclick="togglePendDetalle(${i})">${escHtml(g.colaborador) || '—'}</td>
     <td><span class="kiosko-tag">${escHtml(g.kiosko) || '—'}</span></td>
     <td>${fechaLbl(g.fechaMin)} – ${fechaLbl(g.fechaMax)} (${g.dias} día${g.dias === 1 ? '' : 's'})</td>
     <td>${escHtml(g.puesto) || '—'}</td>
@@ -1096,7 +1081,7 @@ function renderTablaPendientes() {
     <td><input type="date" class="pago-fecha" id="pago-fecha-${i}" value="${hoyISO}" style="min-width:135px" onchange="actualizarBotonPagarServicio()"/></td>
     <td><input type="text" class="pago-ref" id="pago-ref-${i}" placeholder="Ej: SINPE 000123456" style="min-width:160px" oninput="actualizarBotonPagarServicio()"/></td>
   </tr>
-  <tr id="pend-detalle-row-${i}" style="${seleccionServicio.has(String(i)) ? '' : 'display:none'}">
+  <tr id="pend-detalle-row-${i}" style="display:none">
     <td></td>
     <td colspan="8" style="padding-top:0;padding-bottom:14px">
       <div class="hist-detail-title">Detalle del cálculo — fecha y monto</div>
@@ -1105,16 +1090,16 @@ function renderTablaPendientes() {
   </tr>`).join('');
 }
 
-// Al (des)tildar cualquier colaborador se reconstruye la selección Y se
-// muestra/oculta su detalle día-por-día (Fecha + Monto) en la fila de abajo
-// — misma pasada, para no desincronizar checkbox y detalle.
+// Despliega/oculta el detalle día-por-día de un colaborador al picar sobre
+// su nombre — independiente del checkbox de selección para pago.
+function togglePendDetalle(i) {
+  const fila = document.getElementById('pend-detalle-row-' + i);
+  if (fila) fila.style.display = (fila.style.display === 'none') ? '' : 'none';
+}
+
 function actualizarSeleccionServicio() {
   seleccionServicio.clear();
-  document.querySelectorAll('.chk-servicio').forEach(chk => {
-    if (chk.checked) seleccionServicio.add(chk.value);
-    const fila = document.getElementById('pend-detalle-row-' + chk.value);
-    if (fila) fila.style.display = chk.checked ? '' : 'none';
-  });
+  document.querySelectorAll('.chk-servicio:checked').forEach(chk => seleccionServicio.add(chk.value));
   const total = Array.from(seleccionServicio).reduce((s, i) => s + (gruposPendientes[Number(i)] ? gruposPendientes[Number(i)].monto : 0), 0);
   document.getElementById('sv-sel-count').textContent = seleccionServicio.size + ' seleccionado' + (seleccionServicio.size === 1 ? '' : 's');
   document.getElementById('sv-sel-total').textContent = fmtCRC(total);
@@ -1255,36 +1240,94 @@ function renderDetalleReparto(detalleReparto) {
   return `<div class="hist-detail-title">Resumen por colaborador</div>${filas}`;
 }
 
-// ── TAB 4: CONTROL DE FECHAS ────────────────────────────────────────
+// ── TAB 4: CONTROL DE FECHAS (matriz kiosko × fecha) ────────────────
+// Estado de cada celda, según los registros de ServicioRepartoDetalle
+// (mismos que alimentan Pendientes/Historial):
+//   sin datos   → ese kiosko no tuvo ventas registradas ese día (celda "–")
+//   pendiente   → hay venta pero ningún reparto cerrado la cubrió todavía
+//   calculado   → hay reparto cerrado, pero no todos los colaboradores de
+//                 esa fecha+kiosko están marcados "Pagado" en Pendientes
+//   pagado      → hay reparto cerrado y todos los colaboradores de esa
+//                 fecha+kiosko ya están pagados
+function estadoControlCelda(detalleEstado, kiosko, fecha, venta) {
+  if (venta <= 0) return null;
+  const info = detalleEstado.get(String(kiosko || '').trim().toLowerCase() + '|' + fecha);
+  if (!info || !info.total) return 'pendiente';
+  return info.pagados >= info.total ? 'pagado' : 'calculado';
+}
+
+const CTRL_ICONO = { pendiente: '🔴', calculado: '🟡', pagado: '🟢' };
+const CTRL_TXT   = { pendiente: 'Pendiente de repartir', calculado: 'Calculado — pago pendiente', pagado: 'Pagado ✓' };
+
 async function calcularControlFechas() {
-  if (!kioskoActual) { showToast('Seleccioná un kiosko específico arriba', 'error'); return; }
   const fi = document.getElementById('ctrl-fecha-inicio').value;
   const ff = document.getElementById('ctrl-fecha-fin').value;
   if (!fi || !ff) { showToast('Completá el periodo', 'error'); return; }
   if (fi > ff) { showToast('La fecha inicio no puede ser posterior a la fecha fin', 'error'); return; }
+  if (!KIOSKOS.length) { showToast('No hay kioskos disponibles', 'error'); return; }
 
+  const btn = document.getElementById('btn-ctrl-verificar');
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Verificando…';
   try {
-    const [ventasPorFecha, rDetalle] = await Promise.all([
-      obtenerVentasPorFecha(kioskoActual, fi, ff),
+    // Un solo "?action=read" de Cierres (no uno por kiosko) — mismo criterio
+    // que calcularReparto() para no repetir la descarga completa y agotar el
+    // tiempo de espera, ver comentario en calcularVentasPorFechaSync().
+    const [rCierres, rDetalle] = await Promise.all([
+      fetchConTimeout(SHEETS_URL + '?action=read', {}, 60000).then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
     ]);
+    const cierres = rCierres.records || [];
     detalleTodos = rDetalle.registros || [];
     recalcularPendientes();
 
-    const cubiertas = new Set(detalleTodos.filter(d => mismoKiosko(d['Kiosko'], kioskoActual)).map(d => soloFecha(d['Fecha'])));
-    const filas = Array.from(ventasPorFecha.keys())
-      .filter(f => (ventasPorFecha.get(f) || 0) > 0)
-      .sort()
-      .map(f => ({ fecha: f, ventaNeta: ventasPorFecha.get(f) || 0, cubierta: cubiertas.has(f) }));
+    // kiosko -> Map(fecha -> venta con servicio incluido)
+    const ventasPorKiosko = new Map(KIOSKOS.map(k => [k, calcularVentasPorFechaSync(cierres, k, fi, ff)]));
 
-    document.getElementById('kpi-ctrl-total').textContent = filas.length;
-    document.getElementById('kpi-ctrl-faltan').textContent = filas.filter(x => !x.cubierta).length;
-    document.getElementById('ctrl-tabla-body').innerHTML = filas.length
-      ? filas.map(x => `<tr><td>${fechaLbl(x.fecha)}</td><td class="num">${fmtCRC(x.ventaNeta)}</td><td>${x.cubierta ? '<span class="badge b-ok">Incluida ✓</span>' : '<span class="badge b-pend">Falta ⚠</span>'}</td></tr>`).join('')
-      : '<tr><td colspan="3" class="empty">Sin ventas registradas en este periodo.</td></tr>';
+    // Unión de fechas con venta > 0 en al menos un kiosko, para no listar
+    // días vacíos en toda la fila.
+    const fechasSet = new Set();
+    ventasPorKiosko.forEach(map => map.forEach((v, f) => { if (v > 0) fechasSet.add(f); }));
+    const fechas = Array.from(fechasSet).sort();
+
+    // 'kiosko en minúscula|fecha' -> { total, pagados } de colaboradores en
+    // ServicioRepartoDetalle para esa combinación.
+    const detalleEstado = new Map();
+    detalleTodos.forEach(d => {
+      const key = String(d['Kiosko'] || '').trim().toLowerCase() + '|' + soloFecha(d['Fecha']);
+      if (!detalleEstado.has(key)) detalleEstado.set(key, { total: 0, pagados: 0 });
+      const e = detalleEstado.get(key);
+      e.total += 1;
+      if (esPagado(d)) e.pagados += 1;
+    });
+
+    document.getElementById('ctrl-matriz-head').innerHTML =
+      '<th>Fecha</th>' + KIOSKOS.map(k => `<th style="text-align:center">${escHtml(k)}</th>`).join('');
+
+    let cTotal = 0, cPend = 0, cCalc = 0, cPag = 0;
+    document.getElementById('ctrl-tabla-body').innerHTML = fechas.length
+      ? fechas.map(f => {
+          const celdas = KIOSKOS.map(k => {
+            const venta = (ventasPorKiosko.get(k) || new Map()).get(f) || 0;
+            const estado = estadoControlCelda(detalleEstado, k, f, venta);
+            if (!estado) return '<td style="text-align:center;color:var(--subtle)">–</td>';
+            cTotal++;
+            if (estado === 'pendiente') cPend++; else if (estado === 'calculado') cCalc++; else cPag++;
+            const titulo = `${k} · ${fechaLbl(f)} · ${fmtCRC(venta)} · ${CTRL_TXT[estado]}`;
+            return `<td style="text-align:center;font-size:16px" title="${escHtml(titulo)}">${CTRL_ICONO[estado]}</td>`;
+          }).join('');
+          return `<tr><td>${fechaLbl(f)}</td>${celdas}</tr>`;
+        }).join('')
+      : `<tr><td colspan="${KIOSKOS.length + 1}" class="empty">Sin ventas registradas en este periodo.</td></tr>`;
+
+    document.getElementById('kpi-ctrl-total').textContent = cTotal;
+    document.getElementById('kpi-ctrl-pendiente').textContent = cPend;
+    document.getElementById('kpi-ctrl-calculado').textContent = cCalc;
+    document.getElementById('kpi-ctrl-pagado').textContent = cPag;
     document.getElementById('ctrl-resultado').style.display = 'block';
   } catch (e) {
     showToast('Error al verificar: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
   }
 }
 
