@@ -102,6 +102,19 @@ select:focus{border-color:var(--green)}
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ── Compras del período: fila expandible + detalle plano ── */
+.row-click{cursor:pointer}
+.row-click:hover{background:var(--amber-bg)}
+.chevron{font-size:9px;color:var(--subtle);margin-left:5px}
+.expand-row td{background:var(--surface);padding:12px 14px}
+.mini-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.mini-table th{text-align:left;font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:5px 8px}
+.mini-table th.r,.mini-table td.r{text-align:right}
+.mini-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.mini-table tbody tr:last-child td{border-bottom:none}
+.card-head-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card-head-row .card-title{margin-bottom:0}
+
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .tabs{padding:0 1rem}
@@ -357,14 +370,47 @@ function calcular(){
     return true;
   });
 
-  // Mapa compras por nombre normalizado
+  // Mapa compras por nombre normalizado (con detalle de cada línea de factura,
+  // para poder desplegarlo debajo de cada producto)
   var mapC={};
   comprasK.forEach(function(r){
     var nNorm=claveNorm(r['Nombre normalizado']||r['Producto']||'');
     if(!nNorm)return;
-    if(!mapC[nNorm])mapC[nNorm]={total:0,lineas:0,matched:false};
-    mapC[nNorm].total+=parseNum(r['_v_Total línea']);
+    if(!mapC[nNorm])mapC[nNorm]={total:0,lineas:0,matched:false,detalle:[]};
+    var totalLinea=parseNum(r['_v_Total línea']);
+    mapC[nNorm].total+=totalLinea;
     mapC[nNorm].lineas++;
+    mapC[nNorm].detalle.push({
+      fecha:r['Fecha de factura']||'',
+      fechaRaw:parseGvizDate(r['_v_Fecha de factura']),
+      proveedor:(r['Proveedor']||'').trim(),
+      numFactura:(r['Número de factura']||'').trim(),
+      cantidad:parseNum(r['_v_Cantidad']),
+      unidad:(r['Unidad de medida']||'').trim(),
+      precioUnitario:parseNum(r['_v_Precio unitario']),
+      total:totalLinea
+    });
+  });
+
+  // Detalle plano de TODAS las compras del período (matched o no), para la
+  // tabla de "Detalle de compras del período"
+  var detalleTodas=comprasK.map(function(r){
+    return {
+      fechaFmt:r['Fecha de factura']||'',
+      fechaRaw:parseGvizDate(r['_v_Fecha de factura']),
+      proveedor:(r['Proveedor']||'').trim(),
+      numFactura:(r['Número de factura']||'').trim(),
+      producto:(r['Nombre normalizado']||r['Producto']||'').trim()||'(sin nombre)',
+      categoria:(r['Categoría']||'Sin categoría').trim(),
+      cantidad:parseNum(r['_v_Cantidad']),
+      unidad:(r['Unidad de medida']||'').trim(),
+      precioUnitario:parseNum(r['_v_Precio unitario']),
+      total:parseNum(r['_v_Total línea'])
+    };
+  });
+  detalleTodas.sort(function(a,b){
+    var da=a.fechaRaw||new Date(0),db=b.fechaRaw||new Date(0);
+    return db-da;
   });
 
   // Combinar todos los productos
@@ -382,7 +428,11 @@ function calcular(){
     var invF=fRow?fRow.valor:0;
     var comp=cRow?cRow.total:0;
     if(cRow)cRow.matched=true;
-    results.push({prod:prod,cat:cat,invI:invI,comp:comp,invF:invF,cogs:invI+comp-invF,noInicio:!iRow,noFin:!fRow});
+    var detalleCompras=cRow?cRow.detalle.slice().sort(function(a,b){
+      var da=a.fechaRaw||new Date(0),db=b.fechaRaw||new Date(0);
+      return db-da;
+    }):[];
+    results.push({prod:prod,cat:cat,invI:invI,comp:comp,invF:invF,cogs:invI+comp-invF,noInicio:!iRow,noFin:!fRow,detalleCompras:detalleCompras});
   });
 
   // Compras sin coincidencia de producto en inventario
@@ -396,10 +446,47 @@ function calcular(){
     return a.prod.localeCompare(b.prod,'es');
   });
 
-  renderResults(results,snapI,snapF,unmComp,unmLineas,comprasK.length);
+  renderResults(results,snapI,snapF,unmComp,unmLineas,comprasK.length,detalleTodas);
 }
 
-function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas){
+function contenidoExpandCompra(detalle){
+  var html='<div class="expand-compras"><table class="mini-table"><thead><tr>'
+    +'<th>Fecha</th><th>Proveedor</th><th>N° Factura</th><th class="r">Cant.</th><th>Unidad</th><th class="r">Precio Unit.</th><th class="r">Total</th>'
+    +'</tr></thead><tbody>';
+  detalle.forEach(function(d){
+    html+='<tr>';
+    html+='<td class="td-mono">'+esc(d.fecha)+'</td>';
+    html+='<td>'+esc(d.proveedor)+'</td>';
+    html+='<td class="td-mono">'+esc(d.numFactura)+'</td>';
+    html+='<td class="r td-mono">'+(d.cantidad||0).toLocaleString('es-CR')+'</td>';
+    html+='<td>'+esc(d.unidad)+'</td>';
+    html+='<td class="r td-mono">'+fmtCRC(d.precioUnitario)+'</td>';
+    html+='<td class="r td-mono">'+fmtCRC(d.total)+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+function toggleFilaCompra(id){
+  var row=document.getElementById('exp-'+id);
+  var chev=document.getElementById('chev-'+id);
+  if(!row)return;
+  var open=row.style.display!=='none';
+  row.style.display=open?'none':'table-row';
+  if(chev)chev.textContent=open?'▸':'▾';
+}
+
+function toggleDetalleCompras(){
+  var wrap=document.getElementById('detalle-compras-wrap');
+  var btn=document.getElementById('btn-toggle-detalle');
+  if(!wrap)return;
+  var open=wrap.style.display!=='none';
+  wrap.style.display=open?'none':'block';
+  if(btn)btn.textContent=open?'Mostrar facturas':'Ocultar facturas';
+}
+
+function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas,detalleTodas){
   var tInvI=0,tComp=0,tInvF=0,tCogs=0;
   results.forEach(function(r){tInvI+=r.invI;tComp+=r.comp;tInvF+=r.invF;tCogs+=r.cogs;});
   var totalComp=tComp+unmComp;
@@ -436,6 +523,7 @@ function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas){
   }
 
   // Tablas por categoría
+  var ridx=0;
   cats.forEach(function(cat){
     var rows=catMap[cat];
     var sI=0,sC=0,sF=0,sCG=0;
@@ -457,13 +545,18 @@ function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas){
       if(r.noInicio) flag='<span class="flag">solo en fin</span>';
       else if(r.noFin) flag='<span class="flag flag-gone">no en toma final</span>';
       var cogsStyle=r.cogs<0?'style="color:var(--amber)"':'';
-      html+='<tr>';
-      html+='<td class="td-prod">'+esc(r.prod)+flag+'</td>';
+      var hasCompras=r.detalleCompras&&r.detalleCompras.length>0;
+      var rid='r'+(ridx++);
+      html+='<tr'+(hasCompras?' class="row-click" onclick="toggleFilaCompra(\''+rid+'\')" title="Ver facturas de este producto"':'')+'>';
+      html+='<td class="td-prod">'+esc(r.prod)+flag+(hasCompras?' <span class="chevron" id="chev-'+rid+'">▸</span>':'')+'</td>';
       html+='<td class="r td-mono">'+fmtCRC(r.invI)+'</td>';
       html+='<td class="r td-mono"'+(r.comp>0?' style="color:var(--amber)"':'')+'>'+fmtCRC(r.comp)+'</td>';
       html+='<td class="r td-mono" style="color:var(--subtle)">'+fmtCRC(r.invF)+'</td>';
       html+='<td class="r td-mono" '+cogsStyle+'>'+fmtCRC(r.cogs)+'</td>';
       html+='</tr>';
+      if(hasCompras){
+        html+='<tr class="expand-row" id="exp-'+rid+'" style="display:none"><td colspan="5">'+contenidoExpandCompra(r.detalleCompras)+'</td></tr>';
+      }
     });
 
     html+='<tr class="subtotal-row">';
@@ -484,6 +577,37 @@ function renderResults(results,snapI,snapF,unmComp,unmLineas,totalLineas){
   html+='<td class="r">'+fmtCRC(tInvF)+'</td>';
   html+='<td class="r">'+fmtCRC(totalCogs)+'</td>';
   html+='</tr></table></div>';
+
+  // Detalle plano de compras del período (todas las líneas de factura,
+  // hayan quedado homologadas a un producto de inventario o no)
+  html+='<div class="card" style="margin-top:1rem">';
+  html+='<div class="card-head-row"'+(detalleTodas.length?' style="margin-bottom:1.25rem"':'')+'>';
+  html+='<p class="card-title">Detalle de compras del período ('+detalleTodas.length+' líneas'+(unmComp>0?', '+unmLineas+' sin match en inventario':'')+')</p>';
+  if(detalleTodas.length){
+    html+='<button class="sync-btn" onclick="toggleDetalleCompras()" id="btn-toggle-detalle">Mostrar facturas</button>';
+  }
+  html+='</div>';
+  if(detalleTodas.length){
+    html+='<div id="detalle-compras-wrap" style="display:none"><div class="compare-wrap"><table class="prod-table"><thead><tr>';
+    html+='<th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Categoría</th><th class="r">Cant.</th><th>Unidad</th><th class="r">Precio Unit.</th><th class="r">Total</th>';
+    html+='</tr></thead><tbody>';
+    detalleTodas.forEach(function(d){
+      html+='<tr>';
+      html+='<td class="td-mono">'+esc(d.fechaFmt)+'</td>';
+      html+='<td>'+esc(d.proveedor)+'</td>';
+      html+='<td class="td-prod">'+esc(d.producto)+'</td>';
+      html+='<td>'+esc(d.categoria)+'</td>';
+      html+='<td class="r td-mono">'+(d.cantidad||0).toLocaleString('es-CR')+'</td>';
+      html+='<td>'+esc(d.unidad)+'</td>';
+      html+='<td class="r td-mono">'+fmtCRC(d.precioUnitario)+'</td>';
+      html+='<td class="r td-mono">'+fmtCRC(d.total)+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table></div></div>';
+  }else{
+    html+='<div class="empty" style="padding:1.5rem"><strong>Sin compras</strong>No se registraron facturas de compra en este período.</div>';
+  }
+  html+='</div>';
 
   document.getElementById('results-area').innerHTML=html;
 }
