@@ -476,7 +476,25 @@ async function obtenerTipsPendientesPorFecha(kiosko, fi, ff) {
     fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json()),
     obtenerIdsTipsCubiertos()
   ]);
-  const cierres = resp.records || [];
+  return calcularTipsPendientesPorFecha(resp.records || [], idsCubiertos, kiosko, fi, ff);
+}
+
+// Versión sincrónica de obtenerVentasPorFecha/obtenerTipsPendientesPorFecha
+// que reciben los "cierres" ya descargados — para no pedir el mismo
+// "?action=read" (que trae TODO Cierres) dos veces en paralelo desde
+// calcularReparto(). Con el histórico de cierres creciendo, duplicar esa
+// lectura completa era justo lo que hacía que "Calcular" se agotara a los
+// 30s aunque cada lectura individual sí respondiera a tiempo.
+function calcularVentasPorFechaSync(cierres, kiosko, fi, ff) {
+  const map = new Map();
+  cierres.filter(r => mismoKiosko(r[COL_KIOSKO], kiosko)).forEach(r => {
+    const f = soloFecha(r[COL_FECHA]);
+    if (!f || f < fi || f > ff) return;
+    map.set(f, (map.get(f) || 0) + (Number(r[COL_TOTAL_VENTAS]) || 0));
+  });
+  return map;
+}
+function calcularTipsPendientesPorFecha(cierres, idsCubiertos, kiosko, fi, ff) {
   const map = new Map(); // fecha -> { monto, ids:[...] }
   cierres.filter(r => mismoKiosko(r[COL_KIOSKO], kiosko)).forEach(r => {
     const f = soloFecha(r[COL_FECHA]);
@@ -553,13 +571,16 @@ async function calcularReparto() {
   const btn = document.getElementById('btn-calcular');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando…';
   try {
-    const [ventasPorFecha, tipsPorFecha, rHorarios, rPersonal, rDetalle] = await Promise.all([
-      obtenerVentasPorFecha(kioskoActual, fi, ff),
-      incluirTips ? obtenerTipsPendientesPorFecha(kioskoActual, fi, ff) : Promise.resolve(new Map()),
+    const [rCierres, idsCubiertos, rHorarios, rPersonal, rDetalle] = await Promise.all([
+      fetchConTimeout(SHEETS_URL + '?action=read', {}, 60000).then(r => r.json()),
+      incluirTips ? obtenerIdsTipsCubiertos() : Promise.resolve(new Set()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=horarios').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
     ]);
+    const cierres = rCierres.records || [];
+    const ventasPorFecha = calcularVentasPorFechaSync(cierres, kioskoActual, fi, ff);
+    const tipsPorFecha = incluirTips ? calcularTipsPendientesPorFecha(cierres, idsCubiertos, kioskoActual, fi, ff) : new Map();
 
     detalleTodos = rDetalle.registros || [];
     recalcularPendientes();
