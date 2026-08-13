@@ -253,7 +253,7 @@ tr:last-child td{border-bottom:none}
 
   <div class="card">
     <p class="card-title">Colaboradores por pagar — <span id="pend-kiosko-lbl"></span></p>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Cada fila agrupa todas las fechas pendientes de un colaborador dentro de un mismo reparto cerrado. Marcá los que ya se pagaron y asigná abajo fecha y referencia — se pueden cubrir varios de una vez, incluso de distintos repartos.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Cada fila agrupa todas las fechas pendientes de un colaborador dentro de un mismo reparto cerrado. Marcá los que ya se pagaron e indicá la fecha y el número de referencia de cada uno — se pueden cubrir varios de una vez, incluso con fechas y referencias distintas.</p>
     <div class="toolbar">
       <button class="btn-mini" onclick="seleccionarTodoServicio()">Seleccionar todo</button>
       <button class="btn-mini" onclick="limpiarSeleccionServicio()">Limpiar selección</button>
@@ -262,33 +262,16 @@ tr:last-child td{border-bottom:none}
       <table>
         <thead><tr>
           <th class="th-chk"></th><th>Colaborador</th><th>Kiosko</th><th>Fechas cubiertas</th>
-          <th>Puesto</th><th style="text-align:right">Monto ₡</th>
+          <th>Puesto</th><th>Cuenta</th><th style="text-align:right">Monto ₡</th>
+          <th>Fecha de pago</th><th>Número de referencia</th>
         </tr></thead>
-        <tbody id="tabla-pend-body"><tr><td colspan="6" class="empty"><span class="spinner"></span></td></tr></tbody>
+        <tbody id="tabla-pend-body"><tr><td colspan="9" class="empty"><span class="spinner"></span></td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <div class="card">
-    <p class="card-title">Datos del pago</p>
-    <div class="field-row">
-      <div class="field">
-        <label for="sv-fecha-pago">Fecha de pago <span class="req">*</span></label>
-        <input type="date" id="sv-fecha-pago" onchange="actualizarBotonPagarServicio()"/>
-      </div>
-      <div class="field">
-        <label for="sv-referencia">Número de referencia <span class="req">*</span></label>
-        <input type="text" id="sv-referencia" placeholder="Ej: SINPE 000123456" oninput="actualizarBotonPagarServicio()"/>
-      </div>
-    </div>
-    <div class="field">
-      <label for="sv-notas-pago">Notas (opcional)</label>
-      <input type="text" id="sv-notas-pago" placeholder="Observaciones del pago…"/>
-    </div>
-  </div>
-
   <div class="submit-area">
-    <button class="btn-secondary" onclick="limpiarFormPagoServicio()">Limpiar</button>
+    <button class="btn-secondary" onclick="limpiarSeleccionServicio()">Limpiar selección</button>
     <button class="btn-primary" id="btn-pagar-servicio" onclick="marcarComoPagadoServicio()" disabled>Marcar como pagado ✓</button>
   </div>
 
@@ -517,6 +500,7 @@ let personalActivo = [];   // [{nombre, puesto}] del kiosko elegido, para "+ col
 let detalleTodos = [];     // registros de ServicioRepartoDetalle (todos los kioskos/fechas)
 let gruposPendientes = []; // detalleTodos agrupado por (ID Reparto, Colaborador), sin pagar
 let repartosTodos = [];    // registros de ServicioRepartos (maestro)
+let personalPorNombre = new Map(); // nombre (lower) -> {banco, cuenta, tipoCuenta}, para mostrar cuenta en Pendientes
 const seleccionServicio = new Set(); // índices (string) sobre gruposPendientes
 
 // ── KIOSKO ────────────────────────────────────────────────────────
@@ -1003,13 +987,31 @@ async function generarPDFReparto(fi, ff, totalVentaNeta, totalServicio, totalTip
 // ── TAB 2: PENDIENTES DE PAGO ──────────────────────────────────────
 async function cargarPendientes() {
   try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json());
-    detalleTodos = resp.registros || [];
+    const [rDetalle, rPersonal] = await Promise.all([
+      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json()),
+      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json())
+    ]);
+    detalleTodos = rDetalle.registros || [];
+    personalPorNombre = new Map();
+    (rPersonal.registros || []).forEach(p => {
+      const nombre = String(p['Nombre completo'] || '').trim().toLowerCase();
+      if (!nombre) return;
+      personalPorNombre.set(nombre, { banco: p['Banco'] || '', cuenta: p['Cuenta'] || '', tipoCuenta: p['Tipo cuenta'] || '' });
+    });
     recalcularPendientes();
   } catch (e) {
-    document.getElementById('tabla-pend-body').innerHTML = '<tr><td colspan="6" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
+    document.getElementById('tabla-pend-body').innerHTML = '<tr><td colspan="9" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
     showToast('Error de conexión: ' + e.message, 'error');
   }
+}
+
+// Texto "Banco — Cuenta" para un colaborador (mismo criterio que la tabla de
+// reporte de pago en planilla.html), o aviso en rojo si no tiene cuenta
+// registrada en Personal.
+function cuentaTxtColaborador(nombre) {
+  const info = personalPorNombre.get(String(nombre || '').trim().toLowerCase());
+  const txt = info ? [info.banco, info.cuenta].filter(Boolean).join(' — ') : '';
+  return txt || '<span style="color:var(--red)">Sin cuenta registrada</span>';
 }
 
 function esPagado(d) {
@@ -1061,7 +1063,7 @@ function renderKpiPendientes() {
 function renderTablaPendientes() {
   const body = document.getElementById('tabla-pend-body');
   if (!gruposPendientes.length) {
-    body.innerHTML = '<tr><td colspan="6" class="empty">No hay pagos pendientes' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty">No hay pagos pendientes' + (kioskoActual ? ' para ' + kioskoActual : '') + ' ✓</td></tr>';
     return;
   }
   body.innerHTML = gruposPendientes.map((g, i) => `<tr>
@@ -1070,7 +1072,10 @@ function renderTablaPendientes() {
     <td><span class="kiosko-tag">${escHtml(g.kiosko) || '—'}</span></td>
     <td>${fechaLbl(g.fechaMin)} – ${fechaLbl(g.fechaMax)} (${g.dias} día${g.dias === 1 ? '' : 's'})</td>
     <td>${escHtml(g.puesto) || '—'}</td>
+    <td>${cuentaTxtColaborador(g.colaborador)}</td>
     <td class="num">${fmtCRC(g.monto)}</td>
+    <td><input type="date" class="pago-fecha" id="pago-fecha-${i}" value="${hoyISO}" style="min-width:135px" onchange="actualizarBotonPagarServicio()"/></td>
+    <td><input type="text" class="pago-ref" id="pago-ref-${i}" placeholder="Ej: SINPE 000123456" style="min-width:160px" oninput="actualizarBotonPagarServicio()"/></td>
   </tr>`).join('');
 }
 
@@ -1086,30 +1091,41 @@ function actualizarSeleccionServicio() {
 function seleccionarTodoServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = true); actualizarSeleccionServicio(); }
 function limpiarSeleccionServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = false); actualizarSeleccionServicio(); }
 
+// El botón solo se habilita cuando TODAS las filas tildadas tienen su
+// propia fecha de pago y número de referencia completos — cada colaborador
+// puede pagarse con fecha/referencia distintas (transferencias separadas).
 function actualizarBotonPagarServicio() {
-  const fecha = document.getElementById('sv-fecha-pago').value;
-  const referencia = document.getElementById('sv-referencia').value.trim();
-  document.getElementById('btn-pagar-servicio').disabled = !(fecha && referencia && seleccionServicio.size > 0);
+  const seleccion = Array.from(seleccionServicio);
+  const todasCompletas = seleccion.length > 0 && seleccion.every(i => {
+    const fechaEl = document.getElementById('pago-fecha-' + i);
+    const refEl = document.getElementById('pago-ref-' + i);
+    return fechaEl && refEl && fechaEl.value && refEl.value.trim();
+  });
+  document.getElementById('btn-pagar-servicio').disabled = !todasCompletas;
 }
 
+// Registra el pago de cada colaborador seleccionado con su propia fecha y
+// referencia (una llamada al backend por colaborador, ya que
+// marcarServicioPagado() solo acepta una fecha/referencia por llamada).
 async function marcarComoPagadoServicio() {
-  const fecha_pago = document.getElementById('sv-fecha-pago').value;
-  const referencia = document.getElementById('sv-referencia').value.trim();
-  const notas = document.getElementById('sv-notas-pago').value.trim();
-  const ids_detalle = Array.from(seleccionServicio)
-    .map(i => gruposPendientes[Number(i)])
-    .filter(Boolean)
-    .reduce((arr, g) => arr.concat(g.idsDetalle), []);
+  const pagos = Array.from(seleccionServicio).map(i => {
+    const g = gruposPendientes[Number(i)];
+    const fechaEl = document.getElementById('pago-fecha-' + i);
+    const refEl = document.getElementById('pago-ref-' + i);
+    return g ? { g, fecha_pago: fechaEl ? fechaEl.value : '', referencia: refEl ? refEl.value.trim() : '' } : null;
+  }).filter(p => p && p.fecha_pago && p.referencia);
 
-  if (!fecha_pago || !referencia || !ids_detalle.length) { showToast('Completá fecha, referencia y al menos un colaborador seleccionado', 'error'); return; }
+  if (!pagos.length) { showToast('Completá fecha y referencia de cada colaborador seleccionado', 'error'); return; }
 
   const btn = document.getElementById('btn-pagar-servicio');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Guardando…';
   try {
-    const resp = await postRRHH({ modulo: 'servicio_pago', ids_detalle, fecha_pago, referencia, notas });
-    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
-    showToast(`Pago registrado ✓ (${seleccionServicio.size} colaborador${seleccionServicio.size === 1 ? '' : 'es'})`, 'success');
-    limpiarFormPagoServicio();
+    for (const p of pagos) {
+      const resp = await postRRHH({ modulo: 'servicio_pago', ids_detalle: p.g.idsDetalle, fecha_pago: p.fecha_pago, referencia: p.referencia });
+      if (!resp.ok) throw new Error((resp.error || 'Error desconocido') + ' (' + p.g.colaborador + ')');
+    }
+    showToast(`Pago registrado ✓ (${pagos.length} colaborador${pagos.length === 1 ? '' : 'es'})`, 'success');
+    limpiarSeleccionServicio();
     await cargarPendientes();
     await cargarHistorial();
   } catch (e) {
@@ -1118,12 +1134,6 @@ async function marcarComoPagadoServicio() {
     btn.textContent = original;
     actualizarBotonPagarServicio();
   }
-}
-
-function limpiarFormPagoServicio() {
-  document.getElementById('sv-referencia').value = '';
-  document.getElementById('sv-notas-pago').value = '';
-  limpiarSeleccionServicio();
 }
 
 // ── TAB 3: HISTORIAL DE REPARTOS ───────────────────────────────────
@@ -1258,7 +1268,6 @@ function showToast(msg, type = 'success') {
 // ── INIT ──────────────────────────────────────────────────────────
 document.getElementById('sv-fecha-inicio').value = hace7ISO;
 document.getElementById('sv-fecha-fin').value = hoyISO;
-document.getElementById('sv-fecha-pago').value = hoyISO;
 document.getElementById('ctrl-fecha-inicio').value = hace30ISO;
 document.getElementById('ctrl-fecha-fin').value = hoyISO;
 cargarKioskos().then(() => { cargarPendientes(); cargarHistorial(); });
