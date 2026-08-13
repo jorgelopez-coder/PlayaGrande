@@ -1060,6 +1060,25 @@ function renderKpiPendientes() {
   document.getElementById('kpi-sv-pend-count').textContent = gruposPendientes.length;
 }
 
+// Detalle día-por-día (Fecha + Monto) de un grupo pendiente, leído de
+// detalleTodos por sus idsDetalle — se despliega al tildar el colaborador.
+function detalleGrupo(g) {
+  const idsSet = new Set((g.idsDetalle || []).map(String));
+  return detalleTodos
+    .filter(d => idsSet.has(String(d['ID Detalle'])))
+    .map(d => ({ fecha: soloFecha(d['Fecha']), monto: Number(d['Monto ₡']) || 0, tips: Number(d['Monto Tips ₡']) || 0 }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+function detalleGrupoHtml(g) {
+  const filas = detalleGrupo(g);
+  if (!filas.length) return '<div class="detalle-row"><span>Sin detalle</span></div>';
+  return filas.map(f => {
+    const tipsTxt = f.tips > 0 ? ` <span style="color:var(--muted)">(incl. ${fmtCRC(f.tips)} de tips)</span>` : '';
+    return `<div class="detalle-row"><span>${fechaLbl(f.fecha)}</span><span>${fmtCRC(f.monto)}${tipsTxt}</span></div>`;
+  }).join('');
+}
+
 function renderTablaPendientes() {
   const body = document.getElementById('tabla-pend-body');
   if (!gruposPendientes.length) {
@@ -1076,12 +1095,26 @@ function renderTablaPendientes() {
     <td class="num">${fmtCRC(g.monto)}</td>
     <td><input type="date" class="pago-fecha" id="pago-fecha-${i}" value="${hoyISO}" style="min-width:135px" onchange="actualizarBotonPagarServicio()"/></td>
     <td><input type="text" class="pago-ref" id="pago-ref-${i}" placeholder="Ej: SINPE 000123456" style="min-width:160px" oninput="actualizarBotonPagarServicio()"/></td>
+  </tr>
+  <tr id="pend-detalle-row-${i}" style="${seleccionServicio.has(String(i)) ? '' : 'display:none'}">
+    <td></td>
+    <td colspan="8" style="padding-top:0;padding-bottom:14px">
+      <div class="hist-detail-title">Detalle del cálculo — fecha y monto</div>
+      ${detalleGrupoHtml(g)}
+    </td>
   </tr>`).join('');
 }
 
+// Al (des)tildar cualquier colaborador se reconstruye la selección Y se
+// muestra/oculta su detalle día-por-día (Fecha + Monto) en la fila de abajo
+// — misma pasada, para no desincronizar checkbox y detalle.
 function actualizarSeleccionServicio() {
   seleccionServicio.clear();
-  document.querySelectorAll('.chk-servicio:checked').forEach(chk => seleccionServicio.add(chk.value));
+  document.querySelectorAll('.chk-servicio').forEach(chk => {
+    if (chk.checked) seleccionServicio.add(chk.value);
+    const fila = document.getElementById('pend-detalle-row-' + chk.value);
+    if (fila) fila.style.display = chk.checked ? '' : 'none';
+  });
   const total = Array.from(seleccionServicio).reduce((s, i) => s + (gruposPendientes[Number(i)] ? gruposPendientes[Number(i)].monto : 0), 0);
   document.getElementById('sv-sel-count').textContent = seleccionServicio.size + ' seleccionado' + (seleccionServicio.size === 1 ? '' : 's');
   document.getElementById('sv-sel-total').textContent = fmtCRC(total);
@@ -1091,31 +1124,40 @@ function actualizarSeleccionServicio() {
 function seleccionarTodoServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = true); actualizarSeleccionServicio(); }
 function limpiarSeleccionServicio() { document.querySelectorAll('.chk-servicio').forEach(c => c.checked = false); actualizarSeleccionServicio(); }
 
-// El botón solo se habilita cuando TODAS las filas tildadas tienen su
-// propia fecha de pago y número de referencia completos — cada colaborador
-// puede pagarse con fecha/referencia distintas (transferencias separadas).
+// El botón se habilita con que UNA sola fila tildada tenga fecha y
+// referencia completas — no hace falta llenar todas las líneas para pagar
+// las que ya estén listas; las incompletas quedan pendientes para después.
 function actualizarBotonPagarServicio() {
   const seleccion = Array.from(seleccionServicio);
-  const todasCompletas = seleccion.length > 0 && seleccion.every(i => {
+  const algunaCompleta = seleccion.some(i => {
     const fechaEl = document.getElementById('pago-fecha-' + i);
     const refEl = document.getElementById('pago-ref-' + i);
     return fechaEl && refEl && fechaEl.value && refEl.value.trim();
   });
-  document.getElementById('btn-pagar-servicio').disabled = !todasCompletas;
+  document.getElementById('btn-pagar-servicio').disabled = !algunaCompleta;
 }
 
-// Registra el pago de cada colaborador seleccionado con su propia fecha y
-// referencia (una llamada al backend por colaborador, ya que
-// marcarServicioPagado() solo acepta una fecha/referencia por llamada).
+// Registra el pago de cada colaborador seleccionado CON fecha y referencia
+// completas (una llamada al backend por colaborador, ya que
+// marcarServicioPagado() solo acepta una fecha/referencia por llamada). Los
+// seleccionados sin esos datos simplemente quedan pendientes, sin bloquear
+// a los demás.
 async function marcarComoPagadoServicio() {
-  const pagos = Array.from(seleccionServicio).map(i => {
+  const seleccion = Array.from(seleccionServicio);
+  const pagos = [];
+  let incompletos = 0;
+  seleccion.forEach(i => {
     const g = gruposPendientes[Number(i)];
+    if (!g) return;
     const fechaEl = document.getElementById('pago-fecha-' + i);
     const refEl = document.getElementById('pago-ref-' + i);
-    return g ? { g, fecha_pago: fechaEl ? fechaEl.value : '', referencia: refEl ? refEl.value.trim() : '' } : null;
-  }).filter(p => p && p.fecha_pago && p.referencia);
+    const fecha_pago = fechaEl ? fechaEl.value : '';
+    const referencia = refEl ? refEl.value.trim() : '';
+    if (fecha_pago && referencia) pagos.push({ g, fecha_pago, referencia });
+    else incompletos++;
+  });
 
-  if (!pagos.length) { showToast('Completá fecha y referencia de cada colaborador seleccionado', 'error'); return; }
+  if (!pagos.length) { showToast('Completá fecha y referencia de al menos un colaborador seleccionado', 'error'); return; }
 
   const btn = document.getElementById('btn-pagar-servicio');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Guardando…';
@@ -1124,7 +1166,8 @@ async function marcarComoPagadoServicio() {
       const resp = await postRRHH({ modulo: 'servicio_pago', ids_detalle: p.g.idsDetalle, fecha_pago: p.fecha_pago, referencia: p.referencia });
       if (!resp.ok) throw new Error((resp.error || 'Error desconocido') + ' (' + p.g.colaborador + ')');
     }
-    showToast(`Pago registrado ✓ (${pagos.length} colaborador${pagos.length === 1 ? '' : 'es'})`, 'success');
+    const pendienteTxt = incompletos > 0 ? ` · ${incompletos} sin fecha/referencia quedaron pendientes` : '';
+    showToast(`Pago registrado ✓ (${pagos.length} colaborador${pagos.length === 1 ? '' : 'es'})${pendienteTxt}`, 'success');
     limpiarSeleccionServicio();
     await cargarPendientes();
     await cargarHistorial();
