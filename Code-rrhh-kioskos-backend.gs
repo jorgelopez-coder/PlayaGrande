@@ -386,10 +386,10 @@ function guardarServicioReparto(p) {
   });
 
   const hojaDet = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
-  p.asignaciones.forEach(function (a, i) {
+  const filasDetalle = p.asignaciones.map(function (a, i) {
     const montoServicio = Number(a.monto_servicio) || 0;
     const montoTips = Number(a.monto_tips) || 0;
-    agregarFilaPorEncabezado(hojaDet, ENCABEZADOS_SERVICIO_DETALLE, {
+    return {
       'ID Detalle': idReparto + '-' + i,
       'ID Reparto': idReparto,
       'Kiosko': p.kiosko,
@@ -403,8 +403,9 @@ function guardarServicioReparto(p) {
       'Notas pago': '',
       'Monto Servicio ₡': montoServicio,
       'Monto Tips ₡': montoTips
-    });
+    };
   });
+  agregarFilasPorEncabezado(hojaDet, ENCABEZADOS_SERVICIO_DETALLE, filasDetalle);
 
   return { id: idReparto, pdf_url: pdfUrl, fechas: fechasNuevas.length, asignaciones: p.asignaciones.length };
 }
@@ -1667,6 +1668,24 @@ function agregarFilaPorEncabezado(hoja, encabezados, valores) {
   const fila = hoja.getLastRow() + 1;
   escribirFilaPorEncabezado(hoja, fila, encabezados, valores);
   return fila;
+}
+
+// Igual que agregarFilaPorEncabezado pero para muchas filas a la vez: una
+// sola lectura de encabezados + un solo setValues para todo el bloque, en
+// vez de un par de llamadas a Sheets por fila. Usar cuando se insertan
+// varias filas seguidas (p. ej. detalle de Servicio 10% por colaborador) —
+// escribir fila por fila ahí es lo que hacía que "Cerrar cálculo" se
+// tardara tanto que el fetch del navegador se agotaba (30s) aunque el
+// guardado en Sheets siguiera corriendo del lado del servidor.
+function agregarFilasPorEncabezado(hoja, encabezadosEsperados, listaValores) {
+  if (!listaValores || !listaValores.length) return;
+  const nCols = Math.max(hoja.getLastColumn(), encabezadosEsperados.length);
+  const encabezadosReales = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+  const filas = listaValores.map(function (valores) {
+    return encabezadosReales.map(function (h) { return (h && (h in valores)) ? valores[h] : ''; });
+  });
+  const filaInicio = hoja.getLastRow() + 1;
+  hoja.getRange(filaInicio, 1, filas.length, encabezadosReales.length).setValues(filas);
 }
 
 // "Guardar semana" reemplaza lo guardado antes para esa semana (no acumula

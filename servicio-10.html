@@ -431,8 +431,8 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
   catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
   finally { clearTimeout(timer); }
 }
-function postRRHH(payload) {
-  return fetchConTimeout(APPS_SCRIPT_RRHH, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) })
+function postRRHH(payload, timeoutMs) {
+  return fetchConTimeout(APPS_SCRIPT_RRHH, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) }, timeoutMs || 30000)
     .then(r => r.json());
 }
 // Trae, para un kiosko y rango de fechas, el Total Ventas ₡ sumado por
@@ -868,7 +868,7 @@ async function cerrarCalculo() {
       pdf_base64: pdfBase64 || undefined,
       asignaciones
     };
-    const resp = await postRRHH(payload);
+    const resp = await postRRHH(payload, 60000);
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     const pdfOk = resp.result && resp.result.pdf_url;
 
