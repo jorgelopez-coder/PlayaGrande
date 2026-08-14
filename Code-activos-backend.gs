@@ -402,7 +402,47 @@ function guardarFotoActivoEnDrive(p, id, kiosko) {
   const bytes = Utilities.base64Decode(datos.base64);
   const blob = Utilities.newBlob(bytes, datos.mime, nombre);
   const file = carpeta.createFile(blob);
-  return file.getUrl();
+  // file.getUrl() da la página visor de Drive (HTML), no la imagen — eso es
+  // lo que hacía que <img src="..."> saliera "rota" en activos.html.
+  // Hay que exponer el archivo para que cualquiera con el link pueda verlo
+  // y devolver la URL de thumbnail, que sí sirve como <img src>.
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return urlThumbnailFoto(file.getId());
+}
+
+// URL de imagen directa (no la página visor) a partir del ID del archivo en
+// Drive. sz=w600 pide una versión ya redimensionada, liviana para la tarjeta.
+function urlThumbnailFoto(fileId) {
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w600`;
+}
+
+// Función de uso único: recorre la hoja "Activos" y, para cada fila con
+// "Foto URL" en el formato viejo (link visor de Drive, .../file/d/ID/view),
+// la comparte "cualquiera con el link" y la reemplaza por la URL de
+// thumbnail. Correr una sola vez desde el editor de Apps Script (▶) después
+// de desplegar este cambio, para arreglar las fotos ya guardadas.
+function arreglarFotosExistentes() {
+  const hoja = SpreadsheetApp.getActive().getSheetByName(HOJA_ACTIVOS);
+  const datos = hoja.getDataRange().getValues();
+  const encabezados = datos[0];
+  const colFoto = encabezados.indexOf('Foto URL');
+  if (colFoto === -1) return 'No se encontró la columna "Foto URL".';
+  let arregladas = 0;
+  for (let i = 1; i < datos.length; i++) {
+    const valor = (datos[i][colFoto] || '').toString();
+    const match = /\/file\/d\/([^/]+)\//.exec(valor);
+    if (!match) continue; // ya está en formato thumbnail, o vacía
+    const fileId = match[1];
+    try {
+      const file = DriveApp.getFileById(fileId);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      hoja.getRange(i + 1, colFoto + 1).setValue(urlThumbnailFoto(fileId));
+      arregladas++;
+    } catch (e) {
+      Logger.log(`Fila ${i + 1}: no se pudo arreglar (${e.message})`);
+    }
+  }
+  return `Fotos arregladas: ${arregladas}`;
 }
 
 function getOrCreateCarpetaKioskoActivos(kiosko) {

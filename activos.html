@@ -895,7 +895,7 @@ function renderInventario() {
     const valorTxt = a.valorEstimado ? `₡${Number(a.valorEstimado).toLocaleString('es-CR')}` : '';
     const extraTxt = [cantidadTxt, valorTxt].filter(Boolean).join(' · ');
     const thumb = a.fotoUrl
-      ? `<img src="${a.fotoUrl}" class="activo-thumb" onclick="event.stopPropagation();window.open('${a.fotoUrl}','_blank')" alt="Foto"/>`
+      ? `<img src="${a.fotoUrl}" class="activo-thumb" onclick="event.stopPropagation();window.open('${a.fotoUrl}','_blank')" onerror="this.outerHTML='<div class=&quot;activo-thumb-empty&quot;>📦</div>'" alt="Foto"/>`
       : `<div class="activo-thumb-empty">📦</div>`;
     return `
     <div class="activo-card ${esBaja?'baja':''}" id="activo-${a.id}">
