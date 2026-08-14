@@ -330,8 +330,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────
 // Mismo backend compartido de RRHH usado en el resto del ecosistema: trae
-// la lista de kioskos activos (?modulo=kioskos) y el personal
-// (?modulo=personal) para el selector de "Trasladado por".
+// la lista de kioskos activos (?modulo=kioskos).
 // ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
@@ -368,21 +367,23 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
     clearTimeout(timer);
   }
 }
-async function cargarKioskosDesdeBackend(url, conTimeout) {
-  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+// Reintenta un GET hasta 3 veces (con backoff) antes de rendirse — una
+// demora normal de arranque de Apps Script no debería mostrarse como error
+// de una sola vez. Se usa para todas las cargas de datos de la página
+// (kioskos, categorías, inventario), no solo kioskos.
+async function fetchJsonConReintentos(url, mensajeErrorLog) {
   let ultimoError;
   for (let intento = 1; intento <= 3; intento++) {
     try {
-      const resp = await fetcher(url);
+      const resp = await fetchConTimeout(url);
       return await resp.json();
     } catch (e) {
       ultimoError = e;
       if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
     }
   }
-  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
-  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
-  return { ok: false };
+  console.error(mensajeErrorLog, ultimoError);
+  return { ok: false, error: (ultimoError && ultimoError.message) || 'Sin conexión tras 3 intentos' };
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
@@ -412,7 +413,8 @@ function showToast(msg, type='success') {
 // backend), sin nombres hardcodeados (mismo patrón que mantenimiento.html).
 let KIOSKOS = [];
 async function cargarKioskos() {
-  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos', true);
+  const data = await fetchJsonConReintentos(APPS_SCRIPT_RRHH + '?modulo=kioskos', 'No se pudo cargar la lista de kioskos tras 3 intentos.');
+  if (!data.ok) showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
   if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
     KIOSKOS = kioskosPermitidos(data.kioskos);
   } else if (data.registros && data.registros.length) {
@@ -440,45 +442,17 @@ function alCambiarKiosko() {
   if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
 }
 
-// ── ENCARGADOS DESDE RRHH (todos los activos) ──────────────────────
-// Se usa solo para poblar el select "Trasladado por" del formulario de
-// traslado (el campo "Registrado por" del alta se eliminó a pedido de
-// Jorge). Se carga una sola vez al iniciar la página, no por kiosko.
-let ENCARGADOS_ACTIVOS = [];
-async function cargarEncargados() {
-  try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal');
-    if (!resp.ok) throw new Error('Error ' + resp.status);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Sin datos');
-    ENCARGADOS_ACTIVOS = (data.registros || []).filter(p =>
-      (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
-    ).map(p => p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim())
-     .filter(Boolean)
-     .sort((a, b) => a.localeCompare(b));
-  } catch(e) {
-    console.error('No se pudo cargar la lista de encargados desde RRHH', e);
-  }
-}
-
-function opcionesEncargados() {
-  return ENCARGADOS_ACTIVOS;
-}
-
 // ── CATEGORÍAS (configurables desde la pestaña Configuración) ──────
 let CATEGORIAS_TODAS = []; // [{categoria, activa}], se carga desde el backend
 async function cargarCategorias(refrescarConfig) {
-  try {
-    const resp = await fetchConTimeout(ACTIVOS_URL + '?modulo=categorias');
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Sin datos');
+  const data = await fetchJsonConReintentos(ACTIVOS_URL + '?modulo=categorias', 'No se pudieron cargar las categorías tras 3 intentos.');
+  if (data.ok) {
     CATEGORIAS_TODAS = (data.registros || []).map(r => ({
       categoria: r['Categoría'] || '',
       activa: String(r['Activa'] || 'Sí').toLowerCase() !== 'no'
     })).filter(c => c.categoria);
-  } catch(e) {
-    console.error('No se pudieron cargar las categorías', e);
-    if (!CATEGORIAS_TODAS.length) showToast('No se pudieron cargar las categorías', 'error');
+  } else if (!CATEGORIAS_TODAS.length) {
+    showToast('No se pudieron cargar las categorías: ' + data.error, 'error');
   }
   poblarSelectsCategoria();
   if (refrescarConfig) renderConfigCategorias();
@@ -854,32 +828,29 @@ function limpiarActivo() {
 async function cargarActivosDesdeSheet() {
   const cont = document.getElementById('inv-lista');
   cont.innerHTML = '<div class="empty-state">Cargando activos…</div>';
-  try {
-    const resp = await fetchConTimeout(ACTIVOS_URL);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Sin datos');
-    activosDataSheet = (data.registros || []).map(r => ({
-      id:          r['ID'],
-      nombre:      r['Nombre'] || '',
-      categoria:   r['Categoría'] || '',
-      descripcion: r['Descripción'] || '',
-      alto:        r['Alto (cm)'] || '',
-      ancho:       r['Ancho (cm)'] || '',
-      fondo:       r['Fondo (cm)'] || '',
-      kiosko:      r['Kiosko Actual'] || '',
-      estado:      r['Estado'] || 'Activo',
-      fotoUrl:     r['Foto URL'] || '',
-      fechaReg:    r['Fecha Registro'] || '',
-      notas:       r['Notas'] || '',
-      cantidad:    r['Cantidad'] || '',
-      valorEstimado: r['Valor Estimado'] || '',
-      fechaAdquisicion: r['Fecha Adquisición'] || ''
-    }));
-  } catch(e) {
+  const data = await fetchJsonConReintentos(ACTIVOS_URL, 'No se pudo cargar el inventario tras 3 intentos.');
+  if (!data.ok) {
     activosDataSheet = [];
-    cont.innerHTML = `<div class="empty-state">No se pudo cargar el inventario (${e.message}).<br/><button class="btn-sm" onclick="cargarActivosDesdeSheet()" style="margin-top:10px">Reintentar</button></div>`;
+    cont.innerHTML = `<div class="empty-state">No se pudo cargar el inventario (${data.error}).<br/><button class="btn-sm" onclick="cargarActivosDesdeSheet()" style="margin-top:10px">Reintentar</button></div>`;
     return;
   }
+  activosDataSheet = (data.registros || []).map(r => ({
+    id:          r['ID'],
+    nombre:      r['Nombre'] || '',
+    categoria:   r['Categoría'] || '',
+    descripcion: r['Descripción'] || '',
+    alto:        r['Alto (cm)'] || '',
+    ancho:       r['Ancho (cm)'] || '',
+    fondo:       r['Fondo (cm)'] || '',
+    kiosko:      r['Kiosko Actual'] || '',
+    estado:      r['Estado'] || 'Activo',
+    fotoUrl:     r['Foto URL'] || '',
+    fechaReg:    r['Fecha Registro'] || '',
+    notas:       r['Notas'] || '',
+    cantidad:    r['Cantidad'] || '',
+    valorEstimado: r['Valor Estimado'] || '',
+    fechaAdquisicion: r['Fecha Adquisición'] || ''
+  }));
   poblarCategoriasInventario();
   renderInventario();
 }
@@ -963,7 +934,7 @@ function renderInventario() {
               </div>
               <div class="field">
                 <label>Trasladado por</label>
-                <select id="traslado-por-${a.id}"></select>
+                <input type="text" id="traslado-por-${a.id}" placeholder="Nombre de quién traslada"/>
               </div>
             </div>
             <div class="field">
@@ -1041,15 +1012,13 @@ function toggleTraslado(id) {
     const activo = activosDataSheet.find(a => String(a.id) === String(id));
     const selK = document.getElementById('traslado-kiosko-'+id);
     selK.innerHTML = KIOSKOS.filter(k => k !== activo?.kiosko).map(k => `<option>${k}</option>`).join('');
-    const selP = document.getElementById('traslado-por-'+id);
-    const encargados = opcionesEncargados();
-    selP.innerHTML = '<option value="" disabled selected>Seleccioná…</option>' + encargados.map(n => `<option>${n}</option>`).join('');
+    document.getElementById('traslado-por-'+id).value = '';
   }
 }
 
 async function confirmarTraslado(id) {
   const kioskoDestino = document.getElementById('traslado-kiosko-'+id).value;
-  const trasladadoPor = document.getElementById('traslado-por-'+id).value;
+  const trasladadoPor = document.getElementById('traslado-por-'+id).value.trim();
   const motivo = document.getElementById('traslado-motivo-'+id).value.trim();
   if (!kioskoDestino) { showToast('Seleccioná el kiosko destino', 'error'); return; }
   if (!trasladadoPor) { showToast('Seleccioná quién hace el traslado', 'error'); return; }
@@ -1176,7 +1145,6 @@ document.getElementById('date-chip').textContent = new Date().toLocaleDateString
 document.getElementById('act-fecha').value = new Date().toISOString().slice(0,10);
 cargarKioskos();
 cargarCategorias(false);
-cargarEncargados();
 cargarActivosDesdeSheet();
 </script>
 
