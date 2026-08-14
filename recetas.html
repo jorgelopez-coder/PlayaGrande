@@ -547,7 +547,27 @@ const RECETAS_SHEET_ID = '1U9nITZdHgdOmoPpHfXHC_6Cfb8tjQXH36s6QJLVJ90w'; // Shee
 const APPS_SCRIPT_RECETAS = 'https://script.google.com/macros/s/AKfycbzHoSGyqVANUfctfcP1yV3P8x19kUVPmPE_-HdANJ7uPiJx1zTkAxYIc3PrPLz-m8tn/exec';
 // Mismo Web App de RRHH (pestaña "Configuracion") que usan el resto de páginas del portal.
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa']; // respaldo si falla la conexión
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
@@ -675,13 +695,10 @@ function switchTab(nombre) {
 
 // ── CARGA DE DATOS ──────────────────────────────────────────────────
 async function cargarKioskosDisponibles() {
-  try {
-    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
       KIOSKOS = kioskosPermitidos(data.kioskos);
     }
-  } catch (e) { /* se queda con el respaldo de 4 kioskos */ }
 }
 
 // Agrupa Maestro_Productos por producto (mismo criterio que

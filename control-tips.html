@@ -258,9 +258,27 @@ function bloquearKioskoUnico(sel, onSel) {
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
 // Respaldo si todavía no hay conexión con Configuración.
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-
-// Índices de columnas en `records` de la hoja "Cierres" (ver
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 // Code-cierres-kioskos-backend.gs → HEADERS).
 const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_ENCARGADO = 4, COL_TURNO = 5, COL_TIPS = 43;
 
@@ -292,13 +310,10 @@ const seleccion = new Set();
 // ── KIOSKO ────────────────────────────────────────────────────────
 async function cargarKioskos() {
   if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
-    try {
-      const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-      const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
         KIOSKOS = kioskosPermitidos(data.kioskos);
       }
-    } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
   poblarKioskosSelect();
 }

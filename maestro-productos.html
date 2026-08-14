@@ -561,7 +561,27 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
@@ -1124,13 +1144,10 @@ async function guardarManual() {
 
 // ── FICHA DE PRODUCTO (ex Base de Productos, fusionado acá) ───────
 async function cargarKioskosDisponibles() {
-  try {
-    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
       KIOSKOS = kioskosPermitidos(data.kioskos);
     }
-  } catch (e) { /* se queda con el respaldo de 4 kioskos */ }
   document.getElementById('fi-kioskos-lista').innerHTML = KIOSKOS.map(k =>
     `<label class="check-row"><input type="checkbox" class="fi-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
   ).join('');

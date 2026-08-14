@@ -387,23 +387,39 @@ function showTab(tab, el) {
 }
 
 // ── KIOSKOS ───────────────────────────────────────────────────────
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-// Ficha jurídica por kiosko (razón social/cédula jurídica cargadas a mano en
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 // configuracion.html, mismo dato que usan las facturas) — se usa para
 // armar el encabezado con membrete de los PDF (boleta de pago y resumen de
 // planilla, ver encabezadoEmpresaHTML()). Clave: nombre del kiosko tal cual
 // está en la hoja "Configuracion", no normalizado.
 let KIOSKOS_INFO = {};
 async function cargarKioskos() {
-  try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos', true);
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
     if (data.ok && Array.isArray(data.registros)) {
       KIOSKOS_INFO = {};
       data.registros.forEach(r => { KIOSKOS_INFO[r['Kiosko']] = r; });
     }
-  } catch(e) { /* usa el respaldo de arriba */ }
   const sel = document.getElementById('pl-kiosko');
   sel.innerHTML = KIOSKOS.map(k => `<option>${k}</option>`).join('');
   const guardado = localStorage.getItem('kiosko_actual_planilla');

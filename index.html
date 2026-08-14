@@ -688,8 +688,27 @@ const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauR
 const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 const INVENTARIO_HIST_TAB = 'HISTORIAL_inventario';
 
-// Respaldo si todavía no hay conexión con Configuración.
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -833,11 +852,30 @@ async function cargarKPIs() {
   let kioskosActivos = [];
   let totalKioskos = 0;
   let personalActivo = 0;
+  const compareBody = document.getElementById('compare-kioskos-body');
+  const squareEntries = Object.entries(SQUARE_KIOSKOS);
+
+  // Las 3 fuentes de esta pantalla (kioskos, personal, cierres+pendientes+
+  // ventas Square) son independientes entre sí — antes se pedían en 2 tandas
+  // secuenciales (esperar kioskos, DESPUÉS esperar personal, DESPUÉS recién
+  // arrancar el resto), sumando el arranque en frío de cada Web App de Apps
+  // Script uno atrás del otro. Ahora las 3 solicitudes salen a la vez acá
+  // arriba; cada bloque de abajo espera (await) solo la suya, en el momento
+  // en que la necesita — el único que depende de otro es
+  // renderComparativoKioskos() al final, que necesita "listaKioskos" (armado
+  // con la respuesta de kioskos), pero para entonces la lectura de Cierres
+  // ya viene resuelta o resolviéndose en paralelo, no atrás.
+  const kioskosPromise = cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos');
+  const personalPromise = fetch(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json());
+  const cierresPromise = Promise.all([
+    fetch(SHEETS_URL_CIERRES + '?action=read'),
+    fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
+    ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
+  ]);
 
   // 1. KIOSKOS
   try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await kioskosPromise;
     const registros = (data.registros && data.registros.length) ? data.registros : null;
     if (registros) {
       totalKioskos = registros.length;
@@ -869,8 +907,7 @@ async function cargarKPIs() {
 
   // 2. PERSONAL (solo se usa el conteo para la barra de estado inferior)
   try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
-    const data = await resp.json();
+    const data = await personalPromise;
     const personalData = data.registros || [];
     personalActivo = personalData.filter(p => (p['Estado']||'').toString().toUpperCase() === 'ACTIVO').length;
   } catch(e) {
@@ -880,8 +917,6 @@ async function cargarKPIs() {
   // 3. CIERRES — último general + comparativo por kiosko + propinas
   //    pendientes + efectivo pendiente, más las ventas Square de cada
   //    kiosko que tenga su propio Square conectado (en paralelo).
-  const compareBody = document.getElementById('compare-kioskos-body');
-  const squareEntries = Object.entries(SQUARE_KIOSKOS);
   try {
     // "pendientes" reemplaza las 3 lecturas completas de TipsPagos/Depositos/
     // SalidasFondoCaja + el cálculo local (ver renderTipsPendientes/
@@ -892,11 +927,7 @@ async function cargarKPIs() {
     // cuántos años de historial haya. "action=read" de Cierres sigue
     // trayendo todo el historial a propósito: este dashboard necesita poder
     // detectar un kiosko que no cierra hace mucho, no solo lo reciente.
-    const [respCierres, respPendientes, ...squareResumenes] = await Promise.all([
-      fetch(SHEETS_URL_CIERRES + '?action=read'),
-      fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
-      ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
-    ]);
+    const [respCierres, respPendientes, ...squareResumenes] = await cierresPromise;
     const data = await respCierres.json();
     const dataPendientes = await respPendientes.json();
     const cierresRaw = data.records || [];

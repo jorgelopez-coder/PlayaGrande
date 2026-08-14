@@ -818,8 +818,27 @@ const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
 // ─────────────────────────────────────────────────────────────────
 
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-// 2026-08-06: filtro de kiosko en el header pasó de selección única a
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 // multi-selección (pedido de Jorge). Set vacío = "Todos los kioskos" (mismo
 // significado que antes tenía kioskoActual === ''); con 1+ elementos, filtra
 // a esos kioskos nada más. Todo el resto del archivo (KPIs, tabla, pestañas)
@@ -853,11 +872,8 @@ const seleccionadas = new Set(); // claves compuestas "numero§kiosko" marcadas 
 function claveF(numero, kiosko) { return String(numero) + '§' + String(kiosko||''); }
 
 async function cargarKioskos() {
-  try {
-    const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
-  } catch(e) { /* se queda con el respaldo hardcodeado */ }
   document.getElementById('kiosko-multi-list').innerHTML = KIOSKOS.map(k => `
     <label class="kiosko-multi-item">
       <input type="checkbox" value="${escapeAttr(k)}" onchange="toggleKioskoItem(this,'${k.replace(/'/g,"\\'")}')">

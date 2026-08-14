@@ -316,6 +316,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // TODO: reemplazar por la URL /exec del Web App de Code-mantenimiento-backend.gs
 // una vez desplegado (ver instrucciones en el encabezado de ese archivo).
@@ -331,9 +344,27 @@ let encargadoActual = '';
 let focusReporteId = new URLSearchParams(window.location.search).get('id');
 
 // Respaldo si todavía no hay conexión con Configuración.
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-
-// fetch con límite de tiempo: en redes móviles lentas/inestables, fetch() puede
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 // quedarse esperando indefinidamente sin resolver ni fallar — sin esto, el botón
 // "Guardando…" nunca se recupera porque el try/catch/finally nunca llega a correr.
 async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
@@ -371,13 +402,11 @@ function showToast(msg, type='success') {
 }
 
 // ── KIOSKO ────────────────────────────────────────────────────────
-// Trae la lista de kioskos activos desde Configuración (RRHH backend). Si no
-// hay conexión, usa la lista fija de arriba como respaldo (mismo patrón que
+// Trae siempre la lista de kioskos activos desde Configuración (RRHH backend),
+// reintentando automáticamente si falla (mismo patrón que
 // cierres.html/index.html → cargarKioskos()/poblarKioskos()).
 async function cargarKioskos() {
-  try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos', true);
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
       KIOSKOS = kioskosPermitidos(data.kioskos);
     } else if (data.registros && data.registros.length) {
@@ -386,7 +415,6 @@ async function cargarKioskos() {
         .map(k => k['Kiosko']).filter(Boolean);
       if (activos.length) KIOSKOS = activos;
     }
-  } catch(e) { /* usa el respaldo KIOSKOS de arriba */ }
   poblarKioskos();
 }
 

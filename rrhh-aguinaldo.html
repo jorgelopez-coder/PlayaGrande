@@ -194,6 +194,19 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
+// selector — se fija el valor directo y se oculta el control (todo el
+// campo si comparte fila solo con su label, o solo el <select> si comparte
+// fila con otro control como un botón).
+function bloquearKioskoUnico(sel, onSel) {
+  if (!sel || !Array.isArray(KIOSKOS) || KIOSKOS.length !== 1) return false;
+  sel.value = KIOSKOS[0];
+  const padre = sel.parentElement;
+  const soloEsteControl = padre && Array.from(padre.children).every(c => c === sel || c.tagName === 'LABEL');
+  if (soloEsteControl) padre.style.display = 'none'; else sel.style.display = 'none';
+  if (typeof onSel === 'function') onSel();
+  return true;
+}
 
 // Mismo Web App que el resto de RRHH (Code-rrhh-kioskos-backend.gs).
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
@@ -226,13 +239,30 @@ function showToast(msg, type='success') {
 }
 
 // ── KIOSKOS ───────────────────────────────────────────────────────
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 async function cargarKioskos() {
-  try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_URL + '?modulo=kioskos');
-    const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos', true);
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
-  } catch(e) { /* usa el respaldo de arriba */ }
   const sel = document.getElementById('ag-kiosko');
   const opts = KIOSKOS.length > 1 ? [`<option value="">Todos los kioskos</option>`] : [];
   sel.innerHTML = opts.concat(KIOSKOS.map(k => `<option>${k}</option>`)).join('');

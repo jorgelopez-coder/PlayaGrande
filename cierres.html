@@ -572,13 +572,29 @@ const EXTRACTOR_URL    = SHEETS_URL;
 const SQUARE_URL       = 'https://script.google.com/macros/s/AKfycbwpAYU0WBAL-tabjAsAlhh0eHxPfawXmxLHfyHDHN5KtI_qdZcvcedGqurvDGpem10F/exec';
 const SQUARE_URL_KIOSKO = 'Playa Grande';
 
-// Lista de kioskos activos — se carga desde la pestaña "Configuracion" del
-// Sheet de RRHH (ver cargarKioskos()/configuracion.html). Este arreglo es
-// solo el respaldo por si todavía no se corrió configurarHojas() o falla la
-// conexión, para que la pantalla no quede sin opciones.
-let KIOSKOS = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa'];
-
-// Kioskos con hoja "Square - <Kiosko>" propia (mismo patrón que index.html,
+// Lista de kioskos activos — se carga siempre desde la pestaña "Configuracion"
+// del Sheet de RRHH (ver cargarKioskos()/configuracion.html).
+let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
+// reintentando automáticamente si falla la conexión. No hay lista de
+// nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
+// lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
 // ver SQUARE_KIOSKOS ahí y memoria project-square-apps-script-per-kiosko).
 // Para estos, "Ventas SQUARE" se lee directo de la pestaña Resumen_Cierre_Diario
 // vía gviz — SIN pasar por el Apps Script compartido SQUARE_URL, que no tiene
@@ -622,13 +638,10 @@ let personalData = [];
 // el respaldo definido arriba en KIOSKOS.
 async function cargarKioskos() {
   if (APPS_SCRIPT_RRHH && !APPS_SCRIPT_RRHH.startsWith('TODO_')) {
-    try {
-      const resp = await fetch(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-      const data = await resp.json();
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
         KIOSKOS = kioskosPermitidos(data.kioskos);
       }
-    } catch (e) { /* sin conexión: sigue con el respaldo */ }
   }
   poblarKioskos();
 }
