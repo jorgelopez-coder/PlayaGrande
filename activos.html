@@ -62,6 +62,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .foto-preview-wrap img{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
 .foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
+/* Lista de activos por guardar (carga en lote) */
+.pend-item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+.pend-thumb{width:44px;height:44px;border-radius:7px;object-fit:cover;border:1px solid var(--border);background:var(--card);flex-shrink:0}
+.pend-thumb-empty{width:44px;height:44px;border-radius:7px;border:1px dashed var(--border);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--subtle);font-size:17px}
+.pend-main{flex:1;min-width:0}
+.pend-nombre{font-weight:600;font-size:13px}
+.pend-meta{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pend-status{font-size:11px;font-weight:600;flex-shrink:0;white-space:nowrap}
+.pend-status.ok{color:var(--green)}
+.pend-status.error{color:var(--red)}
+.pend-status.enviando{color:var(--amber)}
+.pend-remove{background:transparent;border:none;color:var(--subtle);font-size:19px;cursor:pointer;line-height:1;padding:2px 4px;flex-shrink:0}
+.pend-remove:hover{color:var(--red)}
+
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 .btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.9}
@@ -247,7 +261,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <div class="submit-area">
     <button class="btn-secondary" onclick="limpiarActivo()">Limpiar</button>
-    <button class="btn-primary" id="btn-act-submit" onclick="guardarActivo()">Guardar activo</button>
+    <button class="btn-primary" id="btn-act-agregar" onclick="agregarALaLista()">+ Agregar a la lista</button>
+  </div>
+
+  <div class="card" id="pendientes-card" style="display:none">
+    <p class="card-title">Por guardar (<span id="pendientes-count">0</span>)</p>
+    <p class="hint" style="margin-bottom:1rem">Agregá los activos uno por uno a esta lista y después subilos todos juntos con un solo toque.</p>
+    <div id="pendientes-lista"></div>
+    <div class="submit-area" style="margin-top:0">
+      <button class="btn-secondary" onclick="vaciarLista()">Vaciar lista</button>
+      <button class="btn-primary" id="btn-guardar-todos" onclick="guardarTodosPendientes()">Guardar todos</button>
+    </div>
   </div>
 </div><!-- /tab-nuevo -->
 
@@ -623,29 +647,110 @@ const ACT_KEY = 'activos_menores';
 function getActivosLocal() { try { return JSON.parse(localStorage.getItem(ACT_KEY) || '[]'); } catch { return []; } }
 function saveActivosLocal(lista) { localStorage.setItem(ACT_KEY, JSON.stringify(lista)); }
 
-// ── GUARDAR ACTIVO NUEVO ──────────────────────────────────────────
-async function guardarActivo() {
-  const kiosko       = document.getElementById('act-kiosko').value;
-  const nombre       = document.getElementById('act-nombre').value.trim();
-  const categoria    = document.getElementById('act-categoria').value;
-  const fecha        = document.getElementById('act-fecha').value;
-  const descripcion  = document.getElementById('act-descripcion').value.trim();
-  const alto         = document.getElementById('act-alto').value;
-  const ancho        = document.getElementById('act-ancho').value;
-  const fondo        = document.getElementById('act-fondo').value;
-  const cantidad     = document.getElementById('act-cantidad').value;
-  const valorEstimado= document.getElementById('act-valor').value;
-  const fechaAdquisicion = document.getElementById('act-fecha-adquisicion').value;
+// ── CARGA EN LOTE: agregar activos a una lista y subirlos todos juntos ──
+// Flujo: el usuario llena el formulario y toca "+ Agregar a la lista" por
+// cada activo (el kiosko queda seleccionado para el siguiente, ya que
+// limpiarActivo() no lo borra). Cuando terminó, "Guardar todos" envía cada
+// item pendiente al backend en secuencia (uno por uno, no en paralelo, para
+// no saturar el Web App — sobre todo si llevan foto) y deja en la lista
+// solo los que fallaron, para poder reintentar sin tener que rehacer todo.
+let pendientesActivos = [];
+let pendCounter = 0;
 
-  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
-  if (!nombre) { showToast('Ingresá el nombre del activo', 'error'); return; }
+function recolectarFormActivo() {
+  return {
+    kiosko:            document.getElementById('act-kiosko').value,
+    nombre:            document.getElementById('act-nombre').value.trim(),
+    categoria:         document.getElementById('act-categoria').value,
+    fecha:             document.getElementById('act-fecha').value,
+    descripcion:       document.getElementById('act-descripcion').value.trim(),
+    alto:              document.getElementById('act-alto').value,
+    ancho:             document.getElementById('act-ancho').value,
+    fondo:             document.getElementById('act-fondo').value,
+    cantidad:          document.getElementById('act-cantidad').value,
+    valorEstimado:     document.getElementById('act-valor').value,
+    fechaAdquisicion:  document.getElementById('act-fecha-adquisicion').value,
+    foto: fotoBase64 || null
+  };
+}
 
-  const id = Date.now();
+function agregarALaLista() {
+  const datos = recolectarFormActivo();
+  if (!datos.kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!datos.nombre) { showToast('Ingresá el nombre del activo', 'error'); return; }
+
+  pendCounter++;
+  pendientesActivos.push({
+    localId: 'p' + Date.now() + '_' + pendCounter,
+    datos,
+    fotoPreview: fotoBase64 || null,
+    estado: 'pendiente', // pendiente | enviando | ok | error
+    error: ''
+  });
+
+  limpiarActivo(); // no borra el kiosko: queda listo para el siguiente activo
+  document.getElementById('act-nombre').focus();
+
+  renderPendientes();
+  showToast('Agregado a la lista ✓');
+}
+
+function renderPendientes() {
+  const card = document.getElementById('pendientes-card');
+  const cont = document.getElementById('pendientes-lista');
+  document.getElementById('pendientes-count').textContent = pendientesActivos.length;
+  if (!pendientesActivos.length) { card.style.display = 'none'; cont.innerHTML = ''; return; }
+  card.style.display = 'block';
+
+  cont.innerHTML = pendientesActivos.map(item => {
+    const thumb = item.fotoPreview
+      ? `<img src="${item.fotoPreview}" class="pend-thumb" alt="Foto"/>`
+      : `<div class="pend-thumb-empty">📦</div>`;
+    const partes = [`📍 ${item.datos.kiosko}`];
+    if (item.datos.categoria) partes.push(item.datos.categoria);
+    if (item.datos.cantidad && Number(item.datos.cantidad) !== 1) partes.push(`Cant: ${item.datos.cantidad}`);
+
+    let statusHtml = '';
+    if (item.estado === 'enviando') statusHtml = `<span class="pend-status enviando">Enviando…</span>`;
+    else if (item.estado === 'ok') statusHtml = `<span class="pend-status ok">✓ Guardado</span>`;
+    else if (item.estado === 'error') statusHtml = `<span class="pend-status error" title="${(item.error||'').replace(/"/g,'&quot;')}">⚠ Error</span>`;
+    const removeBtn = item.estado === 'ok' ? '' : `<button class="pend-remove" onclick="quitarDeLista('${item.localId}')" title="Quitar">×</button>`;
+
+    return `
+    <div class="pend-item" id="pend-${item.localId}">
+      ${thumb}
+      <div class="pend-main">
+        <div class="pend-nombre">${item.datos.nombre}</div>
+        <div class="pend-meta">${partes.join(' · ')}</div>
+      </div>
+      ${statusHtml}
+      ${removeBtn}
+    </div>`;
+  }).join('');
+}
+
+function quitarDeLista(localId) {
+  pendientesActivos = pendientesActivos.filter(i => i.localId !== localId);
+  renderPendientes();
+}
+
+function vaciarLista() {
+  if (pendientesActivos.some(i => i.estado === 'enviando')) { showToast('Esperá a que termine el envío', 'error'); return; }
+  if (!pendientesActivos.length) return;
+  if (!confirm('¿Vaciar la lista de activos por guardar?')) return;
+  pendientesActivos = [];
+  renderPendientes();
+}
+
+async function enviarUnActivo(item) {
+  const d = item.datos;
+  const id = Date.now() + Math.floor(Math.random() * 1000);
   const registro = {
-    id, kiosko, nombre, categoria, descripcion, alto, ancho, fondo,
-    cantidad, valorEstimado, fechaAdquisicion,
-    fecha: fecha || new Date().toISOString().slice(0,10),
-    foto: fotoBase64 || null, fotoUrl: '',
+    id, kiosko: d.kiosko, nombre: d.nombre, categoria: d.categoria,
+    descripcion: d.descripcion, alto: d.alto, ancho: d.ancho, fondo: d.fondo,
+    cantidad: d.cantidad, valorEstimado: d.valorEstimado, fechaAdquisicion: d.fechaAdquisicion,
+    fecha: d.fecha || new Date().toISOString().slice(0,10),
+    foto: d.foto || null, fotoUrl: '',
     registrado_en: new Date().toISOString()
   };
 
@@ -653,30 +758,55 @@ async function guardarActivo() {
   lista.unshift(registro);
   saveActivosLocal(lista);
 
-  const btn = document.getElementById('btn-act-submit');
-  btn.disabled = true; btn.textContent = 'Guardando…';
-  try {
-    const resp = await fetchConTimeout(ACTIVOS_URL, {
-      method: 'POST',
-      body: JSON.stringify(registro)
-    }, 45000); // más tiempo: este POST puede incluir la foto
-    const out = await resp.json();
-    if (out.ok) {
-      showToast('Activo guardado ✓');
-      if (out.fotoUrl) {
-        const idx = lista.findIndex(r => r.id === id);
-        if (idx >= 0) { lista[idx].fotoUrl = out.fotoUrl; saveActivosLocal(lista); }
-      }
-      limpiarActivo();
-    } else {
-      showToast('Guardado local. Error al sincronizar: ' + (out.error||''), 'error');
-    }
-  } catch(e) {
-    showToast('Guardado local. Sin conexión con el servidor (' + e.message + ')', 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Guardar activo';
-  }
+  const resp = await fetchConTimeout(ACTIVOS_URL, {
+    method: 'POST',
+    body: JSON.stringify(registro)
+  }, 45000); // más tiempo: este POST puede incluir la foto
+  const out = await resp.json();
+  if (!out.ok) throw new Error(out.error || 'Error desconocido');
+  return out;
 }
+
+async function guardarTodosPendientes() {
+  const pendientes = pendientesActivos.filter(i => i.estado !== 'ok');
+  if (!pendientes.length) { showToast('No hay activos por guardar', 'error'); return; }
+
+  const btn = document.getElementById('btn-guardar-todos');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  let ok = 0, error = 0;
+  for (const item of pendientes) {
+    item.estado = 'enviando';
+    renderPendientes();
+    try {
+      await enviarUnActivo(item);
+      item.estado = 'ok';
+      ok++;
+    } catch (e) {
+      item.estado = 'error';
+      item.error = e.message;
+      error++;
+    }
+    renderPendientes();
+  }
+
+  btn.disabled = false; btn.textContent = 'Guardar todos';
+  // Deja en la lista solo los que fallaron, para poder reintentar sin rehacer todo.
+  pendientesActivos = pendientesActivos.filter(i => i.estado !== 'ok');
+  renderPendientes();
+
+  if (error === 0) showToast(`${ok} activo${ok===1?'':'s'} guardado${ok===1?'':'s'} ✓`);
+  else showToast(`${ok} guardado${ok===1?'':'s'}, ${error} con error — revisá la lista`, 'error');
+}
+
+// Avisa antes de cerrar/recargar si quedan activos sin subir (la lista vive
+// solo en memoria de esta pestaña, no se guarda si se cierra el navegador).
+window.addEventListener('beforeunload', function(e) {
+  if (pendientesActivos.some(i => i.estado !== 'ok')) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 function limpiarActivo() {
   document.getElementById('act-nombre').value = '';
