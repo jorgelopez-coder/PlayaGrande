@@ -197,6 +197,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </select>
       </div>
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="act-marca">Marca</label>
+        <input type="text" id="act-marca" placeholder="Ej. Samsung"/>
+      </div>
+      <div class="field">
+        <label for="act-modelo">Modelo</label>
+        <input type="text" id="act-modelo" placeholder="Ej. RT38K"/>
+      </div>
+    </div>
     <div class="field">
       <label for="act-fecha">Fecha de registro</label>
       <input type="date" id="act-fecha"/>
@@ -207,7 +217,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Descripción y medidas</p>
     <div class="field">
       <label for="act-descripcion">Descripción</label>
-      <textarea id="act-descripcion" placeholder="Color, material, marca, estado, detalles que ayuden a identificarlo…"></textarea>
+      <textarea id="act-descripcion" placeholder="Color, material, estado, detalles que ayuden a identificarlo…"></textarea>
     </div>
     <div class="field-row-3">
       <div class="field">
@@ -653,6 +663,8 @@ function recolectarFormActivo() {
     kiosko:            document.getElementById('act-kiosko').value,
     nombre:            document.getElementById('act-nombre').value.trim(),
     categoria:         document.getElementById('act-categoria').value,
+    marca:             document.getElementById('act-marca').value.trim(),
+    modelo:            document.getElementById('act-modelo').value.trim(),
     fecha:             document.getElementById('act-fecha').value,
     descripcion:       document.getElementById('act-descripcion').value.trim(),
     alto:              document.getElementById('act-alto').value,
@@ -699,6 +711,7 @@ function renderPendientes() {
       : `<div class="pend-thumb-empty">📦</div>`;
     const partes = [`📍 ${item.datos.kiosko}`];
     if (item.datos.categoria) partes.push(item.datos.categoria);
+    if (item.datos.marca || item.datos.modelo) partes.push([item.datos.marca, item.datos.modelo].filter(Boolean).join(' '));
     if (item.datos.cantidad && Number(item.datos.cantidad) !== 1) partes.push(`Cant: ${item.datos.cantidad}`);
 
     let statusHtml = '';
@@ -749,6 +762,7 @@ async function enviarUnActivo(item) {
   const id = Date.now() + Math.floor(Math.random() * 1000);
   const registro = {
     id, kiosko: d.kiosko, nombre: d.nombre, categoria: d.categoria,
+    marca: d.marca, modelo: d.modelo,
     descripcion: d.descripcion, alto: d.alto, ancho: d.ancho, fondo: d.fondo,
     cantidad: d.cantidad, valorEstimado: d.valorEstimado, fechaAdquisicion: d.fechaAdquisicion,
     fecha: d.fecha || new Date().toISOString().slice(0,10),
@@ -813,6 +827,8 @@ window.addEventListener('beforeunload', function(e) {
 function limpiarActivo() {
   document.getElementById('act-nombre').value = '';
   document.getElementById('act-categoria').value = '';
+  document.getElementById('act-marca').value = '';
+  document.getElementById('act-modelo').value = '';
   document.getElementById('act-descripcion').value = '';
   document.getElementById('act-alto').value = '';
   document.getElementById('act-ancho').value = '';
@@ -838,6 +854,8 @@ async function cargarActivosDesdeSheet() {
     id:          r['ID'],
     nombre:      r['Nombre'] || '',
     categoria:   r['Categoría'] || '',
+    marca:       r['Marca'] || '',
+    modelo:      r['Modelo'] || '',
     descripcion: r['Descripción'] || '',
     alto:        r['Alto (cm)'] || '',
     ancho:       r['Ancho (cm)'] || '',
@@ -876,7 +894,7 @@ function renderInventario() {
     const esBaja = (a.estado || '').toLowerCase().includes('baja');
     if (estadoFiltro === 'activos' && esBaja) return false;
     if (estadoFiltro === 'baja' && !esBaja) return false;
-    if (busq && !(a.nombre+a.descripcion+a.categoria+a.kiosko).toLowerCase().includes(busq)) return false;
+    if (busq && !(a.nombre+a.descripcion+a.categoria+a.kiosko+a.marca+a.modelo).toLowerCase().includes(busq)) return false;
     return true;
   });
 
@@ -909,6 +927,7 @@ function renderInventario() {
               ${a.categoria?`<span class="badge badge-categoria">${a.categoria}</span>`:''}
               <span class="badge ${esBaja?'badge-baja':'badge-activo'}">${esBaja?'Dado de baja':'Activo'}</span>
             </div>
+            ${(a.marca||a.modelo)?`<div class="activo-medidas">🏷️ ${[a.marca,a.modelo].filter(Boolean).join(' · ')}</div>`:''}
             ${medidas?`<div class="activo-medidas">${medidas}</div>`:''}
             ${extraTxt?`<div class="activo-medidas">${extraTxt}</div>`:''}
           </div>
@@ -960,6 +979,16 @@ function renderInventario() {
                   <option value="">Sin categoría</option>
                   ${CATEGORIAS_TODAS.filter(c=>c.activa||c.categoria===a.categoria).map(c=>`<option>${c.categoria}</option>`).join('')}
                 </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Marca</label>
+                <input type="text" id="editar-marca-${a.id}" value="${(a.marca||'').replace(/"/g,'&quot;')}"/>
+              </div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="editar-modelo-${a.id}" value="${(a.modelo||'').replace(/"/g,'&quot;')}"/>
               </div>
             </div>
             <div class="field">
@@ -1052,6 +1081,8 @@ function toggleEditar(id) {
 async function confirmarEdicion(id) {
   const nombre = document.getElementById('editar-nombre-'+id).value.trim();
   const categoria = document.getElementById('editar-categoria-'+id).value;
+  const marca = document.getElementById('editar-marca-'+id).value.trim();
+  const modelo = document.getElementById('editar-modelo-'+id).value.trim();
   const descripcion = document.getElementById('editar-descripcion-'+id).value.trim();
   const alto = document.getElementById('editar-alto-'+id).value;
   const ancho = document.getElementById('editar-ancho-'+id).value;
@@ -1073,7 +1104,7 @@ async function confirmarEdicion(id) {
   try {
     const resp = await fetchConTimeout(ACTIVOS_URL, {
       method: 'POST',
-      body: JSON.stringify({ accion: 'editar', id, nombre, categoria, descripcion, alto, ancho, fondo, cantidad, valorEstimado, fechaAdquisicion, foto: fotoBase64Edit })
+      body: JSON.stringify({ accion: 'editar', id, nombre, categoria, marca, modelo, descripcion, alto, ancho, fondo, cantidad, valorEstimado, fechaAdquisicion, foto: fotoBase64Edit })
     }, 45000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error desconocido');

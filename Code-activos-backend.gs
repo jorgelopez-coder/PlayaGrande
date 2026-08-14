@@ -41,14 +41,15 @@
  */
 
 const HOJA_ACTIVOS = 'Activos';
-// Cantidad / Valor Estimado / Fecha Adquisición se agregaron al FINAL a
-// propósito (no insertadas en el medio) para no correr el resto de columnas
-// en Sheets que ya tengan filas cargadas — mismo criterio que el resto del
-// ecosistema (ver project_maestro_productos_aplica_manual.md).
+// Cantidad / Valor Estimado / Fecha Adquisición / Marca / Modelo se
+// agregaron al FINAL a propósito (no insertadas en el medio) para no correr
+// el resto de columnas en Sheets que ya tengan filas cargadas — mismo
+// criterio que el resto del ecosistema (ver
+// project_maestro_productos_aplica_manual.md).
 const ENCABEZADOS_ACTIVOS = [
   'ID', 'Nombre', 'Categoría', 'Descripción', 'Alto (cm)', 'Ancho (cm)', 'Fondo (cm)',
   'Kiosko Actual', 'Estado', 'Foto URL', 'Fecha Registro', 'Registrado por', 'Registrado', 'Notas',
-  'Cantidad', 'Valor Estimado', 'Fecha Adquisición'
+  'Cantidad', 'Valor Estimado', 'Fecha Adquisición', 'Marca', 'Modelo'
 ];
 
 const HOJA_TRASLADOS = 'Traslados';
@@ -231,7 +232,9 @@ function crearActivo(p) {
     'Notas': '',
     'Cantidad': p.cantidad !== undefined && p.cantidad !== '' ? Number(p.cantidad) : 1,
     'Valor Estimado': p.valorEstimado !== undefined && p.valorEstimado !== '' ? Number(p.valorEstimado) : '',
-    'Fecha Adquisición': p.fechaAdquisicion || ''
+    'Fecha Adquisición': p.fechaAdquisicion || '',
+    'Marca': p.marca || '',
+    'Modelo': p.modelo || ''
   });
 
   const hojaTras = prepararHoja(HOJA_TRASLADOS, ENCABEZADOS_TRASLADOS);
@@ -304,6 +307,8 @@ function editarActivo(p) {
   if (p.cantidad !== undefined) setCol('Cantidad', p.cantidad === '' ? '' : Number(p.cantidad));
   if (p.valorEstimado !== undefined) setCol('Valor Estimado', p.valorEstimado === '' ? '' : Number(p.valorEstimado));
   if (p.fechaAdquisicion !== undefined) setCol('Fecha Adquisición', p.fechaAdquisicion);
+  if (p.marca !== undefined) setCol('Marca', p.marca);
+  if (p.modelo !== undefined) setCol('Modelo', p.modelo);
 
   let fotoUrl = '';
   if (p.foto) {
