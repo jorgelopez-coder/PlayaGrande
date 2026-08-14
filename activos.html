@@ -517,30 +517,37 @@ async function toggleCategoriaEstado(categoria, activaActual) {
 // Las fotos de cámara de celular suelen pesar varios MB (8-15 MB no es raro
 // en celulares nuevos) — se redimensionan y recomprimen client-side ANTES
 // de medir el tamaño, para no rechazar de entrada una foto válida que
-// todavía no se comprimió. Si la primera pasada no alcanza (fotos muy
-// grandes o con mucho detalle), se hace una segunda pasada más agresiva.
-function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
+// todavía no se comprimió.
+//
+// La imagen se decodifica UNA sola vez con createObjectURL (casi instantáneo,
+// no copia el archivo) y esa misma imagen ya decodificada se reutiliza para
+// las distintas pasadas de compresión — antes se releía el archivo entero y
+// se lo volvía a pasar por FileReader.readAsDataURL() en cada intento
+// (incluida la primera pasada, antes de comprimir nada), que es el paso más
+// lento de todos: convertir un archivo de varios MB a texto base64 completo
+// solo para poder mostrarlo, antes de recién ahí reducirlo. Ese paso extra
+// era la causa principal de la demora entre elegir la foto y que quedara
+// lista para guardar.
+function decodificarImagen(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
-          else { width = Math.round(width * maxDim / height); height = maxDim; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', calidad));
-      };
-      img.onerror = () => resolve(e.target.result); // no se pudo decodificar (ej. HEIC): usar la original tal cual
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen (formato no soportado)')); };
+    img.src = url;
   });
+}
+
+function comprimirDesdeImagen(img, maxDim, calidad) {
+  let { width, height } = img;
+  if (width > maxDim || height > maxDim) {
+    if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+    else { width = Math.round(width * maxDim / height); height = maxDim; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL('image/jpeg', calidad);
 }
 
 // Tamaño aproximado en bytes de una data URL (base64 pesa ~4/3 del binario real).
@@ -549,11 +556,20 @@ function tamanoDataUrl(dataUrl) {
   return Math.round(base64.length * 3 / 4);
 }
 
-// Comprime en pasadas cada vez más agresivas hasta que el resultado quede
-// bajo el límite, o hasta agotar los intentos (en ese caso devuelve la
-// última pasada igual, más vale una foto grande que ninguna).
+// Decodifica la imagen una sola vez y prueba pasadas cada vez más agresivas
+// (sobre la misma imagen ya en memoria, sin volver a leer el archivo) hasta
+// que el resultado quede bajo el límite, o hasta agotar los intentos (ahí
+// devuelve la última pasada igual, más vale una foto grande que ninguna).
 const FOTO_LIMITE_BYTES = 3.5 * 1024 * 1024; // ~3.5 MB comprimidos: cómodo para el POST al Web App
 async function comprimirFotoConLimite(file) {
+  let img;
+  try {
+    img = await decodificarImagen(file);
+  } catch (e) {
+    // No se pudo decodificar en el navegador (ej. algunos HEIC en Android/Chrome):
+    // no hay forma de comprimir client-side, se avisa en vez de mandar el archivo crudo.
+    throw e;
+  }
   const pasadas = [
     { maxDim: 1600, calidad: 0.75 },
     { maxDim: 1280, calidad: 0.6 },
@@ -562,7 +578,7 @@ async function comprimirFotoConLimite(file) {
   ];
   let ultimo = null;
   for (const p of pasadas) {
-    ultimo = await comprimirFoto(file, p.maxDim, p.calidad);
+    ultimo = comprimirDesdeImagen(img, p.maxDim, p.calidad);
     if (tamanoDataUrl(ultimo) <= FOTO_LIMITE_BYTES) return ultimo;
   }
   return ultimo; // no se logró bajar del límite tras todos los intentos: se manda la más chica igual
@@ -577,19 +593,24 @@ function onFotoSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
   if (file.size > FOTO_MAX_ARCHIVO_ORIGINAL) { showToast('El archivo es demasiado grande (máx. 30 MB)', 'error'); return; }
+  // Aviso inmediato para que no parezca que no pasó nada mientras comprime.
+  const placeholder = document.getElementById('foto-placeholder');
+  placeholder.innerHTML = '<div>⏳ Procesando foto…</div>';
   comprimirFotoConLimite(file).then(dataUrl => {
     fotoBase64 = dataUrl;
-    document.getElementById('foto-placeholder').style.display = 'none';
+    placeholder.style.display = 'none';
     document.getElementById('foto-preview-wrap').style.display = 'block';
     document.getElementById('foto-preview-img').src = fotoBase64;
-  }).catch(() => {
-    showToast('No se pudo procesar la foto', 'error');
+  }).catch(e => {
+    placeholder.innerHTML = '<div>Tocá para tomar foto o seleccionar de galería</div>';
+    showToast('No se pudo procesar la foto: ' + e.message, 'error');
   });
 }
 function quitarFoto(event) {
   event.preventDefault(); event.stopPropagation();
   fotoBase64 = null;
   document.getElementById('act-foto').value = '';
+  document.getElementById('foto-placeholder').innerHTML = '<div>Tocá para tomar foto o seleccionar de galería</div>';
   document.getElementById('foto-placeholder').style.display = 'block';
   document.getElementById('foto-preview-wrap').style.display = 'none';
 }
