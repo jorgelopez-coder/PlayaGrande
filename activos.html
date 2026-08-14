@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Activos Menores · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border)}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:900px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+.hint{font-size:11px;color:var(--subtle);margin-top:4px}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder,textarea::placeholder{color:var(--subtle)}
+textarea{resize:vertical;min-height:70px;line-height:1.5}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color .15s;position:relative}
+.foto-upload:hover{border-color:var(--green);color:var(--green)}
+.foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.foto-preview-wrap{position:relative;margin-top:10px;width:100%}
+.foto-preview-wrap img{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-blue{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-lt)}
+.btn-blue:hover{background:var(--blue);color:#fff}
+.btn-amber{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-lt)}
+.btn-amber:hover{background:var(--amber);color:#fff}
+.btn-red{background:var(--red-bg);color:var(--red);border-color:var(--red-lt)}
+.btn-red:hover{background:var(--red);color:#fff}
+.btn-green{background:var(--green-bg);color:var(--green);border-color:var(--green-lt)}
+.btn-green:hover{background:var(--green);color:#fff}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+/* Inventario */
+.inv-filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.inv-filtros select,.inv-filtros input{width:auto}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge-kiosko{background:var(--blue-bg);color:var(--blue)}
+.badge-categoria{background:var(--amber-bg);color:var(--amber)}
+.badge-activo{background:var(--green-bg);color:var(--green)}
+.badge-baja{background:var(--red-bg);color:var(--red)}
+
+.activo-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:12px;transition:border-color .15s;display:flex;gap:1rem}
+.activo-card.baja{opacity:.6}
+.activo-thumb{width:76px;height:76px;border-radius:9px;object-fit:cover;border:1px solid var(--border);background:var(--surface);flex-shrink:0;cursor:pointer}
+.activo-thumb-empty{width:76px;height:76px;border-radius:9px;border:1px dashed var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--subtle);font-size:22px}
+.activo-main{flex:1;min-width:0}
+.activo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer;user-select:none}
+.activo-nombre{font-weight:700;font-size:14px;font-family:var(--font-d)}
+.activo-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.activo-medidas{font-size:12px;color:var(--muted);margin-top:5px}
+.activo-chevron{font-size:11px;color:var(--subtle);transition:transform .15s;display:inline-block;flex-shrink:0}
+.activo-card.abierto .activo-chevron{transform:rotate(180deg)}
+.activo-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:none}
+.activo-card.abierto .activo-body{display:block}
+.activo-desc{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;background:var(--surface);border-radius:8px;padding:10px 12px;white-space:pre-wrap}
+.activo-meta{font-size:12px;color:var(--muted);margin-bottom:10px}
+.activo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+
+.inline-form{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:10px;display:none}
+.inline-form.show{display:block}
+.inline-form-title{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+
+.historial-section{border-top:1px solid var(--border);padding-top:10px;margin-top:4px}
+.historial-titulo{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.historial-lista{display:none}
+.historial-lista.show{display:block}
+.historial-item{font-size:12px;color:var(--text);background:var(--surface);border-radius:7px;padding:8px 10px;margin-bottom:6px;line-height:1.5}
+.historial-item .h-fecha{color:var(--muted);font-weight:500}
+.historial-item .h-mov{font-weight:600}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+
+/* Configuración: categorías */
+.cat-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 14px;margin-bottom:8px}
+.cat-item.inactiva{opacity:.55}
+.cat-nombre{font-size:13px;font-weight:500}
+
+@media(max-width:600px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+  .activo-card{flex-direction:column}
+  .activo-thumb,.activo-thumb-empty{width:100%;height:140px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">📦 Activos Menores</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('nuevo',this)">Nuevo activo</button>
+  <button class="tab-btn" onclick="showTab('inventario',this)">Inventario</button>
+  <button class="tab-btn" onclick="showTab('configuracion',this)">Configuración</button>
+</div>
+
+<main>
+
+<!-- ── TAB NUEVO ACTIVO ── -->
+<div class="page active" id="tab-nuevo">
+  <div class="card">
+    <p class="card-title">Identificación</p>
+    <div class="field">
+      <label for="act-kiosko">Kiosko <span class="req">*</span></label>
+      <select id="act-kiosko" onchange="alCambiarKiosko()">
+        <option value="" disabled selected>Cargando…</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="act-nombre">Nombre del activo <span class="req">*</span></label>
+        <input type="text" id="act-nombre" placeholder="Ej. Mesa de madera 4 personas"/>
+      </div>
+      <div class="field">
+        <label for="act-categoria">Categoría</label>
+        <select id="act-categoria">
+          <option value="">Cargando…</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="act-registrado-por">Registrado por <span class="req">*</span></label>
+        <select id="act-registrado-por">
+          <option value="" disabled selected>Seleccioná un kiosko primero…</option>
+        </select>
+        <div id="enc-error" style="display:none;font-size:12px;color:var(--red);margin-top:5px;">
+          <span id="enc-error-msg"></span>
+          <a href="javascript:void(0)" onclick="cargarEncargados()" style="color:var(--green);font-weight:600;margin-left:4px;">Reintentar</a>
+        </div>
+      </div>
+      <div class="field">
+        <label for="act-fecha">Fecha de registro</label>
+        <input type="date" id="act-fecha"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Descripción y medidas</p>
+    <div class="field">
+      <label for="act-descripcion">Descripción</label>
+      <textarea id="act-descripcion" placeholder="Color, material, marca, estado, detalles que ayuden a identificarlo…"></textarea>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label for="act-alto">Alto (cm)</label>
+        <input type="number" id="act-alto" min="0" step="0.1" placeholder="0"/>
+      </div>
+      <div class="field">
+        <label for="act-ancho">Ancho (cm)</label>
+        <input type="number" id="act-ancho" min="0" step="0.1" placeholder="0"/>
+      </div>
+      <div class="field">
+        <label for="act-fondo">Fondo (cm)</label>
+        <input type="number" id="act-fondo" min="0" step="0.1" placeholder="0"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Cantidad y valor</p>
+    <div class="field-row-3">
+      <div class="field">
+        <label for="act-cantidad">Cantidad</label>
+        <input type="number" id="act-cantidad" min="1" step="1" value="1"/>
+      </div>
+      <div class="field">
+        <label for="act-valor">Valor estimado (₡)</label>
+        <input type="number" id="act-valor" min="0" step="1" placeholder="0"/>
+      </div>
+      <div class="field">
+        <label for="act-fecha-adquisicion">Fecha de adquisición</label>
+        <input type="date" id="act-fecha-adquisicion"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Foto</p>
+    <div class="field">
+      <label>Foto del activo</label>
+      <div class="foto-upload" id="foto-upload-area">
+        <input type="file" id="act-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event)"/>
+        <div id="foto-placeholder">
+          <div>Tocá para tomar foto o seleccionar de galería</div>
+        </div>
+      </div>
+      <div class="foto-preview-wrap" id="foto-preview-wrap" style="display:none">
+        <img id="foto-preview-img" src="" alt="Vista previa"/>
+        <button class="foto-remove" onclick="quitarFoto(event)">×</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-secondary" onclick="limpiarActivo()">Limpiar</button>
+    <button class="btn-primary" id="btn-act-submit" onclick="guardarActivo()">Guardar activo</button>
+  </div>
+</div><!-- /tab-nuevo -->
+
+
+<!-- ── TAB INVENTARIO ── -->
+<div class="page" id="tab-inventario">
+  <div class="inv-filtros">
+    <select id="inv-kiosko" onchange="renderInventario()"><option value="">Todos los kioskos</option></select>
+    <select id="inv-categoria" onchange="renderInventario()"><option value="">Todas las categorías</option></select>
+    <select id="inv-estado" onchange="renderInventario()">
+      <option value="activos" selected>Activos</option>
+      <option value="baja">Dados de baja</option>
+      <option value="todos">Todos</option>
+    </select>
+    <input type="text" id="inv-buscar" placeholder="Buscar…" style="width:160px" oninput="renderInventario()"/>
+    <button class="btn-sm" onclick="cargarActivosDesdeSheet()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+  <div id="inv-count" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+  <div id="inv-lista">
+    <div class="empty-state">Cargando activos…</div>
+  </div>
+</div><!-- /tab-inventario -->
+
+
+<!-- ── TAB CONFIGURACIÓN ── -->
+<div class="page" id="tab-configuracion">
+  <div class="card">
+    <p class="card-title">Categorías de activos</p>
+    <p class="hint" style="margin-bottom:1rem">
+      Estas categorías aparecen en el select al registrar o editar un activo.
+      Desactivar una categoría no borra los activos ya registrados con ella —
+      solo deja de ofrecerse para altas nuevas.
+    </p>
+    <div class="field-row" style="align-items:flex-end">
+      <div class="field" style="margin-bottom:0">
+        <label for="cat-nueva">Nueva categoría</label>
+        <input type="text" id="cat-nueva" placeholder="Ej. Textiles"/>
+      </div>
+      <button class="btn-primary" style="flex:none" onclick="agregarCategoriaUI()">+ Agregar</button>
+    </div>
+  </div>
+  <div id="cat-lista">
+    <div class="empty-state">Cargando categorías…</div>
+  </div>
+</div><!-- /tab-configuracion -->
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismo backend compartido de RRHH usado en el resto del ecosistema: trae
+// la lista de kioskos activos (?modulo=kioskos) y el personal
+// (?modulo=personal) para el selector de "Registrado por"/"Trasladado por".
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('activos')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+// Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// TODO: reemplazar por la URL /exec del Web App de Code-activos-backend.gs
+// una vez creado el Sheet "Activos Menores - Kioskos" y desplegado el script
+// (ver instrucciones en el encabezado de ese archivo).
+const ACTIVOS_URL = 'PENDIENTE_DE_DESPLIEGUE';
+
+let fotoBase64 = null;
+let activosDataSheet = [];
+let traslados = {}; // cache por Activo ID, se carga bajo demanda al abrir el historial
+
+// ── HELPERS COMPARTIDOS ──────────────────────────────────────────
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function cargarKioskosDesdeBackend(url, conTimeout) {
+  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const resp = await fetcher(url);
+      return await resp.json();
+    } catch (e) {
+      ultimoError = e;
+      if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
+    }
+  }
+  console.error('No se pudo cargar la lista de kioskos desde Configuración tras 3 intentos.', ultimoError);
+  if (typeof showToast === 'function') showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
+  return { ok: false };
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'inventario') cargarActivosDesdeSheet();
+  if (tab === 'configuracion') cargarCategorias(true);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── KIOSKO ────────────────────────────────────────────────────────
+// Trae siempre la lista de kioskos activos desde Configuración (RRHH
+// backend), sin nombres hardcodeados (mismo patrón que mantenimiento.html).
+let KIOSKOS = [];
+async function cargarKioskos() {
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos', true);
+  if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+    KIOSKOS = kioskosPermitidos(data.kioskos);
+  } else if (data.registros && data.registros.length) {
+    const activos = data.registros
+      .filter(k => String(k['Activo']||'Sí').trim().toLowerCase() !== 'no')
+      .map(k => k['Kiosko']).filter(Boolean);
+    if (activos.length) KIOSKOS = activos;
+  }
+  poblarKioskos();
+}
+
+function poblarKioskos() {
+  const sel = document.getElementById('act-kiosko');
+  sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
+    + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+  const ultimo = localStorage.getItem('kiosko_actual');
+  if (ultimo && KIOSKOS.includes(ultimo)) {
+    sel.value = ultimo;
+    alCambiarKiosko();
+  } else {
+    cargarEncargados();
+  }
+
+  const selInv = document.getElementById('inv-kiosko');
+  selInv.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
+}
+
+function alCambiarKiosko() {
+  const kiosko = document.getElementById('act-kiosko').value;
+  if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
+  cargarEncargados();
+}
+
+// ── ENCARGADOS DESDE RRHH (todos los activos) ──────────────────────
+async function cargarEncargados() {
+  const sel = document.getElementById('act-registrado-por');
+  const errBox = document.getElementById('enc-error');
+  const errMsg = document.getElementById('enc-error-msg');
+  sel.innerHTML = '<option value="" disabled selected>Cargando…</option>';
+  errBox.style.display = 'none';
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal');
+    if (!resp.ok) throw new Error('Error ' + resp.status);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Sin datos');
+    const activos = (data.registros || []).filter(p =>
+      (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
+    ).map(p => p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim())
+     .filter(Boolean)
+     .sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="" disabled selected>Seleccioná un encargado…</option>'
+      + activos.map(n => `<option>${n}</option>`).join('');
+    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos</option>';
+  } catch(e) {
+    sel.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
+    errMsg.textContent = 'No se pudo conectar con RRHH (' + e.message + ').';
+    errBox.style.display = 'block';
+  }
+}
+
+// Trae la lista de encargados activos ya cargada en el select del tab
+// "Nuevo activo" — se reutiliza para poblar selects de traslado dentro del
+// inventario sin volver a llamar al backend de RRHH cada vez.
+function opcionesEncargados() {
+  return Array.from(document.getElementById('act-registrado-por').options)
+    .map(o => o.value).filter(Boolean);
+}
+
+// ── CATEGORÍAS (configurables desde la pestaña Configuración) ──────
+let CATEGORIAS_TODAS = []; // [{categoria, activa}], se carga desde el backend
+async function cargarCategorias(refrescarConfig) {
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL + '?modulo=categorias');
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Sin datos');
+    CATEGORIAS_TODAS = (data.registros || []).map(r => ({
+      categoria: r['Categoría'] || '',
+      activa: String(r['Activa'] || 'Sí').toLowerCase() !== 'no'
+    })).filter(c => c.categoria);
+  } catch(e) {
+    console.error('No se pudieron cargar las categorías', e);
+    if (!CATEGORIAS_TODAS.length) showToast('No se pudieron cargar las categorías', 'error');
+  }
+  poblarSelectsCategoria();
+  if (refrescarConfig) renderConfigCategorias();
+}
+
+function poblarSelectsCategoria() {
+  const activas = CATEGORIAS_TODAS.filter(c => c.activa).map(c => c.categoria);
+  const opciones = '<option value="">Sin categoría</option>' + activas.map(c => `<option>${c}</option>`).join('');
+  const selNuevo = document.getElementById('act-categoria');
+  if (selNuevo) { const v = selNuevo.value; selNuevo.innerHTML = opciones; if (activas.includes(v)) selNuevo.value = v; }
+}
+
+function renderConfigCategorias() {
+  const cont = document.getElementById('cat-lista');
+  if (!CATEGORIAS_TODAS.length) {
+    cont.innerHTML = '<div class="empty-state">Sin categorías configuradas todavía.</div>';
+    return;
+  }
+  cont.innerHTML = CATEGORIAS_TODAS.map(c => `
+    <div class="cat-item ${c.activa?'':'inactiva'}">
+      <span class="cat-nombre">${c.categoria}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge ${c.activa?'badge-activo':'badge-baja'}">${c.activa?'Activa':'Inactiva'}</span>
+        <button class="btn-sm" onclick="toggleCategoriaEstado('${c.categoria.replace(/'/g,"\\'")}', ${c.activa})">${c.activa?'Desactivar':'Reactivar'}</button>
+      </div>
+    </div>`).join('');
+}
+
+async function agregarCategoriaUI() {
+  const input = document.getElementById('cat-nueva');
+  const categoria = input.value.trim();
+  if (!categoria) { showToast('Escribí el nombre de la categoría', 'error'); return; }
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'categoria_agregar', categoria })
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido');
+    showToast('Categoría agregada ✓');
+    input.value = '';
+    cargarCategorias(true);
+  } catch(e) {
+    showToast('No se pudo agregar: ' + e.message, 'error');
+  }
+}
+
+async function toggleCategoriaEstado(categoria, activaActual) {
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'categoria_estado', categoria, activa: activaActual ? 'No' : 'Sí' })
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido');
+    cargarCategorias(true);
+  } catch(e) {
+    showToast('No se pudo actualizar la categoría: ' + e.message, 'error');
+  }
+}
+
+// ── FOTO ──────────────────────────────────────────────────────────
+// Las fotos de cámara de celular suelen pesar varios MB — se redimensionan
+// y recomprimen client-side antes de convertir a base64 (mismo patrón que
+// mantenimiento.html) para que el POST no quede colgado en redes lentas.
+function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function onFotoSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('La foto supera 5 MB', 'error'); return; }
+  comprimirFoto(file).then(dataUrl => {
+    fotoBase64 = dataUrl;
+    document.getElementById('foto-placeholder').style.display = 'none';
+    document.getElementById('foto-preview-wrap').style.display = 'block';
+    document.getElementById('foto-preview-img').src = fotoBase64;
+  }).catch(() => {
+    showToast('No se pudo procesar la foto', 'error');
+  });
+}
+function quitarFoto(event) {
+  event.preventDefault(); event.stopPropagation();
+  fotoBase64 = null;
+  document.getElementById('act-foto').value = '';
+  document.getElementById('foto-placeholder').style.display = 'block';
+  document.getElementById('foto-preview-wrap').style.display = 'none';
+}
+
+// ── LOCAL CACHE (respaldo offline) ───────────────────────────────
+const ACT_KEY = 'activos_menores';
+function getActivosLocal() { try { return JSON.parse(localStorage.getItem(ACT_KEY) || '[]'); } catch { return []; } }
+function saveActivosLocal(lista) { localStorage.setItem(ACT_KEY, JSON.stringify(lista)); }
+
+// ── GUARDAR ACTIVO NUEVO ──────────────────────────────────────────
+async function guardarActivo() {
+  const kiosko       = document.getElementById('act-kiosko').value;
+  const nombre       = document.getElementById('act-nombre').value.trim();
+  const categoria    = document.getElementById('act-categoria').value;
+  const registradoPor= document.getElementById('act-registrado-por').value;
+  const fecha        = document.getElementById('act-fecha').value;
+  const descripcion  = document.getElementById('act-descripcion').value.trim();
+  const alto         = document.getElementById('act-alto').value;
+  const ancho        = document.getElementById('act-ancho').value;
+  const fondo        = document.getElementById('act-fondo').value;
+  const cantidad     = document.getElementById('act-cantidad').value;
+  const valorEstimado= document.getElementById('act-valor').value;
+  const fechaAdquisicion = document.getElementById('act-fecha-adquisicion').value;
+
+  if (!kiosko)        { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!nombre)        { showToast('Ingresá el nombre del activo', 'error'); return; }
+  if (!registradoPor) { showToast('Seleccioná quién registra', 'error'); return; }
+
+  const id = Date.now();
+  const registro = {
+    id, kiosko, nombre, categoria, descripcion, alto, ancho, fondo,
+    cantidad, valorEstimado, fechaAdquisicion,
+    registradoPor, fecha: fecha || new Date().toISOString().slice(0,10),
+    foto: fotoBase64 || null, fotoUrl: '',
+    registrado_en: new Date().toISOString()
+  };
+
+  const lista = getActivosLocal();
+  lista.unshift(registro);
+  saveActivosLocal(lista);
+
+  const btn = document.getElementById('btn-act-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify(registro)
+    }, 45000); // más tiempo: este POST puede incluir la foto
+    const out = await resp.json();
+    if (out.ok) {
+      showToast('Activo guardado ✓');
+      if (out.fotoUrl) {
+        const idx = lista.findIndex(r => r.id === id);
+        if (idx >= 0) { lista[idx].fotoUrl = out.fotoUrl; saveActivosLocal(lista); }
+      }
+      limpiarActivo();
+    } else {
+      showToast('Guardado local. Error al sincronizar: ' + (out.error||''), 'error');
+    }
+  } catch(e) {
+    showToast('Guardado local. Sin conexión con el servidor (' + e.message + ')', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar activo';
+  }
+}
+
+function limpiarActivo() {
+  document.getElementById('act-nombre').value = '';
+  document.getElementById('act-categoria').value = '';
+  document.getElementById('act-descripcion').value = '';
+  document.getElementById('act-alto').value = '';
+  document.getElementById('act-ancho').value = '';
+  document.getElementById('act-fondo').value = '';
+  document.getElementById('act-cantidad').value = '1';
+  document.getElementById('act-valor').value = '';
+  document.getElementById('act-fecha-adquisicion').value = '';
+  document.getElementById('act-fecha').value = '';
+  quitarFoto({ preventDefault:()=>{}, stopPropagation:()=>{} });
+}
+
+// ── INVENTARIO: CARGA Y RENDER ────────────────────────────────────
+async function cargarActivosDesdeSheet() {
+  const cont = document.getElementById('inv-lista');
+  cont.innerHTML = '<div class="empty-state">Cargando activos…</div>';
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Sin datos');
+    activosDataSheet = (data.registros || []).map(r => ({
+      id:          r['ID'],
+      nombre:      r['Nombre'] || '',
+      categoria:   r['Categoría'] || '',
+      descripcion: r['Descripción'] || '',
+      alto:        r['Alto (cm)'] || '',
+      ancho:       r['Ancho (cm)'] || '',
+      fondo:       r['Fondo (cm)'] || '',
+      kiosko:      r['Kiosko Actual'] || '',
+      estado:      r['Estado'] || 'Activo',
+      fotoUrl:     r['Foto URL'] || '',
+      fechaReg:    r['Fecha Registro'] || '',
+      registradoPor: r['Registrado por'] || '',
+      notas:       r['Notas'] || '',
+      cantidad:    r['Cantidad'] || '',
+      valorEstimado: r['Valor Estimado'] || '',
+      fechaAdquisicion: r['Fecha Adquisición'] || ''
+    }));
+  } catch(e) {
+    activosDataSheet = [];
+    cont.innerHTML = `<div class="empty-state">No se pudo cargar el inventario (${e.message}).<br/><button class="btn-sm" onclick="cargarActivosDesdeSheet()" style="margin-top:10px">Reintentar</button></div>`;
+    return;
+  }
+  poblarCategoriasInventario();
+  renderInventario();
+}
+
+function poblarCategoriasInventario() {
+  const sel = document.getElementById('inv-categoria');
+  const actual = sel.value;
+  const categorias = [...new Set(activosDataSheet.map(a => a.categoria).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas las categorías</option>' + categorias.map(c => `<option>${c}</option>`).join('');
+  if (categorias.includes(actual)) sel.value = actual;
+}
+
+function renderInventario() {
+  const cont = document.getElementById('inv-lista');
+  const kioskoFiltro = document.getElementById('inv-kiosko')?.value || '';
+  const categoriaFiltro = document.getElementById('inv-categoria')?.value || '';
+  const estadoFiltro = document.getElementById('inv-estado')?.value || 'activos';
+  const busq = (document.getElementById('inv-buscar')?.value || '').toLowerCase().trim();
+
+  let lista = activosDataSheet.filter(a => {
+    if (kioskoFiltro && a.kiosko !== kioskoFiltro) return false;
+    if (categoriaFiltro && a.categoria !== categoriaFiltro) return false;
+    const esBaja = (a.estado || '').toLowerCase().includes('baja');
+    if (estadoFiltro === 'activos' && esBaja) return false;
+    if (estadoFiltro === 'baja' && !esBaja) return false;
+    if (busq && !(a.nombre+a.descripcion+a.categoria+a.kiosko).toLowerCase().includes(busq)) return false;
+    return true;
+  });
+
+  document.getElementById('inv-count').textContent = `${lista.length} activo${lista.length===1?'':'s'}`;
+
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty-state">No hay activos con estos filtros.</div>';
+    return;
+  }
+
+  cont.innerHTML = lista.map(a => {
+    const esBaja = (a.estado || '').toLowerCase().includes('baja');
+    const medidas = [a.alto,a.ancho,a.fondo].some(Boolean)
+      ? `📐 ${a.alto||'—'} × ${a.ancho||'—'} × ${a.fondo||'—'} cm (alto×ancho×fondo)` : '';
+    const cantidadTxt = (a.cantidad && Number(a.cantidad) !== 1) ? `Cant: ${a.cantidad}` : '';
+    const valorTxt = a.valorEstimado ? `₡${Number(a.valorEstimado).toLocaleString('es-CR')}` : '';
+    const extraTxt = [cantidadTxt, valorTxt].filter(Boolean).join(' · ');
+    const thumb = a.fotoUrl
+      ? `<img src="${a.fotoUrl}" class="activo-thumb" onclick="event.stopPropagation();window.open('${a.fotoUrl}','_blank')" alt="Foto"/>`
+      : `<div class="activo-thumb-empty">📦</div>`;
+    return `
+    <div class="activo-card ${esBaja?'baja':''}" id="activo-${a.id}">
+      ${thumb}
+      <div class="activo-main">
+        <div class="activo-head" onclick="toggleActivo('${a.id}')">
+          <div>
+            <div class="activo-nombre">${a.nombre}</div>
+            <div class="activo-badges">
+              <span class="badge badge-kiosko">📍 ${a.kiosko||'Sin kiosko'}</span>
+              ${a.categoria?`<span class="badge badge-categoria">${a.categoria}</span>`:''}
+              <span class="badge ${esBaja?'badge-baja':'badge-activo'}">${esBaja?'Dado de baja':'Activo'}</span>
+            </div>
+            ${medidas?`<div class="activo-medidas">${medidas}</div>`:''}
+            ${extraTxt?`<div class="activo-medidas">${extraTxt}</div>`:''}
+          </div>
+          <span class="activo-chevron">▾</span>
+        </div>
+        <div class="activo-body">
+          ${a.descripcion?`<div class="activo-desc">${a.descripcion}</div>`:''}
+          <div class="activo-meta">Registrado ${a.fechaReg||''} ${a.registradoPor?'por '+a.registradoPor:''}${a.fechaAdquisicion?' · Adquirido '+a.fechaAdquisicion:''}</div>
+          <div class="activo-actions">
+            <button class="btn-sm btn-blue" onclick="toggleTraslado('${a.id}')">↔ Trasladar</button>
+            <button class="btn-sm" onclick="toggleEditar('${a.id}')">✎ Editar</button>
+            ${esBaja
+              ? `<button class="btn-sm btn-green" onclick="cambiarEstado('${a.id}','Activo')">↺ Reactivar</button>`
+              : `<button class="btn-sm btn-red" onclick="cambiarEstado('${a.id}','Dado de baja')">✕ Dar de baja</button>`}
+          </div>
+
+          <div class="inline-form" id="traslado-${a.id}">
+            <div class="inline-form-title">Trasladar a otro kiosko</div>
+            <div class="field-row">
+              <div class="field">
+                <label>Kiosko destino</label>
+                <select id="traslado-kiosko-${a.id}"></select>
+              </div>
+              <div class="field">
+                <label>Trasladado por</label>
+                <select id="traslado-por-${a.id}"></select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Motivo (opcional)</label>
+              <input type="text" id="traslado-motivo-${a.id}" placeholder="Ej. Se necesita en el kiosko nuevo"/>
+            </div>
+            <div class="submit-area" style="margin-top:8px">
+              <button class="btn-secondary" onclick="toggleTraslado('${a.id}')">Cancelar</button>
+              <button class="btn-primary" onclick="confirmarTraslado('${a.id}')">Confirmar traslado</button>
+            </div>
+          </div>
+
+          <div class="inline-form" id="editar-${a.id}">
+            <div class="inline-form-title">Editar ficha</div>
+            <div class="field-row">
+              <div class="field">
+                <label>Nombre</label>
+                <input type="text" id="editar-nombre-${a.id}" value="${(a.nombre||'').replace(/"/g,'&quot;')}"/>
+              </div>
+              <div class="field">
+                <label>Categoría</label>
+                <select id="editar-categoria-${a.id}">
+                  <option value="">Sin categoría</option>
+                  ${CATEGORIAS_TODAS.filter(c=>c.activa||c.categoria===a.categoria).map(c=>`<option>${c.categoria}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Descripción</label>
+              <textarea id="editar-descripcion-${a.id}">${a.descripcion||''}</textarea>
+            </div>
+            <div class="field-row-3">
+              <div class="field"><label>Alto (cm)</label><input type="number" id="editar-alto-${a.id}" value="${a.alto||''}"/></div>
+              <div class="field"><label>Ancho (cm)</label><input type="number" id="editar-ancho-${a.id}" value="${a.ancho||''}"/></div>
+              <div class="field"><label>Fondo (cm)</label><input type="number" id="editar-fondo-${a.id}" value="${a.fondo||''}"/></div>
+            </div>
+            <div class="field-row-3">
+              <div class="field"><label>Cantidad</label><input type="number" min="1" step="1" id="editar-cantidad-${a.id}" value="${a.cantidad||1}"/></div>
+              <div class="field"><label>Valor estimado (₡)</label><input type="number" min="0" step="1" id="editar-valor-${a.id}" value="${a.valorEstimado||''}"/></div>
+              <div class="field"><label>Fecha de adquisición</label><input type="date" id="editar-fecha-adq-${a.id}" value="${a.fechaAdquisicion||''}"/></div>
+            </div>
+            <div class="field">
+              <label>Reemplazar foto (opcional)</label>
+              <input type="file" accept="image/*" capture="environment" id="editar-foto-${a.id}"/>
+            </div>
+            <div class="submit-area" style="margin-top:8px">
+              <button class="btn-secondary" onclick="toggleEditar('${a.id}')">Cancelar</button>
+              <button class="btn-primary" onclick="confirmarEdicion('${a.id}')">Guardar cambios</button>
+            </div>
+          </div>
+
+          <div class="historial-section">
+            <div class="historial-titulo" onclick="toggleHistorial('${a.id}')">🕘 Historial de traslados <span id="historial-chevron-${a.id}">▾</span></div>
+            <div class="historial-lista" id="historial-${a.id}">
+              <div class="empty-state" style="padding:1rem">Cargando…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleActivo(id) {
+  document.getElementById('activo-'+id).classList.toggle('abierto');
+}
+
+// ── TRASLADO ──────────────────────────────────────────────────────
+function toggleTraslado(id) {
+  const form = document.getElementById('traslado-'+id);
+  const abrir = !form.classList.contains('show');
+  document.querySelectorAll('.inline-form').forEach(f => f.classList.remove('show'));
+  if (abrir) {
+    form.classList.add('show');
+    const activo = activosDataSheet.find(a => String(a.id) === String(id));
+    const selK = document.getElementById('traslado-kiosko-'+id);
+    selK.innerHTML = KIOSKOS.filter(k => k !== activo?.kiosko).map(k => `<option>${k}</option>`).join('');
+    const selP = document.getElementById('traslado-por-'+id);
+    const encargados = opcionesEncargados();
+    selP.innerHTML = '<option value="" disabled selected>Seleccioná…</option>' + encargados.map(n => `<option>${n}</option>`).join('');
+  }
+}
+
+async function confirmarTraslado(id) {
+  const kioskoDestino = document.getElementById('traslado-kiosko-'+id).value;
+  const trasladadoPor = document.getElementById('traslado-por-'+id).value;
+  const motivo = document.getElementById('traslado-motivo-'+id).value.trim();
+  if (!kioskoDestino) { showToast('Seleccioná el kiosko destino', 'error'); return; }
+  if (!trasladadoPor) { showToast('Seleccioná quién hace el traslado', 'error'); return; }
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'trasladar', id, kioskoDestino, trasladadoPor, motivo })
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido');
+    showToast('Activo trasladado ✓');
+    toggleTraslado(id);
+    cargarActivosDesdeSheet();
+  } catch(e) {
+    showToast('No se pudo trasladar: ' + e.message, 'error');
+  }
+}
+
+// ── EDITAR ────────────────────────────────────────────────────────
+function toggleEditar(id) {
+  const form = document.getElementById('editar-'+id);
+  const abrir = !form.classList.contains('show');
+  document.querySelectorAll('.inline-form').forEach(f => f.classList.remove('show'));
+  if (abrir) {
+    form.classList.add('show');
+    const activo = activosDataSheet.find(a => String(a.id) === String(id));
+    if (activo?.categoria) document.getElementById('editar-categoria-'+id).value = activo.categoria;
+  }
+}
+
+async function confirmarEdicion(id) {
+  const nombre = document.getElementById('editar-nombre-'+id).value.trim();
+  const categoria = document.getElementById('editar-categoria-'+id).value;
+  const descripcion = document.getElementById('editar-descripcion-'+id).value.trim();
+  const alto = document.getElementById('editar-alto-'+id).value;
+  const ancho = document.getElementById('editar-ancho-'+id).value;
+  const fondo = document.getElementById('editar-fondo-'+id).value;
+  const cantidad = document.getElementById('editar-cantidad-'+id).value;
+  const valorEstimado = document.getElementById('editar-valor-'+id).value;
+  const fechaAdquisicion = document.getElementById('editar-fecha-adq-'+id).value;
+  if (!nombre) { showToast('El nombre no puede quedar vacío', 'error'); return; }
+
+  const fotoInput = document.getElementById('editar-foto-'+id);
+  const file = fotoInput.files[0];
+  let fotoBase64Edit = null;
+  if (file) {
+    if (file.size > 5 * 1024 * 1024) { showToast('La foto supera 5 MB', 'error'); return; }
+    try { fotoBase64Edit = await comprimirFoto(file); }
+    catch { showToast('No se pudo procesar la foto', 'error'); return; }
+  }
+
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'editar', id, nombre, categoria, descripcion, alto, ancho, fondo, cantidad, valorEstimado, fechaAdquisicion, foto: fotoBase64Edit })
+    }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido');
+    showToast('Ficha actualizada ✓');
+    toggleEditar(id);
+    cargarActivosDesdeSheet();
+  } catch(e) {
+    showToast('No se pudo guardar: ' + e.message, 'error');
+  }
+}
+
+// ── ESTADO (baja / reactivar) ─────────────────────────────────────
+async function cambiarEstado(id, estado) {
+  try {
+    const resp = await fetchConTimeout(ACTIVOS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ accion: 'estado', id, estado })
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido');
+    showToast(estado === 'Activo' ? 'Activo reactivado ✓' : 'Activo dado de baja ✓');
+    cargarActivosDesdeSheet();
+  } catch(e) {
+    showToast('No se pudo actualizar el estado: ' + e.message, 'error');
+  }
+}
+
+// ── HISTORIAL DE TRASLADOS (bajo demanda) ─────────────────────────
+async function toggleHistorial(id) {
+  const cont = document.getElementById('historial-'+id);
+  const chev = document.getElementById('historial-chevron-'+id);
+  const abrir = !cont.classList.contains('show');
+  cont.classList.toggle('show', abrir);
+  chev.style.transform = abrir ? 'rotate(180deg)' : 'rotate(0deg)';
+  if (!abrir) return;
+
+  if (!traslados[id]) {
+    cont.innerHTML = '<div class="empty-state" style="padding:1rem">Cargando…</div>';
+    try {
+      const resp = await fetchConTimeout(ACTIVOS_URL + '?modulo=traslados&activoId=' + encodeURIComponent(id));
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Sin datos');
+      traslados[id] = (data.registros || []).sort((a,b) => (a['Fecha']||'') < (b['Fecha']||'') ? 1 : -1);
+    } catch(e) {
+      cont.innerHTML = `<div class="empty-state" style="padding:1rem">No se pudo cargar el historial (${e.message}).</div>`;
+      return;
+    }
+  }
+
+  const lista = traslados[id];
+  if (!lista.length) {
+    cont.innerHTML = '<div class="empty-state" style="padding:1rem">Sin movimientos registrados.</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(t => {
+    const origen = t['Kiosko Origen'] || '';
+    const destino = t['Kiosko Destino'] || '';
+    const mov = origen ? `${origen} → ${destino}` : `Alta en ${destino}`;
+    return `<div class="historial-item">
+      <span class="h-fecha">${t['Fecha']||''}</span> — <span class="h-mov">${mov}</span>
+      ${t['Motivo']?` · ${t['Motivo']}`:''}
+      ${t['Trasladado por']?` · por ${t['Trasladado por']}`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+document.getElementById('act-fecha').value = new Date().toISOString().slice(0,10);
+cargarKioskos();
+cargarCategorias(false);
+</script>
+
+</body>
+</html>
