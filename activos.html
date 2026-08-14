@@ -63,7 +63,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
 /* Lista de activos por guardar (carga en lote) */
-.pend-item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+.pend-item{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+.pend-item-row{display:flex;gap:10px;align-items:center}
+.pend-error{font-size:11.5px;color:var(--red);margin-top:8px;padding-top:8px;border-top:1px dashed var(--red-lt);line-height:1.4}
 .pend-thumb{width:44px;height:44px;border-radius:7px;object-fit:cover;border:1px solid var(--border);background:var(--card);flex-shrink:0}
 .pend-thumb-empty{width:44px;height:44px;border-radius:7px;border:1px dashed var(--border);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--subtle);font-size:17px}
 .pend-main{flex:1;min-width:0}
@@ -644,8 +646,23 @@ function quitarFoto(event) {
 
 // ── LOCAL CACHE (respaldo offline) ───────────────────────────────
 const ACT_KEY = 'activos_menores';
+const ACT_LOCAL_MAX = 30; // tope del respaldo local: las fotos pesan varios MB cada una y el
+                          // localStorage del celular tiene solo unos pocos MB de cupo total.
 function getActivosLocal() { try { return JSON.parse(localStorage.getItem(ACT_KEY) || '[]'); } catch { return []; } }
-function saveActivosLocal(lista) { localStorage.setItem(ACT_KEY, JSON.stringify(lista)); }
+// Es solo un respaldo offline (no lo lee ninguna pantalla) — NUNCA debe frenar el guardado
+// real en el servidor. Si el localStorage se queda sin espacio (típico al cargar varias
+// fotos seguidas), se recorta la lista en vez de dejar que el error de cuota se propague
+// y haga fallar el guardado del activo completo.
+function saveActivosLocal(lista) {
+  let recorte = lista.slice(0, ACT_LOCAL_MAX);
+  for (let intento = 0; intento < 8; intento++) {
+    try { localStorage.setItem(ACT_KEY, JSON.stringify(recorte)); return; }
+    catch (e) {
+      if (recorte.length <= 1) { console.warn('No se pudo guardar el respaldo local de activos:', e); return; }
+      recorte = recorte.slice(0, Math.ceil(recorte.length / 2));
+    }
+  }
+}
 
 // ── CARGA EN LOTE: agregar activos a una lista y subirlos todos juntos ──
 // Flujo: el usuario llena el formulario y toca "+ Agregar a la lista" por
@@ -713,20 +730,31 @@ function renderPendientes() {
     let statusHtml = '';
     if (item.estado === 'enviando') statusHtml = `<span class="pend-status enviando">Enviando…</span>`;
     else if (item.estado === 'ok') statusHtml = `<span class="pend-status ok">✓ Guardado</span>`;
-    else if (item.estado === 'error') statusHtml = `<span class="pend-status error" title="${(item.error||'').replace(/"/g,'&quot;')}">⚠ Error</span>`;
+    else if (item.estado === 'error') statusHtml = `<span class="pend-status error">⚠ Error</span>`;
     const removeBtn = item.estado === 'ok' ? '' : `<button class="pend-remove" onclick="quitarDeLista('${item.localId}')" title="Quitar">×</button>`;
+    // El detalle del error se muestra siempre visible (no como tooltip): en
+    // celular no hay forma de "pasar el mouse" para ver un title.
+    const errorHtml = (item.estado === 'error' && item.error)
+      ? `<div class="pend-error">${escapeHtml(item.error)}</div>` : '';
 
     return `
     <div class="pend-item" id="pend-${item.localId}">
-      ${thumb}
-      <div class="pend-main">
-        <div class="pend-nombre">${item.datos.nombre}</div>
-        <div class="pend-meta">${partes.join(' · ')}</div>
+      <div class="pend-item-row">
+        ${thumb}
+        <div class="pend-main">
+          <div class="pend-nombre">${escapeHtml(item.datos.nombre)}</div>
+          <div class="pend-meta">${partes.map(escapeHtml).join(' · ')}</div>
+        </div>
+        ${statusHtml}
+        ${removeBtn}
       </div>
-      ${statusHtml}
-      ${removeBtn}
+      ${errorHtml}
     </div>`;
   }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function quitarDeLista(localId) {
