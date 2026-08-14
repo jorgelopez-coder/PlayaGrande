@@ -181,21 +181,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </select>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="act-registrado-por">Registrado por <span class="req">*</span></label>
-        <select id="act-registrado-por">
-          <option value="" disabled selected>Seleccioná un kiosko primero…</option>
-        </select>
-        <div id="enc-error" style="display:none;font-size:12px;color:var(--red);margin-top:5px;">
-          <span id="enc-error-msg"></span>
-          <a href="javascript:void(0)" onclick="cargarEncargados()" style="color:var(--green);font-weight:600;margin-left:4px;">Reintentar</a>
-        </div>
-      </div>
-      <div class="field">
-        <label for="act-fecha">Fecha de registro</label>
-        <input type="date" id="act-fecha"/>
-      </div>
+    <div class="field">
+      <label for="act-fecha">Fecha de registro</label>
+      <input type="date" id="act-fecha"/>
     </div>
   </div>
 
@@ -316,7 +304,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // ── CONFIG ────────────────────────────────────────────────────────
 // Mismo backend compartido de RRHH usado en el resto del ecosistema: trae
 // la lista de kioskos activos (?modulo=kioskos) y el personal
-// (?modulo=personal) para el selector de "Registrado por"/"Trasladado por".
+// (?modulo=personal) para el selector de "Trasladado por".
 // ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
@@ -414,12 +402,7 @@ function poblarKioskos() {
   sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>'
     + KIOSKOS.map(k => `<option>${k}</option>`).join('');
   const ultimo = localStorage.getItem('kiosko_actual');
-  if (ultimo && KIOSKOS.includes(ultimo)) {
-    sel.value = ultimo;
-    alCambiarKiosko();
-  } else {
-    cargarEncargados();
-  }
+  if (ultimo && KIOSKOS.includes(ultimo)) sel.value = ultimo;
 
   const selInv = document.getElementById('inv-kiosko');
   selInv.innerHTML = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option>${k}</option>`).join('');
@@ -428,42 +411,31 @@ function poblarKioskos() {
 function alCambiarKiosko() {
   const kiosko = document.getElementById('act-kiosko').value;
   if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
-  cargarEncargados();
 }
 
 // ── ENCARGADOS DESDE RRHH (todos los activos) ──────────────────────
+// Se usa solo para poblar el select "Trasladado por" del formulario de
+// traslado (el campo "Registrado por" del alta se eliminó a pedido de
+// Jorge). Se carga una sola vez al iniciar la página, no por kiosko.
+let ENCARGADOS_ACTIVOS = [];
 async function cargarEncargados() {
-  const sel = document.getElementById('act-registrado-por');
-  const errBox = document.getElementById('enc-error');
-  const errMsg = document.getElementById('enc-error-msg');
-  sel.innerHTML = '<option value="" disabled selected>Cargando…</option>';
-  errBox.style.display = 'none';
   try {
     const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal');
     if (!resp.ok) throw new Error('Error ' + resp.status);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Sin datos');
-    const activos = (data.registros || []).filter(p =>
+    ENCARGADOS_ACTIVOS = (data.registros || []).filter(p =>
       (p['Estado'] || '').toString().toUpperCase() === 'ACTIVO'
     ).map(p => p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim())
      .filter(Boolean)
      .sort((a, b) => a.localeCompare(b));
-    sel.innerHTML = '<option value="" disabled selected>Seleccioná un encargado…</option>'
-      + activos.map(n => `<option>${n}</option>`).join('');
-    if (!activos.length) sel.innerHTML = '<option value="" disabled selected>Sin colaboradores activos</option>';
   } catch(e) {
-    sel.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
-    errMsg.textContent = 'No se pudo conectar con RRHH (' + e.message + ').';
-    errBox.style.display = 'block';
+    console.error('No se pudo cargar la lista de encargados desde RRHH', e);
   }
 }
 
-// Trae la lista de encargados activos ya cargada en el select del tab
-// "Nuevo activo" — se reutiliza para poblar selects de traslado dentro del
-// inventario sin volver a llamar al backend de RRHH cada vez.
 function opcionesEncargados() {
-  return Array.from(document.getElementById('act-registrado-por').options)
-    .map(o => o.value).filter(Boolean);
+  return ENCARGADOS_ACTIVOS;
 }
 
 // ── CATEGORÍAS (configurables desde la pestaña Configuración) ──────
@@ -599,7 +571,6 @@ async function guardarActivo() {
   const kiosko       = document.getElementById('act-kiosko').value;
   const nombre       = document.getElementById('act-nombre').value.trim();
   const categoria    = document.getElementById('act-categoria').value;
-  const registradoPor= document.getElementById('act-registrado-por').value;
   const fecha        = document.getElementById('act-fecha').value;
   const descripcion  = document.getElementById('act-descripcion').value.trim();
   const alto         = document.getElementById('act-alto').value;
@@ -609,15 +580,14 @@ async function guardarActivo() {
   const valorEstimado= document.getElementById('act-valor').value;
   const fechaAdquisicion = document.getElementById('act-fecha-adquisicion').value;
 
-  if (!kiosko)        { showToast('Seleccioná el kiosko', 'error'); return; }
-  if (!nombre)        { showToast('Ingresá el nombre del activo', 'error'); return; }
-  if (!registradoPor) { showToast('Seleccioná quién registra', 'error'); return; }
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!nombre) { showToast('Ingresá el nombre del activo', 'error'); return; }
 
   const id = Date.now();
   const registro = {
     id, kiosko, nombre, categoria, descripcion, alto, ancho, fondo,
     cantidad, valorEstimado, fechaAdquisicion,
-    registradoPor, fecha: fecha || new Date().toISOString().slice(0,10),
+    fecha: fecha || new Date().toISOString().slice(0,10),
     foto: fotoBase64 || null, fotoUrl: '',
     registrado_en: new Date().toISOString()
   };
@@ -685,7 +655,6 @@ async function cargarActivosDesdeSheet() {
       estado:      r['Estado'] || 'Activo',
       fotoUrl:     r['Foto URL'] || '',
       fechaReg:    r['Fecha Registro'] || '',
-      registradoPor: r['Registrado por'] || '',
       notas:       r['Notas'] || '',
       cantidad:    r['Cantidad'] || '',
       valorEstimado: r['Valor Estimado'] || '',
@@ -761,7 +730,7 @@ function renderInventario() {
         </div>
         <div class="activo-body">
           ${a.descripcion?`<div class="activo-desc">${a.descripcion}</div>`:''}
-          <div class="activo-meta">Registrado ${a.fechaReg||''} ${a.registradoPor?'por '+a.registradoPor:''}${a.fechaAdquisicion?' · Adquirido '+a.fechaAdquisicion:''}</div>
+          <div class="activo-meta">Registrado ${a.fechaReg||''}${a.fechaAdquisicion?' · Adquirido '+a.fechaAdquisicion:''}</div>
           <div class="activo-actions">
             <button class="btn-sm btn-blue" onclick="toggleTraslado('${a.id}')">↔ Trasladar</button>
             <button class="btn-sm" onclick="toggleEditar('${a.id}')">✎ Editar</button>
@@ -992,6 +961,7 @@ document.getElementById('date-chip').textContent = new Date().toLocaleDateString
 document.getElementById('act-fecha').value = new Date().toISOString().slice(0,10);
 cargarKioskos();
 cargarCategorias(false);
+cargarEncargados();
 </script>
 
 </body>
