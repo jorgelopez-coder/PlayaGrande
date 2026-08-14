@@ -152,15 +152,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('nuevo',this)">Nuevo activo</button>
-  <button class="tab-btn" onclick="showTab('inventario',this)">Inventario</button>
+  <button class="tab-btn active" onclick="showTab('inventario',this)">Inventario</button>
+  <button class="tab-btn" onclick="showTab('nuevo',this)">Nuevo activo</button>
   <button class="tab-btn" onclick="showTab('configuracion',this)">Configuración</button>
 </div>
 
 <main>
 
 <!-- ── TAB NUEVO ACTIVO ── -->
-<div class="page active" id="tab-nuevo">
+<div class="page" id="tab-nuevo">
   <div class="card">
     <p class="card-title">Identificación</p>
     <div class="field">
@@ -234,6 +234,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="foto-upload" id="foto-upload-area">
         <input type="file" id="act-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event)"/>
         <div id="foto-placeholder">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 8px"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
           <div>Tocá para tomar foto o seleccionar de galería</div>
         </div>
       </div>
@@ -252,7 +253,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 
 <!-- ── TAB INVENTARIO ── -->
-<div class="page" id="tab-inventario">
+<div class="page active" id="tab-inventario">
   <div class="inv-filtros">
     <select id="inv-kiosko" onchange="renderInventario()"><option value="">Todos los kioskos</option></select>
     <select id="inv-categoria" onchange="renderInventario()"><option value="">Todas las categorías</option></select>
@@ -589,6 +590,8 @@ async function comprimirFotoConLimite(file) {
 // comprimir primero.
 const FOTO_MAX_ARCHIVO_ORIGINAL = 30 * 1024 * 1024; // 30 MB
 
+const FOTO_PLACEHOLDER_HTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 8px"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg><div>Tocá para tomar foto o seleccionar de galería</div>';
+
 function onFotoSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -602,7 +605,7 @@ function onFotoSelected(event) {
     document.getElementById('foto-preview-wrap').style.display = 'block';
     document.getElementById('foto-preview-img').src = fotoBase64;
   }).catch(e => {
-    placeholder.innerHTML = '<div>Tocá para tomar foto o seleccionar de galería</div>';
+    placeholder.innerHTML = FOTO_PLACEHOLDER_HTML;
     showToast('No se pudo procesar la foto: ' + e.message, 'error');
   });
 }
@@ -610,7 +613,7 @@ function quitarFoto(event) {
   event.preventDefault(); event.stopPropagation();
   fotoBase64 = null;
   document.getElementById('act-foto').value = '';
-  document.getElementById('foto-placeholder').innerHTML = '<div>Tocá para tomar foto o seleccionar de galería</div>';
+  document.getElementById('foto-placeholder').innerHTML = FOTO_PLACEHOLDER_HTML;
   document.getElementById('foto-placeholder').style.display = 'block';
   document.getElementById('foto-preview-wrap').style.display = 'none';
 }
@@ -1016,6 +1019,7 @@ document.getElementById('act-fecha').value = new Date().toISOString().slice(0,10
 cargarKioskos();
 cargarCategorias(false);
 cargarEncargados();
+cargarActivosDesdeSheet();
 </script>
 
 </body>
