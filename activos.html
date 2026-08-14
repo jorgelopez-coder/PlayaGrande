@@ -909,7 +909,7 @@ function renderInventario() {
     const esBaja = (a.estado || '').toLowerCase().includes('baja');
     const medidas = [a.alto,a.ancho,a.fondo].some(Boolean)
       ? `📐 ${a.alto||'—'} × ${a.ancho||'—'} × ${a.fondo||'—'} cm (alto×ancho×fondo)` : '';
-    const cantidadTxt = (a.cantidad && Number(a.cantidad) !== 1) ? `Cant: ${a.cantidad}` : '';
+    const cantidadTxt = `Cant: ${a.cantidad || 1}`;
     const valorTxt = a.valorEstimado ? `₡${Number(a.valorEstimado).toLocaleString('es-CR')}` : '';
     const extraTxt = [cantidadTxt, valorTxt].filter(Boolean).join(' · ');
     const thumb = a.fotoUrl
@@ -956,9 +956,16 @@ function renderInventario() {
                 <input type="text" id="traslado-por-${a.id}" placeholder="Nombre de quién traslada"/>
               </div>
             </div>
-            <div class="field">
-              <label>Motivo (opcional)</label>
-              <input type="text" id="traslado-motivo-${a.id}" placeholder="Ej. Se necesita en el kiosko nuevo"/>
+            <div class="field-row">
+              <div class="field">
+                <label>Cantidad a trasladar</label>
+                <input type="number" id="traslado-cantidad-${a.id}" min="1" step="1"/>
+                <p class="hint" id="traslado-cantidad-hint-${a.id}"></p>
+              </div>
+              <div class="field">
+                <label>Motivo (opcional)</label>
+                <input type="text" id="traslado-motivo-${a.id}" placeholder="Ej. Se necesita en el kiosko nuevo"/>
+              </div>
             </div>
             <div class="submit-area" style="margin-top:8px">
               <button class="btn-secondary" onclick="toggleTraslado('${a.id}')">Cancelar</button>
@@ -1042,6 +1049,18 @@ function toggleTraslado(id) {
     const selK = document.getElementById('traslado-kiosko-'+id);
     selK.innerHTML = KIOSKOS.filter(k => k !== activo?.kiosko).map(k => `<option>${k}</option>`).join('');
     document.getElementById('traslado-por-'+id).value = '';
+    document.getElementById('traslado-motivo-'+id).value = '';
+    // La cantidad a trasladar arranca en el total disponible (traslado
+    // completo por defecto); el usuario la baja si solo quiere mover parte
+    // de las existencias — el resto queda en el kiosko de origen.
+    const totalCant = Number(activo?.cantidad) || 1;
+    const inputCant = document.getElementById('traslado-cantidad-'+id);
+    inputCant.value = totalCant;
+    inputCant.max = totalCant;
+    inputCant.min = 1;
+    document.getElementById('traslado-cantidad-hint-'+id).textContent = totalCant > 1
+      ? `Hay ${totalCant} en ${activo.kiosko}. Si trasladás menos, el resto queda ahí.`
+      : '';
   }
 }
 
@@ -1049,16 +1068,21 @@ async function confirmarTraslado(id) {
   const kioskoDestino = document.getElementById('traslado-kiosko-'+id).value;
   const trasladadoPor = document.getElementById('traslado-por-'+id).value.trim();
   const motivo = document.getElementById('traslado-motivo-'+id).value.trim();
+  const activo = activosDataSheet.find(a => String(a.id) === String(id));
+  const totalCant = Number(activo?.cantidad) || 1;
+  const cantidad = Number(document.getElementById('traslado-cantidad-'+id).value);
   if (!kioskoDestino) { showToast('Seleccioná el kiosko destino', 'error'); return; }
   if (!trasladadoPor) { showToast('Seleccioná quién hace el traslado', 'error'); return; }
+  if (!cantidad || cantidad < 1) { showToast('La cantidad a trasladar debe ser al menos 1', 'error'); return; }
+  if (cantidad > totalCant) { showToast(`Solo hay ${totalCant} disponibles en ${activo.kiosko}`, 'error'); return; }
   try {
     const resp = await fetchConTimeout(ACTIVOS_URL, {
       method: 'POST',
-      body: JSON.stringify({ accion: 'trasladar', id, kioskoDestino, trasladadoPor, motivo })
+      body: JSON.stringify({ accion: 'trasladar', id, kioskoDestino, trasladadoPor, motivo, cantidad })
     });
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error desconocido');
-    showToast('Activo trasladado ✓');
+    showToast(cantidad < totalCant ? `${cantidad} de ${totalCant} trasladados ✓ (el resto quedó en ${activo.kiosko})` : 'Activo trasladado ✓');
     toggleTraslado(id);
     cargarActivosDesdeSheet();
   } catch(e) {

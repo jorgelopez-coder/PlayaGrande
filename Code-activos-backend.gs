@@ -255,6 +255,14 @@ function crearActivo(p) {
 }
 
 // ── TRASLADO ENTRE KIOSKOS ────────────────────────────────────────
+// Si p.cantidad no se manda, o viene igual al total de existencias del
+// activo, es un traslado completo (se mueve la misma fila, comportamiento
+// de siempre). Si p.cantidad es MENOR al total, es un traslado parcial:
+// la fila original se queda en el kiosko de origen con el resto de las
+// existencias (Cantidad -= cantidad trasladada) y se crea una fila nueva
+// (ID nuevo) en el kiosko destino con la cantidad trasladada, copiando el
+// resto de la ficha (nombre, categoría, medidas, foto, marca, modelo). El
+// valor estimado se copia tal cual en ambas filas — no se prorratea.
 function trasladarActivo(p) {
   if (!p.id) throw new Error('Falta el ID del activo.');
   if (!p.kioskoDestino) throw new Error('Falta el kiosko de destino.');
@@ -264,27 +272,79 @@ function trasladarActivo(p) {
 
   const colKiosko = ENCABEZADOS_ACTIVOS.indexOf('Kiosko Actual') + 1;
   const colNombre = ENCABEZADOS_ACTIVOS.indexOf('Nombre') + 1;
+  const colCantidad = ENCABEZADOS_ACTIVOS.indexOf('Cantidad') + 1;
   const origen = String(hoja.getRange(fila, colKiosko).getValue() || '');
   const nombreActivo = String(hoja.getRange(fila, colNombre).getValue() || '');
   if (origen === p.kioskoDestino) throw new Error('El activo ya está en ese kiosko.');
 
-  hoja.getRange(fila, colKiosko).setValue(p.kioskoDestino);
+  const cantidadActual = Number(hoja.getRange(fila, colCantidad).getValue()) || 1;
+  const cantidadTrasladar = (p.cantidad !== undefined && p.cantidad !== '') ? Number(p.cantidad) : cantidadActual;
+  if (!cantidadTrasladar || cantidadTrasladar < 1) throw new Error('La cantidad a trasladar debe ser al menos 1.');
+  if (cantidadTrasladar > cantidadActual) throw new Error('No hay esa cantidad disponible en el kiosko de origen.');
 
+  const fecha = p.fecha || hoyCR();
+
+  if (cantidadTrasladar >= cantidadActual) {
+    // Traslado completo: se mueve la fila tal cual, como antes.
+    hoja.getRange(fila, colKiosko).setValue(p.kioskoDestino);
+    registrarTraslado({
+      activoId: p.id, activoNombre: nombreActivo, fecha: fecha,
+      origen: origen, destino: p.kioskoDestino, motivo: p.motivo || '', trasladadoPor: p.trasladadoPor || ''
+    });
+    return { ok: true, fila: fila, origen: origen, destino: p.kioskoDestino, cantidad: cantidadTrasladar, parcial: false };
+  }
+
+  // Traslado parcial: resta del original y crea una ficha nueva en destino.
+  hoja.getRange(fila, colCantidad).setValue(cantidadActual - cantidadTrasladar);
+
+  const filaCompleta = hoja.getRange(fila, 1, 1, ENCABEZADOS_ACTIVOS.length).getValues()[0];
+  const datosOriginal = {};
+  ENCABEZADOS_ACTIVOS.forEach(function(h, i) { datosOriginal[h] = filaCompleta[i]; });
+
+  const idNuevo = Date.now();
+  const filaNueva = hoja.getLastRow() + 1;
+  const datosNuevo = Object.assign({}, datosOriginal, {
+    'ID': idNuevo,
+    'Kiosko Actual': p.kioskoDestino,
+    'Cantidad': cantidadTrasladar,
+    'Fecha Registro': fecha,
+    'Registrado': new Date().toISOString(),
+    'Notas': ''
+  });
+  escribirFilaPorEncabezado(hoja, filaNueva, ENCABEZADOS_ACTIVOS, datosNuevo);
+
+  const motivoBase = p.motivo ? (p.motivo + ' — ') : '';
+  registrarTraslado({
+    activoId: p.id, activoNombre: nombreActivo, fecha: fecha,
+    origen: origen, destino: p.kioskoDestino,
+    motivo: motivoBase + 'Traslado parcial: ' + cantidadTrasladar + ' de ' + cantidadActual,
+    trasladadoPor: p.trasladadoPor || ''
+  });
+  registrarTraslado({
+    activoId: idNuevo, activoNombre: nombreActivo, fecha: fecha,
+    origen: '', destino: p.kioskoDestino,
+    motivo: 'Alta por traslado parcial desde ' + origen + ' (activo original ' + p.id + ')',
+    trasladadoPor: p.trasladadoPor || ''
+  });
+
+  return { ok: true, fila: fila, filaNueva: filaNueva, idNuevo: idNuevo, origen: origen, destino: p.kioskoDestino, cantidad: cantidadTrasladar, parcial: true };
+}
+
+// Escribe una fila en "Traslados" — usado por traslado completo y parcial.
+function registrarTraslado(o) {
   const hojaTras = prepararHoja(HOJA_TRASLADOS, ENCABEZADOS_TRASLADOS);
   const filaTras = hojaTras.getLastRow() + 1;
   escribirFilaPorEncabezado(hojaTras, filaTras, ENCABEZADOS_TRASLADOS, {
-    'ID': Date.now(),
-    'Activo ID': p.id,
-    'Activo Nombre': nombreActivo,
-    'Fecha': p.fecha || hoyCR(),
-    'Kiosko Origen': origen,
-    'Kiosko Destino': p.kioskoDestino,
-    'Motivo': p.motivo || '',
-    'Trasladado por': p.trasladadoPor || '',
+    'ID': Date.now() + Math.floor(Math.random() * 1000),
+    'Activo ID': o.activoId,
+    'Activo Nombre': o.activoNombre,
+    'Fecha': o.fecha,
+    'Kiosko Origen': o.origen,
+    'Kiosko Destino': o.destino,
+    'Motivo': o.motivo || '',
+    'Trasladado por': o.trasladadoPor || '',
     'Registrado': new Date().toISOString()
   });
-
-  return { ok: true, fila: fila, origen: origen, destino: p.kioskoDestino };
 }
 
 // ── EDITAR FICHA (nombre, categoría, descripción, medidas, foto, notas) ──
