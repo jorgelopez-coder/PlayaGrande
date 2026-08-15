@@ -180,7 +180,23 @@ const ENCABEZADOS_INCIDENCIAS = [
   'Es manual', 'Salario manual', 'Puesto manual',
   // Override manual de la base de CCSS (Paso 3 del wizard) — vacío = usar
   // la base automática que calcula calcularPlanilla().
-  'CCSS base ajustada'
+  'CCSS base ajustada',
+  // Agregada al final (2026-08-15): 'Es extra'='Sí' si se agregó con "+
+  // Agregar colaborador extra" en el Paso 1 (por búsqueda o datos nuevos) —
+  // distinto de 'Es manual' (que solo marca "sin ficha en Personal"): un
+  // colaborador extra puede o no tener ficha. calcularPlanilla() usa esta
+  // columna para NO considerarle vacaciones/horas extra/incapacidades
+  // registradas (pertenecen a su kiosko nativo, o no tiene expediente).
+  // Vacío/'No' en filas guardadas antes de este campo = comportamiento
+  // histórico sin cambios (no se le retira nada retroactivamente).
+  'Es extra',
+  // Agregadas al final (2026-08-15): sección "Servicio 10% y Tips" del
+  // Paso 2 — pago opcional de Servicio 10%/Tips junto con esta planilla,
+  // monto siempre a mano (no se trae de servicio-10.html). Ver
+  // calcularPlanilla(): el Servicio 10% sí entra a la base de CCSS, los
+  // Tips no (igual que el subsidio).
+  'Servicio 10% incluir', 'Servicio 10% fecha inicio', 'Servicio 10% fecha fin',
+  'Servicio 10% monto', 'Tips monto', 'Comentario servicio 10'
 ];
 
 // Reporte de horas extra CON nivel de aprobación (2026-08-01): a diferencia
@@ -247,7 +263,12 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   // Agregadas al final (2026-08-01): horas de SolicitudesHorasExtra ya
   // 'Aprobada' dentro de este periodo, para que el snapshot guardado quede
   // trazable sin tener que volver a esa hoja — ver sumarHorasExtraAprobadas().
-  'Horas extra 50%', 'Horas extra 100%'
+  'Horas extra 50%', 'Horas extra 100%',
+  // Agregadas al final (2026-08-15): si el colaborador quedó marcado 'Es
+  // extra' en Incidencias (ver ENCABEZADOS_INCIDENCIAS) y el desglose de
+  // Servicio 10%/Tips de esta corrida (Paso 2, sección "Servicio 10% y
+  // Tips") — ver calcularPlanilla().
+  'Es extra', 'Servicio 10% monto', 'Tips monto'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -2043,7 +2064,14 @@ function guardarIncidencia(p) {
     'Es manual': p.es_manual || 'No',
     'Salario manual': (p.salario_manual === undefined || p.salario_manual === '' || p.salario_manual === null) ? '' : Number(p.salario_manual),
     'Puesto manual': p.puesto_manual || '',
-    'CCSS base ajustada': (p.ccss_base_ajustada === undefined || p.ccss_base_ajustada === '' || p.ccss_base_ajustada === null) ? '' : Number(p.ccss_base_ajustada)
+    'CCSS base ajustada': (p.ccss_base_ajustada === undefined || p.ccss_base_ajustada === '' || p.ccss_base_ajustada === null) ? '' : Number(p.ccss_base_ajustada),
+    'Es extra': p.es_extra || 'No',
+    'Servicio 10% incluir': p.servicio10_incluir || 'No',
+    'Servicio 10% fecha inicio': p.servicio10_fecha_inicio || '',
+    'Servicio 10% fecha fin': p.servicio10_fecha_fin || '',
+    'Servicio 10% monto': Number(p.servicio10_monto) || 0,
+    'Tips monto': Number(p.tips_monto) || 0,
+    'Comentario servicio 10': p.comentario_servicio10 || ''
   };
 
   if (filaExistente !== -1) {
@@ -2165,11 +2193,23 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
 
     const horasRegularesMonto = (Number(inc['Horas regulares']) || 0) * salarioHora;
 
+    // Colaborador extra (agregado con "+ Agregar colaborador extra" en el
+    // wizard, Paso 1, por búsqueda o con datos nuevos): sus vacaciones/horas
+    // extra/incapacidades registradas NO se consideran en esta planilla —
+    // pertenecen a su kiosko nativo (o, si no tiene ficha en Personal, no
+    // hay expediente contra el cual traerlas). Vacío/'No' (filas guardadas
+    // antes de este campo) = comportamiento histórico, sin cambios. Mismo
+    // criterio en el cliente (planilla.html, calcularClientePreview).
+    const esExtra = String(inc['Es extra'] || '').trim().toLowerCase().indexOf('s') === 0;
+
     // Horas extra: SOLO cuenta lo reportado y ya 'Aprobada' en
     // SolicitudesHorasExtra dentro de esta quincena (rrhh-horas-extra.html)
     // — 'Horas extra 50%/100%' de Incidencias quedaron como columnas legacy,
-    // ya no se leen acá. Ver sumarHorasExtraAprobadas().
-    const horasExtra = sumarHorasExtraAprobadas(nombre, fechaInicioStr, fechaFinStr);
+    // ya no se leen acá. Ver sumarHorasExtraAprobadas(). Colaborador extra:
+    // no se le suma nada acá (ver esExtra arriba).
+    const horasExtra = esExtra
+      ? { horas50: 0, horas100: 0, fechas: [], justificaciones: [] }
+      : sumarHorasExtraAprobadas(nombre, fechaInicioStr, fechaFinStr);
     const extra50Horas = horasExtra.horas50;
     const extra100Horas = horasExtra.horas100;
     const extra50Monto = extra50Horas * salarioHora * 1.5;
@@ -2205,7 +2245,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // esta incapacidad dentro del periodo (no solo los primeros 3) suma a
     // "días no trabajados" más abajo, para no pagar doble.
     let incapCCSSMonto = 0, diasCCSSEnPeriodo = 0;
-    const ccssIni = parseFechaISO(inc['Incapacidad CCSS fecha inicio']);
+    const ccssIni = esExtra ? null : parseFechaISO(inc['Incapacidad CCSS fecha inicio']);
     if (ccssIni) {
       const ccssFin = parseFechaISO(inc['Incapacidad CCSS fecha fin']) || ccssIni;
       diasCCSSEnPeriodo = diasInterseccion(ccssIni, ccssFin, fechaInicio, fechaFin);
@@ -2220,7 +2260,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // pero sus días sí suman a "días no trabajados" (no se pagan como
     // horas regulares).
     let diasINSEnPeriodo = 0;
-    const insIni = parseFechaISO(inc['Incapacidad INS fecha inicio']);
+    const insIni = esExtra ? null : parseFechaISO(inc['Incapacidad INS fecha inicio']);
     if (insIni) {
       const insFin = parseFechaISO(inc['Incapacidad INS fecha fin']) || insIni;
       diasINSEnPeriodo = diasInterseccion(insIni, insFin, fechaInicio, fechaFin);
@@ -2230,8 +2270,8 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // Incapacidad interna: política propia de la empresa (no respaldada por
     // CCSS/INS), % editable por incidencia — default 100%.
     let incapInternaMonto = 0, diasInternaEnPeriodo = 0;
-    const internaIni = parseFechaISO(inc['Incapacidad interna fecha inicio']);
-    const internaFin = parseFechaISO(inc['Incapacidad interna fecha fin']);
+    const internaIni = esExtra ? null : parseFechaISO(inc['Incapacidad interna fecha inicio']);
+    const internaFin = esExtra ? null : parseFechaISO(inc['Incapacidad interna fecha fin']);
     if (internaIni && internaFin) {
       diasInternaEnPeriodo = diasInterseccion(internaIni, internaFin, fechaInicio, fechaFin);
       const pct = (inc['Incapacidad interna %'] === '' || inc['Incapacidad interna %'] === undefined) ? 100 : Number(inc['Incapacidad interna %']);
@@ -2239,8 +2279,9 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     }
 
     // Vacaciones: automático desde "Vacaciones" (Estado=Aprobado) — no se
-    // ingresa a mano en Incidencias.
-    const vacacionesDias = vacacionesAprobadas
+    // ingresa a mano en Incidencias. Colaborador extra: no se le consideran
+    // (ver esExtra arriba).
+    const vacacionesDias = esExtra ? 0 : vacacionesAprobadas
       .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
       .reduce(function (acc, v) {
         return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), parseFechaISO(v['Fecha fin']), fechaInicio, fechaFin);
@@ -2250,6 +2291,16 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // Subsidio de alimentación/transporte — no forma parte de la base de
     // cotización de CCSS (se resta antes de calcular la cuota obrera).
     const subsidioMonto = (Number(inc['Subsidio monto por día']) || 0) * (Number(inc['Subsidio días']) || 0);
+
+    // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2,
+    // opcional según el rango de fechas elegido ahí — monto siempre a mano,
+    // no se trae automático de servicio-10.html). El Servicio 10% de ley sí
+    // es salario sujeto a la cuota de CCSS; los Tips (voluntarios) no,
+    // igual que el subsidio — ver baseCCSSAuto más abajo. Aplica también a
+    // colaboradores extra (no depende de esExtra).
+    const servicio10Incluir = String(inc['Servicio 10% incluir'] || '').trim().toLowerCase().indexOf('s') === 0;
+    const servicio10Monto = servicio10Incluir ? (Number(inc['Servicio 10% monto']) || 0) : 0;
+    const tipsMonto = servicio10Incluir ? (Number(inc['Tips monto']) || 0) : 0;
 
     // Días no trabajados = manual (otras ausencias, ej. injustificada) +
     // automático (cada día de incapacidad de cualquier tipo y cada día de
@@ -2263,13 +2314,15 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
 
     const totalIngresos = horasRegularesMonto + extra50Monto + extra100Monto + feriadosMonto
       + incapCCSSMonto + incapINSMonto + incapInternaMonto + vacacionesMonto + subsidioMonto
+      + servicio10Monto + tipsMonto
       - diasNoTrabajadosMonto - tardanzaMonto;
 
-    // Base de CCSS: excluye el subsidio (no es salario) y los 3 montos de
-    // incapacidad (no están sujetos a la cuota obrera) — editable por
+    // Base de CCSS: excluye el subsidio (no es salario), los Tips (no es
+    // salario) y los 3 montos de incapacidad (no están sujetos a la cuota
+    // obrera) — el Servicio 10% SÍ queda dentro de la base. Editable por
     // incidencia ('CCSS base ajustada'), si no se guardó ninguna se usa la
     // automática.
-    const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto, 0);
+    const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto - tipsMonto, 0);
     const ccssAjustada = inc['CCSS base ajustada'];
     const usaCCSSAjustada = !(ccssAjustada === '' || ccssAjustada === undefined || ccssAjustada === null);
     const baseCCSSFinal = usaCCSSAjustada ? Math.max(Number(ccssAjustada) || 0, 0) : baseCCSSAuto;
@@ -2286,7 +2339,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const neto = totalIngresos - totalDeducciones;
 
     return {
-      colaborador: nombre, puesto: puesto, esManual: esManual,
+      colaborador: nombre, puesto: puesto, esManual: esManual, esExtra: esExtra,
       salario: salario, salarioDiario: salarioDiario, salarioHora: salarioHora,
       horasRegularesMonto: horasRegularesMonto,
       extra50Horas: extra50Horas, extra50Monto: extra50Monto,
@@ -2294,7 +2347,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones,
       feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
       incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
-      subsidioMonto: subsidioMonto,
+      subsidioMonto: subsidioMonto, servicio10Monto: servicio10Monto, tipsMonto: tipsMonto,
       diasNoTrabajadosAuto: diasNoTrabajadosAuto, diasNoTrabajadosManual: diasNoTrabajadosManual,
       diasNoTrabajadosTotal: diasNoTrabajadosTotal, diasNoTrabajadosMonto: diasNoTrabajadosMonto,
       tardanzaHoras: tardanzaHoras, tardanzaMonto: tardanzaMonto, tardanzaFechas: tardanza.fechas,
@@ -2420,7 +2473,10 @@ function guardarPlanilla(p) {
       'Pagado': 'No',
       'Fecha pago': '',
       'Horas extra 50%': c.extra50Horas,
-      'Horas extra 100%': c.extra100Horas
+      'Horas extra 100%': c.extra100Horas,
+      'Es extra': c.esExtra ? 'Sí' : 'No',
+      'Servicio 10% monto': c.servicio10Monto,
+      'Tips monto': c.tipsMonto
     });
   });
 
@@ -2435,7 +2491,7 @@ function guardarPlanilla(p) {
 // sesión anterior del wizard) NO se le resetean los datos ya cargados; a
 // quien se desmarcó respecto de una apertura previa se le borra la
 // incidencia (para que calcularPlanilla, que ahora lee de Incidencias, deje
-// de contarlo). `p.colaboradores`: [{ nombre, puesto, salario, es_manual }].
+// de contarlo). `p.colaboradores`: [{ nombre, puesto, salario, es_manual, es_extra }].
 function abrirPeriodoPlanilla(p) {
   if (!p.periodo) throw new Error('Falta el periodo.');
   if (!p.kiosko) throw new Error('Falta el kiosko.');
@@ -2450,7 +2506,8 @@ function abrirPeriodoPlanilla(p) {
       nombre: String(c.nombre || '').trim(),
       puesto: c.puesto || '',
       salario: Number(c.salario) || 0,
-      esManual: !!c.es_manual
+      esManual: !!c.es_manual,
+      esExtra: !!c.es_extra
     };
   });
   const nombresConfirmados = confirmados.map(function (c) { return c.nombre.toLowerCase(); });
@@ -2484,7 +2541,8 @@ function abrirPeriodoPlanilla(p) {
       horas_regulares: 120,
       es_manual: c.esManual ? 'Sí' : 'No',
       salario_manual: c.esManual ? c.salario : '',
-      puesto_manual: c.esManual ? c.puesto : ''
+      puesto_manual: c.esManual ? c.puesto : '',
+      es_extra: c.esExtra ? 'Sí' : 'No'
     });
     agregados++;
   });
