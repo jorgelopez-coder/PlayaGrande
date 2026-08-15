@@ -190,13 +190,16 @@ const ENCABEZADOS_INCIDENCIAS = [
   // Vacío/'No' en filas guardadas antes de este campo = comportamiento
   // histórico sin cambios (no se le retira nada retroactivamente).
   'Es extra',
-  // Agregadas al final (2026-08-15): sección "Servicio 10% y Tips" del
-  // Paso 2 — pago opcional de Servicio 10%/Tips junto con esta planilla,
-  // monto siempre a mano (no se trae de servicio-10.html). Ver
-  // calcularPlanilla(): el Servicio 10% sí entra a la base de CCSS, los
-  // Tips no (igual que el subsidio).
+  // Agregadas al final (2026-08-15, montos automáticos desde 2026-08-15
+  // más tarde el mismo día): sección "Servicio 10% y Tips" del Paso 2 —
+  // pago opcional de Servicio 10%/Tips junto con esta planilla. Solo se
+  // guarda la DECISIÓN (incluir sí/no, rango de fechas, comentario) — el
+  // monto NO se guarda acá, se recalcula siempre en vivo desde
+  // ServicioRepartoDetalle (servicio-10.html) vía sumarServicio10Pendiente(),
+  // mismo criterio que Horas extra. Ninguno de los dos (Servicio 10% ni
+  // Tips) entra a la base de cotización de CCSS — ver calcularPlanilla().
   'Servicio 10% incluir', 'Servicio 10% fecha inicio', 'Servicio 10% fecha fin',
-  'Servicio 10% monto', 'Tips monto', 'Comentario servicio 10'
+  'Comentario servicio 10'
 ];
 
 // Reporte de horas extra CON nivel de aprobación (2026-08-01): a diferencia
@@ -1416,6 +1419,33 @@ function sumarHorasExtraAprobadas(colaborador, fechaInicio, fechaFin) {
   return resultado;
 }
 
+// Trae, para un colaborador+kiosko+rango de fechas, el Servicio 10%/Tips
+// PENDIENTE de pago (Pagado != 'Sí') registrado en ServicioRepartoDetalle
+// (servicio-10.html) — usado por calcularPlanilla() para la sección
+// "Servicio 10% y Tips" del wizard (automática desde 2026-08-15, antes era
+// monto manual). Devuelve también los 'ID Detalle' incluidos, para que
+// aprobarPlanilla() los marque como pagados vía marcarServicioPagado() y no
+// se vuelvan a ofrecer como pendientes en servicio-10.html (evita pago
+// doble entre los dos módulos).
+function sumarServicio10Pendiente(colaborador, kiosko, fechaInicio, fechaFin) {
+  const resultado = { montoServicio: 0, montoTips: 0, ids: [], fechas: [] };
+  if (!colaborador || !kiosko || !fechaInicio || !fechaFin) return resultado;
+  const hoja = prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
+  const buscado = String(colaborador).trim().toLowerCase();
+  filasComoObjetos(hoja).forEach(function (row) {
+    if (String(row['Colaborador'] || '').trim().toLowerCase() !== buscado) return;
+    if (!kioskosIguales(row['Kiosko'], kiosko)) return;
+    if (String(row['Pagado'] || '').trim().toLowerCase() === 'sí') return;
+    const fecha = valorComoTexto(row['Fecha'] || '').slice(0, 10);
+    if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
+    resultado.montoServicio += Number(row['Monto Servicio ₡']) || 0;
+    resultado.montoTips += Number(row['Monto Tips ₡']) || 0;
+    resultado.ids.push(row['ID Detalle']);
+    resultado.fechas.push(fecha);
+  });
+  return resultado;
+}
+
 function registrarTerminacion(p) {
   if (!p.colaborador) throw new Error('Falta el colaborador.');
   const hoja = prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES);
@@ -2069,8 +2099,6 @@ function guardarIncidencia(p) {
     'Servicio 10% incluir': p.servicio10_incluir || 'No',
     'Servicio 10% fecha inicio': p.servicio10_fecha_inicio || '',
     'Servicio 10% fecha fin': p.servicio10_fecha_fin || '',
-    'Servicio 10% monto': Number(p.servicio10_monto) || 0,
-    'Tips monto': Number(p.tips_monto) || 0,
     'Comentario servicio 10': p.comentario_servicio10 || ''
   };
 
@@ -2292,15 +2320,24 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // cotización de CCSS (se resta antes de calcular la cuota obrera).
     const subsidioMonto = (Number(inc['Subsidio monto por día']) || 0) * (Number(inc['Subsidio días']) || 0);
 
-    // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2,
-    // opcional según el rango de fechas elegido ahí — monto siempre a mano,
-    // no se trae automático de servicio-10.html). El Servicio 10% de ley sí
-    // es salario sujeto a la cuota de CCSS; los Tips (voluntarios) no,
-    // igual que el subsidio — ver baseCCSSAuto más abajo. Aplica también a
-    // colaboradores extra (no depende de esExtra).
+    // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2):
+    // automático desde ServicioRepartoDetalle (servicio-10.html) — solo lo
+    // PENDIENTE de pago (Pagado != 'Sí') dentro del rango de fechas elegido
+    // ahí (si no se eligió rango, usa el de esta quincena) — ver
+    // sumarServicio10Pendiente(). Ni el Servicio 10% ni los Tips entran a la
+    // base de cotización de CCSS (decisión de Jorge, 2026-08-15) — ver
+    // baseCCSSAuto más abajo. Aplica también a colaboradores extra (no
+    // depende de esExtra). Al aprobar la planilla (aprobarPlanilla), los
+    // 'ID Detalle' incluidos se marcan pagados en ServicioRepartoDetalle
+    // para no ofrecerlos de nuevo en servicio-10.html (evita pago doble).
     const servicio10Incluir = String(inc['Servicio 10% incluir'] || '').trim().toLowerCase().indexOf('s') === 0;
-    const servicio10Monto = servicio10Incluir ? (Number(inc['Servicio 10% monto']) || 0) : 0;
-    const tipsMonto = servicio10Incluir ? (Number(inc['Tips monto']) || 0) : 0;
+    const servicio10FechaIniStr = valorComoTexto(inc['Servicio 10% fecha inicio'] || '') || fechaInicioStr;
+    const servicio10FechaFinStr = valorComoTexto(inc['Servicio 10% fecha fin'] || '') || fechaFinStr;
+    const servicio10Pendiente = servicio10Incluir
+      ? sumarServicio10Pendiente(nombre, kiosko, servicio10FechaIniStr, servicio10FechaFinStr)
+      : { montoServicio: 0, montoTips: 0, ids: [], fechas: [] };
+    const servicio10Monto = servicio10Pendiente.montoServicio;
+    const tipsMonto = servicio10Pendiente.montoTips;
 
     // Días no trabajados = manual (otras ausencias, ej. injustificada) +
     // automático (cada día de incapacidad de cualquier tipo y cada día de
@@ -2317,12 +2354,11 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       + servicio10Monto + tipsMonto
       - diasNoTrabajadosMonto - tardanzaMonto;
 
-    // Base de CCSS: excluye el subsidio (no es salario), los Tips (no es
-    // salario) y los 3 montos de incapacidad (no están sujetos a la cuota
-    // obrera) — el Servicio 10% SÍ queda dentro de la base. Editable por
-    // incidencia ('CCSS base ajustada'), si no se guardó ninguna se usa la
-    // automática.
-    const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto - tipsMonto, 0);
+    // Base de CCSS: excluye el subsidio, el Servicio 10%, los Tips (ninguno
+    // de los tres es salario sujeto a la cuota obrera, decisión de Jorge) y
+    // los 3 montos de incapacidad. Editable por incidencia ('CCSS base
+    // ajustada'), si no se guardó ninguna se usa la automática.
+    const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto - servicio10Monto - tipsMonto, 0);
     const ccssAjustada = inc['CCSS base ajustada'];
     const usaCCSSAjustada = !(ccssAjustada === '' || ccssAjustada === undefined || ccssAjustada === null);
     const baseCCSSFinal = usaCCSSAjustada ? Math.max(Number(ccssAjustada) || 0, 0) : baseCCSSAuto;
@@ -2348,6 +2384,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
       incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
       subsidioMonto: subsidioMonto, servicio10Monto: servicio10Monto, tipsMonto: tipsMonto,
+      servicio10Ids: servicio10Pendiente.ids,
       diasNoTrabajadosAuto: diasNoTrabajadosAuto, diasNoTrabajadosManual: diasNoTrabajadosManual,
       diasNoTrabajadosTotal: diasNoTrabajadosTotal, diasNoTrabajadosMonto: diasNoTrabajadosMonto,
       tardanzaHoras: tardanzaHoras, tardanzaMonto: tardanzaMonto, tardanzaFechas: tardanza.fechas,
@@ -2564,8 +2601,12 @@ function guardarIncidenciasLote(p) {
 
 // Paso 5 del wizard: aprueba una planilla ya enviada a revisión (Estado
 // 'Pendiente de aprobación'), dejando registro del checklist de
-// verificación completado y quién aprobó — no recalcula nada, solo cambia
-// el estado de la corrida ya guardada por guardarPlanilla().
+// verificación completado y quién aprobó — no recalcula los montos ya
+// guardados por guardarPlanilla(), pero SÍ vuelve a correr calcularPlanilla()
+// una vez más para saber qué renglones de Servicio 10%/Tips quedaron
+// incluidos y marcarlos pagados (ver más abajo) — recién en este paso,
+// porque es donde el founder confirma que sí se va a pagar (antes, en
+// Paso 4, todavía puede volver atrás y no aprobar).
 function aprobarPlanilla(p) {
   if (!p.id) throw new Error('Falta el ID de la planilla.');
   if (!p.aprobado_por) throw new Error('Falta quién aprueba.');
@@ -2576,10 +2617,11 @@ function aprobarPlanilla(p) {
   const hoja = prepararHoja(HOJA_PLANILLAS, ENCABEZADOS_PLANILLAS);
   const fila = filaPorColumna(hoja, ENCABEZADOS_PLANILLAS, 'ID', p.id);
   if (fila === -1) throw new Error('No se encontró esa planilla.');
+  const filaPlanilla = filasComoObjetos(hoja)[fila - 2];
 
   const ahora = new Date().toISOString();
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_PLANILLAS, Object.assign(
-    filasComoObjetos(hoja)[fila - 2],
+    filaPlanilla,
     {
       'Estado': 'Aprobada',
       'Checklist aprobación': JSON.stringify(p.checklist),
@@ -2587,7 +2629,33 @@ function aprobarPlanilla(p) {
       'Fecha aprobación': ahora
     }
   ));
-  return { fila: fila, id: p.id, fecha_aprobacion: ahora };
+
+  // Marca como pagados (en ServicioRepartoDetalle, servicio-10.html) los
+  // renglones de Servicio 10%/Tips que se incluyeron en esta planilla, para
+  // que no se vuelvan a ofrecer como pendientes ahí — evita pagarlos doble.
+  // No crítico: si falla, la planilla queda igual aprobada (se reporta el
+  // error en la respuesta para que se revise a mano).
+  let servicio10Marcados = 0, servicio10Error = '';
+  try {
+    const resultado = calcularPlanilla(filaPlanilla['Periodo'], filaPlanilla['Fecha inicio'], filaPlanilla['Fecha fin'], filaPlanilla['Kiosko']);
+    const idsAMarcar = [];
+    resultado.colaboradores.forEach(function (c) {
+      (c.servicio10Ids || []).forEach(function (id) { idsAMarcar.push(id); });
+    });
+    if (idsAMarcar.length) {
+      const fechaPago = Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
+      const resPago = marcarServicioPagado({
+        ids_detalle: idsAMarcar, fecha_pago: fechaPago,
+        referencia: 'Planilla ' + filaPlanilla['Periodo'] + ' - ' + filaPlanilla['Kiosko'],
+        notas: 'Marcado automáticamente al aprobar la planilla (' + p.aprobado_por + ').'
+      });
+      servicio10Marcados = resPago.actualizados;
+    }
+  } catch (err) {
+    servicio10Error = err.message;
+  }
+
+  return { fila: fila, id: p.id, fecha_aprobacion: ahora, servicio10_marcados: servicio10Marcados, servicio10_error: servicio10Error };
 }
 
 // Sube el PDF (base64, generado en planilla.html con jsPDF/html2canvas al

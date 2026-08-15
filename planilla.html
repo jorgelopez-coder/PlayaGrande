@@ -498,21 +498,24 @@ let VACACIONES_CACHE = [];
 let FERIADOS_CACHE = [];
 let AMONESTACIONES_CACHE = [];
 let HORAS_EXTRA_CACHE = [];
+let SERVICIO_DETALLE_CACHE = [];
 
 async function cargarDatosCompartidos() {
-  const [rPersonal, rVac, rFer, rAmo, rHex] = await Promise.all([
+  const [rPersonal, rVac, rFer, rAmo, rHex, rServ] = await Promise.all([
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
-    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra')
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra'),
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle')
   ]);
-  const [dPersonal, dVac, dFer, dAmo, dHex] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json(), rAmo.json(), rHex.json()]);
+  const [dPersonal, dVac, dFer, dAmo, dHex, dServ] = await Promise.all([rPersonal.json(), rVac.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json()]);
   TODOS_PERSONAL = dPersonal.ok ? dPersonal.registros : [];
   VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
   FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
   AMONESTACIONES_CACHE = dAmo.ok ? dAmo.registros : [];
   HORAS_EXTRA_CACHE = dHex.ok ? dHex.registros : [];
+  SERVICIO_DETALLE_CACHE = dServ.ok ? dServ.registros : [];
 }
 
 // VACACIONES_CACHE (FERIADOS_CACHE y AMONESTACIONES_CACHE) se cargan una
@@ -529,18 +532,20 @@ async function refrescarVacaciones(btn) {
   const textoOriginal = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    const [rVac, rFer, rAmo, rHex] = await Promise.all([
+    const [rVac, rFer, rAmo, rHex, rServ] = await Promise.all([
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra')
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle')
     ]);
-    const [dVac, dFer, dAmo, dHex] = await Promise.all([rVac.json(), rFer.json(), rAmo.json(), rHex.json()]);
+    const [dVac, dFer, dAmo, dHex, dServ] = await Promise.all([rVac.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json()]);
     if (dVac.ok) VACACIONES_CACHE = dVac.registros;
     if (dFer.ok) FERIADOS_CACHE = dFer.registros;
     if (dAmo.ok) AMONESTACIONES_CACHE = dAmo.registros;
     if (dHex.ok) HORAS_EXTRA_CACHE = dHex.registros;
-    showToast('Cálculo actualizado con las vacaciones, feriados, amonestaciones y horas extra más recientes.', 'success');
+    if (dServ.ok) SERVICIO_DETALLE_CACHE = dServ.registros;
+    showToast('Cálculo actualizado con las vacaciones, feriados, amonestaciones, horas extra y Servicio 10%/Tips más recientes.', 'success');
     renderWizard();
   } catch (err) {
     showToast('No se pudo refrescar: ' + err.message, 'error');
@@ -580,7 +585,6 @@ function incidenciaAParticipante(inc) {
     subsidioTipo: inc['Subsidio tipo']||'', comentarioSubsidio: inc['Comentario subsidio']||'',
     servicio10Incluir: String(inc['Servicio 10% incluir']||'').trim().toLowerCase().indexOf('s') === 0,
     servicio10FechaIni: inc['Servicio 10% fecha inicio']||'', servicio10FechaFin: inc['Servicio 10% fecha fin']||'',
-    servicio10Monto: numOr(inc['Servicio 10% monto'],0), tipsMonto: numOr(inc['Tips monto'],0),
     comentarioServicio10: inc['Comentario servicio 10']||'',
     diasNoTrabajados: numOr(inc['Días no trabajados'],0), comentarioDiasNoTrabajados: inc['Comentario días no trabajados']||'',
     dedAdelanto: numOr(inc['Deducción adelanto salario'],0), comentarioAdelanto: inc['Comentario adelanto']||'',
@@ -612,7 +616,7 @@ function participanteAPayload(r, kiosko, part) {
     subsidio_monto: part.subsidioMonto, subsidio_dias: part.subsidioDias, subsidio_tipo: part.subsidioTipo, comentario_subsidio: part.comentarioSubsidio,
     servicio10_incluir: part.servicio10Incluir ? 'Sí' : 'No',
     servicio10_fecha_inicio: part.servicio10FechaIni, servicio10_fecha_fin: part.servicio10FechaFin,
-    servicio10_monto: part.servicio10Monto, tips_monto: part.tipsMonto, comentario_servicio10: part.comentarioServicio10,
+    comentario_servicio10: part.comentarioServicio10,
     dias_no_trabajados: part.diasNoTrabajados, comentario_dias_no_trabajados: part.comentarioDiasNoTrabajados,
     ded_adelanto: part.dedAdelanto, comentario_adelanto: part.comentarioAdelanto,
     ded_compras: part.dedCompras, comentario_compras: part.comentarioCompras,
@@ -685,6 +689,27 @@ function sumarHorasExtraAprobadasCliente(colaborador, fechaInicio, fechaFin) {
     }
     resultado.fechas.push(fecha);
     if (row['Justificación']) resultado.justificaciones.push(`${fecha}: ${row['Justificación']}`);
+  });
+  return resultado;
+}
+// Réplica en el cliente de sumarServicio10Pendiente() (Code-rrhh-kioskos-backend.gs):
+// trae, para un colaborador+kiosko+rango de fechas, el Servicio 10%/Tips
+// PENDIENTE de pago (Pagado != 'Sí') de ServicioRepartoDetalle
+// (servicio-10.html) — automático desde 2026-08-15, antes era monto manual.
+function sumarServicio10PendienteCliente(colaborador, kiosko, fechaIni, fechaFin) {
+  const resultado = { montoServicio: 0, montoTips: 0, ids: [], fechas: [] };
+  if (!colaborador || !kiosko || !fechaIni || !fechaFin) return resultado;
+  const buscado = String(colaborador).trim().toLowerCase();
+  SERVICIO_DETALLE_CACHE.forEach(row => {
+    if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
+    if (!mismoKiosko(row['Kiosko'], kiosko)) return;
+    if (String(row['Pagado']||'').trim().toLowerCase() === 'sí') return;
+    const fecha = String(row['Fecha']||'').slice(0,10);
+    if (!fecha || fecha < fechaIni || fecha > fechaFin) return;
+    resultado.montoServicio += Number(row['Monto Servicio ₡'])||0;
+    resultado.montoTips += Number(row['Monto Tips ₡'])||0;
+    resultado.ids.push(row['ID Detalle']);
+    resultado.fechas.push(fecha);
   });
   return resultado;
 }
@@ -785,13 +810,18 @@ function calcularClientePreview(part) {
 
   const subsidioMonto = numOr(part.subsidioMonto,0) * numOr(part.subsidioDias,0);
 
-  // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2, opcional
-  // según el rango de fechas elegido — monto siempre a mano, no se trae
-  // automático de servicio-10.html). El Servicio 10% de ley sí es salario
-  // sujeto a la cuota de CCSS; los Tips (voluntarios) no, igual que el
-  // subsidio de alimentación/transporte — ver baseCCSSAuto más abajo.
-  const servicio10Monto = part.servicio10Incluir ? numOr(part.servicio10Monto,0) : 0;
-  const tipsMonto = part.servicio10Incluir ? numOr(part.tipsMonto,0) : 0;
+  // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2):
+  // automático desde ServicioRepartoDetalle (servicio-10.html) — solo lo
+  // PENDIENTE de pago dentro del rango de fechas elegido ahí (si no se
+  // eligió rango, usa el de esta quincena). Ni el Servicio 10% ni los Tips
+  // entran a la base de cotización de CCSS (decisión de Jorge) — ver
+  // baseCCSSAuto más abajo. Mismo criterio en el backend (calcularPlanilla).
+  const kioskoActual = document.getElementById('pl-kiosko') ? document.getElementById('pl-kiosko').value : '';
+  const servicio10Pendiente = part.servicio10Incluir
+    ? sumarServicio10PendienteCliente(part.nombre, kioskoActual, part.servicio10FechaIni||r.fechaInicio, part.servicio10FechaFin||r.fechaFin)
+    : { montoServicio: 0, montoTips: 0, ids: [], fechas: [] };
+  const servicio10Monto = servicio10Pendiente.montoServicio;
+  const tipsMonto = servicio10Pendiente.montoTips;
 
   const diasNoTrabajadosAuto = diasCCSS + diasINS + diasInterna + vacacionesDias;
   const diasNoTrabajadosManual = numOr(part.diasNoTrabajados,0);
@@ -800,7 +830,7 @@ function calcularClientePreview(part) {
 
   const totalIngresos = horasRegularesMonto+extra50Monto+extra100Monto+feriadosMonto+incapCCSSMonto+incapINSMonto+incapInternaMonto+vacacionesMonto+subsidioMonto+servicio10Monto+tipsMonto - diasNoTrabajadosMonto - tardanzaMonto;
 
-  const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto - tipsMonto, 0);
+  const baseCCSSAuto = Math.max(totalIngresos - subsidioMonto - incapCCSSMonto - incapINSMonto - incapInternaMonto - servicio10Monto - tipsMonto, 0);
   const usaAjustada = !(part.ccssBaseAjustada===''||part.ccssBaseAjustada===undefined||part.ccssBaseAjustada===null);
   const baseCCSSFinal = usaAjustada ? Math.max(numOr(part.ccssBaseAjustada,0),0) : baseCCSSAuto;
   // Igual que el backend (calcularPlanilla): sin CCSS marcado en el
@@ -815,7 +845,7 @@ function calcularClientePreview(part) {
     extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones, pendientesTipo: horasExtra.pendientesTipo,
     feriadosMonto,
     incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, subsidioMonto,
-    servicio10Monto, tipsMonto,
+    servicio10Monto, tipsMonto, servicio10Ids: servicio10Pendiente.ids, servicio10Fechas: servicio10Pendiente.fechas,
     diasNoTrabajadosAuto, diasNoTrabajadosManual, diasNoTrabajadosTotal, diasNoTrabajadosMonto,
     tardanzaHoras, tardanzaMonto, tardanzaFechas: tardanza.fechas,
     totalIngresos, baseCCSSAuto, baseCCSSFinal, ccssObreraMonto, totalDeducciones, neto };
@@ -903,7 +933,7 @@ function iniciarWizardNuevo() {
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '',
     incapInternaIni: '', incapInternaFin: '', incapInternaPct: 100, comentarioIncapInterna: '',
     subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', servicio10Monto: 0, tipsMonto: 0, comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '',
     dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '',
@@ -1044,7 +1074,7 @@ function agregarExtraExistente(nombre) {
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
     incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', servicio10Monto: 0, tipsMonto: 0, comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
   });
@@ -1067,7 +1097,7 @@ function agregarExtraManual() {
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
     incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', servicio10Monto: 0, tipsMonto: 0, comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
   });
@@ -1150,46 +1180,57 @@ function renderPaso2() {
     </div>
   `;
 }
-// Sección consolidada de Servicio 10% y Tips dentro de Ingresos: a diferencia
-// de vacaciones/horas extra (que se traen automático desde otros módulos),
-// acá el monto siempre se escribe a mano — esta planilla no reemplaza el
-// reparto de servicio-10.html, solo permite liquidar ese pago junto con la
-// quincena cuando el founder lo decide. El rango de fechas (Desde/Hasta) es
-// compartido entre todos los colaboradores incluidos, para dejar registro de
-// qué periodo de Servicio 10%/Tips cubre este pago.
+// Sección consolidada de Servicio 10% y Tips dentro de Ingresos: automática
+// desde 2026-08-15 — el monto se trae solo (pendiente de pago en
+// ServicioRepartoDetalle, servicio-10.html) para el rango de fechas elegido,
+// igual que vacaciones/horas extra. El check "Incluir" decide si ese
+// pendiente se liquida junto con esta planilla; al aprobarla queda marcado
+// como pagado en Servicio 10% (ver aprobarPlanilla en el backend), así que
+// no hace falta preocuparse por pagarlo doble ahí. Ni el Servicio 10% ni los
+// Tips entran a la base de cotización de CCSS.
 function renderServicio10Seccion() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
   const incluidos = WIZARD_PARTICIPANTES
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.incluido !== false);
   if (!incluidos.length) return '';
-  const fechaIni = WIZARD_PARTICIPANTES[0] ? WIZARD_PARTICIPANTES[0].servicio10FechaIni||'' : '';
-  const fechaFin = WIZARD_PARTICIPANTES[0] ? WIZARD_PARTICIPANTES[0].servicio10FechaFin||'' : '';
+  const fechaIni = WIZARD_PARTICIPANTES[0] ? (WIZARD_PARTICIPANTES[0].servicio10FechaIni || r.fechaInicio) : r.fechaInicio;
+  const fechaFin = WIZARD_PARTICIPANTES[0] ? (WIZARD_PARTICIPANTES[0].servicio10FechaFin || r.fechaFin) : r.fechaFin;
   return `
     <div class="card" style="margin-top:14px">
       <p class="card-title">Servicio 10% y Tips</p>
-      <p class="hint" style="display:block;margin-bottom:10px">Opcional — normalmente el Servicio 10%/Tips se reparte aparte en <a href="servicio-10.html" target="_blank">Servicio 10%</a>. Marcá acá solo si esta quincena también vas a liquidar ese pago junto con la planilla. El monto es siempre manual (no se trae automático); si lo marcás y cerrás el pago acá, recordá NO volver a incluir esas mismas fechas en un reparto de servicio-10.html para no pagarlo doble.</p>
+      <p class="hint" style="display:block;margin-bottom:10px">El monto se trae automático desde lo pendiente de pago en <a href="servicio-10.html" target="_blank">Servicio 10%</a> dentro del rango de fechas de abajo (por defecto, el de esta quincena). Marcá "Incluir" para liquidarlo junto con esta planilla — al aprobarla queda marcado como pagado allá, para no pagarlo doble. Ninguno de los dos rubros entra a la base de cotización de CCSS.</p>
       <div class="field-row">
         <div class="field"><label>Desde</label><input type="date" value="${fechaIni}" onchange="actualizarServicio10Fecha('servicio10FechaIni', this.value)"></div>
         <div class="field"><label>Hasta</label><input type="date" value="${fechaFin}" onchange="actualizarServicio10Fecha('servicio10FechaFin', this.value)"></div>
       </div>
       <table class="tabla-wizard" style="margin-top:10px">
         <thead><tr><th></th><th>Colaborador</th><th style="text-align:right">Servicio 10% ₡</th><th style="text-align:right">Tips ₡</th><th>Comentario</th></tr></thead>
-        <tbody>${incluidos.map(({ p, i }) => `
+        <tbody>${incluidos.map(({ p, i }) => {
+          const pend = sumarServicio10PendienteCliente(p.nombre, kiosko, p.servicio10FechaIni||fechaIni, p.servicio10FechaFin||fechaFin);
+          const titulo = pend.fechas.length ? 'Fechas: '+pend.fechas.map(fechaBonita).join(', ') : 'Sin pendientes en este rango';
+          return `
           <tr>
-            <td class="col-check"><input type="checkbox" ${p.servicio10Incluir?'checked':''} onchange="WIZARD_PARTICIPANTES[${i}].servicio10Incluir=this.checked"></td>
+            <td class="col-check"><input type="checkbox" ${p.servicio10Incluir?'checked':''} onchange="actualizarServicio10Incluir(${i}, this.checked)"></td>
             <td>${p.nombre}</td>
-            <td><input type="number" min="0" step="100" value="${p.servicio10Monto}" oninput="actualizarCampoSilencioso(${i},'servicio10Monto',this.value)"></td>
-            <td><input type="number" min="0" step="100" value="${p.tipsMonto}" oninput="actualizarCampoSilencioso(${i},'tipsMonto',this.value)"></td>
+            <td class="monto" title="${titulo}">${p.servicio10Incluir ? fmt(pend.montoServicio) : '—'}</td>
+            <td class="monto" title="${titulo}">${p.servicio10Incluir ? fmt(pend.montoTips) : '—'}</td>
             <td><input type="text" value="${p.comentarioServicio10}" oninput="actualizarCampoSilencioso(${i},'comentarioServicio10',this.value)"></td>
           </tr>
-        `).join('')}</tbody>
+        `;
+        }).join('')}</tbody>
       </table>
-      <p class="hint" style="display:block;margin-top:8px">Sin marcar el check de un colaborador, sus montos de Servicio 10%/Tips no se suman a esta planilla aunque queden escritos.</p>
+      <p class="hint" style="display:block;margin-top:8px">Sin marcar "Incluir", el pendiente de ese colaborador no se suma a esta planilla (sigue disponible para repartirse/pagarse aparte en Servicio 10%).</p>
     </div>
   `;
 }
 function actualizarServicio10Fecha(campo, valor) {
   WIZARD_PARTICIPANTES.forEach(p => { p[campo] = valor; });
+  renderPaso2();
+}
+function actualizarServicio10Incluir(i, checked) {
+  WIZARD_PARTICIPANTES[i].servicio10Incluir = checked;
   renderPaso2();
 }
 // Sección consolidada de feriados dentro de Ingresos: en vez de marcar
@@ -1225,7 +1266,7 @@ function renderFeriadosSeccion(feriadosDelPeriodo) {
 // Campos numéricos del participante — todo lo demás (comentarios, fechas,
 // tipo de subsidio) se guarda tal cual como texto. Sin esta lista,
 // Number(valor)||0 aplicado a un comentario o una fecha lo convertiría en 0.
-const CAMPOS_NUMERICOS_WIZARD = ['horasRegulares','extra50','extra100','subsidioMonto','subsidioDias','servicio10Monto','tipsMonto','diasNoTrabajados','incapInternaPct','dedAdelanto','dedCompras','dedOtras','dedEmbargo','dedPension'];
+const CAMPOS_NUMERICOS_WIZARD = ['horasRegulares','extra50','extra100','subsidioMonto','subsidioDias','diasNoTrabajados','incapInternaPct','dedAdelanto','dedCompras','dedOtras','dedEmbargo','dedPension'];
 function setCampoParticipante(i, campo, valor) {
   WIZARD_PARTICIPANTES[i][campo] = CAMPOS_NUMERICOS_WIZARD.indexOf(campo) !== -1 ? (Number(valor) || 0) : valor;
 }
@@ -1420,12 +1461,11 @@ function renderDetallePaso3(i, prev) {
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Horas extra 100%${prev.extra100Horas>0?` (${prev.extra100Horas}h)`:''}</span><span>${fmt(prev.extra100Monto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Feriados</span><span>${fmt(prev.feriadosMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Vacaciones</span><span>${fmt(prev.vacacionesMonto)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Servicio 10%</span><span>${fmt(prev.servicio10Monto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Días no trabajados</span><span>−${fmt(prev.diasNoTrabajadosMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Tardanza${prev.tardanzaHoras>0?` (${prev.tardanzaHoras}h)`:''}</span><span>−${fmt(prev.tardanzaMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);font-weight:600"><span>= Base CCSS automática</span><span>${fmt(prev.baseCCSSAuto)}</span></div>
       </div>
-      <p class="hint" style="display:block;margin-top:8px">Las horas extra (50% y 100%) y el Servicio 10% sí forman parte de la base de cotización de CCSS — quedan afuera el subsidio de alimentación/transporte, los Tips y las incapacidades (CCSS, INS, interna), que no son salario sujeto a cuota.</p>
+      <p class="hint" style="display:block;margin-top:8px">Las horas extra (50% y 100%) sí forman parte de la base de cotización de CCSS — quedan afuera el subsidio de alimentación/transporte, el Servicio 10%, los Tips y las incapacidades (CCSS, INS, interna), que no son salario sujeto a cuota.</p>
       ${p.esExtra ? '<p class="hint" style="display:block;margin-top:4px;color:var(--red)">Colaborador extra: no se le consideran vacaciones ni incapacidades registradas (quedan en ₡0 arriba aunque haya fechas cargadas).</p>' : ''}
       ${p.ccssRegistrado
         ? '<p class="hint" style="display:block;margin-top:4px">Registrado en CCSS según el expediente — se aplica la cuota obrera (10.83%) sobre esta base.</p>'
@@ -1734,6 +1774,12 @@ async function aprobarPlanillaFinal() {
     });
     if (res.ok === false) throw new Error(res.error || 'Error del servidor');
     showToast('Planilla aprobada', 'success');
+    if (res.result && res.result.servicio10_marcados > 0) {
+      showToast(`${res.result.servicio10_marcados} pago(s) de Servicio 10%/Tips marcados como pagados`, 'success');
+    }
+    if (res.result && res.result.servicio10_error) {
+      showToast('Planilla aprobada, pero no se pudo marcar el Servicio 10%/Tips como pagado: ' + res.result.servicio10_error, 'error');
+    }
 
     const total = WIZARD_CALCULO_PREVIEW.totales.totalNeto;
     const pdfBase64 = await generarPDFPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
