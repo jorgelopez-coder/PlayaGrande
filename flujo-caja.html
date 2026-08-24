@@ -60,7 +60,7 @@
     input[type="date"]:focus, input[type="number"]:focus, input[type="text"]:focus, select:focus { border-color:var(--green); }
 
     /* KPIs */
-    .kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:1.25rem; }
+    .kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:1.25rem; }
     .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; }
     .kpi-val { font-family:var(--font-m); font-size:21px; font-weight:500; letter-spacing:-.01em; color:var(--text); }
     .kpi-lbl { font-size:11px; color:var(--muted); margin-top:4px; }
@@ -211,7 +211,7 @@
   <!-- ── Banner: backend de este módulo no desplegado ── -->
   <div class="banner banner-info" id="banner-no-deploy" style="display:none;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <span>Este módulo todavía no está desplegado (falta la constante <code>APPS_SCRIPT_FLUJO</code>) — Cuentas por pagar, Servicio 10% y Planillas se ven con datos reales, pero los estimados de planilla y otros desembolsos no se pueden guardar todavía. Ver instrucciones en <code>Code-flujo-caja-kioskos-backend.gs</code>.</span>
+    <span>Este módulo todavía no está desplegado (falta la constante <code>APPS_SCRIPT_FLUJO</code>) — Cuentas por pagar, Servicio 10% y Planillas se ven con datos reales, pero los estimados de planilla, compras de proveedores y otros desembolsos no se pueden guardar todavía. Ver instrucciones en <code>Code-flujo-caja-kioskos-backend.gs</code>.</span>
   </div>
 
   <!-- ── KPIs ── -->
@@ -232,6 +232,11 @@
       <div class="kpi-sub">en el periodo</div>
     </div>
     <div class="kpi-box">
+      <div class="kpi-val" id="kpi-compras">₡—</div>
+      <div class="kpi-lbl">Compras de proveedores</div>
+      <div class="kpi-sub">estimadas, en el periodo</div>
+    </div>
+    <div class="kpi-box">
       <div class="kpi-val" id="kpi-otros">₡—</div>
       <div class="kpi-lbl">Otros desembolsos</div>
       <div class="kpi-sub">en el periodo</div>
@@ -250,6 +255,7 @@
     <button class="tab" onclick="switchTab('ap',this)">Cuentas por pagar</button>
     <button class="tab" onclick="switchTab('servicio',this)">Servicio 10%</button>
     <button class="tab" onclick="switchTab('planilla',this)">Planilla estimada</button>
+    <button class="tab" onclick="switchTab('compras',this)">Compras de proveedores</button>
     <button class="tab" onclick="switchTab('otros',this)">Otros desembolsos</button>
   </div>
 
@@ -314,6 +320,20 @@
       <div class="add-row-bar">
         <span style="font-size:11.5px;color:var(--subtle);">Un estimado por kiosko y fecha de desembolso (normalmente las quincenas). Se guarda para todo el equipo.</span>
         <button class="btn-add" id="btn-add-planilla" onclick="peAgregar()">+ Agregar estimado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB COMPRAS DE PROVEEDORES ══ -->
+  <div id="tab-compras" style="display:none;">
+    <div class="card">
+      <div class="hint-strip">
+        <span class="hint-chip">Pedidos a proveedores ya hechos o previstos que todavía no tienen factura real en <a href="cuentas-por-pagar.html" style="color:var(--green);">Cuentas por Pagar →</a>. Cuando la factura llega, se registra ahí y este estimado se puede borrar. Más adelante esto se va a completar solo desde <a href="ordenes-compra.html" style="color:var(--green);">Órdenes de Compra →</a> en vez de cargarse a mano.</span>
+      </div>
+      <div class="tabla-wrap" id="tabla-compras"><div class="empty"><span class="spinner"></span></div></div>
+      <div class="add-row-bar">
+        <span style="font-size:11.5px;color:var(--subtle);">Un pedido estimado por kiosko, proveedor y fecha de pago. Se guarda para todo el equipo.</span>
+        <button class="btn-add" id="btn-add-compra" onclick="cpAgregar()">+ Agregar compra</button>
       </div>
     </div>
   </div>
@@ -568,6 +588,7 @@ let dataPlanillas = [];         // Planillas reales (planilla.html) — solo par
 let dataPlanillaEstimada = [];  // PlanillaEstimada (este módulo)
 let dataOtrosDesembolsos = [];  // OtrosDesembolsos (este módulo)
 let dataServicioManual = [];    // ServicioManual (este módulo) — montos manuales de Servicio 10%
+let dataComprasProveedores = []; // ComprasProveedores (este módulo) — pedidos a proveedores aún sin factura real
 
 async function cargarAP() {
   const [facturas, abonos] = await Promise.all([
@@ -622,6 +643,11 @@ async function cargarServicioManual() {
   const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=servicio_manual');
   dataServicioManual = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
 }
+async function cargarComprasProveedores() {
+  if (!flujoListo()) { dataComprasProveedores = []; return; }
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=compras_proveedores');
+  dataComprasProveedores = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
 
 async function postFlujo(modulo, payload) {
   try {
@@ -638,12 +664,13 @@ function ultimaPlanillaReal(kiosko) {
 
 async function cargarTodo() {
   document.getElementById('status-carga').style.display = 'flex';
-  await Promise.all([cargarAP(), cargarServicio10(), cargarPlanillasReales(), cargarPlanillaEstimada(), cargarOtrosDesembolsos(), cargarServicioManual()]);
+  await Promise.all([cargarAP(), cargarServicio10(), cargarPlanillasReales(), cargarPlanillaEstimada(), cargarOtrosDesembolsos(), cargarServicioManual(), cargarComprasProveedores()]);
   document.getElementById('status-carga').style.display = 'none';
   document.getElementById('banner-no-deploy').style.display = flujoListo() ? 'none' : 'flex';
   document.getElementById('btn-add-planilla').disabled = !flujoListo();
   document.getElementById('btn-add-otro').disabled = !flujoListo();
   document.getElementById('btn-add-servicio-manual').disabled = !flujoListo();
+  document.getElementById('btn-add-compra').disabled = !flujoListo();
   renderTodo();
 }
 
@@ -651,7 +678,7 @@ async function cargarTodo() {
 function calcularResumen() {
   const { desde, hasta } = rangoActual();
   const porKiosko = {};
-  const asegurarFila = k => { if (!porKiosko[k]) porKiosko[k] = { ap:0, servicio:0, planilla:0, otros:0 }; return porKiosko[k]; };
+  const asegurarFila = k => { if (!porKiosko[k]) porKiosko[k] = { ap:0, servicio:0, planilla:0, comprasProv:0, otros:0 }; return porKiosko[k]; };
   kioskosEnFiltro().forEach(asegurarFila);
 
   let apSinFecha = { count:0, monto:0 };
@@ -683,6 +710,12 @@ function calcularResumen() {
     asegurarFila(r['Kiosko']).planilla += Number(r['Monto']) || 0;
   });
 
+  dataComprasProveedores.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    asegurarFila(r['Kiosko']).comprasProv += Number(r['Monto']) || 0;
+  });
+
   dataOtrosDesembolsos.forEach(r => {
     const f = String(r['Fecha']||'').slice(0,10);
     const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
@@ -695,9 +728,9 @@ function calcularResumen() {
 }
 
 function totalesGlobales(porKiosko) {
-  const t = { ap:0, servicio:0, planilla:0, otros:0 };
-  Object.values(porKiosko).forEach(f => { t.ap+=f.ap; t.servicio+=f.servicio; t.planilla+=f.planilla; t.otros+=f.otros; });
-  t.total = t.ap + t.servicio + t.planilla + t.otros;
+  const t = { ap:0, servicio:0, planilla:0, comprasProv:0, otros:0 };
+  Object.values(porKiosko).forEach(f => { t.ap+=f.ap; t.servicio+=f.servicio; t.planilla+=f.planilla; t.comprasProv+=f.comprasProv; t.otros+=f.otros; });
+  t.total = t.ap + t.servicio + t.planilla + t.comprasProv + t.otros;
   return t;
 }
 
@@ -743,6 +776,12 @@ function calcularLineaTiempo() {
     sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
   });
 
+  dataComprasProveedores.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+  });
+
   dataOtrosDesembolsos.forEach(r => {
     const f = String(r['Fecha']||'').slice(0,10);
     const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
@@ -763,6 +802,7 @@ function renderTodo() {
   document.getElementById('kpi-ap').textContent = fmt(t.ap);
   document.getElementById('kpi-servicio').textContent = fmt(t.servicio);
   document.getElementById('kpi-planilla').textContent = fmt(t.planilla);
+  document.getElementById('kpi-compras').textContent = fmt(t.comprasProv);
   document.getElementById('kpi-otros').textContent = fmt(t.otros);
   document.getElementById('kpi-total').textContent = fmt(t.total);
   renderTablaResumen(resumen, t);
@@ -772,6 +812,7 @@ function renderTodo() {
   renderTabServicio();
   renderServicioManual();
   renderPlanillaEstimada();
+  renderComprasProveedores();
   renderOtrosDesembolsos();
 }
 
@@ -788,7 +829,7 @@ function renderBanner(resumen) {
 
 function filaOrdenadaPorTotal(porKiosko) {
   return Object.entries(porKiosko)
-    .map(([kiosko, v]) => ({ kiosko, ...v, total: v.ap+v.servicio+v.planilla+v.otros }))
+    .map(([kiosko, v]) => ({ kiosko, ...v, total: v.ap+v.servicio+v.planilla+v.comprasProv+v.otros }))
     .sort((a,b) => b.total - a.total);
 }
 
@@ -798,7 +839,7 @@ function renderTablaResumen(resumen, t) {
   if (!filas.length) { cont.innerHTML = '<div class="empty">No hay kioskos en el filtro actual.</div>'; return; }
   cont.innerHTML = `
     <table>
-      <thead><tr><th>Kiosko</th><th style="text-align:right">CxP programado</th><th style="text-align:right">Servicio 10% pend.</th><th style="text-align:right">Planilla estimada</th><th style="text-align:right">Otros</th><th style="text-align:right">Total</th></tr></thead>
+      <thead><tr><th>Kiosko</th><th style="text-align:right">CxP programado</th><th style="text-align:right">Servicio 10% pend.</th><th style="text-align:right">Planilla estimada</th><th style="text-align:right">Compras proveedores</th><th style="text-align:right">Otros</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>
         ${filas.map(f => `
           <tr>
@@ -806,10 +847,11 @@ function renderTablaResumen(resumen, t) {
             <td class="num">${fmt(f.ap)}</td>
             <td class="num">${fmt(f.servicio)}</td>
             <td class="num">${fmt(f.planilla)}</td>
+            <td class="num">${fmt(f.comprasProv)}</td>
             <td class="num">${fmt(f.otros)}</td>
             <td class="num"><strong>${fmt(f.total)}</strong></td>
           </tr>`).join('')}
-        <tr class="fila-total"><td>Total</td><td class="num">${fmt(t.ap)}</td><td class="num">${fmt(t.servicio)}</td><td class="num">${fmt(t.planilla)}</td><td class="num">${fmt(t.otros)}</td><td class="num">${fmt(t.total)}</td></tr>
+        <tr class="fila-total"><td>Total</td><td class="num">${fmt(t.ap)}</td><td class="num">${fmt(t.servicio)}</td><td class="num">${fmt(t.planilla)}</td><td class="num">${fmt(t.comprasProv)}</td><td class="num">${fmt(t.otros)}</td><td class="num">${fmt(t.total)}</td></tr>
       </tbody>
     </table>`;
 }
@@ -829,6 +871,7 @@ function renderChart(resumen) {
         { label:'Cuentas por pagar', data: filas.map(f=>f.ap), backgroundColor:'#185fa5' },
         { label:'Servicio 10% pendiente', data: filas.map(f=>f.servicio), backgroundColor:'#c87820' },
         { label:'Planilla estimada', data: filas.map(f=>f.planilla), backgroundColor:'#1a7a4a' },
+        { label:'Compras de proveedores', data: filas.map(f=>f.comprasProv), backgroundColor:'#0e7a7a' },
         { label:'Otros desembolsos', data: filas.map(f=>f.otros), backgroundColor:'#6a3a9a' }
       ]
     },
@@ -1056,6 +1099,62 @@ async function peEliminar(id) {
   showToast('Estimado eliminado.');
 }
 
+// ── TAB COMPRAS DE PROVEEDORES (editable) ─────────────────────────
+// Mismo patrón que Planilla estimada, con un campo Proveedor extra. Cuando
+// exista la conexión con Órdenes de Compra, esto pasa a llenarse solo.
+function renderComprasProveedores() {
+  const filas = dataComprasProveedores.filter(r => kioskoVisible(r['Kiosko'])).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
+  const cont = document.getElementById('tabla-compras');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">Sin compras de proveedores estimadas todavía. Agregá una con el botón de abajo.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th>Proveedor</th><th>Fecha</th><th style="text-align:right">Monto</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${filas.map(r => filaCompraProveedorHTML(r)).join('')}</tbody>
+    </table>`;
+}
+function filaCompraProveedorHTML(r) {
+  const id = r['ID'];
+  return `<tr data-id="${escapeAttr(id)}">
+    <td class="col-kiosko"><select class="row-input" onchange="cpActualizar('${id}','Kiosko',this.value)">${KIOSKOS.map(k => `<option value="${escapeAttr(k)}" ${k===r['Kiosko']?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td class="col-desc"><input type="text" class="row-input" value="${escapeAttr(r['Proveedor'])}" placeholder="Proveedor" onchange="cpActualizar('${id}','Proveedor',this.value)"></td>
+    <td class="col-fecha"><input type="date" class="row-input" value="${String(r['Fecha']||'').slice(0,10)}" onchange="cpActualizar('${id}','Fecha',this.value)"></td>
+    <td class="col-monto"><input type="number" step="0.01" class="row-input num-input" value="${Number(r['Monto'])||0}" onchange="cpActualizar('${id}','Monto',this.value)"></td>
+    <td class="col-nota"><input type="text" class="row-input" value="${escapeAttr(r['Nota'])}" placeholder="Nota (opcional)" onchange="cpActualizar('${id}','Nota',this.value)"></td>
+    <td><button class="btn-mini borrar" onclick="cpEliminar('${id}')">Eliminar</button></td>
+  </tr>`;
+}
+async function cpAgregar() {
+  if (!flujoListo()) { showToast('Este módulo todavía no está desplegado.', 'error'); return; }
+  const kiosko = kioskosEnFiltro()[0] || KIOSKOS[0] || '';
+  const fecha = hoyISO;
+  const r = await postFlujo('compra_proveedor_guardar', { kiosko, proveedor:'', fecha, monto:0, nota:'', registrado_por: usuarioActual() });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  dataComprasProveedores.push({ 'ID':r.id, 'Kiosko':kiosko, 'Proveedor':'', 'Fecha':fecha, 'Monto':0, 'Nota':'' });
+  renderTodo();
+  showToast('Compra agregada.');
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`#tabla-compras tr[data-id="${r.id}"] .col-desc .row-input`);
+    if (input) { input.focus(); input.select(); }
+  });
+}
+async function cpActualizar(id, campo, valor) {
+  const row = dataComprasProveedores.find(r => r['ID'] === id);
+  if (!row) return;
+  row[campo] = campo === 'Monto' ? (parseFloat(valor)||0) : valor;
+  const r = await postFlujo('compra_proveedor_guardar', {
+    id, kiosko: row['Kiosko'], proveedor: row['Proveedor']||'', fecha: String(row['Fecha']).slice(0,10), monto: Number(row['Monto'])||0, nota: row['Nota']||'', registrado_por: usuarioActual()
+  });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  renderTodo();
+}
+async function cpEliminar(id) {
+  const r = await postFlujo('compra_proveedor_eliminar', { id });
+  if (!r.ok) { showToast('No se pudo eliminar: ' + (r.error||'error'), 'error'); return; }
+  dataComprasProveedores = dataComprasProveedores.filter(row => row['ID'] !== id);
+  renderTodo();
+  showToast('Compra eliminada.');
+}
+
 // ── TAB OTROS DESEMBOLSOS (editable) ──────────────────────────────
 function renderOtrosDesembolsos() {
   const filas = dataOtrosDesembolsos.filter(r => !r['Kiosko'] || r['Kiosko']==='Todos' || kioskoVisible(r['Kiosko'])).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
@@ -1115,7 +1214,7 @@ async function odEliminar(id) {
 
 // ── TABS ─────────────────────────────────────────────────────────
 function switchTab(tab, el) {
-  ['resumen','linea','ap','servicio','planilla','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
+  ['resumen','linea','ap','servicio','planilla','compras','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
   document.querySelectorAll('.tabs .tab').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   if (tab === 'resumen') renderChart(calcularResumen());

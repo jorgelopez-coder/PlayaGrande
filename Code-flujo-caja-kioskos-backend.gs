@@ -1,9 +1,11 @@
 /**
  * Backend de Flujo de Caja (flujo-caja.html, Ecosistema Kioskos) — guarda las
  * piezas de este módulo que no existen ya en otro Sheet: el estimado de
- * planilla por kiosko/fecha, los otros desembolsos manuales, y los montos
+ * planilla por kiosko/fecha, los otros desembolsos manuales, los montos
  * manuales de Servicio 10% (ajustes/estimados que no están todavía en
- * ServicioRepartoDetalle real, p.ej. un pago futuro que ya se sabe que viene).
+ * ServicioRepartoDetalle real, p.ej. un pago futuro que ya se sabe que viene),
+ * y las compras de proveedores estimadas (pedidos hechos o por hacer que
+ * todavía no llegaron a ser factura real en Cuentas por Pagar).
  *
  * Todo lo demás que muestra flujo-caja.html (Cuentas por Pagar programadas,
  * Servicio 10% pendiente, Planillas reales para sugerir el estimado) se lee
@@ -23,15 +25,15 @@
  * 2. Extensiones > Apps Script (proyecto nuevo, atado a ESTE Sheet). Pegá el
  *    contenido completo de este archivo.
  * 3. Corré UNA VEZ, a mano desde este editor, la función configurarHojas()
- *    para crear las pestañas "PlanillaEstimada", "OtrosDesembolsos" y
- *    "ServicioManual".
+ *    para crear las pestañas "PlanillaEstimada", "OtrosDesembolsos",
+ *    "ServicioManual" y "ComprasProveedores".
  * 4. Implementar > Nueva implementación > Aplicación web (Ejecutar como: Yo
  *    · Acceso: Cualquiera).
  * 5. Copiá la URL /exec y pegala en flujo-caja.html, constante
  *    APPS_SCRIPT_FLUJO (reemplazá el placeholder que empieza con "TODO_").
  *
  * Para actualizar código más adelante (p.ej. esta versión, que agregó
- * ServicioManual): pegá el archivo completo de nuevo acá, corré
+ * ComprasProveedores): pegá el archivo completo de nuevo acá, corré
  * configurarHojas() otra vez (crea solo la pestaña que falte, no toca las
  * existentes) e Implementar > Gestionar implementaciones > Editar > Nueva
  * versión (la URL /exec no cambia).
@@ -73,6 +75,18 @@ const ENCABEZADOS_SERVICIO_MANUAL = [
   'ID', 'Kiosko', 'Fecha', 'Monto', 'Nota', 'Fecha registro', 'Registrado por'
 ];
 
+// ── COMPRAS DE PROVEEDORES (ESTIMADAS) ──────────────────────────────
+// Pedidos a proveedores que ya se saben (hechos o por hacer) pero que
+// todavía no entraron como factura real a Cuentas por Pagar — por eso viven
+// acá y no en el Sheet de Compras. 'Proveedor' es texto libre por ahora.
+// Pensado para eventualmente completarse solo desde Órdenes de Compra
+// (ordenes-compra.html) en vez de cargarse a mano; mientras esa conexión no
+// exista, es una fila manual más, mismo patrón que PlanillaEstimada.
+const HOJA_COMPRAS_PROVEEDORES = 'ComprasProveedores';
+const ENCABEZADOS_COMPRAS_PROVEEDORES = [
+  'ID', 'Kiosko', 'Proveedor', 'Fecha', 'Monto', 'Nota', 'Fecha registro', 'Registrado por'
+];
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Flujo de Caja')
@@ -84,6 +98,7 @@ function configurarHojas() {
   prepararHoja(HOJA_PLANILLA_ESTIMADA, ENCABEZADOS_PLANILLA_ESTIMADA);
   prepararHoja(HOJA_OTROS_DESEMBOLSOS, ENCABEZADOS_OTROS_DESEMBOLSOS);
   prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL);
+  prepararHoja(HOJA_COMPRAS_PROVEEDORES, ENCABEZADOS_COMPRAS_PROVEEDORES);
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -281,6 +296,43 @@ function servicioManualEliminar(p) {
   return { ok: true };
 }
 
+// ── COMPRAS DE PROVEEDORES: guardar/eliminar ───────────────────────
+// Mismo patrón que planillaEstimadaGuardar: p.id presente = actualiza esa
+// fila; ausente = crea una nueva.
+function compraProveedorGuardar(p) {
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.fecha) throw new Error('Falta la fecha.');
+  if (p.monto == null || isNaN(Number(p.monto))) throw new Error('Falta el monto o no es un número.');
+  const hoja = prepararHoja(HOJA_COMPRAS_PROVEEDORES, ENCABEZADOS_COMPRAS_PROVEEDORES);
+  const ahora = Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd HH:mm');
+  const valores = {
+    'Kiosko': p.kiosko,
+    'Proveedor': p.proveedor || '',
+    'Fecha': p.fecha,
+    'Monto': Number(p.monto),
+    'Nota': p.nota || '',
+    'Fecha registro': ahora,
+    'Registrado por': p.registrado_por || ''
+  };
+  const filaExistente = p.id ? filaPorId_(hoja, p.id) : -1;
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_COMPRAS_PROVEEDORES, Object.assign({ 'ID': p.id }, valores));
+    return { ok: true, id: p.id };
+  }
+  const id = generarId_('CP');
+  hoja.appendRow(ENCABEZADOS_COMPRAS_PROVEEDORES.map(function (h) {
+    return h === 'ID' ? id : (valores[h] != null ? valores[h] : '');
+  }));
+  return { ok: true, id: id };
+}
+
+function compraProveedorEliminar(p) {
+  if (!p.id) throw new Error('Falta el ID a eliminar.');
+  const hoja = prepararHoja(HOJA_COMPRAS_PROVEEDORES, ENCABEZADOS_COMPRAS_PROVEEDORES);
+  eliminarFilaPorId_(hoja, p.id);
+  return { ok: true };
+}
+
 // ── doGet / doPost ───────────────────────────────────────────────────
 function doGet(e) {
   try {
@@ -290,6 +342,7 @@ function doGet(e) {
       case 'planilla_estimada':  hoja = prepararHoja(HOJA_PLANILLA_ESTIMADA, ENCABEZADOS_PLANILLA_ESTIMADA); break;
       case 'otros_desembolsos':  hoja = prepararHoja(HOJA_OTROS_DESEMBOLSOS, ENCABEZADOS_OTROS_DESEMBOLSOS); break;
       case 'servicio_manual':    hoja = prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL); break;
+      case 'compras_proveedores': hoja = prepararHoja(HOJA_COMPRAS_PROVEEDORES, ENCABEZADOS_COMPRAS_PROVEEDORES); break;
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
@@ -321,6 +374,12 @@ function doPost(e) {
         break;
       case 'servicio_manual_eliminar':
         result = servicioManualEliminar(payload);
+        break;
+      case 'compra_proveedor_guardar':
+        result = compraProveedorGuardar(payload);
+        break;
+      case 'compra_proveedor_eliminar':
+        result = compraProveedorEliminar(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
