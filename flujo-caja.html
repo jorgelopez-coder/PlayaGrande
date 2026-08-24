@@ -60,13 +60,23 @@
     input[type="date"]:focus, input[type="number"]:focus, input[type="text"]:focus, select:focus { border-color:var(--green); }
 
     /* KPIs */
-    .kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:1.25rem; }
-    .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; }
+    .kpi-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:1.25rem; align-items:start; }
+    .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; cursor:pointer; transition:border-color .12s; user-select:none; }
+    .kpi-box:hover { border-color:var(--border-h); }
+    .kpi-box.abierto { border-color:var(--border-h); }
+    .kpi-head { display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
     .kpi-val { font-family:var(--font-m); font-size:21px; font-weight:500; letter-spacing:-.01em; color:var(--text); }
     .kpi-lbl { font-size:11px; color:var(--muted); margin-top:4px; }
     .kpi-sub { font-size:10px; color:var(--subtle); margin-top:1px; }
     .kpi-val.ambar { color:var(--amber); }
     .kpi-box.kpi-total { background:var(--surface); }
+    .kpi-chev { width:12px; height:12px; flex-shrink:0; margin-top:4px; color:var(--subtle); transition:transform .15s; }
+    .kpi-box.abierto .kpi-chev { transform:rotate(180deg); color:var(--muted); }
+    .kpi-detalle { display:none; flex-direction:column; gap:5px; margin-top:.75rem; padding-top:.65rem; border-top:1px solid var(--border); }
+    .kpi-detalle.show { display:flex; }
+    .kpi-detalle-fila { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11.5px; }
+    .kpi-detalle-monto { font-family:var(--font-m); color:var(--text); white-space:nowrap; }
+    .kpi-detalle-vacio { font-size:11px; color:var(--subtle); }
 
     /* Banner */
     .banner { display:flex; align-items:flex-start; gap:10px; padding:.85rem 1.1rem; border-radius:var(--radius); font-size:12.5px; margin-bottom:1rem; border:1px solid; }
@@ -214,37 +224,73 @@
     <span>Este módulo todavía no está desplegado (falta la constante <code>APPS_SCRIPT_FLUJO</code>) — Cuentas por pagar, Servicio 10% y Planillas se ven con datos reales, pero los estimados de planilla, compras de proveedores y otros desembolsos no se pueden guardar todavía. Ver instrucciones en <code>Code-flujo-caja-kioskos-backend.gs</code>.</span>
   </div>
 
-  <!-- ── KPIs ── -->
+  <!-- ── KPIs (click para desplegar el detalle por kiosko) ── -->
   <div class="kpi-strip">
-    <div class="kpi-box">
-      <div class="kpi-val" id="kpi-ap">₡—</div>
-      <div class="kpi-lbl">Cuentas por pagar programadas</div>
-      <div class="kpi-sub">en el periodo</div>
+    <div class="kpi-box" id="kpi-box-ap" onclick="toggleKpi('ap')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val" id="kpi-ap">₡—</div>
+          <div class="kpi-lbl">Cuentas por pagar programadas</div>
+          <div class="kpi-sub">en el periodo</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-ap"></div>
     </div>
-    <div class="kpi-box">
-      <div class="kpi-val ambar" id="kpi-servicio">₡—</div>
-      <div class="kpi-lbl">Servicio 10% pendiente</div>
-      <div class="kpi-sub">saldo real a hoy + manual en el periodo</div>
+    <div class="kpi-box" id="kpi-box-servicio" onclick="toggleKpi('servicio')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val ambar" id="kpi-servicio">₡—</div>
+          <div class="kpi-lbl">Servicio 10% pendiente</div>
+          <div class="kpi-sub">saldo real a hoy + manual en el periodo</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-servicio"></div>
     </div>
-    <div class="kpi-box">
-      <div class="kpi-val" id="kpi-planilla">₡—</div>
-      <div class="kpi-lbl">Planilla estimada</div>
-      <div class="kpi-sub">en el periodo</div>
+    <div class="kpi-box" id="kpi-box-planilla" onclick="toggleKpi('planilla')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val" id="kpi-planilla">₡—</div>
+          <div class="kpi-lbl">Planilla estimada</div>
+          <div class="kpi-sub">en el periodo</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-planilla"></div>
     </div>
-    <div class="kpi-box">
-      <div class="kpi-val" id="kpi-compras">₡—</div>
-      <div class="kpi-lbl">Compras de proveedores</div>
-      <div class="kpi-sub">estimadas, en el periodo</div>
+    <div class="kpi-box" id="kpi-box-comprasProv" onclick="toggleKpi('comprasProv')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val" id="kpi-compras">₡—</div>
+          <div class="kpi-lbl">Compras de proveedores</div>
+          <div class="kpi-sub">estimadas, en el periodo</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-comprasProv"></div>
     </div>
-    <div class="kpi-box">
-      <div class="kpi-val" id="kpi-otros">₡—</div>
-      <div class="kpi-lbl">Otros desembolsos</div>
-      <div class="kpi-sub">en el periodo</div>
+    <div class="kpi-box" id="kpi-box-otros" onclick="toggleKpi('otros')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val" id="kpi-otros">₡—</div>
+          <div class="kpi-lbl">Otros desembolsos</div>
+          <div class="kpi-sub">en el periodo</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-otros"></div>
     </div>
-    <div class="kpi-box kpi-total">
-      <div class="kpi-val" id="kpi-total">₡—</div>
-      <div class="kpi-lbl">Total a cubrir</div>
-      <div class="kpi-sub">periodo + 10% pendiente</div>
+    <div class="kpi-box kpi-total" id="kpi-box-total" onclick="toggleKpi('total')">
+      <div class="kpi-head">
+        <div>
+          <div class="kpi-val" id="kpi-total">₡—</div>
+          <div class="kpi-lbl">Total a cubrir</div>
+          <div class="kpi-sub">periodo + 10% pendiente</div>
+        </div>
+        <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </div>
+      <div class="kpi-detalle" id="kpi-detalle-total"></div>
     </div>
   </div>
 
@@ -841,6 +887,42 @@ function renderTodo() {
   renderPlanillaEstimada();
   renderComprasProveedores();
   renderOtrosDesembolsos();
+  resumenActual = resumen;
+  renderKpiDetalles();
+}
+
+// ── KPIs: detalle por kiosko al desplegar ─────────────────────────
+// Cada cuadro de KPI se puede abrir/cerrar (toggleKpi); kpiAbiertos guarda
+// cuáles quedan abiertos para que sobrevivan a un renderTodo() (cambio de
+// periodo/kiosko no cierra lo que ya estaba abierto). 'total' es un caso
+// aparte: no es una columna de porKiosko, es la suma de las otras cuatro
+// (mismo cálculo que ya hace filaOrdenadaPorTotal para la tabla Resumen).
+let resumenActual = null;
+let kpiAbiertos = new Set();
+function toggleKpi(clave) {
+  if (kpiAbiertos.has(clave)) kpiAbiertos.delete(clave); else kpiAbiertos.add(clave);
+  renderKpiDetalles();
+}
+function renderKpiDetalles() {
+  if (!resumenActual) return;
+  const filas = filaOrdenadaPorTotal(resumenActual.porKiosko);
+  ['ap','servicio','planilla','comprasProv','otros','total'].forEach(clave => {
+    const box = document.getElementById('kpi-box-' + clave);
+    const cont = document.getElementById('kpi-detalle-' + clave);
+    if (!box || !cont) return;
+    const abierto = kpiAbiertos.has(clave);
+    box.classList.toggle('abierto', abierto);
+    cont.classList.toggle('show', abierto);
+    if (!abierto) return;
+    const conMonto = filas.filter(f => f[clave]).sort((a,b) => b[clave] - a[clave]);
+    cont.innerHTML = conMonto.length
+      ? conMonto.map(f => `
+        <div class="kpi-detalle-fila">
+          <span>${f.kiosko === 'General (todos)' ? f.kiosko : kioskoTagHTML(f.kiosko)}</span>
+          <span class="kpi-detalle-monto">${fmt(f[clave])}</span>
+        </div>`).join('')
+      : '<div class="kpi-detalle-vacio">Sin monto en ningún kiosko del filtro actual.</div>';
+  });
 }
 
 function renderBanner(resumen) {
