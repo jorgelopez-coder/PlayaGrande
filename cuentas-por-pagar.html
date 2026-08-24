@@ -459,11 +459,19 @@
 
   <!-- ══ TAB HISTORIAL ════════════════════════════════════════════ -->
   <div id="tab-historial" style="display:none;">
-    <div class="card">
+    <div class="card" style="margin-bottom:1rem;">
       <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
         Pagos registrados
       </div>
       <div class="tabla-wrap" id="tabla-historial">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+        Log de cambios
+      </div>
+      <div class="tabla-wrap" id="tabla-log-cambios">
         <div class="empty"><span class="spinner"></span></div>
       </div>
     </div>
@@ -766,6 +774,36 @@
   </div>
 </div>
 
+<!-- MODAL CAMBIAR KIOSKO -->
+<div class="modal-bg" id="modal-cambiar-kiosko">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Cambiar kiosko</div>
+        <div class="modal-sub" id="ck-sub">Factura —</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-cambiar-kiosko')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ck-numero">
+      <input type="hidden" id="ck-kiosko-actual">
+      <div class="field">
+        <label for="ck-kiosko-nuevo">Kiosko nuevo</label>
+        <select id="ck-kiosko-nuevo"></select>
+        <div class="field-hint">El cambio se aplica también a las líneas de producto de esta factura en Desglose_IA, y queda registrado en el log de cambios.</div>
+      </div>
+      <div class="field">
+        <label for="ck-motivo">Motivo (opcional)</label>
+        <input type="text" id="ck-motivo" placeholder="Por qué se cambia el kiosko de esta factura">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="cerrarModal('modal-cambiar-kiosko')">Cancelar</button>
+      <button class="btn-save" onclick="guardarCambioKiosko()">Guardar cambio</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -855,10 +893,57 @@ const fmt  = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFraction
 const fmtN = n => Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const escapeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 
-let dataFacturas = [];   // hoja "Registro Facturas" (una fila por factura, con columna Kiosko)
-let proveedores  = [];   // hoja "proveedores" del Sheet
-let dataAbonos   = [];   // hoja "Abonos" (pagos parciales)
-let dataDesglose = [];   // hoja "Desglose_IA" (líneas de producto por factura)
+// ── COLOR POR KIOSKO (pedido de Jorge, 2026-08-24) ─────────────────
+// Paleta categórica fija, separada a propósito de los colores que ya tienen
+// significado de estado (verde/rojo/ámbar/azul = A tiempo/Vencida/Abono/
+// Cancelada) para no mezclar los dos códigos de color. La asignación
+// kiosko→color es determinística (hash del nombre normalizado): el mismo
+// kiosko sale siempre del mismo color sin importar el orden en que aparece,
+// y no hace falta mantener una lista de kioskos↔color a mano — si se agrega
+// un kiosko nuevo (Liberia, Nosara, Playa Hermosa, los que vengan después),
+// le toca color solo. Con 8 colores alcanza para los kioskos actuales + los
+// que se planean abrir; si algún día se superan los 8, se repiten (mod).
+const PALETA_KIOSKOS = [
+  { bg:'#f3ecfb', fg:'#6b3fa0', bd:'#dcc4ef' }, // morado
+  { bg:'#e6f7f4', fg:'#0f7a72', bd:'#b9e6df' }, // verde azulado
+  { bg:'#fdecf1', fg:'#ab2f5e', bd:'#f3c3d7' }, // rosa
+  { bg:'#eef0fc', fg:'#3d4fb0', bd:'#c8cef2' }, // índigo
+  { bg:'#fbeee3', fg:'#a15a1f', bd:'#f0d3b3' }, // terracota
+  { bg:'#f7ecfa', fg:'#9c3fa8', bd:'#ecc7f2' }, // fucsia
+  { bg:'#eaf3fb', fg:'#2f6f96', bd:'#c3e0f0' }, // celeste
+  { bg:'#f5f2e6', fg:'#7a7020', bd:'#e6ddb3' }  // mostaza
+];
+function colorKiosko(nombre) {
+  if (!nombre) return null;
+  // Primero: posición del kiosko dentro de KIOSKOS (orden alfabético, siempre
+  // igual sin importar en qué orden lo devolvió el backend) — así, mientras
+  // haya 8 kioskos o menos (hoy hay 4 + los que se planean abrir), cada uno
+  // cae en un color distinto, sin colisiones por casualidad de hash.
+  const idxEnLista = KIOSKOS.length
+    ? KIOSKOS.slice().sort((a,b) => a.localeCompare(b)).findIndex(k => normalizarTexto(k) === normalizarTexto(nombre))
+    : -1;
+  if (idxEnLista !== -1) return PALETA_KIOSKOS[idxEnLista % PALETA_KIOSKOS.length];
+  // Fallback (kiosko que ya no está en KIOSKOS, p.ej. un nombre viejo/mal
+  // escrito en una factura antigua): hash determinístico del nombre, para
+  // que al menos salga siempre del mismo color en vez de quedar sin color.
+  const s = normalizarTexto(nombre);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return PALETA_KIOSKOS[h % PALETA_KIOSKOS.length];
+}
+// Reemplaza el `<span class="kiosko-tag">` escrito a mano en cada render —
+// mismo tag visual de siempre, pero con el color fijo de ese kiosko.
+function kioskoTagHTML(nombre, extraStyle) {
+  const c = colorKiosko(nombre);
+  const estilo = (c ? `background:${c.bg};color:${c.fg};border-color:${c.bd};` : '') + (extraStyle || '');
+  return `<span class="kiosko-tag" style="${estilo}">${nombre || '—'}</span>`;
+}
+
+let dataFacturas   = [];   // hoja "Registro Facturas" (una fila por factura, con columna Kiosko)
+let proveedores    = [];   // hoja "proveedores" del Sheet
+let dataAbonos     = [];   // hoja "Abonos" (pagos parciales)
+let dataDesglose   = [];   // hoja "Desglose_IA" (líneas de producto por factura)
+let dataLogCambios = [];   // hoja "Log Cambios" (auditoría — hoy solo cambios de kiosko)
 let facturasAP   = [];   // dataset ya calculado (estado, saldo, kiosko, etc.) — TODOS los kioskos
 let proyeccionListaActual = []; // último resultado de renderProyeccion() (grupos por proveedor), para que
                                  // el popover de cuenta y el modal "Pagar todo" puedan indexar por idx
@@ -1027,19 +1112,21 @@ function filaAProveedor(r) {
 async function cargarDatos() {
   document.getElementById('status-carga').innerHTML = '<span class="spinner"></span> Conectando con Google Sheets…';
   try {
-    const [dF, dP, dAb, dDes] = await Promise.all([
+    const [dF, dP, dAb, dDes, dLog] = await Promise.all([
       gvizLoad('Registro Facturas', 'Factura'),
       gvizLoadInv('Proveedores', 'ID').catch(() => []),
       gvizLoad('Abonos', 'Monto abonado').catch(() => []),
-      gvizLoad('Desglose_IA', 'Producto').catch(() => [])
+      gvizLoad('Desglose_IA', 'Producto').catch(() => []),
+      gvizLoad('Log Cambios', 'Acción').catch(() => [])
     ]);
 
     if (!dF.length) throw new Error('Sin datos en la hoja de facturas');
 
-    dataFacturas = dF;
-    proveedores  = dP.filter(r => r['ID']).map(filaAProveedor);
-    dataAbonos   = dAb;
-    dataDesglose = dDes;
+    dataFacturas   = dF;
+    proveedores    = dP.filter(r => r['ID']).map(filaAProveedor);
+    dataAbonos     = dAb;
+    dataDesglose   = dDes;
+    dataLogCambios = dLog;
 
     document.getElementById('conn-dot').classList.remove('off');
     document.getElementById('conn-label').textContent = 'Conectado · Google Sheets';
@@ -1325,6 +1412,7 @@ function inicializar() {
   renderFacturas();
   renderProyeccion();
   renderHistorial();
+  renderLogCambios();
   renderPorProveedor();
   renderDuplicados();
   renderSemana();
@@ -1407,7 +1495,7 @@ function renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorV
   document.getElementById('kpi-detalle-vencidas').innerHTML = (vencidasOrdenadas.length
     ? vencidasOrdenadas.slice(0,8).map(f => {
         const dias = Math.round((new Date(hoyISO) - new Date(f.fechaVencimiento)) / 86400000);
-        return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · ${dias}d vencida`, fmt(f.saldoPendiente), 'var(--red)');
+        return filaKpiDetalle(`${f.proveedor} ${kioskoTagHTML(f.kiosko)}`, `${f.numero} · ${dias}d vencida`, fmt(f.saldoPendiente), 'var(--red)');
       }).join('')
       + (vencidasOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${vencidasOrdenadas.length - 8} más…</div>` : '')
       + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('Vencida')">Ver todas en la tabla →</span>`
@@ -1418,7 +1506,7 @@ function renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorV
   document.getElementById('kpi-detalle-porvencer').innerHTML = (porVencerOrdenadas.length
     ? porVencerOrdenadas.slice(0,8).map(f => {
         const dias = Math.round((new Date(f.fechaVencimiento) - new Date(hoyISO)) / 86400000);
-        return filaKpiDetalle(`${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`, `${f.numero} · vence en ${dias}d`, fmt(f.saldoPendiente), 'var(--amber)');
+        return filaKpiDetalle(`${f.proveedor} ${kioskoTagHTML(f.kiosko)}`, `${f.numero} · vence en ${dias}d`, fmt(f.saldoPendiente), 'var(--amber)');
       }).join('')
       + (porVencerOrdenadas.length > 8 ? `<div class="kpi-detalle-empty">y ${porVencerOrdenadas.length - 8} más…</div>` : '')
       + `<span class="kpi-detalle-link" onclick="event.stopPropagation();verEstadoEnTabla('A tiempo')">Ver facturas "A tiempo" en la tabla →</span>`
@@ -1449,7 +1537,7 @@ function renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorV
   // Top 10 facturas pendientes por saldo (nuevo KPI, 2026-08-06).
   document.getElementById('kpi-detalle-top10').innerHTML = topPendientes.length
     ? topPendientes.map((f, i) => filaKpiDetalle(
-        `${i+1}. ${f.proveedor} <span class="kiosko-tag">${f.kiosko}</span>`,
+        `${i+1}. ${f.proveedor} ${kioskoTagHTML(f.kiosko)}`,
         `${f.numero} · ${f.estado}`,
         fmt(f.saldoPendiente),
         f.estado === 'Vencida' ? 'var(--red)' : (f.estado === 'Abono' ? 'var(--amber)' : null)
@@ -1556,7 +1644,7 @@ function renderSemana() {
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.3rem 0 .3rem .5rem;">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
               <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${f.fechaProyectada}</span>
-              <span style="font-size:12px;color:var(--muted);">${f.numero} <span class="kiosko-tag">${f.kiosko}</span></span>
+              <span style="font-size:12px;color:var(--muted);">${f.numero} ${kioskoTagHTML(f.kiosko)}</span>
             </div>
             <span class="num" style="font-size:12.5px;white-space:nowrap;">${fmt(f.saldoPendiente)}</span>
           </div>`).join('')}
@@ -1816,7 +1904,13 @@ function _renderFacturas() {
             onchange="toggleSeleccionFila('${f.numero}','${f.kiosko}', this.checked, '${rowId}')">
         </td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap;min-width:90px;">${f.fechaFactura||'—'}</td>
-        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td onclick="event.stopPropagation()">
+          ${kioskoTagHTML(f.kiosko, 'margin-left:0;')}
+          <button type="button" title="Cambiar kiosko" onclick="abrirModalCambiarKiosko('${f.numero}','${f.kiosko}')"
+            style="border:none;background:none;cursor:pointer;color:var(--subtle);padding:2px;vertical-align:middle;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+          </button>
+        </td>
         <td style="font-size:12px;color:var(--muted);min-width:140px;white-space:nowrap;">${f.numero}${dupBadge}${notaBadge}</td>
         <td style="font-weight:500;">${f.proveedor}${sinProvBadge}</td>
         <td class="num" style="font-weight:600;">
@@ -1922,7 +2016,7 @@ function renderPorProveedor() {
       .map(f => `<tr>
         <td>${f.numero}</td>
         <td>${f.fechaFactura||'—'}</td>
-        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${kioskoTagHTML(f.kiosko, 'margin-left:0;')}</td>
         <td>${badgeEstado(f.estado)}</td>
         <td class="num">${fmt(f.saldoPendiente)}</td>
       </tr>`).join('');
@@ -1932,7 +2026,7 @@ function renderPorProveedor() {
       .map(f => `<tr>
         <td>${f.numero}</td>
         <td>${f.fechaFactura||'—'}</td>
-        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${kioskoTagHTML(f.kiosko, 'margin-left:0;')}</td>
         <td>${f.fechaRealPago||'—'}</td>
         <td class="num">${fmt(f.montoColones)}</td>
       </tr>`).join('');
@@ -2102,7 +2196,7 @@ function renderProyeccion() {
       const frowId = rowId + '-' + fidx;
       return `<tr>
         <td>${f.numero}</td>
-        <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+        <td>${kioskoTagHTML(f.kiosko, 'margin-left:0;')}</td>
         <td>${badgeEstado(f.estado)}</td>
         <td>
           <span class="proy-wrap" id="proy-${frowId}">
@@ -2137,7 +2231,7 @@ function renderProyeccion() {
             ${cuenta || 'Sin registrar'}
           </button>
         </td>
-        <td>${g.kioskos.map(k => `<span class="kiosko-tag" style="margin-left:0;margin-right:4px;">${k}</span>`).join('')}</td>
+        <td>${g.kioskos.map(k => kioskoTagHTML(k, 'margin-left:0;margin-right:4px;')).join('')}</td>
         <td class="num">${g.facturas.length}</td>
         <td style="white-space:nowrap;">${g.proximaFecha}</td>
         <td class="num" style="font-weight:600;">${fmt(g.total)}</td>
@@ -2184,7 +2278,7 @@ function toggleCuentaPopover(ev, idx) {
     a.fechaProyectada.localeCompare(b.fechaProyectada) || a.numero.localeCompare(b.numero)
   ).map(f => `<tr>
       <td>${f.numero}</td>
-      <td><span class="kiosko-tag" style="margin-left:0;">${f.kiosko||'—'}</span></td>
+      <td>${kioskoTagHTML(f.kiosko, 'margin-left:0;')}</td>
       <td style="white-space:nowrap;">${f.fechaFactura||'—'}</td>
       <td class="num">${fmt(f.saldoPendiente)}</td>
     </tr>`).join('');
@@ -2307,7 +2401,7 @@ function renderHistorial() {
   const filas = todos.map(r => `
     <tr>
       <td style="color:var(--muted);font-size:12px;">${r.fecha||'—'}</td>
-      <td><span class="kiosko-tag" style="margin-left:0;">${r.kiosko||'—'}</span></td>
+      <td>${kioskoTagHTML(r.kiosko)}</td>
       <td>${r.tipo === 'Pago total' ? '<span class="badge b-cancelada"><span class="b-dot"></span>Pago total</span>' : '<span class="badge b-abono"><span class="b-dot"></span>Abono</span>'}</td>
       <td style="font-size:12px;color:var(--muted);">${r.numero}</td>
       <td>${r.proveedor}</td>
@@ -2320,6 +2414,44 @@ function renderHistorial() {
     <table>
       <thead><tr><th>Fecha</th><th>Kiosko</th><th>Tipo</th><th>Factura</th><th>Proveedor</th><th>Medio de pago</th><th>Referencia</th><th style="text-align:right;">Monto</th></tr></thead>
       <tbody>${filas}</tbody>
+    </table>`;
+}
+
+// ── RENDER LOG DE CAMBIOS (hoja "Log Cambios") ─────────────────────
+// Auditoría genérica — hoy solo la usa cambiar_kiosko_factura() del backend,
+// pero se muestra tal cual venga la hoja (columna "Acción") para no tener que
+// tocar este render si más adelante se loguean otros tipos de cambio.
+function renderLogCambios() {
+  const el = document.getElementById('tabla-log-cambios');
+  if (!el) return;
+  const visibles = kioskosSeleccionados.size
+    ? dataLogCambios.filter(r => kioskosSeleccionados.has(r['Kiosko anterior']) || kioskosSeleccionados.has(r['Kiosko nuevo']))
+    : dataLogCambios;
+  const filas = [...visibles].reverse(); // más reciente primero
+
+  if (!filas.length) {
+    el.innerHTML = '<div class="empty">Sin cambios registrados todavía.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Fecha y hora</th><th>Acción</th><th>Factura</th><th>Proveedor</th>
+        <th>Kiosko anterior</th><th>Kiosko nuevo</th><th>Usuario</th><th>Detalle</th>
+      </tr></thead>
+      <tbody>${filas.map(r => `
+        <tr>
+          <td style="color:var(--muted);font-size:12px;white-space:nowrap;">${r['Fecha y hora']||'—'}</td>
+          <td>${r['Acción']||'—'}</td>
+          <td style="font-size:12px;color:var(--muted);">${r['Factura']||'—'}</td>
+          <td>${r['Proveedor']||'—'}</td>
+          <td>${kioskoTagHTML(r['Kiosko anterior'])}</td>
+          <td>${kioskoTagHTML(r['Kiosko nuevo'])}</td>
+          <td style="color:var(--muted);">${r['Usuario']||'—'}</td>
+          <td style="color:var(--muted);font-size:12px;">${r['Detalle']||'—'}</td>
+        </tr>`).join('')}
+      </tbody>
     </table>`;
 }
 
@@ -2403,7 +2535,7 @@ function renderDuplicadosExactos() {
         <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
             <span style="font-family:var(--font-d);font-weight:700;font-size:14px;">${numero}</span>
-            <span class="kiosko-tag">${kiosko}</span>
+            ${kioskoTagHTML(kiosko)}
             <span class="badge b-dup" style="margin-left:8px;">${grupo.length} copias</span>
           </div>
           <button class="btn-mini" onclick="aceptarDuplicadoGrupo('${numero}','${kiosko}')">Aceptar duplicado</button>
@@ -2452,7 +2584,7 @@ function renderDuplicadosPorMonto() {
         <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
             <span style="font-family:var(--font-d);font-weight:700;font-size:14px;">${grupo[0].proveedor}</span>
-            <span class="kiosko-tag">${grupo[0].kiosko}</span>
+            ${kioskoTagHTML(grupo[0].kiosko)}
             <span style="color:var(--muted);font-size:12px;margin-left:8px;">${grupo[0].fechaFactura||'—'}</span>
             <span class="badge b-dup-monto" style="margin-left:8px;">${grupo.length} facturas, distinto número</span>
           </div>
@@ -2502,7 +2634,7 @@ function renderDuplicadosSinProveedor() {
       <div class="card">
         <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div>
-            <span class="kiosko-tag">${grupo[0].kiosko}</span>
+            ${kioskoTagHTML(grupo[0].kiosko)}
             <span style="color:var(--muted);font-size:12px;margin-left:8px;">${grupo[0].fechaFactura||'—'}</span>
             <span class="badge b-dup-sinprov" style="margin-left:8px;">${grupo.length} facturas, distinto proveedor</span>
           </div>
@@ -3119,6 +3251,49 @@ async function guardarFacturaManual() {
     await cargarDatos();
   } catch(e) {
     showToast('No se pudo guardar la factura: ' + e.message, 'error');
+  }
+}
+
+// ── MODAL CAMBIAR KIOSKO ───────────────────────────────────────────
+// Reasigna el kiosko de una factura ya cargada (p.ej. quedó mal asignada por
+// el extractor de otro kiosko). El backend (cambiar_kiosko_factura, ver
+// Code-cuentas-por-pagar-kioskos-backend.gs v9) aplica el mismo cambio a las
+// líneas de esa factura en Desglose_IA y deja constancia en "Log Cambios".
+function abrirModalCambiarKiosko(numero, kioskoActual) {
+  const f = facturaPorNumero(numero, kioskoActual);
+  if (!f) return;
+  document.getElementById('ck-numero').value = numero;
+  document.getElementById('ck-kiosko-actual').value = kioskoActual;
+  document.getElementById('ck-sub').innerHTML = `${numero} · ${f.proveedor} · Kiosko actual: <strong>${kioskoActual}</strong>`;
+  const sel = document.getElementById('ck-kiosko-nuevo');
+  sel.innerHTML = KIOSKOS.filter(k => k !== kioskoActual).map(k => `<option value="${escapeAttr(k)}">${k}</option>`).join('');
+  document.getElementById('ck-motivo').value = '';
+  document.getElementById('modal-cambiar-kiosko').classList.add('open');
+}
+
+async function guardarCambioKiosko() {
+  const numero = document.getElementById('ck-numero').value;
+  const kioskoActual = document.getElementById('ck-kiosko-actual').value;
+  const kioskoNuevo = document.getElementById('ck-kiosko-nuevo').value;
+  const motivo = document.getElementById('ck-motivo').value.trim();
+  if (!kioskoNuevo) { showToast('Seleccioná el kiosko nuevo.', 'error'); return; }
+  const f = facturaPorNumero(numero, kioskoActual);
+  if (!f) return;
+  try {
+    const res = await postAP({
+      modulo: 'cambiar_kiosko_factura',
+      numero_factura: numero, kiosko: kioskoActual, ordinal: f.ordinal,
+      kiosko_nuevo: kioskoNuevo, motivo: motivo,
+      usuario: (PORTAL_SESION && PORTAL_SESION.nombre) || ''
+    });
+    cerrarModal('modal-cambiar-kiosko');
+    showToast(
+      `Kiosko cambiado a ${kioskoNuevo}` + (res && res.lineas_desglose_actualizadas ? ` (${res.lineas_desglose_actualizadas} línea(s) de desglose actualizadas)` : '') + ' ✓',
+      'success'
+    );
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo cambiar el kiosko: ' + e.message, 'error');
   }
 }
 

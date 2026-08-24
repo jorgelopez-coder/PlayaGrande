@@ -112,11 +112,31 @@
  * al confirmar. No hace falta correr configurarHojas() de nuevo acá — solo
  * pegar el código completo e Implementar > Gestionar implementaciones >
  * Nueva versión.
+ *
+ * v9 (2026-08-24): nueva acción cambiar_kiosko_factura() — permite reasignar
+ * el kiosko de una factura ya cargada en cuentas-por-pagar.html (se pidió
+ * para corregir facturas que quedaron con el kiosko equivocado, p.ej. porque
+ * el extractor de un kiosko procesó por error una factura de otro). Al
+ * cambiar el kiosko:
+ *   1. reescribe la columna "Kiosko" de esa fila en "Registro Facturas";
+ *   2. reescribe también "Kiosko" en el bloque de líneas de "Desglose_IA"
+ *      que corresponde a esa misma copia de factura (mismo mecanismo de
+ *      bloqueDesglosePorFirma() que ya usa eliminarFactura(), calculado
+ *      ANTES de tocar el kiosko para no perder el bloque);
+ *   3. agrega una fila a la pestaña nueva "Log Cambios" (kiosko anterior,
+ *      kiosko nuevo, factura, proveedor, usuario, filas de Desglose
+ *      actualizadas) — pestaña de auditoría genérica, pensada para loguear
+ *      también otros tipos de cambio más adelante, no solo este. Se crea
+ *      sola la primera vez que se use (mismo mecanismo de prepararHoja() que
+ *      ya usan Abonos/Maestro_Productos), así que no hace falta correr
+ *      configurarHojas() de nuevo — solo pegar el código completo e
+ *      Implementar > Gestionar implementaciones > Nueva versión.
  */
 
-const HOJA_FACTURAS    = 'Registro Facturas';
-const HOJA_DESGLOSE    = 'Desglose_IA';
-const HOJA_ABONOS      = 'Abonos';
+const HOJA_FACTURAS     = 'Registro Facturas';
+const HOJA_DESGLOSE     = 'Desglose_IA';
+const HOJA_ABONOS       = 'Abonos';
+const HOJA_LOG_CAMBIOS  = 'Log Cambios';
 
 // Columnas de "Registro Facturas". 1-6 las llena el sync de cada
 // facturas-extractor (Fecha, Factura, Proveedor, Moneda, TOTAL, Kiosko) en un
@@ -139,6 +159,14 @@ const ABONOS_ENCABEZADOS = [
   // v6 (2026-07-29) — se agrega AL FINAL (nunca en el medio, para no correr
   // las columnas de filas ya guardadas). Ver nota de registrarPago() más abajo.
   'Fecha del efectivo (fondo de caja)'
+];
+
+// Log de auditoría genérico (v9, 2026-08-24) — por ahora solo lo usa
+// cambiarKioskoFactura(), pero se dejó con una columna "Acción" para poder
+// loguear otros tipos de cambio más adelante sin tener que rediseñar la hoja.
+const LOG_CAMBIOS_ENCABEZADOS = [
+  'Fecha y hora', 'Acción', 'Factura', 'Kiosko anterior', 'Kiosko nuevo',
+  'Proveedor', 'Usuario', 'Filas Desglose actualizadas', 'Detalle'
 ];
 
 // Mismas 18 columnas que DESGLOSE_COL de Code-compras-backend.gs, más Kiosko
@@ -281,6 +309,7 @@ function configurarHojas() {
   prepararHoja(HOJA_DESGLOSE, DESGLOSE_ENCABEZADOS);
   prepararHoja(HOJA_ABONOS, ABONOS_ENCABEZADOS);
   prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
+  prepararHoja(HOJA_LOG_CAMBIOS, LOG_CAMBIOS_ENCABEZADOS);
   sembrarConfiguracionPorDefecto(prepararHoja(HOJA_CONFIGURACION, CONFIGURACION_ENCABEZADOS));
 }
 
@@ -432,6 +461,9 @@ function doPost(e) {
       case 'eliminar_factura':
         result = eliminarFactura(payload);
         break;
+      case 'cambiar_kiosko_factura':
+        result = cambiarKioskoFactura(payload);
+        break;
       case 'aceptar_duplicado':
         result = aceptarDuplicado(payload);
         break;
@@ -502,6 +534,24 @@ function getHojaAbonos() {
 
 function getHojaMaestro() {
   return prepararHoja(HOJA_MAESTRO, MAESTRO_ENCABEZADOS);
+}
+
+function getHojaLogCambios() {
+  return prepararHoja(HOJA_LOG_CAMBIOS, LOG_CAMBIOS_ENCABEZADOS);
+}
+
+// Agrega una fila a "Log Cambios". No tira error si algo falla acá — un
+// problema al loguear no debería bloquear un cambio que ya se guardó.
+function registrarLogCambio_(p) {
+  try {
+    const hoja = getHojaLogCambios();
+    hoja.appendRow([
+      new Date(), p.accion || '', p.factura || '', p.kioskoAnterior || '', p.kioskoNuevo || '',
+      p.proveedor || '', p.usuario || '', (p.filasDesglose != null ? p.filasDesglose : ''), p.detalle || ''
+    ]);
+  } catch (e) {
+    // No bloquea el flujo que llamó a esto.
+  }
 }
 
 // Busca una columna por nombre de encabezado; si no existe, la crea al final.
@@ -838,6 +888,99 @@ function eliminarFactura(p) {
   }
 
   return { eliminado: true, fila: fila, lineas_desglose_eliminadas: lineasDesgloseEliminadas };
+}
+
+// Calcula la "firma" (número + fecha + proveedor + total + kiosko) y la
+// posición de una fila de Registro Facturas entre las filas que comparten
+// exactamente esa misma firma, contadas de arriba hacia abajo hasta e
+// incluyendo `fila`. Se usa para ubicar el bloque correspondiente en
+// Desglose_IA (bloqueDesglosePorFirma) sin desalinearse ni arrastrar líneas
+// de otra copia — mismo cálculo que ya hacía eliminarFactura() antes de
+// borrar, factorizado acá para reutilizarlo también en cambiarKioskoFactura().
+function firmaYPosicionFactura_(hoja, fila) {
+  const nFilasFacturas = hoja.getLastRow() - 1;
+  const datosFacturas = hoja.getRange(2, 1, nFilasFacturas, COL.KIOSKO).getValues();
+  const filaObjetivo = datosFacturas[fila - 2];
+  const firma = {
+    numero: filaObjetivo[COL.FACTURA - 1],
+    fecha: filaObjetivo[COL.FECHA - 1],
+    proveedor: filaObjetivo[COL.PROVEEDOR - 1],
+    total: filaObjetivo[COL.TOTAL - 1],
+    kiosko: filaObjetivo[COL.KIOSKO - 1]
+  };
+  let posicion = 0;
+  for (let i = 0; i <= fila - 2; i++) {
+    const f = datosFacturas[i];
+    if (String(f[COL.FACTURA - 1]) === String(firma.numero) &&
+        mismaFechaGS(f[COL.FECHA - 1], firma.fecha) &&
+        normalizarTextoGS(f[COL.PROVEEDOR - 1]) === normalizarTextoGS(firma.proveedor) &&
+        mismoMontoGS(f[COL.TOTAL - 1], firma.total) &&
+        String(f[COL.KIOSKO - 1]) === String(firma.kiosko)) {
+      posicion++;
+    }
+  }
+  return { firma: firma, posicion: posicion };
+}
+
+// Reasigna el kiosko de una factura ya cargada (p.ej. porque el extractor de
+// un kiosko procesó por error una factura de otro). Ver nota v9 al inicio
+// del archivo para el detalle completo — en resumen: cambia "Kiosko" en
+// Registro Facturas, reescribe el mismo bloque de líneas en Desglose_IA
+// (ubicado por firma+posición ANTES de tocar el kiosko, igual que hace
+// eliminarFactura con bloqueDesglosePorFirma) y deja constancia en "Log
+// Cambios". "kiosko" en el payload es el kiosko ACTUAL de la factura (el que
+// ya usan el resto de las acciones para ubicar la fila); "kiosko_nuevo" es a
+// dónde se reasigna.
+function cambiarKioskoFactura(p) {
+  if (!p.numero_factura) throw new Error('Falta número de factura.');
+  if (!p.ordinal) throw new Error('Falta indicar a cuál copia de la factura aplica.');
+  requerirKiosko(p);
+  const kioskoNuevo = String(p.kiosko_nuevo || '').trim();
+  if (!kioskoNuevo) throw new Error('Falta indicar el kiosko nuevo.');
+  if (normalizarTextoGS(kioskoNuevo) === normalizarTextoGS(p.kiosko)) {
+    throw new Error('El kiosko nuevo es igual al actual.');
+  }
+
+  const hoja = getHoja();
+  const fila = filaFacturaPorOrdinal(hoja, p.numero_factura, p.ordinal, p.kiosko);
+  if (fila === -1) throw new Error('No se encontró esa factura.');
+
+  // Firma + posición ANTES de cambiar el kiosko: bloqueDesglosePorFirma()
+  // necesita el kiosko ORIGINAL para reconocer el bloque de Desglose_IA.
+  const { firma, posicion } = firmaYPosicionFactura_(hoja, fila);
+  const kioskoAnterior = String(firma.kiosko);
+
+  hoja.getRange(fila, COL.KIOSKO).setValue(kioskoNuevo);
+
+  let lineasDesgloseActualizadas = 0;
+  try {
+    const hojaDesglose = getHojaDesglose();
+    const bloque = bloqueDesglosePorFirma(hojaDesglose, firma, posicion);
+    if (bloque) {
+      hojaDesglose.getRange(bloque.filaInicio, DESGLOSE_COL.KIOSKO, bloque.cantidadFilas, 1).setValue(kioskoNuevo);
+      lineasDesgloseActualizadas = bloque.cantidadFilas;
+    }
+  } catch (e) {
+    // Sin Desglose_IA o con otro error acá, el cambio en Registro Facturas ya quedó igual.
+  }
+
+  registrarLogCambio_({
+    accion: 'Cambio de kiosko',
+    factura: p.numero_factura,
+    kioskoAnterior: kioskoAnterior,
+    kioskoNuevo: kioskoNuevo,
+    proveedor: firma.proveedor,
+    usuario: p.usuario || '',
+    filasDesglose: lineasDesgloseActualizadas,
+    detalle: p.motivo || ''
+  });
+
+  return {
+    fila: fila,
+    kiosko_anterior: kioskoAnterior,
+    kiosko_nuevo: kioskoNuevo,
+    lineas_desglose_actualizadas: lineasDesgloseActualizadas
+  };
 }
 
 // Marca una o varias copias de una factura (dentro de un mismo kiosko) como
