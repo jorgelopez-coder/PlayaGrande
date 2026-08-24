@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flujo de caja · Kioskos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#faf7f0; --surface:#f2ede2; --card:#ffffff;
+      --border:#c8ddd0; --border-h:#8ab89e;
+      --text:#1c3a28; --muted:#5a8a6a; --subtle:#a0c8b0;
+      --green:#1a7a4a; --green-bg:#eef8f2; --green-lt:#d0eedd;
+      --red:#c84a20; --red-bg:#fdf0eb; --red-lt:#f0c0a8;
+      --amber:#c87820; --amber-bg:#fdf6e3; --amber-lt:#f0d890;
+      --blue:#185fa5; --blue-bg:#eef4fb; --blue-lt:#b8d0f0;
+      --purple:#6a3a9a; --purple-bg:#f3eefb;
+      --radius:12px; --font-d:'Inter Tight',sans-serif; --font-b:'Inter',sans-serif; --font-m:'JetBrains Mono',monospace;
+    }
+    body { background:var(--bg); color:var(--text); font-family:var(--font-b); font-size:14px; line-height:1.6; min-height:100vh; }
+
+    header { height:56px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; justify-content:space-between; background:var(--bg); position:sticky; top:0; z-index:20; }
+    .nav-left { display:flex; align-items:center; gap:10px; }
+    .back-btn { display:flex; align-items:center; gap:5px; font-size:13px; color:var(--muted); text-decoration:none; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface); transition:color .15s,border-color .15s; }
+    .back-btn:hover { color:var(--text); border-color:var(--border-h); }
+    .back-btn svg { width:13px; height:13px; }
+    .page-title { font-family:var(--font-d); font-size:14px; font-weight:700; }
+    .nav-right { display:flex; align-items:center; gap:10px; }
+    .date-chip { font-size:11px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
+    .kiosko-sel { font-size:12.5px; font-weight:500; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); outline:none; cursor:pointer; }
+    button.kiosko-sel { display:flex; align-items:center; gap:6px; font-family:var(--font-b); white-space:nowrap; }
+    .kiosko-multi { position:relative; }
+    .kiosko-multi-panel { display:none; position:absolute; top:calc(100% + 6px); right:0; min-width:200px; max-height:280px; overflow-y:auto; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; z-index:30; }
+    .kiosko-multi-panel.open { display:block; }
+    .kiosko-multi-item { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; font-size:13px; cursor:pointer; user-select:none; }
+    .kiosko-multi-item:hover { background:var(--surface); }
+    .kiosko-multi-sep { height:1px; background:var(--border); margin:4px 2px; }
+
+    main { max-width:1200px; margin:0 auto; padding:2rem 2rem 5rem; }
+    .page-header { margin-bottom:1.5rem; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .page-header h1 { font-family:var(--font-d); font-size:24px; font-weight:700; letter-spacing:-.02em; margin-bottom:4px; }
+    .page-header p { font-size:13px; color:var(--muted); }
+
+    .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:12px; overflow:hidden; }
+    .card-pad { padding:1.1rem 1.25rem; }
+    .card-title { font-family:var(--font-d); font-size:13px; font-weight:700; }
+
+    /* Selector de periodo */
+    .periodo-bar { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    .chip-row { display:flex; gap:6px; flex-wrap:wrap; }
+    .chip-btn { font-family:var(--font-b); font-size:12.5px; font-weight:500; padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--muted); cursor:pointer; transition:background .12s,border-color .12s,color .12s; }
+    .chip-btn:hover { border-color:var(--border-h); color:var(--text); }
+    .chip-btn.active { background:var(--green); border-color:var(--green); color:#fff; }
+    .periodo-dates { display:flex; align-items:center; gap:8px; }
+    .periodo-lbl { font-size:12px; color:var(--muted); }
+    input[type="date"] { background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-b); font-size:12.5px; padding:6px 8px; outline:none; }
+    input[type="date"]:focus, input[type="number"]:focus, input[type="text"]:focus, select:focus { border-color:var(--green); }
+
+    /* KPIs */
+    .kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:1.25rem; }
+    .kpi-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; }
+    .kpi-val { font-family:var(--font-m); font-size:21px; font-weight:500; letter-spacing:-.01em; color:var(--text); }
+    .kpi-lbl { font-size:11px; color:var(--muted); margin-top:4px; }
+    .kpi-sub { font-size:10px; color:var(--subtle); margin-top:1px; }
+    .kpi-val.ambar { color:var(--amber); }
+    .kpi-box.kpi-total { background:var(--surface); }
+
+    /* Banner */
+    .banner { display:flex; align-items:flex-start; gap:10px; padding:.85rem 1.1rem; border-radius:var(--radius); font-size:12.5px; margin-bottom:1rem; border:1px solid; }
+    .banner-warn { background:var(--amber-bg); border-color:var(--amber-lt); color:var(--amber); }
+    .banner svg { width:16px; height:16px; flex-shrink:0; margin-top:1px; }
+    .banner a { color:inherit; font-weight:600; }
+    .banner-info { background:var(--blue-bg); border-color:var(--blue-lt); color:var(--blue); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:1.25rem; width:fit-content; flex-wrap:wrap; }
+    .tab { font-family:var(--font-b); font-size:13px; font-weight:500; padding:6px 16px; border-radius:7px; border:none; cursor:pointer; background:transparent; color:var(--muted); transition:background .15s,color .15s; white-space:nowrap; }
+    .tab.active { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+    /* Tabla */
+    .tabla-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; background:var(--surface); }
+    td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:var(--surface); }
+    .num { text-align:right; font-variant-numeric:tabular-nums; font-family:var(--font-m); }
+    .fila-total td { font-weight:700; border-top:2px solid var(--border-h); background:var(--surface); }
+    .kiosko-tag { display:inline-block; font-size:10px; font-weight:600; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:1px 8px; white-space:nowrap; }
+    .empty { text-align:center; padding:2.5rem; color:var(--subtle); font-size:13px; }
+    .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Fila editable (Planilla estimada / Otros desembolsos) */
+    .row-input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:var(--font-b); font-size:12.5px; padding:6px 8px; outline:none; }
+    .row-input.num-input { font-family:var(--font-m); text-align:right; }
+    td.col-kiosko { min-width:150px; } td.col-fecha { min-width:130px; } td.col-monto { min-width:130px; }
+    td.col-desc { min-width:200px; } td.col-nota { min-width:160px; }
+    .btn-mini { font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; white-space:nowrap; font-family:var(--font-b); }
+    .btn-mini:hover { border-color:var(--border-h); color:var(--text); }
+    .btn-mini.borrar:hover { border-color:var(--red-lt); background:var(--red-bg); color:var(--red); }
+    .add-row-bar { display:flex; align-items:center; justify-content:space-between; padding:.85rem 1.25rem; border-top:1px solid var(--border); }
+    .btn-add { display:flex; align-items:center; gap:6px; font-family:var(--font-b); font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:8px; border:1px solid var(--green-lt); background:var(--green-bg); color:var(--green); cursor:pointer; }
+    .btn-add:hover { background:var(--green); color:#fff; }
+    .btn-add:disabled { opacity:.45; cursor:not-allowed; background:var(--surface); color:var(--muted); border-color:var(--border); }
+    .hint-strip { display:flex; flex-wrap:wrap; gap:8px; padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+    .hint-chip { font-size:11.5px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 10px; }
+    .hint-chip b { color:var(--text); }
+
+    .section-note { font-size:11.5px; color:var(--subtle); padding:.85rem 1.25rem; border-top:1px solid var(--border); }
+    .chart-wrap { padding:1.25rem; height:280px; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.success { border-color:var(--green); color:var(--green); }
+    .toast.error   { border-color:var(--red);   color:var(--red); }
+    .toast svg { width:16px; height:16px; flex-shrink:0; }
+
+    @media (max-width:900px) { .kpi-strip { grid-template-columns:1fr 1fr; } }
+    @media (max-width:700px) {
+      header { padding:0 1rem; } main { padding:1.5rem 1rem 3rem; }
+      .kpi-strip { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Flujo de caja</span>
+  </div>
+  <div class="nav-right">
+    <div class="kiosko-multi" id="kiosko-multi">
+      <button type="button" class="kiosko-sel" id="btn-kiosko-multi" onclick="toggleKioskoDropdown()">
+        <span id="kiosko-multi-label">Todos los kioskos</span>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="kiosko-multi-panel" id="kiosko-multi-panel">
+        <label class="kiosko-multi-item">
+          <input type="checkbox" id="chk-kiosko-todos" checked onchange="toggleKioskoTodos(this)">
+          <span>Todos los kioskos</span>
+        </label>
+        <div class="kiosko-multi-sep"></div>
+        <div id="kiosko-multi-list"></div>
+      </div>
+    </div>
+    <span class="date-chip" id="date-chip"></span>
+  </div>
+</header>
+
+<main>
+  <div class="page-header">
+    <div>
+      <h1>Flujo de caja</h1>
+      <p>Salidas de efectivo programadas y estimadas, por kiosko y periodo</p>
+    </div>
+    <div id="status-carga" style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;">
+      <span class="spinner"></span> Cargando…
+    </div>
+  </div>
+
+  <!-- ── Selector de periodo ── -->
+  <div class="card card-pad">
+    <p class="card-title" style="margin-bottom:.75rem">Periodo</p>
+    <div class="periodo-bar">
+      <div class="chip-row" id="periodo-atajos">
+        <button type="button" class="chip-btn" data-atajo="7" onclick="aplicarAtajoFecha('7')">Próximos 7 días</button>
+        <button type="button" class="chip-btn" data-atajo="15" onclick="aplicarAtajoFecha('15')">Próximos 15 días</button>
+        <button type="button" class="chip-btn active" data-atajo="30" onclick="aplicarAtajoFecha('30')">Próximos 30 días</button>
+        <button type="button" class="chip-btn" data-atajo="mes" onclick="aplicarAtajoFecha('mes')">Este mes</button>
+        <button type="button" class="chip-btn" data-atajo="mesq" onclick="aplicarAtajoFecha('mesq')">Mes que viene</button>
+      </div>
+      <div class="periodo-dates">
+        <span class="periodo-lbl">Personalizado:</span>
+        <input type="date" id="periodo-desde" onchange="limpiarAtajoActivo();renderTodo()"/>
+        <span style="color:var(--subtle);font-size:12px">a</span>
+        <input type="date" id="periodo-hasta" onchange="limpiarAtajoActivo();renderTodo()"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Banner: facturas sin fecha proyectada ── -->
+  <div class="banner banner-warn" id="banner-sin-fecha" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span id="banner-sin-fecha-txt"></span>
+  </div>
+
+  <!-- ── Banner: backend de este módulo no desplegado ── -->
+  <div class="banner banner-info" id="banner-no-deploy" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span>Este módulo todavía no está desplegado (falta la constante <code>APPS_SCRIPT_FLUJO</code>) — Cuentas por pagar, Servicio 10% y Planillas se ven con datos reales, pero los estimados de planilla y otros desembolsos no se pueden guardar todavía. Ver instrucciones en <code>Code-flujo-caja-kioskos-backend.gs</code>.</span>
+  </div>
+
+  <!-- ── KPIs ── -->
+  <div class="kpi-strip">
+    <div class="kpi-box">
+      <div class="kpi-val" id="kpi-ap">₡—</div>
+      <div class="kpi-lbl">Cuentas por pagar programadas</div>
+      <div class="kpi-sub">en el periodo</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-val ambar" id="kpi-servicio">₡—</div>
+      <div class="kpi-lbl">Servicio 10% pendiente</div>
+      <div class="kpi-sub">saldo a hoy, no por periodo</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-val" id="kpi-planilla">₡—</div>
+      <div class="kpi-lbl">Planilla estimada</div>
+      <div class="kpi-sub">en el periodo</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-val" id="kpi-otros">₡—</div>
+      <div class="kpi-lbl">Otros desembolsos</div>
+      <div class="kpi-sub">en el periodo</div>
+    </div>
+    <div class="kpi-box kpi-total">
+      <div class="kpi-val" id="kpi-total">₡—</div>
+      <div class="kpi-lbl">Total a cubrir</div>
+      <div class="kpi-sub">periodo + 10% pendiente</div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('resumen',this)">Resumen</button>
+    <button class="tab" onclick="switchTab('ap',this)">Cuentas por pagar</button>
+    <button class="tab" onclick="switchTab('servicio',this)">Servicio 10%</button>
+    <button class="tab" onclick="switchTab('planilla',this)">Planilla estimada</button>
+    <button class="tab" onclick="switchTab('otros',this)">Otros desembolsos</button>
+  </div>
+
+  <!-- ══ TAB RESUMEN ══ -->
+  <div id="tab-resumen">
+    <div class="card">
+      <div class="chart-wrap"><canvas id="chart-resumen"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="tabla-wrap" id="tabla-resumen"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB CUENTAS POR PAGAR ══ -->
+  <div id="tab-ap" style="display:none;">
+    <div class="card">
+      <div class="hint-strip">
+        <span class="hint-chip">Pagos ya proyectados en <a href="cuentas-por-pagar.html" style="color:var(--green);">Cuentas por Pagar →</a>, filtrados al periodo y kioskos de arriba.</span>
+      </div>
+      <div class="tabla-wrap" id="tabla-ap"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB SERVICIO 10% ══ -->
+  <div id="tab-servicio" style="display:none;">
+    <div class="card">
+      <div class="hint-strip">
+        <span class="hint-chip">Saldo pendiente de pago a hoy, sin importar el periodo elegido arriba. Pagalo desde <a href="servicio-10.html" style="color:var(--green);">Servicio 10% →</a>.</span>
+      </div>
+      <div class="tabla-wrap" id="tabla-servicio"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PLANILLA ESTIMADA ══ -->
+  <div id="tab-planilla" style="display:none;">
+    <div class="card">
+      <div class="hint-strip" id="hint-planillas-reales"></div>
+      <div class="tabla-wrap" id="tabla-planilla"><div class="empty"><span class="spinner"></span></div></div>
+      <div class="add-row-bar">
+        <span style="font-size:11.5px;color:var(--subtle);">Un estimado por kiosko y fecha de desembolso (normalmente las quincenas). Se guarda para todo el equipo.</span>
+        <button class="btn-add" id="btn-add-planilla" onclick="peAgregar()">+ Agregar estimado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB OTROS DESEMBOLSOS ══ -->
+  <div id="tab-otros" style="display:none;">
+    <div class="card">
+      <div class="tabla-wrap" id="tabla-otros"><div class="empty"><span class="spinner"></span></div></div>
+      <div class="add-row-bar">
+        <span style="font-size:11.5px;color:var(--subtle);">Cualquier salida de efectivo estimada que no sea factura de proveedor, servicio 10% o planilla.</span>
+        <button class="btn-add" id="btn-add-otro" onclick="odAgregar()">+ Agregar desembolso</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Mismo Sheet/backend de Compras que usa cuentas-por-pagar.html, en modo
+// SOLO LECTURA (gviz) — este módulo nunca escribe ahí.
+const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+// Mismo backend de RRHH que ya usan compras.html/cierres.html/servicio-10.html/
+// planilla.html — para la lista de kioskos, el Servicio 10% pendiente y las
+// Planillas reales (para sugerir el estimado). Solo lectura acá también.
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// Backend PROPIO de este módulo (ver Code-flujo-caja-kioskos-backend.gs) —
+// guarda el estimado de planilla y los otros desembolsos. Reemplazá este
+// placeholder una vez creado y desplegado el Sheet/Web App nuevo.
+const APPS_SCRIPT_FLUJO = 'TODO_APPS_SCRIPT_FLUJO_URL';
+function flujoListo() { return !APPS_SCRIPT_FLUJO.startsWith('TODO_'); }
+
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  location.href = 'login.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+
+const hoy = new Date();
+document.getElementById('date-chip').textContent =
+  hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+const hoyISO = hoy.toISOString().slice(0,10);
+
+const fmt = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:0, maximumFractionDigits:0 });
+const escapeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+function pad(n) { return String(n).padStart(2,'0'); }
+function fechaISO(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function limpiarMonto(v) { return parseFloat(String(v||'0').replace(/[,₡\s]/g,'')) || 0; }
+function normalizarTexto(s) {
+  return String(s||'').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ');
+}
+// Fechas de gviz: 'YYYY-MM-DD' directo, o formato D/M/YYYY (locale CR) que
+// trae Google en la celda formateada — mismo parser que cuentas-por-pagar.html.
+function isoDate(str) {
+  const s = String(str||'').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return '';
+  const [, d, mo, y] = m;
+  return y + '-' + mo.padStart(2,'0') + '-' + d.padStart(2,'0');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── COLOR POR KIOSKO (misma paleta determinística que cuentas-por-pagar.html,
+// para que el mismo kiosko se vea del mismo color en todo el portal) ──
+const PALETA_KIOSKOS = [
+  { bg:'#f3ecfb', fg:'#6b3fa0', bd:'#dcc4ef' }, { bg:'#e6f7f4', fg:'#0f7a72', bd:'#b9e6df' },
+  { bg:'#fdecf1', fg:'#ab2f5e', bd:'#f3c3d7' }, { bg:'#eef0fc', fg:'#3d4fb0', bd:'#c8cef2' },
+  { bg:'#fbeee3', fg:'#a15a1f', bd:'#f0d3b3' }, { bg:'#f7ecfa', fg:'#9c3fa8', bd:'#ecc7f2' },
+  { bg:'#eaf3fb', fg:'#2f6f96', bd:'#c3e0f0' }, { bg:'#f5f2e6', fg:'#7a7020', bd:'#e6ddb3' }
+];
+function colorKiosko(nombre) {
+  if (!nombre) return null;
+  const idx = KIOSKOS.length ? KIOSKOS.slice().sort((a,b)=>a.localeCompare(b)).findIndex(k => normalizarTexto(k) === normalizarTexto(nombre)) : -1;
+  if (idx !== -1) return PALETA_KIOSKOS[idx % PALETA_KIOSKOS.length];
+  const s = normalizarTexto(nombre);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return PALETA_KIOSKOS[h % PALETA_KIOSKOS.length];
+}
+function kioskoTagHTML(nombre) {
+  const c = colorKiosko(nombre);
+  const estilo = c ? `background:${c.bg};color:${c.fg};border-color:${c.bd};` : '';
+  return `<span class="kiosko-tag" style="${estilo}">${nombre || '—'}</span>`;
+}
+
+// ── KIOSKOS (lista + filtro multi-selección en el header) ──────────
+let KIOSKOS = [];
+let kioskosSeleccionados = new Set();
+
+async function cargarKioskosDesdeBackend(url) {
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      // Timeout explícito: un fetch() a un Apps Script lento o colgado nunca
+      // se rechaza solo, y con Promise.all() en cargarTodo() eso congelaría
+      // "Cargando…" para siempre. Con esto, en el peor caso se degrada a
+      // {ok:false} después de 3 intentos de 15s en vez de colgarse.
+      const resp = await Promise.race([
+        fetch(url),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado')), 15000))
+      ]);
+      return await resp.json();
+    }
+    catch (e) { ultimoError = e; if (intento < 3) await new Promise(r => setTimeout(r, intento * 800)); }
+  }
+  console.error('No se pudo cargar desde el backend tras 3 intentos.', ultimoError);
+  return { ok: false };
+}
+
+async function cargarKioskos() {
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+  if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+  document.getElementById('kiosko-multi-list').innerHTML = KIOSKOS.map(k => `
+    <label class="kiosko-multi-item">
+      <input type="checkbox" value="${escapeAttr(k)}" onchange="toggleKioskoItem(this,'${k.replace(/'/g,"\\'")}')">
+      <span>${k}</span>
+    </label>`).join('');
+}
+
+function toggleKioskoDropdown(forzar) {
+  const panel = document.getElementById('kiosko-multi-panel');
+  panel.classList.toggle('open', forzar != null ? forzar : !panel.classList.contains('open'));
+}
+document.addEventListener('click', function(e) {
+  const cont = document.getElementById('kiosko-multi');
+  if (cont && !cont.contains(e.target)) toggleKioskoDropdown(false);
+});
+function actualizarLabelKiosko() {
+  const label = document.getElementById('kiosko-multi-label');
+  if (!kioskosSeleccionados.size) label.textContent = 'Todos los kioskos';
+  else if (kioskosSeleccionados.size === 1) label.textContent = [...kioskosSeleccionados][0];
+  else label.textContent = kioskosSeleccionados.size + ' kioskos';
+}
+function toggleKioskoTodos(checkbox) {
+  if (checkbox.checked) {
+    kioskosSeleccionados.clear();
+    document.querySelectorAll('#kiosko-multi-list input[type="checkbox"]').forEach(c => c.checked = false);
+  } else if (!kioskosSeleccionados.size) {
+    checkbox.checked = true; return;
+  }
+  actualizarLabelKiosko();
+  renderTodo();
+}
+function toggleKioskoItem(checkbox, kiosko) {
+  if (checkbox.checked) kioskosSeleccionados.add(kiosko);
+  else kioskosSeleccionados.delete(kiosko);
+  document.getElementById('chk-kiosko-todos').checked = kioskosSeleccionados.size === 0;
+  actualizarLabelKiosko();
+  renderTodo();
+}
+function kioskosEnFiltro() {
+  return kioskosSeleccionados.size ? KIOSKOS.filter(k => kioskosSeleccionados.has(k)) : KIOSKOS;
+}
+function kioskoVisible(k) { return !kioskosSeleccionados.size || kioskosSeleccionados.has(k); }
+
+// ── PERIODO ──────────────────────────────────────────────────────
+function aplicarAtajoFecha(atajo) {
+  const hoyD = new Date();
+  let desde = new Date(hoyD), hasta = new Date(hoyD);
+  if (atajo === '7') { hasta.setDate(hasta.getDate() + 6); }
+  else if (atajo === '15') { hasta.setDate(hasta.getDate() + 14); }
+  else if (atajo === '30') { hasta.setDate(hasta.getDate() + 29); }
+  else if (atajo === 'mes') { hasta = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0); }
+  else if (atajo === 'mesq') { desde = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 1); hasta = new Date(hoyD.getFullYear(), hoyD.getMonth() + 2, 0); }
+  document.getElementById('periodo-desde').value = fechaISO(desde);
+  document.getElementById('periodo-hasta').value = fechaISO(hasta);
+  document.querySelectorAll('#periodo-atajos .chip-btn').forEach(b => b.classList.toggle('active', b.dataset.atajo === atajo));
+  renderTodo();
+}
+function limpiarAtajoActivo() {
+  document.querySelectorAll('#periodo-atajos .chip-btn').forEach(b => b.classList.remove('active'));
+}
+function rangoActual() {
+  return { desde: document.getElementById('periodo-desde').value, hasta: document.getElementById('periodo-hasta').value };
+}
+// Próxima quincena (día 15 o último día de mes) en o después de una fecha ISO.
+function proximaQuincena(desdeISO) {
+  const d = new Date(desdeISO + 'T00:00:00');
+  const anioMes = desdeISO.slice(0, 8);
+  if (d.getDate() <= 15) return anioMes + '15';
+  const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return anioMes + String(ultimoDia).padStart(2, '0');
+}
+
+// ── GVIZ: leer hoja pública del Sheet de Compras (Cuentas por Pagar) ──
+function gvizLoadCompras(hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    var cb = '_fc_' + Math.random().toString(36).slice(2,10);
+    var url = 'https://docs.google.com/spreadsheets/d/' + COMPRAS_SHEET_ID
+      + '/gviz/tq?tqx=responseHandler:' + cb + '&sheet=' + encodeURIComponent(hoja);
+    var timer = setTimeout(function() { cleanup(); resolve([]); }, 15000);
+    function cleanup() { clearTimeout(timer); try { delete window[cb]; } catch(e){} try { if (s && s.parentNode) document.body.removeChild(s); } catch(e){} }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        var cols = (data.table.cols||[]).map(function(c){ return String(c.label||c.id||'').trim(); });
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        var rows = (data.table.rows||[]).filter(function(r){ return r&&r.c; }).map(function(row){
+          var obj = {};
+          cols.forEach(function(col,i){ var cell = row.c[i]; obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : ''; });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    var s = document.createElement('script');
+    s.onerror = function(){ cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
+}
+
+// ── DATA ─────────────────────────────────────────────────────────
+let apItems = [];               // facturas AP no pagadas, con saldo>0 (ver computarAP)
+let dataServicioDetalle = [];   // ServicioRepartoDetalle (servicio-10.html)
+let dataPlanillas = [];         // Planillas reales (planilla.html) — solo para sugerir el estimado
+let dataPlanillaEstimada = [];  // PlanillaEstimada (este módulo)
+let dataOtrosDesembolsos = [];  // OtrosDesembolsos (este módulo)
+
+async function cargarAP() {
+  const [facturas, abonos] = await Promise.all([
+    gvizLoadCompras('Registro Facturas', 'Factura'),
+    gvizLoadCompras('Abonos', 'Factura')
+  ]);
+  const abonadoPorFactura = {};
+  abonos.forEach(a => {
+    const clave = String(a['Factura']) + '§' + String(a['Kiosko']||'');
+    abonadoPorFactura[clave] = (abonadoPorFactura[clave]||0) + limpiarMonto(a['Monto abonado']);
+  });
+  apItems = facturas.map(r => {
+    if (isoDate(r['Fecha de pago'])) return null; // ya pagada por completo
+    const numero = r['Factura'], kiosko = r['Kiosko'] || '';
+    const moneda = r['Moneda'] || 'CRC';
+    let monto = limpiarMonto(r['TOTAL']);
+    let sinTipoCambio = false;
+    if (moneda !== 'CRC') {
+      const tc = limpiarMonto(r['Tipo de cambio']);
+      if (tc) monto = monto * tc; else sinTipoCambio = true;
+    }
+    const abonado = abonadoPorFactura[String(numero) + '§' + kiosko] || 0;
+    const saldo = Math.round((monto - abonado) * 100) / 100;
+    if (saldo <= 0.01) return null; // ya cubierta con abonos
+    return { numero, kiosko, proveedor: r['Proveedor']||'', saldo, sinTipoCambio, moneda,
+      fechaProyectada: isoDate(r['Fecha proyectada de pago']) };
+  }).filter(Boolean);
+}
+
+async function cargarServicio10() {
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle');
+  dataServicioDetalle = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
+
+async function cargarPlanillasReales() {
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=planillas');
+  dataPlanillas = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
+
+async function cargarPlanillaEstimada() {
+  if (!flujoListo()) { dataPlanillaEstimada = []; return; }
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=planilla_estimada');
+  dataPlanillaEstimada = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
+async function cargarOtrosDesembolsos() {
+  if (!flujoListo()) { dataOtrosDesembolsos = []; return; }
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=otros_desembolsos');
+  dataOtrosDesembolsos = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
+
+async function postFlujo(modulo, payload) {
+  try {
+    const resp = await fetch(APPS_SCRIPT_FLUJO, { method:'POST', body:new URLSearchParams({ data: JSON.stringify(Object.assign({ modulo }, payload)) }) });
+    return await resp.json();
+  } catch (e) { return { ok:false, error:e.message }; }
+}
+function usuarioActual() { return (PORTAL_SESION && PORTAL_SESION.nombre) || ''; }
+
+function ultimaPlanillaReal(kiosko) {
+  const filas = dataPlanillas.filter(p => p['Kiosko'] === kiosko).sort((a,b) => String(b['Fecha fin']||'').localeCompare(String(a['Fecha fin']||'')));
+  return filas[0] || null;
+}
+
+async function cargarTodo() {
+  document.getElementById('status-carga').style.display = 'flex';
+  await Promise.all([cargarAP(), cargarServicio10(), cargarPlanillasReales(), cargarPlanillaEstimada(), cargarOtrosDesembolsos()]);
+  document.getElementById('status-carga').style.display = 'none';
+  document.getElementById('banner-no-deploy').style.display = flujoListo() ? 'none' : 'flex';
+  document.getElementById('btn-add-planilla').disabled = !flujoListo();
+  document.getElementById('btn-add-otro').disabled = !flujoListo();
+  renderTodo();
+}
+
+// ── CÁLCULO CENTRAL ──────────────────────────────────────────────
+function calcularResumen() {
+  const { desde, hasta } = rangoActual();
+  const porKiosko = {};
+  const asegurarFila = k => { if (!porKiosko[k]) porKiosko[k] = { ap:0, servicio:0, planilla:0, otros:0 }; return porKiosko[k]; };
+  kioskosEnFiltro().forEach(asegurarFila);
+
+  let apSinFecha = { count:0, monto:0 };
+  apItems.forEach(f => {
+    if (f.sinTipoCambio || !kioskoVisible(f.kiosko)) return;
+    if (!f.fechaProyectada) { apSinFecha.count++; apSinFecha.monto += f.saldo; return; }
+    if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
+    asegurarFila(f.kiosko).ap += f.saldo;
+  });
+
+  dataServicioDetalle.forEach(r => {
+    if (String(r['Pagado']||'').trim().toLowerCase() === 'sí') return;
+    if (!kioskoVisible(r['Kiosko'])) return;
+    asegurarFila(r['Kiosko']).servicio += Number(r['Monto ₡']) || 0;
+  });
+
+  dataPlanillaEstimada.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    asegurarFila(r['Kiosko']).planilla += Number(r['Monto']) || 0;
+  });
+
+  dataOtrosDesembolsos.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
+    if (!esGeneral && !kioskoVisible(r['Kiosko'])) return;
+    if (f < desde || f > hasta) return;
+    asegurarFila(esGeneral ? 'General (todos)' : r['Kiosko']).otros += Number(r['Monto']) || 0;
+  });
+
+  return { porKiosko, apSinFecha, desde, hasta };
+}
+
+function totalesGlobales(porKiosko) {
+  const t = { ap:0, servicio:0, planilla:0, otros:0 };
+  Object.values(porKiosko).forEach(f => { t.ap+=f.ap; t.servicio+=f.servicio; t.planilla+=f.planilla; t.otros+=f.otros; });
+  t.total = t.ap + t.servicio + t.planilla + t.otros;
+  return t;
+}
+
+// ── RENDER ───────────────────────────────────────────────────────
+function renderTodo() {
+  const resumen = calcularResumen();
+  renderBanner(resumen);
+  const t = totalesGlobales(resumen.porKiosko);
+  document.getElementById('kpi-ap').textContent = fmt(t.ap);
+  document.getElementById('kpi-servicio').textContent = fmt(t.servicio);
+  document.getElementById('kpi-planilla').textContent = fmt(t.planilla);
+  document.getElementById('kpi-otros').textContent = fmt(t.otros);
+  document.getElementById('kpi-total').textContent = fmt(t.total);
+  renderTablaResumen(resumen, t);
+  renderChart(resumen);
+  renderTabAP(resumen);
+  renderTabServicio();
+  renderPlanillaEstimada();
+  renderOtrosDesembolsos();
+}
+
+function renderBanner(resumen) {
+  const banner = document.getElementById('banner-sin-fecha');
+  if (resumen.apSinFecha.count > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('banner-sin-fecha-txt').innerHTML =
+      `Hay <b>${resumen.apSinFecha.count}</b> factura(s) pendiente(s) por <b>${fmt(resumen.apSinFecha.monto)}</b> sin fecha proyectada de pago — no están incluidas en el total del periodo. Asignales una fecha en la pestaña "Proyección de pagos" de <a href="cuentas-por-pagar.html">Cuentas por Pagar →</a>.`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function filaOrdenadaPorTotal(porKiosko) {
+  return Object.entries(porKiosko)
+    .map(([kiosko, v]) => ({ kiosko, ...v, total: v.ap+v.servicio+v.planilla+v.otros }))
+    .sort((a,b) => b.total - a.total);
+}
+
+function renderTablaResumen(resumen, t) {
+  const filas = filaOrdenadaPorTotal(resumen.porKiosko);
+  const cont = document.getElementById('tabla-resumen');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">No hay kioskos en el filtro actual.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th style="text-align:right">CxP programado</th><th style="text-align:right">Servicio 10% pend.</th><th style="text-align:right">Planilla estimada</th><th style="text-align:right">Otros</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>
+        ${filas.map(f => `
+          <tr>
+            <td>${f.kiosko === 'General (todos)' ? f.kiosko : kioskoTagHTML(f.kiosko)}</td>
+            <td class="num">${fmt(f.ap)}</td>
+            <td class="num">${fmt(f.servicio)}</td>
+            <td class="num">${fmt(f.planilla)}</td>
+            <td class="num">${fmt(f.otros)}</td>
+            <td class="num"><strong>${fmt(f.total)}</strong></td>
+          </tr>`).join('')}
+        <tr class="fila-total"><td>Total</td><td class="num">${fmt(t.ap)}</td><td class="num">${fmt(t.servicio)}</td><td class="num">${fmt(t.planilla)}</td><td class="num">${fmt(t.otros)}</td><td class="num">${fmt(t.total)}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+let chartResumen = null;
+function renderChart(resumen) {
+  if (typeof Chart === 'undefined') return;
+  const filas = filaOrdenadaPorTotal(resumen.porKiosko);
+  const ctx = document.getElementById('chart-resumen');
+  if (chartResumen) { chartResumen.destroy(); chartResumen = null; }
+  if (!filas.length) return;
+  chartResumen = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: filas.map(f => f.kiosko),
+      datasets: [
+        { label:'Cuentas por pagar', data: filas.map(f=>f.ap), backgroundColor:'#185fa5' },
+        { label:'Servicio 10% pendiente', data: filas.map(f=>f.servicio), backgroundColor:'#c87820' },
+        { label:'Planilla estimada', data: filas.map(f=>f.planilla), backgroundColor:'#1a7a4a' },
+        { label:'Otros desembolsos', data: filas.map(f=>f.otros), backgroundColor:'#6a3a9a' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ position:'bottom', labels:{ font:{family:"'Inter',sans-serif",size:11}, boxWidth:10 } },
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } } },
+      scales: { x:{ stacked:true, ticks:{font:{size:11}} }, y:{ stacked:true, beginAtZero:true, ticks:{ callback:v=>'₡'+Number(v).toLocaleString('es-CR') } } }
+    }
+  });
+}
+
+function renderTabAP(resumen) {
+  const lista = apItems.filter(f => !f.sinTipoCambio && kioskoVisible(f.kiosko) && f.fechaProyectada && f.fechaProyectada >= resumen.desde && f.fechaProyectada <= resumen.hasta)
+    .sort((a,b) => a.fechaProyectada.localeCompare(b.fechaProyectada));
+  const cont = document.getElementById('tabla-ap');
+  if (!lista.length) { cont.innerHTML = '<div class="empty">No hay pagos proyectados en este periodo.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Fecha proyectada</th><th>Kiosko</th><th>Proveedor</th><th>Factura</th><th style="text-align:right">Saldo</th></tr></thead>
+      <tbody>${lista.map(f => `
+        <tr><td>${f.fechaProyectada}</td><td>${kioskoTagHTML(f.kiosko)}</td><td>${f.proveedor}</td><td>${f.numero}</td><td class="num">${fmt(f.saldo)}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function renderTabServicio() {
+  const porKiosko = {};
+  dataServicioDetalle.forEach(r => {
+    if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
+    const k = r['Kiosko'];
+    if (!porKiosko[k]) porKiosko[k] = { monto:0, fechas:new Set() };
+    porKiosko[k].monto += Number(r['Monto ₡']) || 0;
+    porKiosko[k].fechas.add(String(r['Fecha']||'').slice(0,10));
+  });
+  const filas = Object.entries(porKiosko).sort((a,b) => b[1].monto - a[1].monto);
+  const cont = document.getElementById('tabla-servicio');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">No hay servicio 10% pendiente de pago.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th style="text-align:right">Fechas pendientes</th><th style="text-align:right">Monto pendiente</th></tr></thead>
+      <tbody>${filas.map(([k,v]) => `<tr><td>${kioskoTagHTML(k)}</td><td class="num">${v.fechas.size}</td><td class="num">${fmt(v.monto)}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+// ── TAB PLANILLA ESTIMADA (editable) ──────────────────────────────
+function renderPlanillaEstimada() {
+  const hint = document.getElementById('hint-planillas-reales');
+  hint.innerHTML = kioskosEnFiltro().map(k => {
+    const u = ultimaPlanillaReal(k);
+    return `<span class="hint-chip">${k}: última planilla real <b>${u ? fmt(u['Total neto']) + ' (' + (u['Periodo']||'') + ')' : 'sin datos'}</b></span>`;
+  }).join('') || '<span class="hint-chip">Sin kioskos en el filtro actual.</span>';
+
+  const filas = dataPlanillaEstimada.filter(r => kioskoVisible(r['Kiosko'])).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
+  const cont = document.getElementById('tabla-planilla');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">Sin estimados de planilla todavía. Agregá uno con el botón de abajo.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th>Fecha</th><th style="text-align:right">Monto</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${filas.map(r => filaPlanillaHTML(r)).join('')}</tbody>
+    </table>`;
+}
+function filaPlanillaHTML(r) {
+  const id = r['ID'];
+  return `<tr data-id="${escapeAttr(id)}">
+    <td class="col-kiosko"><select class="row-input" onchange="peActualizar('${id}','Kiosko',this.value)">${KIOSKOS.map(k => `<option value="${escapeAttr(k)}" ${k===r['Kiosko']?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td class="col-fecha"><input type="date" class="row-input" value="${String(r['Fecha']||'').slice(0,10)}" onchange="peActualizar('${id}','Fecha',this.value)"></td>
+    <td class="col-monto"><input type="number" step="0.01" class="row-input num-input" value="${Number(r['Monto'])||0}" onchange="peActualizar('${id}','Monto',this.value)"></td>
+    <td class="col-nota"><input type="text" class="row-input" value="${escapeAttr(r['Nota'])}" placeholder="Nota (opcional)" onchange="peActualizar('${id}','Nota',this.value)"></td>
+    <td><button class="btn-mini borrar" onclick="peEliminar('${id}')">Eliminar</button></td>
+  </tr>`;
+}
+async function peAgregar() {
+  if (!flujoListo()) { showToast('Este módulo todavía no está desplegado.', 'error'); return; }
+  const kiosko = kioskosEnFiltro()[0] || KIOSKOS[0] || '';
+  const fecha = proximaQuincena(hoyISO);
+  const u = ultimaPlanillaReal(kiosko);
+  const monto = u ? Number(u['Total neto'])||0 : 0;
+  const r = await postFlujo('planilla_estimada_guardar', { kiosko, fecha, monto, nota:'', registrado_por: usuarioActual() });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  dataPlanillaEstimada.push({ 'ID':r.id, 'Kiosko':kiosko, 'Fecha':fecha, 'Monto':monto, 'Nota':'' });
+  renderTodo();
+  showToast('Estimado agregado.');
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`#tabla-planilla tr[data-id="${r.id}"] .num-input`);
+    if (input) { input.focus(); input.select(); }
+  });
+}
+async function peActualizar(id, campo, valor) {
+  const row = dataPlanillaEstimada.find(r => r['ID'] === id);
+  if (!row) return;
+  row[campo] = campo === 'Monto' ? (parseFloat(valor)||0) : valor;
+  const r = await postFlujo('planilla_estimada_guardar', {
+    id, kiosko: row['Kiosko'], fecha: String(row['Fecha']).slice(0,10), monto: Number(row['Monto'])||0, nota: row['Nota']||'', registrado_por: usuarioActual()
+  });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  renderTodo();
+}
+async function peEliminar(id) {
+  const r = await postFlujo('planilla_estimada_eliminar', { id });
+  if (!r.ok) { showToast('No se pudo eliminar: ' + (r.error||'error'), 'error'); return; }
+  dataPlanillaEstimada = dataPlanillaEstimada.filter(row => row['ID'] !== id);
+  renderTodo();
+  showToast('Estimado eliminado.');
+}
+
+// ── TAB OTROS DESEMBOLSOS (editable) ──────────────────────────────
+function renderOtrosDesembolsos() {
+  const filas = dataOtrosDesembolsos.filter(r => !r['Kiosko'] || r['Kiosko']==='Todos' || kioskoVisible(r['Kiosko'])).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
+  const cont = document.getElementById('tabla-otros');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">Sin otros desembolsos todavía. Agregá uno con el botón de abajo.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th>Descripción</th><th>Fecha</th><th style="text-align:right">Monto</th><th>Categoría</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${filas.map(r => filaOtroHTML(r)).join('')}</tbody>
+    </table>`;
+}
+function filaOtroHTML(r) {
+  const id = r['ID'];
+  const opciones = ['Todos'].concat(KIOSKOS);
+  return `<tr data-id="${escapeAttr(id)}">
+    <td class="col-kiosko"><select class="row-input" onchange="odActualizar('${id}','Kiosko',this.value)">${opciones.map(k => `<option value="${escapeAttr(k)}" ${k===(r['Kiosko']||'Todos')?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td class="col-desc"><input type="text" class="row-input" value="${escapeAttr(r['Descripcion'])}" onchange="odActualizar('${id}','Descripcion',this.value)"></td>
+    <td class="col-fecha"><input type="date" class="row-input" value="${String(r['Fecha']||'').slice(0,10)}" onchange="odActualizar('${id}','Fecha',this.value)"></td>
+    <td class="col-monto"><input type="number" step="0.01" class="row-input num-input" value="${Number(r['Monto'])||0}" onchange="odActualizar('${id}','Monto',this.value)"></td>
+    <td><input type="text" class="row-input" value="${escapeAttr(r['Categoria'])}" placeholder="Opcional" onchange="odActualizar('${id}','Categoria',this.value)"></td>
+    <td class="col-nota"><input type="text" class="row-input" value="${escapeAttr(r['Nota'])}" placeholder="Opcional" onchange="odActualizar('${id}','Nota',this.value)"></td>
+    <td><button class="btn-mini borrar" onclick="odEliminar('${id}')">Eliminar</button></td>
+  </tr>`;
+}
+async function odAgregar() {
+  if (!flujoListo()) { showToast('Este módulo todavía no está desplegado.', 'error'); return; }
+  const kiosko = kioskosEnFiltro().length === 1 ? kioskosEnFiltro()[0] : 'Todos';
+  const fecha = hoyISO, descripcion = 'Nuevo desembolso';
+  const r = await postFlujo('otro_desembolso_guardar', { kiosko, descripcion, fecha, monto:0, categoria:'', nota:'', registrado_por: usuarioActual() });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  dataOtrosDesembolsos.push({ 'ID':r.id, 'Kiosko':kiosko, 'Descripcion':descripcion, 'Fecha':fecha, 'Monto':0, 'Categoria':'', 'Nota':'' });
+  renderTodo();
+  showToast('Desembolso agregado.');
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`#tabla-otros tr[data-id="${r.id}"] .col-desc .row-input`);
+    if (input) { input.focus(); input.select(); }
+  });
+}
+async function odActualizar(id, campo, valor) {
+  const row = dataOtrosDesembolsos.find(r => r['ID'] === id);
+  if (!row) return;
+  row[campo] = campo === 'Monto' ? (parseFloat(valor)||0) : valor;
+  const r = await postFlujo('otro_desembolso_guardar', {
+    id, kiosko: row['Kiosko']||'Todos', descripcion: row['Descripcion']||'', fecha: String(row['Fecha']).slice(0,10),
+    monto: Number(row['Monto'])||0, categoria: row['Categoria']||'', nota: row['Nota']||'', registrado_por: usuarioActual()
+  });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  renderTodo();
+}
+async function odEliminar(id) {
+  const r = await postFlujo('otro_desembolso_eliminar', { id });
+  if (!r.ok) { showToast('No se pudo eliminar: ' + (r.error||'error'), 'error'); return; }
+  dataOtrosDesembolsos = dataOtrosDesembolsos.filter(row => row['ID'] !== id);
+  renderTodo();
+  showToast('Desembolso eliminado.');
+}
+
+// ── TABS ─────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  ['resumen','ap','servicio','planilla','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
+  document.querySelectorAll('.tabs .tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (tab === 'resumen') renderChart(calcularResumen());
+}
+
+// ── ARRANQUE ─────────────────────────────────────────────────────
+aplicarAtajoFecha('30');
+(async function main() {
+  await cargarKioskos();
+  await cargarTodo();
+})();
+</script>
+</body>
+</html>
