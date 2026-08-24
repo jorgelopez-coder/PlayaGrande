@@ -134,9 +134,15 @@
     .timeline-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
     .timeline-fecha { font-family:var(--font-d); font-size:13.5px; font-weight:700; text-transform:capitalize; }
     .timeline-hoy-tag { font-size:10px; font-weight:700; color:var(--amber); background:var(--amber-bg); border:1px solid var(--amber-lt); border-radius:20px; padding:1px 7px; margin-left:6px; vertical-align:middle; }
-    .timeline-total { font-family:var(--font-m); font-size:13.5px; font-weight:500; }
+    .timeline-total { font-family:var(--font-m); font-size:13.5px; font-weight:500; display:inline-flex; align-items:center; gap:4px; cursor:pointer; padding:2px 7px; border-radius:7px; transition:background .12s; user-select:none; }
+    .timeline-total:hover { background:var(--surface); }
+    .timeline-total .kpi-chev { margin-top:0; }
+    .timeline-total.abierto { background:var(--surface); }
+    .timeline-total.abierto .kpi-chev { transform:rotate(180deg); color:var(--muted); }
     .timeline-kioskos { display:flex; flex-wrap:wrap; gap:6px; }
     .timeline-chip { font-size:11px; font-weight:500; border:1px solid var(--border); border-radius:20px; padding:2px 9px; white-space:nowrap; }
+    .timeline-detalle { display:none; flex-direction:column; gap:4px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); max-width:280px; }
+    .timeline-detalle.show { display:flex; }
 
     /* Toast */
     .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,.08); }
@@ -814,45 +820,52 @@ function totalesGlobales(porKiosko) {
 // dentro del periodo elegido — si no, ese saldo simplemente no aparece acá
 // (sigue visible en el KPI y en la pestaña Servicio 10%, que no filtran por
 // periodo).
+// Además de porKiosko (para los chips existentes), cada fecha guarda porTipo
+// — el mismo monto pero agrupado por tipo de pago (CxP/Servicio 10%/
+// Planilla/Compras de proveedores/Otros) sumado en todos los kioskos del
+// filtro — para el detalle que se despliega al click en el total del día
+// (ver ETIQUETAS_TIPO_PAGO / toggleLineaTipo).
+const ETIQUETAS_TIPO_PAGO = { ap:'Cuentas por pagar', servicio:'Servicio 10%', planilla:'Planilla estimada', comprasProv:'Compras de proveedores', otros:'Otros desembolsos' };
 function calcularLineaTiempo() {
   const { desde, hasta } = rangoActual();
   const porFecha = {};
-  const asegurarFecha = f => { if (!porFecha[f]) porFecha[f] = { porKiosko:{} }; return porFecha[f]; };
-  const sumar = (fecha, kiosko, monto) => {
+  const asegurarFecha = f => { if (!porFecha[f]) porFecha[f] = { porKiosko:{}, porTipo:{ ap:0, servicio:0, planilla:0, comprasProv:0, otros:0 } }; return porFecha[f]; };
+  const sumar = (fecha, kiosko, tipo, monto) => {
     if (!fecha || !monto) return;
     const d = asegurarFecha(fecha);
     d.porKiosko[kiosko] = (d.porKiosko[kiosko]||0) + monto;
+    d.porTipo[tipo] = (d.porTipo[tipo]||0) + monto;
   };
 
   apItems.forEach(f => {
     if (f.sinTipoCambio || !kioskoVisible(f.kiosko) || !f.fechaProyectada) return;
     if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
-    sumar(f.fechaProyectada, f.kiosko, f.saldo);
+    sumar(f.fechaProyectada, f.kiosko, 'ap', f.saldo);
   });
 
   if (hoyISO >= desde && hoyISO <= hasta) {
     dataServicioDetalle.forEach(r => {
       if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
-      sumar(hoyISO, r['Kiosko'], Number(r['Monto ₡']) || 0);
+      sumar(hoyISO, r['Kiosko'], 'servicio', Number(r['Monto ₡']) || 0);
     });
   }
 
   dataServicioManual.forEach(r => {
     const f = String(r['Fecha']||'').slice(0,10);
     if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
-    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+    sumar(f, r['Kiosko'], 'servicio', Number(r['Monto']) || 0);
   });
 
   dataPlanillaEstimada.forEach(r => {
     const f = String(r['Fecha']||'').slice(0,10);
     if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
-    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+    sumar(f, r['Kiosko'], 'planilla', Number(r['Monto']) || 0);
   });
 
   dataComprasProveedores.forEach(r => {
     const f = String(r['Fecha']||'').slice(0,10);
     if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
-    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+    sumar(f, r['Kiosko'], 'comprasProv', Number(r['Monto']) || 0);
   });
 
   dataOtrosDesembolsos.forEach(r => {
@@ -860,7 +873,7 @@ function calcularLineaTiempo() {
     const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
     if (!esGeneral && !kioskoVisible(r['Kiosko'])) return;
     if (f < desde || f > hasta) return;
-    sumar(f, esGeneral ? 'General (todos)' : r['Kiosko'], Number(r['Monto']) || 0);
+    sumar(f, esGeneral ? 'General (todos)' : r['Kiosko'], 'otros', Number(r['Monto']) || 0);
   });
 
   const fechas = Object.keys(porFecha).sort();
@@ -1032,7 +1045,19 @@ function renderChartLinea(datos) {
   });
 }
 
+// timelineAbiertos guarda qué fechas quedan desplegadas con el detalle por
+// tipo de pago (mismo criterio que kpiAbiertos para los KPI); lineaTiempoActual
+// guarda el último cálculo para que toggleLineaTipo() pueda re-renderizar sin
+// recalcular. Se re-renderiza toda la lista al abrir/cerrar (es una lista
+// corta, no vale la pena mutar el DOM a mano).
+let timelineAbiertos = new Set();
+let lineaTiempoActual = null;
+function toggleLineaTipo(fecha) {
+  if (timelineAbiertos.has(fecha)) timelineAbiertos.delete(fecha); else timelineAbiertos.add(fecha);
+  if (lineaTiempoActual) renderTimelineLista(lineaTiempoActual);
+}
 function renderTimelineLista(datos) {
+  lineaTiempoActual = datos;
   const cont = document.getElementById('timeline-lista');
   if (!datos.fechas.length) { cont.innerHTML = '<div class="empty">No hay necesidad de efectivo en este periodo.</div>'; return; }
   cont.innerHTML = `<div class="timeline-list">${datos.fechas.map(f => {
@@ -1040,16 +1065,28 @@ function renderTimelineLista(datos) {
     const total = Object.values(d.porKiosko).reduce((a,b) => a+b, 0);
     const esHoy = f === hoyISO;
     const kioskosOrdenados = Object.entries(d.porKiosko).sort((a,b) => b[1]-a[1]);
+    const abierto = timelineAbiertos.has(f);
+    const tiposConMonto = Object.entries(d.porTipo).filter(([,monto]) => monto).sort((a,b) => b[1]-a[1]);
     return `
       <div class="timeline-item ${esHoy?'timeline-hoy':''}">
         <div class="timeline-rail"><span class="timeline-dot"></span></div>
         <div class="timeline-body">
           <div class="timeline-head">
             <span class="timeline-fecha">${fechaLarga(f)}${esHoy?'<span class="timeline-hoy-tag">HOY</span>':''}</span>
-            <span class="timeline-total">${fmt(total)}</span>
+            <span class="timeline-total ${abierto?'abierto':''}" onclick="toggleLineaTipo('${f}')" title="Ver detalle por tipo de pago">
+              ${fmt(total)}
+              <svg class="kpi-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </span>
           </div>
           <div class="timeline-kioskos">
             ${kioskosOrdenados.map(([k,monto]) => `<span class="timeline-chip" style="${chipEstiloKiosko(k)}">${k} · ${fmt(monto)}</span>`).join('')}
+          </div>
+          <div class="timeline-detalle ${abierto?'show':''}">
+            ${tiposConMonto.map(([tipo,monto]) => `
+              <div class="kpi-detalle-fila">
+                <span>${ETIQUETAS_TIPO_PAGO[tipo] || tipo}</span>
+                <span class="kpi-detalle-monto">${fmt(monto)}</span>
+              </div>`).join('')}
           </div>
         </div>
       </div>`;
