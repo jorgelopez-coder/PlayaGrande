@@ -113,6 +113,21 @@
     .section-note { font-size:11.5px; color:var(--subtle); padding:.85rem 1.25rem; border-top:1px solid var(--border); }
     .chart-wrap { padding:1.25rem; height:280px; }
 
+    /* Línea de tiempo */
+    .timeline-list { padding:.5rem 1.25rem 1.25rem; }
+    .timeline-item { display:flex; gap:12px; }
+    .timeline-rail { display:flex; flex-direction:column; align-items:center; width:14px; flex-shrink:0; }
+    .timeline-dot { width:10px; height:10px; border-radius:50%; background:var(--green); border:2px solid var(--green-lt); margin-top:5px; flex-shrink:0; }
+    .timeline-item:not(:last-child) .timeline-rail::after { content:''; flex:1; width:2px; background:var(--border); margin-top:2px; }
+    .timeline-hoy .timeline-dot { background:var(--amber); border-color:var(--amber-lt); }
+    .timeline-body { flex:1; padding-bottom:1.25rem; }
+    .timeline-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+    .timeline-fecha { font-family:var(--font-d); font-size:13.5px; font-weight:700; text-transform:capitalize; }
+    .timeline-hoy-tag { font-size:10px; font-weight:700; color:var(--amber); background:var(--amber-bg); border:1px solid var(--amber-lt); border-radius:20px; padding:1px 7px; margin-left:6px; vertical-align:middle; }
+    .timeline-total { font-family:var(--font-m); font-size:13.5px; font-weight:500; }
+    .timeline-kioskos { display:flex; flex-wrap:wrap; gap:6px; }
+    .timeline-chip { font-size:11px; font-weight:500; border:1px solid var(--border); border-radius:20px; padding:2px 9px; white-space:nowrap; }
+
     /* Toast */
     .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:11px 18px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s; opacity:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,.08); }
     .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
@@ -209,7 +224,7 @@
     <div class="kpi-box">
       <div class="kpi-val ambar" id="kpi-servicio">₡—</div>
       <div class="kpi-lbl">Servicio 10% pendiente</div>
-      <div class="kpi-sub">saldo a hoy, no por periodo</div>
+      <div class="kpi-sub">saldo real a hoy + manual en el periodo</div>
     </div>
     <div class="kpi-box">
       <div class="kpi-val" id="kpi-planilla">₡—</div>
@@ -231,6 +246,7 @@
   <!-- ── Tabs ── -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('resumen',this)">Resumen</button>
+    <button class="tab" onclick="switchTab('linea',this)">Línea de tiempo</button>
     <button class="tab" onclick="switchTab('ap',this)">Cuentas por pagar</button>
     <button class="tab" onclick="switchTab('servicio',this)">Servicio 10%</button>
     <button class="tab" onclick="switchTab('planilla',this)">Planilla estimada</button>
@@ -244,6 +260,19 @@
     </div>
     <div class="card">
       <div class="tabla-wrap" id="tabla-resumen"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB LÍNEA DE TIEMPO ══ -->
+  <div id="tab-linea" style="display:none;">
+    <div class="card">
+      <div class="hint-strip">
+        <span class="hint-chip">Necesidad de efectivo por fecha, dentro del periodo elegido arriba. Cuentas por pagar, planilla estimada, otros desembolsos y montos manuales de Servicio 10% usan su fecha; el saldo <b>real</b> de Servicio 10% (que no tiene fecha propia) se agrupa en "Hoy" si el periodo elegido incluye el día de hoy.</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-linea"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="tabla-wrap" id="timeline-lista"><div class="empty"><span class="spinner"></span></div></div>
     </div>
   </div>
 
@@ -264,6 +293,16 @@
         <span class="hint-chip">Saldo pendiente de pago a hoy, sin importar el periodo elegido arriba. Pagalo desde <a href="servicio-10.html" style="color:var(--green);">Servicio 10% →</a>.</span>
       </div>
       <div class="tabla-wrap" id="tabla-servicio"><div class="empty"><span class="spinner"></span></div></div>
+    </div>
+    <div class="card">
+      <div class="hint-strip">
+        <span class="hint-chip">Montos manuales: ajustes o pagos futuros de Servicio 10% que todavía no están en el sistema real, con su propia fecha — sí respetan el periodo elegido arriba.</span>
+      </div>
+      <div class="tabla-wrap" id="tabla-servicio-manual"><div class="empty"><span class="spinner"></span></div></div>
+      <div class="add-row-bar">
+        <span style="font-size:11.5px;color:var(--subtle);">Se suma al "Servicio 10% pendiente" de arriba. Se guarda para todo el equipo.</span>
+        <button class="btn-add" id="btn-add-servicio-manual" onclick="smAgregar()">+ Agregar monto manual</button>
+      </div>
     </div>
   </div>
 
@@ -333,6 +372,8 @@ const fmt = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionD
 const escapeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 function pad(n) { return String(n).padStart(2,'0'); }
 function fechaISO(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function fechaCorta(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString('es-CR', { day:'numeric', month:'short' }); }
+function fechaLarga(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString('es-CR', { weekday:'short', day:'numeric', month:'short' }); }
 function limpiarMonto(v) { return parseFloat(String(v||'0').replace(/[,₡\s]/g,'')) || 0; }
 function normalizarTexto(s) {
   return String(s||'').trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ');
@@ -451,7 +492,17 @@ function toggleKioskoItem(checkbox, kiosko) {
 function kioskosEnFiltro() {
   return kioskosSeleccionados.size ? KIOSKOS.filter(k => kioskosSeleccionados.has(k)) : KIOSKOS;
 }
-function kioskoVisible(k) { return !kioskosSeleccionados.size || kioskosSeleccionados.has(k); }
+// OJO: antes esto solo miraba kioskosSeleccionados (la selección manual del
+// dropdown). Con "Todos los kioskos" activo (selección vacía) devolvía true
+// para CUALQUIER nombre de kiosko, incluidos los que kioskosPermitidos() ya
+// había excluido de KIOSKOS por el rol del usuario — un usuario restringido
+// a un kiosko veía igual las cuentas por pagar/servicio 10%/planilla de
+// TODOS los kioskos apenas entraba (estado por defecto = nada seleccionado).
+// Ahora primero exige que el kiosko esté en la lista permitida.
+function kioskoVisible(k) {
+  if (!KIOSKOS.includes(k)) return false;
+  return !kioskosSeleccionados.size || kioskosSeleccionados.has(k);
+}
 
 // ── PERIODO ──────────────────────────────────────────────────────
 function aplicarAtajoFecha(atajo) {
@@ -516,6 +567,7 @@ let dataServicioDetalle = [];   // ServicioRepartoDetalle (servicio-10.html)
 let dataPlanillas = [];         // Planillas reales (planilla.html) — solo para sugerir el estimado
 let dataPlanillaEstimada = [];  // PlanillaEstimada (este módulo)
 let dataOtrosDesembolsos = [];  // OtrosDesembolsos (este módulo)
+let dataServicioManual = [];    // ServicioManual (este módulo) — montos manuales de Servicio 10%
 
 async function cargarAP() {
   const [facturas, abonos] = await Promise.all([
@@ -565,6 +617,11 @@ async function cargarOtrosDesembolsos() {
   const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=otros_desembolsos');
   dataOtrosDesembolsos = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
 }
+async function cargarServicioManual() {
+  if (!flujoListo()) { dataServicioManual = []; return; }
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_FLUJO + '?modulo=servicio_manual');
+  dataServicioManual = (data.ok && Array.isArray(data.registros)) ? data.registros : [];
+}
 
 async function postFlujo(modulo, payload) {
   try {
@@ -581,11 +638,12 @@ function ultimaPlanillaReal(kiosko) {
 
 async function cargarTodo() {
   document.getElementById('status-carga').style.display = 'flex';
-  await Promise.all([cargarAP(), cargarServicio10(), cargarPlanillasReales(), cargarPlanillaEstimada(), cargarOtrosDesembolsos()]);
+  await Promise.all([cargarAP(), cargarServicio10(), cargarPlanillasReales(), cargarPlanillaEstimada(), cargarOtrosDesembolsos(), cargarServicioManual()]);
   document.getElementById('status-carga').style.display = 'none';
   document.getElementById('banner-no-deploy').style.display = flujoListo() ? 'none' : 'flex';
   document.getElementById('btn-add-planilla').disabled = !flujoListo();
   document.getElementById('btn-add-otro').disabled = !flujoListo();
+  document.getElementById('btn-add-servicio-manual').disabled = !flujoListo();
   renderTodo();
 }
 
@@ -608,6 +666,15 @@ function calcularResumen() {
     if (String(r['Pagado']||'').trim().toLowerCase() === 'sí') return;
     if (!kioskoVisible(r['Kiosko'])) return;
     asegurarFila(r['Kiosko']).servicio += Number(r['Monto ₡']) || 0;
+  });
+
+  // Montos manuales de Servicio 10% — a diferencia del saldo real de arriba,
+  // sí tienen fecha propia y sí respetan el periodo elegido (igual que
+  // Planilla estimada / Otros desembolsos).
+  dataServicioManual.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    asegurarFila(r['Kiosko']).servicio += Number(r['Monto']) || 0;
   });
 
   dataPlanillaEstimada.forEach(r => {
@@ -634,6 +701,60 @@ function totalesGlobales(porKiosko) {
   return t;
 }
 
+// ── LÍNEA DE TIEMPO: necesidad de efectivo por fecha y por kiosko ──
+// Junta las 4 fuentes que ya calcula calcularResumen(), pero agrupadas por
+// fecha en vez de por kiosko. El saldo REAL de Servicio 10% no tiene fecha
+// propia (es "a hoy"), así que se agrupa en el día de hoy cuando ese día cae
+// dentro del periodo elegido — si no, ese saldo simplemente no aparece acá
+// (sigue visible en el KPI y en la pestaña Servicio 10%, que no filtran por
+// periodo).
+function calcularLineaTiempo() {
+  const { desde, hasta } = rangoActual();
+  const porFecha = {};
+  const asegurarFecha = f => { if (!porFecha[f]) porFecha[f] = { porKiosko:{} }; return porFecha[f]; };
+  const sumar = (fecha, kiosko, monto) => {
+    if (!fecha || !monto) return;
+    const d = asegurarFecha(fecha);
+    d.porKiosko[kiosko] = (d.porKiosko[kiosko]||0) + monto;
+  };
+
+  apItems.forEach(f => {
+    if (f.sinTipoCambio || !kioskoVisible(f.kiosko) || !f.fechaProyectada) return;
+    if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
+    sumar(f.fechaProyectada, f.kiosko, f.saldo);
+  });
+
+  if (hoyISO >= desde && hoyISO <= hasta) {
+    dataServicioDetalle.forEach(r => {
+      if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
+      sumar(hoyISO, r['Kiosko'], Number(r['Monto ₡']) || 0);
+    });
+  }
+
+  dataServicioManual.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+  });
+
+  dataPlanillaEstimada.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    sumar(f, r['Kiosko'], Number(r['Monto']) || 0);
+  });
+
+  dataOtrosDesembolsos.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
+    if (!esGeneral && !kioskoVisible(r['Kiosko'])) return;
+    if (f < desde || f > hasta) return;
+    sumar(f, esGeneral ? 'General (todos)' : r['Kiosko'], Number(r['Monto']) || 0);
+  });
+
+  const fechas = Object.keys(porFecha).sort();
+  return { desde, hasta, fechas, porFecha };
+}
+
 // ── RENDER ───────────────────────────────────────────────────────
 function renderTodo() {
   const resumen = calcularResumen();
@@ -646,8 +767,10 @@ function renderTodo() {
   document.getElementById('kpi-total').textContent = fmt(t.total);
   renderTablaResumen(resumen, t);
   renderChart(resumen);
+  renderLineaTiempo();
   renderTabAP(resumen);
   renderTabServicio();
+  renderServicioManual();
   renderPlanillaEstimada();
   renderOtrosDesembolsos();
 }
@@ -718,6 +841,75 @@ function renderChart(resumen) {
   });
 }
 
+// ── LÍNEA DE TIEMPO: gráfico + lista ──────────────────────────────
+function chipEstiloKiosko(nombre) {
+  if (nombre === 'General (todos)') return 'background:#eee;color:#5a5a5a;border-color:#d5d5d5;';
+  const c = colorKiosko(nombre);
+  return c ? `background:${c.bg};color:${c.fg};border-color:${c.bd};` : '';
+}
+
+let chartLinea = null;
+function renderChartLinea(datos) {
+  if (typeof Chart === 'undefined') return;
+  const ctx = document.getElementById('chart-linea');
+  if (chartLinea) { chartLinea.destroy(); chartLinea = null; }
+  if (!datos.fechas.length) return;
+  const kioskosPresentes = new Set();
+  datos.fechas.forEach(f => Object.keys(datos.porFecha[f].porKiosko).forEach(k => kioskosPresentes.add(k)));
+  const listaKioskos = [...kioskosPresentes].sort((a,b) => {
+    if (a === 'General (todos)') return 1;
+    if (b === 'General (todos)') return -1;
+    return a.localeCompare(b);
+  });
+  chartLinea = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: datos.fechas.map(fechaCorta),
+      datasets: listaKioskos.map(k => ({
+        label: k,
+        data: datos.fechas.map(f => datos.porFecha[f].porKiosko[k] || 0),
+        backgroundColor: k === 'General (todos)' ? '#8a8a8a' : ((colorKiosko(k)||{}).fg || '#999')
+      }))
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ position:'bottom', labels:{ font:{family:"'Inter',sans-serif",size:11}, boxWidth:10 } },
+        tooltip:{ callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } } },
+      scales: { x:{ stacked:true, ticks:{font:{size:11}} }, y:{ stacked:true, beginAtZero:true, ticks:{ callback:v=>'₡'+Number(v).toLocaleString('es-CR') } } }
+    }
+  });
+}
+
+function renderTimelineLista(datos) {
+  const cont = document.getElementById('timeline-lista');
+  if (!datos.fechas.length) { cont.innerHTML = '<div class="empty">No hay necesidad de efectivo en este periodo.</div>'; return; }
+  cont.innerHTML = `<div class="timeline-list">${datos.fechas.map(f => {
+    const d = datos.porFecha[f];
+    const total = Object.values(d.porKiosko).reduce((a,b) => a+b, 0);
+    const esHoy = f === hoyISO;
+    const kioskosOrdenados = Object.entries(d.porKiosko).sort((a,b) => b[1]-a[1]);
+    return `
+      <div class="timeline-item ${esHoy?'timeline-hoy':''}">
+        <div class="timeline-rail"><span class="timeline-dot"></span></div>
+        <div class="timeline-body">
+          <div class="timeline-head">
+            <span class="timeline-fecha">${fechaLarga(f)}${esHoy?'<span class="timeline-hoy-tag">HOY</span>':''}</span>
+            <span class="timeline-total">${fmt(total)}</span>
+          </div>
+          <div class="timeline-kioskos">
+            ${kioskosOrdenados.map(([k,monto]) => `<span class="timeline-chip" style="${chipEstiloKiosko(k)}">${k} · ${fmt(monto)}</span>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+function renderLineaTiempo() {
+  const datos = calcularLineaTiempo();
+  renderChartLinea(datos);
+  renderTimelineLista(datos);
+}
+
 function renderTabAP(resumen) {
   const lista = apItems.filter(f => !f.sinTipoCambio && kioskoVisible(f.kiosko) && f.fechaProyectada && f.fechaProyectada >= resumen.desde && f.fechaProyectada <= resumen.hasta)
     .sort((a,b) => a.fechaProyectada.localeCompare(b.fechaProyectada));
@@ -748,6 +940,59 @@ function renderTabServicio() {
       <thead><tr><th>Kiosko</th><th style="text-align:right">Fechas pendientes</th><th style="text-align:right">Monto pendiente</th></tr></thead>
       <tbody>${filas.map(([k,v]) => `<tr><td>${kioskoTagHTML(k)}</td><td class="num">${v.fechas.size}</td><td class="num">${fmt(v.monto)}</td></tr>`).join('')}</tbody>
     </table>`;
+}
+
+// ── SERVICIO 10% MANUAL (editable) ────────────────────────────────
+function renderServicioManual() {
+  const filas = dataServicioManual.filter(r => kioskoVisible(r['Kiosko'])).sort((a,b) => String(a['Fecha']).localeCompare(String(b['Fecha'])));
+  const cont = document.getElementById('tabla-servicio-manual');
+  if (!filas.length) { cont.innerHTML = '<div class="empty">Sin montos manuales todavía. Agregá uno con el botón de abajo.</div>'; return; }
+  cont.innerHTML = `
+    <table>
+      <thead><tr><th>Kiosko</th><th>Fecha</th><th style="text-align:right">Monto</th><th>Nota</th><th></th></tr></thead>
+      <tbody>${filas.map(r => filaServicioManualHTML(r)).join('')}</tbody>
+    </table>`;
+}
+function filaServicioManualHTML(r) {
+  const id = r['ID'];
+  return `<tr data-id="${escapeAttr(id)}">
+    <td class="col-kiosko"><select class="row-input" onchange="smActualizar('${id}','Kiosko',this.value)">${KIOSKOS.map(k => `<option value="${escapeAttr(k)}" ${k===r['Kiosko']?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td class="col-fecha"><input type="date" class="row-input" value="${String(r['Fecha']||'').slice(0,10)}" onchange="smActualizar('${id}','Fecha',this.value)"></td>
+    <td class="col-monto"><input type="number" step="0.01" class="row-input num-input" value="${Number(r['Monto'])||0}" onchange="smActualizar('${id}','Monto',this.value)"></td>
+    <td class="col-nota"><input type="text" class="row-input" value="${escapeAttr(r['Nota'])}" placeholder="Nota (opcional)" onchange="smActualizar('${id}','Nota',this.value)"></td>
+    <td><button class="btn-mini borrar" onclick="smEliminar('${id}')">Eliminar</button></td>
+  </tr>`;
+}
+async function smAgregar() {
+  if (!flujoListo()) { showToast('Este módulo todavía no está desplegado.', 'error'); return; }
+  const kiosko = kioskosEnFiltro()[0] || KIOSKOS[0] || '';
+  const fecha = hoyISO;
+  const r = await postFlujo('servicio_manual_guardar', { kiosko, fecha, monto:0, nota:'', registrado_por: usuarioActual() });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  dataServicioManual.push({ 'ID':r.id, 'Kiosko':kiosko, 'Fecha':fecha, 'Monto':0, 'Nota':'' });
+  renderTodo();
+  showToast('Monto manual agregado.');
+  requestAnimationFrame(() => {
+    const input = document.querySelector(`#tabla-servicio-manual tr[data-id="${r.id}"] .num-input`);
+    if (input) { input.focus(); input.select(); }
+  });
+}
+async function smActualizar(id, campo, valor) {
+  const row = dataServicioManual.find(r => r['ID'] === id);
+  if (!row) return;
+  row[campo] = campo === 'Monto' ? (parseFloat(valor)||0) : valor;
+  const r = await postFlujo('servicio_manual_guardar', {
+    id, kiosko: row['Kiosko'], fecha: String(row['Fecha']).slice(0,10), monto: Number(row['Monto'])||0, nota: row['Nota']||'', registrado_por: usuarioActual()
+  });
+  if (!r.ok) { showToast('No se pudo guardar: ' + (r.error||'error'), 'error'); return; }
+  renderTodo();
+}
+async function smEliminar(id) {
+  const r = await postFlujo('servicio_manual_eliminar', { id });
+  if (!r.ok) { showToast('No se pudo eliminar: ' + (r.error||'error'), 'error'); return; }
+  dataServicioManual = dataServicioManual.filter(row => row['ID'] !== id);
+  renderTodo();
+  showToast('Monto manual eliminado.');
 }
 
 // ── TAB PLANILLA ESTIMADA (editable) ──────────────────────────────
@@ -870,10 +1115,11 @@ async function odEliminar(id) {
 
 // ── TABS ─────────────────────────────────────────────────────────
 function switchTab(tab, el) {
-  ['resumen','ap','servicio','planilla','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
+  ['resumen','linea','ap','servicio','planilla','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
   document.querySelectorAll('.tabs .tab').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   if (tab === 'resumen') renderChart(calcularResumen());
+  if (tab === 'linea') renderChartLinea(calcularLineaTiempo());
 }
 
 // ── ARRANQUE ─────────────────────────────────────────────────────

@@ -1,7 +1,9 @@
 /**
  * Backend de Flujo de Caja (flujo-caja.html, Ecosistema Kioskos) — guarda las
- * dos únicas piezas de este módulo que no existen ya en otro Sheet: el
- * estimado de planilla por kiosko/fecha y los otros desembolsos manuales.
+ * piezas de este módulo que no existen ya en otro Sheet: el estimado de
+ * planilla por kiosko/fecha, los otros desembolsos manuales, y los montos
+ * manuales de Servicio 10% (ajustes/estimados que no están todavía en
+ * ServicioRepartoDetalle real, p.ej. un pago futuro que ya se sabe que viene).
  *
  * Todo lo demás que muestra flujo-caja.html (Cuentas por Pagar programadas,
  * Servicio 10% pendiente, Planillas reales para sugerir el estimado) se lee
@@ -21,15 +23,18 @@
  * 2. Extensiones > Apps Script (proyecto nuevo, atado a ESTE Sheet). Pegá el
  *    contenido completo de este archivo.
  * 3. Corré UNA VEZ, a mano desde este editor, la función configurarHojas()
- *    para crear las pestañas "PlanillaEstimada" y "OtrosDesembolsos".
+ *    para crear las pestañas "PlanillaEstimada", "OtrosDesembolsos" y
+ *    "ServicioManual".
  * 4. Implementar > Nueva implementación > Aplicación web (Ejecutar como: Yo
  *    · Acceso: Cualquiera).
  * 5. Copiá la URL /exec y pegala en flujo-caja.html, constante
  *    APPS_SCRIPT_FLUJO (reemplazá el placeholder que empieza con "TODO_").
  *
- * Para actualizar código más adelante: pegá el archivo completo de nuevo acá
- * y Implementar > Gestionar implementaciones > Editar > Nueva versión (la
- * URL /exec no cambia).
+ * Para actualizar código más adelante (p.ej. esta versión, que agregó
+ * ServicioManual): pegá el archivo completo de nuevo acá, corré
+ * configurarHojas() otra vez (crea solo la pestaña que falte, no toca las
+ * existentes) e Implementar > Gestionar implementaciones > Editar > Nueva
+ * versión (la URL /exec no cambia).
  */
 
 // ── PLANILLA ESTIMADA ──────────────────────────────────────────────
@@ -53,6 +58,21 @@ const ENCABEZADOS_OTROS_DESEMBOLSOS = [
   'ID', 'Kiosko', 'Descripcion', 'Fecha', 'Monto', 'Categoria', 'Nota', 'Fecha registro', 'Registrado por'
 ];
 
+// ── SERVICIO 10% MANUAL ─────────────────────────────────────────────
+// El saldo pendiente "real" de Servicio 10% se sigue leyendo tal cual de
+// ServicioRepartoDetalle (Sheet de RRHH, solo lectura, ver servicio_detalle
+// en Code-rrhh-kioskos-backend.gs). Esto es aparte: un monto manual que el
+// usuario agrega a mano desde la pestaña "Servicio 10%" de flujo-caja.html
+// cuando sabe que va a necesitar cubrir un monto que todavía no está
+// reflejado ahí (p.ej. un ajuste, o un pago futuro ya previsto). A
+// diferencia del saldo real (que ignora el periodo elegido), esto SÍ tiene
+// fecha propia y participa del periodo/línea de tiempo, igual que
+// PlanillaEstimada.
+const HOJA_SERVICIO_MANUAL = 'ServicioManual';
+const ENCABEZADOS_SERVICIO_MANUAL = [
+  'ID', 'Kiosko', 'Fecha', 'Monto', 'Nota', 'Fecha registro', 'Registrado por'
+];
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Flujo de Caja')
@@ -63,6 +83,7 @@ function onOpen() {
 function configurarHojas() {
   prepararHoja(HOJA_PLANILLA_ESTIMADA, ENCABEZADOS_PLANILLA_ESTIMADA);
   prepararHoja(HOJA_OTROS_DESEMBOLSOS, ENCABEZADOS_OTROS_DESEMBOLSOS);
+  prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL);
 }
 
 function prepararHoja(nombre, encabezados) {
@@ -224,6 +245,42 @@ function otroDesembolsoEliminar(p) {
   return { ok: true };
 }
 
+// ── SERVICIO 10% MANUAL: guardar/eliminar ──────────────────────────
+// Mismo patrón que planillaEstimadaGuardar: p.id presente = actualiza esa
+// fila; ausente = crea una nueva.
+function servicioManualGuardar(p) {
+  if (!p.kiosko) throw new Error('Falta el kiosko.');
+  if (!p.fecha) throw new Error('Falta la fecha.');
+  if (p.monto == null || isNaN(Number(p.monto))) throw new Error('Falta el monto o no es un número.');
+  const hoja = prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL);
+  const ahora = Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd HH:mm');
+  const valores = {
+    'Kiosko': p.kiosko,
+    'Fecha': p.fecha,
+    'Monto': Number(p.monto),
+    'Nota': p.nota || '',
+    'Fecha registro': ahora,
+    'Registrado por': p.registrado_por || ''
+  };
+  const filaExistente = p.id ? filaPorId_(hoja, p.id) : -1;
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_SERVICIO_MANUAL, Object.assign({ 'ID': p.id }, valores));
+    return { ok: true, id: p.id };
+  }
+  const id = generarId_('SM');
+  hoja.appendRow(ENCABEZADOS_SERVICIO_MANUAL.map(function (h) {
+    return h === 'ID' ? id : (valores[h] != null ? valores[h] : '');
+  }));
+  return { ok: true, id: id };
+}
+
+function servicioManualEliminar(p) {
+  if (!p.id) throw new Error('Falta el ID a eliminar.');
+  const hoja = prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL);
+  eliminarFilaPorId_(hoja, p.id);
+  return { ok: true };
+}
+
 // ── doGet / doPost ───────────────────────────────────────────────────
 function doGet(e) {
   try {
@@ -232,6 +289,7 @@ function doGet(e) {
     switch (modulo) {
       case 'planilla_estimada':  hoja = prepararHoja(HOJA_PLANILLA_ESTIMADA, ENCABEZADOS_PLANILLA_ESTIMADA); break;
       case 'otros_desembolsos':  hoja = prepararHoja(HOJA_OTROS_DESEMBOLSOS, ENCABEZADOS_OTROS_DESEMBOLSOS); break;
+      case 'servicio_manual':    hoja = prepararHoja(HOJA_SERVICIO_MANUAL, ENCABEZADOS_SERVICIO_MANUAL); break;
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
@@ -257,6 +315,12 @@ function doPost(e) {
         break;
       case 'otro_desembolso_eliminar':
         result = otroDesembolsoEliminar(payload);
+        break;
+      case 'servicio_manual_guardar':
+        result = servicioManualGuardar(payload);
+        break;
+      case 'servicio_manual_eliminar':
+        result = servicioManualEliminar(payload);
         break;
       default:
         throw new Error('Módulo no reconocido: ' + payload.modulo);
