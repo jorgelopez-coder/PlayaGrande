@@ -510,9 +510,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
   </div>
 
   <!-- Matriz de cumplimiento: por kiosko y por fecha, si se completaron las
-       tareas operativas del día (cierre de caja, mermas, inventario). El
-       horario es semanal, no diario, así que se muestra en una sola columna
-       aparte con el estado de la semana en curso (ver horarios-historial.html). -->
+       tareas operativas del día (cierre de caja, mermas). El horario y el
+       inventario son semanales, no diarios, así que se muestran en columnas
+       aparte con el estado de la semana en curso (horario: ver
+       horarios-historial.html; inventario: al menos una toma esta semana). -->
   <div class="section-card" style="margin-bottom:1.5rem;">
     <div class="section-head">
       <span class="section-title"><span class="clip"></span>Matriz de cumplimiento</span>
@@ -524,17 +525,18 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
           <tr id="matriz-head-row">
             <th>Kiosko</th>
             <th>Horario<br>(semana)</th>
+            <th>Inventario<br>(semana)</th>
           </tr>
         </thead>
         <tbody id="matriz-body">
-          <tr><td colspan="9"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          <tr><td colspan="10"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
         </tbody>
       </table>
     </div>
     <div class="matrix-legend">
       <span class="matrix-legend-item"><span class="mdot ok"></span> Hecho</span>
       <span class="matrix-legend-item"><span class="mdot no"></span> Falta</span>
-      <span class="matrix-legend-item">Cada casilla diaria trae 3 puntos en orden Cierre · Mermas · Inventario (pase el mouse para ver cuál falta). "Horario (semana)" indica si el horario de la semana en curso ya quedó publicado.</span>
+      <span class="matrix-legend-item">Cada casilla diaria trae 2 puntos en orden Cierre · Mermas (pase el mouse para ver cuál falta). "Horario (semana)" indica si el horario de la semana en curso ya quedó publicado; "Inventario (semana)" indica si ya se hizo al menos una toma de inventario esta semana.</span>
     </div>
   </div>
   <div id="matrix-tooltip" class="matrix-tooltip"></div>
@@ -1330,9 +1332,9 @@ async function cargarMatrizCumplimiento(listaKioskos) {
   const dias = [];
   for (let i = 6; i >= 0; i--) { const d = new Date(hoyM); d.setDate(d.getDate() - i); dias.push(d); }
   const lunesActual = isoDate(mondayOf(hoyM));
-  const colspan = 2 + dias.length;
+  const colspan = 3 + dias.length;
 
-  head.innerHTML = '<th>Kiosko</th><th>Horario<br>(semana)</th>' +
+  head.innerHTML = '<th>Kiosko</th><th>Horario<br>(semana)</th><th>Inventario<br>(semana)</th>' +
     dias.map(d => `<th><div class="matrix-day-head"><span class="d-dow">${DIAS_ABREV_MATRIZ[d.getDay()]}</span><span class="d-num">${d.getDate()}/${d.getMonth()+1}</span></div></th>`).join('');
 
   if (!listaKioskos.length) {
@@ -1361,8 +1363,8 @@ async function cargarMatrizCumplimiento(listaKioskos) {
       const fecha = String(r['Fecha']||'').slice(0,10), kiosko = r['Kiosko'] || '';
       if (fecha && kiosko) mermaSet.add(kiosko + '|' + fecha);
     });
-    const invSet = new Set();
-    invRows.forEach(r => invSet.add(r.kiosko + '|' + r.fecha));
+    const invSemanaSet = new Set();
+    invRows.forEach(r => { if (r.fecha >= lunesActual) invSemanaSet.add(r.kiosko); });
     const horarioOkSet = new Set();
     (dataHorEstado.registros || []).forEach(r => {
       const semana = String(r['Semana inicio']||'').slice(0,10), kiosko = r['Kiosko'] || '';
@@ -1373,20 +1375,22 @@ async function cargarMatrizCumplimiento(listaKioskos) {
     body.innerHTML = listaKioskos.map(nombre => {
       const horOk = horarioOkSet.has(nombre + '|' + lunesActual);
       const horBadge = `<span class="kiosko-badge ${horOk ? 'kb-ok' : 'kb-warn'}">${horOk ? 'Sí' : 'No'}</span>`;
+      const invOk = invSemanaSet.has(nombre);
+      const invBadge = `<span class="kiosko-badge ${invOk ? 'kb-ok' : 'kb-warn'}">${invOk ? 'Sí' : 'No'}</span>`;
       const celdas = dias.map(d => {
         const key = nombre + '|' + isoDate(d);
-        const c = cierreSet.has(key), m = mermaSet.has(key), inv = invSet.has(key);
-        return `<td><div class="matrix-dots" data-tip="Cierre: ${c?'sí':'no'} · Mermas: ${m?'sí':'no'} · Inventario: ${inv?'sí':'no'}">` +
-          `<span class="mdot ${c?'ok':'no'}"></span><span class="mdot ${m?'ok':'no'}"></span><span class="mdot ${inv?'ok':'no'}"></span></div></td>`;
+        const c = cierreSet.has(key), m = mermaSet.has(key);
+        return `<td><div class="matrix-dots" data-tip="Cierre: ${c?'sí':'no'} · Mermas: ${m?'sí':'no'}">` +
+          `<span class="mdot ${c?'ok':'no'}"></span><span class="mdot ${m?'ok':'no'}"></span></div></td>`;
       }).join('');
-      return `<tr><td class="matrix-kiosko">${nombre}</td><td>${horBadge}</td>${celdas}</tr>`;
+      return `<tr><td class="matrix-kiosko">${nombre}</td><td>${horBadge}</td><td>${invBadge}</td>${celdas}</tr>`;
     }).join('');
   } catch(e) {
     body.innerHTML = `<tr><td colspan="${colspan}"><div class="no-alerts">No se pudo cargar la matriz de cumplimiento.</div></td></tr>`;
   }
 }
 
-// Tooltip de las 3 casillas diarias — delegado en el tbody (que no se
+// Tooltip de las 2 casillas diarias — delegado en el tbody (que no se
 // reemplaza entre renders, solo su innerHTML), así funciona sin importar
 // cuántas veces se vuelva a pintar la matriz.
 function initMatrixTooltip() {
