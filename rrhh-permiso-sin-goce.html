@@ -160,7 +160,7 @@
         </div>
       </div>
       <div id="dias-resultado" style="display:none;">
-        <span class="dias-tag" id="dias-tag">0 días hábiles</span>
+        <span class="dias-tag" id="dias-tag">0 días</span>
       </div>
     </div>
 
@@ -270,14 +270,16 @@ async function cargarColaboradores() {
 }
 cargarColaboradores();
 
-function diasHabiles(desde, hasta) {
-  // "hasta" es la fecha de regreso, no se cuenta como día de permiso —
-  // mismo criterio que rrhh-vacaciones.html.
+function diasNaturales(desde, hasta) {
+  // Días naturales (calendario): en este negocio TODOS los días de la
+  // semana son laborables (kioskos abiertos sábados y domingos también),
+  // así que no se excluyen fines de semana. "hasta" es la fecha de
+  // regreso, no se cuenta como día de permiso — mismo criterio que
+  // rrhh-vacaciones.html.
   let count = 0;
   const cur = new Date(desde);
   while (cur < hasta) {
-    const d = cur.getDay();
-    if (d !== 0 && d !== 6) count++;
+    count++;
     cur.setDate(cur.getDate() + 1);
   }
   return count;
@@ -292,9 +294,9 @@ function calcularDias() {
   if (dFin < dIni) {
     showToast('La fecha de regreso debe ser igual o posterior al inicio.','error'); return;
   }
-  const dias = diasHabiles(dIni, dFin);
+  const dias = diasNaturales(dIni, dFin);
   const tag  = document.getElementById('dias-tag');
-  tag.textContent = `${dias} día${dias!==1?'s':''} hábil${dias!==1?'es':''}`;
+  tag.textContent = `${dias} día${dias!==1?'s':''}`;
   document.getElementById('dias-resultado').style.display = 'block';
 }
 
@@ -417,7 +419,7 @@ async function enviarSolicitud() {
   const dFin = new Date(fin+'T00:00:00');
   if (dFin < dIni)   { showToast('La fecha de regreso debe ser posterior al inicio.','error'); return; }
 
-  const dias = diasHabiles(dIni, dFin);
+  const dias = diasNaturales(dIni, dFin);
 
   const registro = {
     modulo:'permiso_sin_goce', id: Date.now(),
