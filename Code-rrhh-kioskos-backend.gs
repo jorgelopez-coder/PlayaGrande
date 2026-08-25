@@ -28,6 +28,7 @@
 
 const HOJA_PERSONAL        = 'Personal';
 const HOJA_VACACIONES      = 'Vacaciones';
+const HOJA_PERMISOS_SIN_GOCE = 'PermisosSinGoce';
 const HOJA_AMONESTACIONES  = 'Amonestaciones';
 const HOJA_TERMINACIONES   = 'Terminaciones';
 const HOJA_CAMBIOS_SALARIO = 'CambiosSalario';
@@ -51,6 +52,18 @@ const ENCABEZADOS_PERSONAL = [
 ];
 const ENCABEZADOS_VACACIONES = [
   'ID', 'Colaborador', 'Fecha inicio', 'Fecha fin', 'Días', 'Observaciones', 'Estado', 'Registrado'
+];
+// ── PERMISOS SIN GOCE DE SALARIO (PSG, rrhh-permiso-sin-goce.html) ────
+// Mismo patrón maestro que Vacaciones (crearSolicitudPermiso/
+// cambiarEstadoPermiso, Pendiente → Aprobado/Rechazado), pero SIN "Saldo" —
+// no acumula balance, y en vez de "Observaciones" pide "Motivo" (requerido).
+// Aprobado se aplica automáticamente: en horarios.html pinta el día como
+// "Permiso sin goce" (ver aplicarPermisos()) y en calcularPlanilla() suma
+// esos días a "Días no trabajados" (sin monto propio — por eso NO tiene
+// columna "Días" pagados: sin goce = ₡0 por esos días, a diferencia de
+// Vacaciones que sí se paga).
+const ENCABEZADOS_PERMISOS_SIN_GOCE = [
+  'ID', 'Colaborador', 'Fecha inicio', 'Fecha fin', 'Días', 'Motivo', 'Estado', 'Registrado'
 ];
 const ENCABEZADOS_AMONESTACIONES = [
   'Fecha', 'Colaborador', 'Tipo', 'Motivo', 'Observaciones', 'Suspensión desde', 'Suspensión hasta', 'Registrado',
@@ -271,7 +284,12 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   // extra' en Incidencias (ver ENCABEZADOS_INCIDENCIAS) y el desglose de
   // Servicio 10%/Tips de esta corrida (Paso 2, sección "Servicio 10% y
   // Tips") — ver calcularPlanilla().
-  'Es extra', 'Servicio 10% monto', 'Tips monto'
+  'Es extra', 'Servicio 10% monto', 'Tips monto',
+  // Agregada al final (permiso sin goce, rrhh-permiso-sin-goce.html): días
+  // dentro de este periodo con permiso sin goce aprobado — sin monto
+  // propio (ya restados de "Horas regulares" vía "Días no trabajados
+  // monto"), se guarda solo para trazabilidad del detalle.
+  'Permiso sin goce días'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -533,6 +551,7 @@ const FOLDER_ID_PLANILLAS = '1p3Z80BTbMB_0kMK2XPeIOaVfk6Rb8stO';
 function configurarHojas() {
   prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES);
+  prepararHoja(HOJA_PERMISOS_SIN_GOCE, ENCABEZADOS_PERMISOS_SIN_GOCE);
   prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES);
   prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES);
   prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO);
@@ -785,6 +804,7 @@ function doGet(e) {
     switch (modulo) {
       case 'personal':        hoja = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL); break;
       case 'vacaciones':      hoja = prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES); break;
+      case 'permisos_sin_goce': hoja = prepararHoja(HOJA_PERMISOS_SIN_GOCE, ENCABEZADOS_PERMISOS_SIN_GOCE); break;
       case 'amonestaciones':  hoja = prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES); break;
       case 'terminaciones':   hoja = prepararHoja(HOJA_TERMINACIONES, ENCABEZADOS_TERMINACIONES); break;
       case 'cambios_salario': hoja = prepararHoja(HOJA_CAMBIOS_SALARIO, ENCABEZADOS_CAMBIOS_SALARIO); break;
@@ -860,7 +880,7 @@ function doGet(e) {
 // guardar algo.
 var RRHH_CACHE_TTL_SEGUNDOS = 120;
 var RRHH_CACHE_MODULOS = [
-  'personal', 'vacaciones', 'amonestaciones', 'terminaciones',
+  'personal', 'vacaciones', 'permisos_sin_goce', 'amonestaciones', 'terminaciones',
   'cambios_salario', 'movimientos', 'liquidaciones', 'aguinaldos',
   'horarios', 'horarios_estado', 'feriados', 'incidencias', 'horas_extra',
   'planillas', 'planillas_detalle', 'servicio_repartos', 'servicio_detalle',
@@ -942,6 +962,8 @@ function doPost(e) {
       case 'cambiar_estado':        result = cambiarEstado(payload); break;
       case 'vacaciones':            result = crearSolicitudVacaciones(payload); break;
       case 'vacaciones_estado':     result = cambiarEstadoVacaciones(payload); break;
+      case 'permiso_sin_goce':        result = crearSolicitudPermiso(payload); break;
+      case 'permiso_sin_goce_estado': result = cambiarEstadoPermiso(payload); break;
       case 'amonestacion':          result = registrarAmonestacion(payload); break;
       case 'terminacion':           result = registrarTerminacion(payload); break;
       case 'cambio_salario':        result = registrarCambioSalario(payload); break;
@@ -1245,6 +1267,47 @@ function crearSolicitudVacaciones(p) {
 function cambiarEstadoVacaciones(p) {
   if (!p.id) throw new Error('Falta el ID de la solicitud.');
   const hoja = prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES);
+  const nFilas = hoja.getLastRow() - 1;
+  if (nFilas <= 0) throw new Error('No hay solicitudes registradas.');
+  const colId = colPorEncabezado(hoja, 'ID');
+  const colEstado = colPorEncabezado(hoja, 'Estado');
+  const ids = hoja.getRange(2, colId, nFilas, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(p.id)) {
+      hoja.getRange(i + 2, colEstado).setValue(p.estado || 'Pendiente');
+      return { fila: i + 2 };
+    }
+  }
+  throw new Error('No se encontró la solicitud ' + p.id);
+}
+
+// ── Permiso sin goce de salario (rrhh-permiso-sin-goce.html) ──────────
+// Mismo mecanismo que crearSolicitudVacaciones/cambiarEstadoVacaciones:
+// reportar y aprobar viven en la misma pantalla, el acceso se controla a
+// nivel de módulo completo (admin-accesos.html). A diferencia de
+// Vacaciones, "Motivo" es obligatorio.
+function crearSolicitudPermiso(p) {
+  if (!p.colaborador) throw new Error('Falta el colaborador.');
+  if (!p.fecha_inicio || !p.fecha_fin) throw new Error('Faltan las fechas del permiso.');
+  if (!p.motivo || !String(p.motivo).trim()) throw new Error('Falta el motivo del permiso.');
+  const hoja = prepararHoja(HOJA_PERMISOS_SIN_GOCE, ENCABEZADOS_PERMISOS_SIN_GOCE);
+  const fila = hoja.getLastRow() + 1;
+  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_PERMISOS_SIN_GOCE, {
+    'ID': p.id || Date.now(),
+    'Colaborador': p.colaborador,
+    'Fecha inicio': p.fecha_inicio || '',
+    'Fecha fin': p.fecha_fin || '',
+    'Días': Number(p.dias) || 0,
+    'Motivo': String(p.motivo).trim(),
+    'Estado': p.estado || 'Pendiente',
+    'Registrado': p.registrado || p.registrado_en || new Date().toISOString()
+  });
+  return { fila: fila };
+}
+
+function cambiarEstadoPermiso(p) {
+  if (!p.id) throw new Error('Falta el ID de la solicitud.');
+  const hoja = prepararHoja(HOJA_PERMISOS_SIN_GOCE, ENCABEZADOS_PERMISOS_SIN_GOCE);
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) throw new Error('No hay solicitudes registradas.');
   const colId = colPorEncabezado(hoja, 'ID');
@@ -2188,6 +2251,14 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
   const vacacionesAprobadas = filasComoObjetos(prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES))
     .filter(function (v) { return (v['Estado'] || '').toLowerCase() === 'aprobado'; });
 
+  // Permisos sin goce aprobados — mismo criterio que vacacionesAprobadas.
+  // A diferencia de vacaciones, sus días NO generan un monto propio (por
+  // eso no aparece pagado en ningún lado): solo restan de "Horas
+  // regulares" vía diasNoTrabajadosAuto más abajo, para que ese día quede
+  // efectivamente sin goce de salario.
+  const permisosAprobados = filasComoObjetos(prepararHoja(HOJA_PERMISOS_SIN_GOCE, ENCABEZADOS_PERMISOS_SIN_GOCE))
+    .filter(function (v) { return (v['Estado'] || '').toLowerCase() === 'aprobado'; });
+
   const feriadosEnPeriodo = filasComoObjetos(prepararHoja(HOJA_FERIADOS, ENCABEZADOS_FERIADOS))
     .filter(function (f) {
       if (String(f['Activo'] || 'Sí').trim().toLowerCase() === 'no') return false;
@@ -2316,6 +2387,16 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       }, 0);
     const vacacionesMonto = vacacionesDias * salarioDiario;
 
+    // Permiso sin goce de salario: automático desde "PermisosSinGoce"
+    // (Estado=Aprobado) — igual que vacaciones, no se ingresa a mano en
+    // Incidencias. Sin monto propio (sin goce = ₡0 esos días): solo cuenta
+    // para "días no trabajados" más abajo.
+    const permisoDias = esExtra ? 0 : permisosAprobados
+      .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
+      .reduce(function (acc, v) {
+        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), parseFechaISO(v['Fecha fin']), fechaInicio, fechaFin);
+      }, 0);
+
     // Subsidio de alimentación/transporte — no forma parte de la base de
     // cotización de CCSS (se resta antes de calcular la cuota obrera).
     const subsidioMonto = (Number(inc['Subsidio monto por día']) || 0) * (Number(inc['Subsidio días']) || 0);
@@ -2344,7 +2425,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // vacaciones dentro del periodo) — sin esto, "Horas regulares" (pensado
     // como el total de la quincena) pagaría esos días completos ADEMÁS del
     // pago específico de la incapacidad/vacación (pago doble).
-    const diasNoTrabajadosAuto = diasCCSSEnPeriodo + diasINSEnPeriodo + diasInternaEnPeriodo + vacacionesDias;
+    const diasNoTrabajadosAuto = diasCCSSEnPeriodo + diasINSEnPeriodo + diasInternaEnPeriodo + vacacionesDias + permisoDias;
     const diasNoTrabajadosManual = Number(inc['Días no trabajados']) || 0;
     const diasNoTrabajadosTotal = diasNoTrabajadosAuto + diasNoTrabajadosManual;
     const diasNoTrabajadosMonto = diasNoTrabajadosTotal * salarioDiario;
@@ -2383,6 +2464,7 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
       extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones,
       feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
       incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
+      permisoDias: permisoDias,
       subsidioMonto: subsidioMonto, servicio10Monto: servicio10Monto, tipsMonto: tipsMonto,
       servicio10Ids: servicio10Pendiente.ids,
       diasNoTrabajadosAuto: diasNoTrabajadosAuto, diasNoTrabajadosManual: diasNoTrabajadosManual,
@@ -2513,7 +2595,8 @@ function guardarPlanilla(p) {
       'Horas extra 100%': c.extra100Horas,
       'Es extra': c.esExtra ? 'Sí' : 'No',
       'Servicio 10% monto': c.servicio10Monto,
-      'Tips monto': c.tipsMonto
+      'Tips monto': c.tipsMonto,
+      'Permiso sin goce días': c.permisoDias
     });
   });
 

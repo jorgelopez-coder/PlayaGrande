@@ -226,7 +226,7 @@ tbody tr:last-child td{border-bottom:none}
     <span style="font-size:11px;font-weight:500;color:var(--text3)">Referencias:</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--vac-bg);border:1px solid var(--vac-border)"></span>Vacaciones (auto)</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--inc-bg);border:1px solid var(--inc-border)"></span>Incapacidad</span>
-    <span class="legend-item"><span class="legend-dot" style="background:var(--per-bg);border:1px solid var(--per-border)"></span>Permiso sin goce</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--per-bg);border:1px solid var(--per-border)"></span>Permiso sin goce (auto)</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--lib-bg);border:1px solid var(--lib-border)"></span>D&iacute;a libre</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--lib-bg);border:1px solid var(--lib-border)"></span>Otro</span>
   </div>
@@ -326,7 +326,7 @@ const ST = {
 const HORAS_VACACIONES = 8;
 let extraTarget = null;
 
-let restos=[], employees=[], schedule={}, activeResto=null, vacaciones=[];
+let restos=[], employees=[], schedule={}, activeResto=null, vacaciones=[], permisos=[];
 // Kiosko pedido por querystring (ej. desde horarios-historial.html), para
 // abrir directo en el kiosko correcto en vez de siempre el primero de la lista.
 let qsKioskoPendiente = new URLSearchParams(location.search).get('kiosko');
@@ -362,6 +362,7 @@ async function onWeekChange(){
   resetWeekCells();
   await cargarHorarioGuardado();
   aplicarVacaciones();
+  aplicarPermisos();
   await cargarEstadoSemana();
 }
 function shiftWeek(dir){const el=document.getElementById('week-start');const d=new Date(el.value+'T00:00:00');d.setDate(d.getDate()+dir*7);el.value=fmt(d);onWeekChange()}
@@ -390,19 +391,23 @@ function diffDays(isoA,isoB){
 async function loadSheet(){
   document.getElementById('header-status').textContent='Actualizando...';
   try{
-    const [rP, rV] = await Promise.all([
+    const [rP, rV, rPerm] = await Promise.all([
       fetch(APPS_SCRIPT_URL+'?modulo=personal'),
-      fetch(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null)
+      fetch(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null),
+      fetch(APPS_SCRIPT_URL+'?modulo=permisos_sin_goce').catch(()=>null)
     ]);
     if(!rP.ok) throw new Error('Personal respondió '+rP.status);
     const dP = await rP.json();
     if(!dP.ok) throw new Error(dP.error||'Respuesta inválida de personal');
     const dV = rV && rV.ok ? await rV.json() : {ok:false,registros:[]};
+    const dPerm = rPerm && rPerm.ok ? await rPerm.json() : {ok:false,registros:[]};
 
     buildFromPersonal(dP.registros||[]);
     vacaciones = normalizarVacaciones(dV.ok?dV.registros:[]);
+    permisos = normalizarPermisos(dPerm.ok?dPerm.registros:[]);
     await cargarHorarioGuardado();
     aplicarVacaciones();
+    aplicarPermisos();
     renderAll();
     await cargarEstadoSemana();
 
@@ -421,7 +426,7 @@ async function loadSheet(){
 function initSchedule(emp){
   if(!schedule[emp.id]){
     schedule[emp.id]={};
-    DAYS.forEach((_,i)=>{schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:'',split:false,in2:'',out2:''}});
+    DAYS.forEach((_,i)=>{schedule[emp.id][i]={status:'trabajo',in:'',out:'',note:'',autoVac:false,autoPerm:false,otroLabel:'',split:false,in2:'',out2:''}});
   }
 }
 
@@ -586,6 +591,7 @@ async function copiarSemanaAnterior(){
         out:    r['Hora salida']||'',
         note:   r['Nota']||'',
         autoVac:false,
+        autoPerm:false,
         otroLabel: r['Detalle']||'',
         split: !!(in2||out2),
         in2, out2
@@ -593,6 +599,7 @@ async function copiarSemanaAnterior(){
     });
 
     aplicarVacaciones();
+    aplicarPermisos();
     renderAll();
     toast('Horario de la semana anterior copiado ✓ — recordá guardar');
   }catch(e){
@@ -646,11 +653,13 @@ async function copiarCeldaAnterior(empId,dayIdx){
       out:    r['Hora salida']||'',
       note:   r['Nota']||'',
       autoVac:false,
+      autoPerm:false,
       otroLabel: r['Detalle']||'',
       split: !!(in2||out2),
       in2, out2
     };
     aplicarVacaciones();
+    aplicarPermisos();
     renderAll();
     toast('Turno de '+emp.name+' del '+fechaAnteriorISO+' copiado ✓ — recordá guardar');
   }catch(e){
@@ -804,7 +813,7 @@ function buildFromPersonal(regs){
 // total global de todos los kioskos, lo que no coincidía con la tabla de abajo).
 function mostrarConteoActivos(){
   const emps=employees.filter(e=>e.restoId===activeResto||e.restoId===ROTATIVO);
-  showStatus(emps.length+' colaboradores activos en este kiosko · '+vacaciones.length+' solicitudes de vacaciones cargadas', false);
+  showStatus(emps.length+' colaboradores activos en este kiosko · '+vacaciones.length+' solicitudes de vacaciones · '+permisos.length+' de permiso sin goce cargadas', false);
 }
 
 // ── PESTAÑAS DE KIOSKO ────────────────────────────────────────────
@@ -869,6 +878,41 @@ function aplicarVacaciones(){
   });
 }
 
+function normalizarPermisos(regs){
+  return (regs||[]).map(s=>({
+    nombre:  (s['Colaborador']||s.colaborador||'').toString().trim(),
+    inicio:  s['Fecha inicio']||s.fecha_inicio||'',
+    fin:     s['Fecha fin']||s.fecha_fin||'',
+    estado:  (s['Estado']||s.estado||'Pendiente').toString()
+  })).filter(v=>v.nombre&&v.inicio&&v.fin);
+}
+
+// Marca como "Permiso sin goce" los días de la semana visible cubiertos por
+// una solicitud aprobada — mismo patrón que aplicarVacaciones(): solo toca
+// celdas en 'trabajo' o marcadas antes como autoPerm, para no pisar
+// ediciones manuales (vacaciones, incapacidad, otro) hechas por el
+// administrador.
+function aplicarPermisos(){
+  if(!employees.length) return;
+  const dates = getWeekDatesISO();
+  employees.forEach(emp=>{
+    if(!schedule[emp.id]) initSchedule(emp);
+    dates.forEach((iso,i)=>{
+      const cubierto = permisos.some(v=>
+        v.nombre.toLowerCase()===emp.name.toLowerCase().trim() &&
+        v.estado.toLowerCase()==='aprobado' &&
+        iso>=v.inicio && iso<v.fin // fin = fecha de regreso, no cuenta como permiso
+      );
+      const cell = schedule[emp.id][i];
+      if(cubierto){
+        if(cell.status==='trabajo'||cell.autoPerm){ cell.status='permiso'; cell.autoPerm=true; }
+      } else if(cell.autoPerm){
+        cell.status='trabajo'; cell.autoPerm=false;
+      }
+    });
+  });
+}
+
 function loadFallback(){
   showStatus('No se pudo conectar con la base de RRHH — verificá tu conexión y reintentá con "Actualizar planilla".', true);
   if(!restos.length) restos=KIOSKOS.map(k=>({id:k,name:k}));
@@ -904,6 +948,7 @@ function setStatus(empId,day,val){
   if(!schedule[empId])return;
   schedule[empId][day].status=val;
   schedule[empId][day].autoVac=false; // override manual rompe el auto-marcado
+  schedule[empId][day].autoPerm=false; // idem para permiso sin goce auto-marcado
   if(val!=='otro') schedule[empId][day].otroLabel='';
   renderSched();
 }
@@ -1032,10 +1077,10 @@ function buildDayCell(empId,i,dates){
 
   // Estados especiales: vacaciones (automáticas), incapacidad, permiso, otro
   const info=ST[st]||{label:st,icon:'',bgCls:''};
-  const autoTag=(st==='vacaciones'&&s.autoVac)?'<div class="auto-tag">desde solicitud</div>':'';
+  const autoTag=((st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))?'<div class="auto-tag">desde solicitud</div>':'';
   const horasTag=(st==='vacaciones')?'<div class="hours-lbl" style="font-size:11px;">'+HORAS_VACACIONES.toFixed(1)+'h</div>':'';
   const lbl=info.label+(st==='otro'&&s.otroLabel?': '+esc(s.otroLabel):'');
-  const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac))
+  const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
   return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
