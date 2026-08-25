@@ -1008,24 +1008,30 @@ function enviarResumenContabilidad() {
   const kioskosTxt = etiquetaKioskosActual();
   const asunto = 'Pagos programados — ' + periodoTxt;
 
-  const filasPorKiosko = Object.entries(resumen.porKiosko)
-    .map(([k, f]) => [k, f.ap + f.servicio + f.planilla + f.comprasProv + f.otros])
-    .filter(([, v]) => v)
-    .sort((a, b) => b[1] - a[1]);
+  // Cuerpo organizado por fecha (Jorge, 2026-08-25): el objetivo principal es
+  // que Contabilidad vea cuánto dinero se necesita cada día, no un resumen
+  // agregado por categoría/kiosko. Reusa calcularLineaTiempo() — misma
+  // agrupación por fecha (con porKiosko por día) que ya se ve en la pestaña
+  // "Línea de tiempo", así el correo coincide con lo que está en pantalla.
+  const { fechas, porFecha } = calcularLineaTiempo();
 
   const lineasCuerpo = [
     'Resumen de pagos programados — ' + periodoTxt + ' (' + kioskosTxt + ')',
     '',
-    'Por categoría:',
-    '- ' + ETIQUETAS_TIPO_PAGO.ap + ': ' + fmt(t.ap),
-    '- ' + ETIQUETAS_TIPO_PAGO.servicio + ': ' + fmt(t.servicio),
-    '- ' + ETIQUETAS_TIPO_PAGO.planilla + ': ' + fmt(t.planilla),
-    '- ' + ETIQUETAS_TIPO_PAGO.comprasProv + ': ' + fmt(t.comprasProv),
-    '- ' + ETIQUETAS_TIPO_PAGO.otros + ': ' + fmt(t.otros),
-    '- TOTAL: ' + fmt(t.total),
+    'Dinero necesario por día:',
     '',
-    'Por kiosko:',
-  ].concat(filasPorKiosko.map(([k, v]) => '- ' + k + ': ' + fmt(v)));
+  ];
+
+  fechas.forEach(f => {
+    const d = porFecha[f];
+    const totalDia = Object.values(d.porKiosko).reduce((a, b) => a + b, 0);
+    const kioskosOrdenados = Object.entries(d.porKiosko).sort((a, b) => b[1] - a[1]);
+    const etiqueta = fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '');
+    lineasCuerpo.push(etiqueta + ': ' + fmt(totalDia));
+    kioskosOrdenados.forEach(([k, v]) => lineasCuerpo.push('   - ' + k + ': ' + fmt(v)));
+  });
+
+  lineasCuerpo.push('', 'TOTAL del periodo: ' + fmt(t.total));
 
   if (resumen.apSinFecha.count > 0) {
     lineasCuerpo.push('', 'Nota: ' + resumen.apSinFecha.count + ' factura(s) por ' + fmt(resumen.apSinFecha.monto) + ' sin fecha proyectada de pago — no están incluidas en este resumen (asignales fecha en Cuentas por Pagar).');
