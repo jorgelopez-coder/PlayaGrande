@@ -204,6 +204,21 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .fab-ia svg { width:18px; height:18px; stroke:#fff; fill:none; flex-shrink:0; }
 .fab-ia:hover { transform:translateY(-2px); box-shadow:0 12px 32px rgba(28,58,40,.32); }
 
+.ia-panel {
+  position:fixed; right:22px; bottom:92px; z-index:41;
+  width:380px; height:600px; max-height:calc(100vh - 120px);
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:0 16px 48px rgba(28,58,40,.28);
+  display:none; flex-direction:column; overflow:hidden;
+}
+.ia-panel.open { display:flex; }
+.ia-panel-head { display:flex; align-items:center; justify-content:space-between; padding:.65rem .9rem; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+.ia-panel-title { font-family:var(--font-m); font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--text); display:flex; align-items:center; }
+.ia-panel-close { background:none; border:none; cursor:pointer; color:var(--muted); padding:4px; display:flex; border-radius:5px; }
+.ia-panel-close svg { width:15px; height:15px; }
+.ia-panel-close:hover { color:var(--red); background:var(--red-bg); }
+.ia-panel-frame { flex:1; border:none; width:100%; }
+
 @media (max-width:720px) {
   main { padding:1.25rem 1rem 3rem; }
   .main-grid { grid-template-columns:1fr; }
@@ -212,6 +227,7 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
   .date-chip, .logo-sub, .sync-label { display:none; }
   .fab-ia span { display:none; }
   .fab-ia { padding:14px; right:16px; bottom:16px; }
+  .ia-panel { right:10px; left:10px; bottom:78px; width:auto; height:min(72vh,560px); }
   .topnav { padding:0 1rem; top:56px; overflow-x:auto; }
   .nav-panel { position:fixed; left:1rem; right:1rem; top:102px; min-width:0 !important; grid-template-columns:1fr !important; max-height:70vh; overflow-y:auto; }
 }
@@ -664,10 +680,37 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 
 </main>
 
-<a href="asistente.html" class="fab-ia" data-mod="asistente-ia" title="Asistente IA">
+<div class="ia-panel" id="ia-panel" data-mod="asistente-ia">
+  <div class="ia-panel-head">
+    <span class="ia-panel-title"><span class="clip"></span>Papagayo IA</span>
+    <button type="button" class="ia-panel-close" onclick="toggleAsistente(false)" title="Cerrar" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <iframe id="ia-panel-frame" class="ia-panel-frame" title="Papagayo IA"></iframe>
+</div>
+
+<button type="button" class="fab-ia" id="fab-ia-btn" data-mod="asistente-ia" title="Papagayo IA" onclick="toggleAsistente()">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-  <span>Asistente IA</span>
-</a>
+  <span>Papagayo IA</span>
+</button>
+
+<script>
+function toggleAsistente(forceOpen) {
+  const panel = document.getElementById('ia-panel');
+  const frame = document.getElementById('ia-panel-frame');
+  const willOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
+  if (willOpen) {
+    if (!frame.getAttribute('src')) frame.setAttribute('src', 'asistente.html?embed=1');
+    panel.classList.add('open');
+  } else {
+    panel.classList.remove('open');
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') toggleAsistente(false);
+});
+</script>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed-mode');</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Asistente IA · Ecosistema Kioskos</title>
@@ -120,6 +121,13 @@ main { max-width:760px; margin:0 auto; padding:2rem 2rem 3rem; }
   .nav-panel { position:fixed; left:1rem; right:1rem; top:102px; min-width:0 !important; grid-template-columns:1fr !important; max-height:70vh; overflow-y:auto; }
   .msg { max-width:92%; }
 }
+
+/* ── MODO EMBEBIDO (ventana flotante desde index.html) ─────── */
+html.embed-mode, html.embed-mode body { height:100%; }
+.embed-mode header, .embed-mode .topnav, .embed-mode .hero, .embed-mode .setup-warning { display:none !important; }
+.embed-mode main { max-width:none; margin:0; padding:0; height:100vh; display:flex; flex-direction:column; }
+.embed-mode .chat-card { flex:1; min-height:0; border:none; border-radius:0; }
+.embed-mode .chat-log { flex:1; max-height:none; }
 </style>
 </head>
 <body>
