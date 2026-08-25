@@ -83,8 +83,12 @@ main { max-width:760px; margin:0 auto; padding:2rem 2rem 3rem; }
 .chat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
 .chat-head { padding:.7rem 1.1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
 .chat-head-title { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; }
+.chat-head-actions { display:flex; align-items:center; gap:14px; }
 .chat-reset { font-size:11.5px; color:var(--blue); background:none; border:none; cursor:pointer; font-family:var(--font-b); }
 .chat-reset:hover { text-decoration:underline; }
+.voice-toggle { font-size:11.5px; color:var(--muted); background:none; border:none; cursor:pointer; font-family:var(--font-b); padding:0; }
+.voice-toggle:hover { color:var(--text); }
+.voice-toggle.active { color:var(--green); font-weight:500; }
 
 .chat-log { padding:1.1rem; min-height:320px; max-height:56vh; overflow-y:auto; display:flex; flex-direction:column; gap:.7rem; }
 .msg { max-width:82%; padding:.6rem .85rem; border-radius:10px; font-size:13px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
@@ -92,6 +96,8 @@ main { max-width:760px; margin:0 auto; padding:2rem 2rem 3rem; }
 .msg-bot { align-self:flex-start; background:var(--surface); color:var(--text); border:1px solid var(--border); border-bottom-left-radius:3px; }
 .msg-error { align-self:flex-start; background:var(--red-bg); color:var(--red); border:1px solid var(--red-lt); }
 .msg-thinking { align-self:flex-start; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12.5px; }
+.msg-listen { align-self:flex-start; margin-top:-4px; font-size:11px; color:var(--muted); background:none; border:none; cursor:pointer; font-family:var(--font-b); padding:0 2px; }
+.msg-listen:hover { color:var(--green); text-decoration:underline; }
 
 .chat-empty { text-align:center; padding:1.5rem 1rem; color:var(--subtle); font-size:12.5px; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:.9rem; }
@@ -185,7 +191,10 @@ html.embed-mode, html.embed-mode body { height:100%; }
   <div class="chat-card">
     <div class="chat-head">
       <span class="chat-head-title"><span class="clip"></span>Conversación</span>
-      <button class="chat-reset" onclick="nuevaConversacion()">Nueva conversación</button>
+      <div class="chat-head-actions">
+        <button class="voice-toggle" id="voice-toggle" onclick="alternarVoz()" title="Leer las respuestas en voz alta"></button>
+        <button class="chat-reset" onclick="nuevaConversacion()">Nueva conversación</button>
+      </div>
     </div>
     <div class="chat-log" id="chat-log">
       <div class="chat-empty" id="chat-empty">
@@ -277,12 +286,82 @@ function agregarBurbuja(texto, clase) {
   return div;
 }
 
+function agregarBotonEscuchar(despuesDe, texto) {
+  const btn = document.createElement('button');
+  btn.className = 'msg-listen';
+  btn.type = 'button';
+  btn.title = 'Escuchar esta respuesta';
+  btn.textContent = '🔊 Escuchar';
+  btn.onclick = () => hablarTexto(texto);
+  despuesDe.insertAdjacentElement('afterend', btn);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// ── VOZ (lectura en voz alta de las respuestas) ────────────────
+// Usa la síntesis de voz nativa del navegador (Web Speech API) — gratis,
+// sin backend ni API key nueva. Si el navegador no la soporta, el botón
+// de voz se oculta y el chat sigue funcionando normal, solo sin audio.
+const hayVoz = 'speechSynthesis' in window;
+let vozActiva = hayVoz && localStorage.getItem('asistente_voz_activa') !== '0'; // activa por defecto
+let vozEsCache = null;
+
+function elegirVozEspanol() {
+  if (vozEsCache) return vozEsCache;
+  const voces = window.speechSynthesis.getVoices();
+  vozEsCache =
+    voces.find(v => /^es-cr/i.test(v.lang)) ||
+    voces.find(v => /^es/i.test(v.lang)) ||
+    null;
+  return vozEsCache;
+}
+if (hayVoz) window.speechSynthesis.onvoiceschanged = () => { vozEsCache = null; };
+
+// Limpia markdown básico (**negrita**, *itálica*, `código`, #encabezados,
+// viñetas) para que no se lea literal, y convierte saltos de línea en pausas.
+function textoParaVoz(md) {
+  return String(md || '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/^#+\s*/gm, '')
+    .replace(/^[-•]\s+/gm, '')
+    .replace(/\n+/g, '. ')
+    .trim();
+}
+
+function hablarTexto(texto) {
+  if (!hayVoz) return;
+  window.speechSynthesis.cancel(); // corta cualquier lectura en curso antes de empezar la nueva
+  const utter = new SpeechSynthesisUtterance(textoParaVoz(texto));
+  utter.lang = 'es-CR';
+  const voz = elegirVozEspanol();
+  if (voz) utter.voice = voz;
+  window.speechSynthesis.speak(utter);
+}
+
+function actualizarBotonVoz() {
+  const btn = document.getElementById('voice-toggle');
+  if (!btn) return;
+  if (!hayVoz) { btn.style.display = 'none'; return; }
+  btn.classList.toggle('active', vozActiva);
+  btn.textContent = (vozActiva ? '🔊' : '🔇') + ' Voz';
+}
+
+function alternarVoz() {
+  vozActiva = !vozActiva;
+  localStorage.setItem('asistente_voz_activa', vozActiva ? '1' : '0');
+  if (!vozActiva && hayVoz) window.speechSynthesis.cancel();
+  actualizarBotonVoz();
+}
+actualizarBotonVoz();
+
 function preguntarChip(btn) {
   chatInput.value = btn.textContent;
   enviarPregunta();
 }
 
 function nuevaConversacion() {
+  if (hayVoz) window.speechSynthesis.cancel();
   historialClaude = [];
   chatLog.innerHTML =
     '<div class="chat-empty" id="chat-empty">Probá con una pregunta:' +
@@ -321,7 +400,9 @@ async function enviarPregunta() {
     pensando.remove();
     if (!out.ok) throw new Error(out.error || 'Error desconocido del asistente.');
     historialClaude = out.historial || historialClaude;
-    agregarBurbuja(out.respuesta, 'msg-bot');
+    const burbujaBot = agregarBurbuja(out.respuesta, 'msg-bot');
+    agregarBotonEscuchar(burbujaBot, out.respuesta);
+    if (vozActiva) hablarTexto(out.respuesta);
   } catch (e) {
     pensando.remove();
     agregarBurbuja('No pude obtener una respuesta: ' + e.message, 'msg-error');
