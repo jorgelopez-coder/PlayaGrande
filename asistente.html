@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Asistente IA · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --bg:#faf7f0; --surface:#f2ede2; --card:#ffffff;
+  --border:#c8ddd0; --border-h:#8ab89e;
+  --text:#1c3a28; --muted:#5a8a6a; --subtle:#a0c8b0;
+  --green:#1a7a4a; --green-bg:#eef8f2; --green-lt:#d0eedd;
+  --red:#c84a20; --red-bg:#fdf0eb; --red-lt:#f0c0a8;
+  --amber:#c87820; --amber-bg:#fdf6e3; --amber-lt:#f0d890;
+  --blue:#185fa5; --blue-bg:#eef4fb; --blue-lt:#b8d0f0;
+  --purple:#6a3a9a; --purple-bg:#f3eefb; --purple-lt:#d0b8f0;
+  --radius:12px; --font-d:'Inter Tight',sans-serif; --font-b:'Inter',sans-serif; --font-m:'JetBrains Mono',monospace;
+}
+body { background:var(--bg); color:var(--text); font-family:var(--font-b); font-size:14px; line-height:1.6; min-height:100vh; }
+:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+.clip { display:inline-block; width:8px; height:8px; border-radius:50%; border:1.6px solid var(--border-h); margin-right:7px; flex-shrink:0; }
+
+/* ── HEADER (idéntico al resto del sistema) ────────────────── */
+header {
+  min-height:60px; border-bottom:1px solid var(--border);
+  padding:0 2rem; display:flex; align-items:center;
+  justify-content:space-between; background:var(--bg);
+  position:sticky; top:0; z-index:20;
+}
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-mark { width:32px; height:32px; border-radius:8px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.logo-mark svg { width:18px; height:18px; stroke:#fff; fill:none; }
+.logo-name { font-family:var(--font-d); font-size:15px; font-weight:700; }
+.logo-sub { font-size:11px; color:var(--muted); margin-left:4px; }
+.header-right { display:flex; align-items:center; gap:8px; }
+.date-chip { font-family:var(--font-m); font-size:11px; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:20px; padding:5px 12px; }
+.user-chip { display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:5px 10px; }
+.user-chip svg { width:13px; height:13px; color:var(--muted); }
+.user-chip span { font-size:12px; font-weight:500; color:var(--muted); }
+.user-chip button { background:none; border:none; font-size:11px; color:var(--subtle); cursor:pointer; padding:0 2px; font-family:var(--font-b); }
+.user-chip button:hover { color:var(--red); }
+
+/* ── MENÚ HORIZONTAL DE MÓDULOS (idéntico al resto del sistema) ── */
+.topnav { height:46px; border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:stretch; gap:2px; background:var(--card); position:sticky; top:60px; z-index:19; overflow-x:auto; }
+.nav-item { position:relative; display:flex; }
+.nav-btn { display:flex; align-items:center; gap:7px; padding:0 14px; border:none; background:none; cursor:pointer; font-family:var(--font-m); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); border-bottom:2px solid transparent; white-space:nowrap; text-decoration:none; }
+.nav-btn svg { width:11px; height:11px; stroke:currentColor; fill:none; stroke-width:2; transition:transform .15s; flex-shrink:0; }
+.nav-item:hover .nav-btn, .nav-item.open .nav-btn { color:var(--text); border-bottom-color:var(--border-h); }
+.nav-item.open .nav-btn svg { transform:rotate(180deg); }
+.nav-panel {
+  display:none; position:absolute; top:100%; left:0; background:var(--card);
+  border:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius);
+  box-shadow:0 10px 28px rgba(28,58,40,.14); padding:12px; z-index:30; min-width:420px;
+}
+.nav-item.open .nav-panel { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }
+.nav-panel.single-col { min-width:230px; }
+.nav-item.open .nav-panel.single-col { grid-template-columns:1fr; }
+.mod-tile { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:5px; text-decoration:none; color:var(--text); transition:background .12s; }
+.mod-tile:hover { background:var(--surface); }
+.mod-tile-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.mod-tile-icon svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.mod-tile-txt { min-width:0; }
+.mod-tile-name { font-size:12.5px; font-weight:500; white-space:nowrap; }
+.mod-tile-area { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ic-green  { background:var(--green-bg); color:var(--green); }
+.ic-blue   { background:var(--blue-bg);  color:var(--blue);  }
+.ic-amber  { background:var(--amber-bg); color:var(--amber); }
+.ic-red    { background:var(--red-bg);   color:var(--red);   }
+.ic-purple { background:var(--purple-bg);color:var(--purple);}
+
+/* ── MAIN ───────────────────────────────────────────────── */
+main { max-width:760px; margin:0 auto; padding:2rem 2rem 3rem; }
+.hero { margin-bottom:1.25rem; }
+.hero h1 { font-family:var(--font-d); font-size:26px; font-weight:800; letter-spacing:-.01em; margin-bottom:5px; }
+.hero p { font-size:13px; color:var(--muted); }
+
+/* ── CHAT ───────────────────────────────────────────────── */
+.chat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
+.chat-head { padding:.7rem 1.1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.chat-head-title { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; }
+.chat-reset { font-size:11.5px; color:var(--blue); background:none; border:none; cursor:pointer; font-family:var(--font-b); }
+.chat-reset:hover { text-decoration:underline; }
+
+.chat-log { padding:1.1rem; min-height:320px; max-height:56vh; overflow-y:auto; display:flex; flex-direction:column; gap:.7rem; }
+.msg { max-width:82%; padding:.6rem .85rem; border-radius:10px; font-size:13px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
+.msg-user { align-self:flex-end; background:var(--text); color:#eef8f2; border-bottom-right-radius:3px; }
+.msg-bot { align-self:flex-start; background:var(--surface); color:var(--text); border:1px solid var(--border); border-bottom-left-radius:3px; }
+.msg-error { align-self:flex-start; background:var(--red-bg); color:var(--red); border:1px solid var(--red-lt); }
+.msg-thinking { align-self:flex-start; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12.5px; }
+
+.chat-empty { text-align:center; padding:1.5rem 1rem; color:var(--subtle); font-size:12.5px; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:.9rem; }
+.chip { font-size:11.5px; background:var(--card); border:1px solid var(--border); color:var(--muted); padding:6px 11px; border-radius:20px; cursor:pointer; font-family:var(--font-b); }
+.chip:hover { border-color:var(--border-h); color:var(--text); }
+
+.chat-input-row { border-top:1px solid var(--border); padding:.75rem 1.1rem; display:flex; gap:8px; align-items:flex-end; background:var(--card); }
+.chat-input-row textarea {
+  flex:1; resize:none; border:1px solid var(--border); border-radius:9px; padding:.55rem .7rem;
+  font-family:var(--font-b); font-size:13px; color:var(--text); background:var(--bg); max-height:120px;
+}
+.chat-input-row textarea:focus { outline:none; border-color:var(--border-h); }
+.chat-send { background:var(--green); color:#fff; border:none; border-radius:9px; padding:0 18px; height:38px; font-weight:600; font-size:13px; cursor:pointer; font-family:var(--font-b); flex-shrink:0; }
+.chat-send:hover { background:#155f3a; }
+.chat-send:disabled { background:var(--subtle); cursor:default; }
+
+.spinner { display:inline-block; width:12px; height:12px; border:1.5px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.setup-warning { background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-lt); border-radius:var(--radius); padding:.9rem 1.1rem; font-size:12.5px; margin-bottom:1rem; }
+.setup-warning code { font-family:var(--font-m); background:rgba(0,0,0,.06); padding:1px 5px; border-radius:4px; }
+
+@media (max-width:720px) {
+  main { padding:1.25rem 1rem 3rem; }
+  .date-chip, .logo-sub { display:none; }
+  .topnav { padding:0 1rem; top:56px; }
+  .nav-panel { position:fixed; left:1rem; right:1rem; top:102px; min-width:0 !important; grid-template-columns:1fr !important; max-height:70vh; overflow-y:auto; }
+  .msg { max-width:92%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <div>
+      <span class="logo-name">Kioskos</span>
+      <span class="logo-sub">Playa Grande Brew House</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="date-chip" id="fecha-hoy"></span>
+    <div class="user-chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span id="user-nombre">—</span>
+      <button onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
+    </div>
+  </div>
+</header>
+
+<nav class="topnav" id="topnav">
+  <div class="nav-item" data-nav="index">
+    <a class="nav-btn" href="index.html">
+      <span class="clip"></span>Inicio
+    </a>
+  </div>
+  <div class="nav-item" data-nav="indicadores">
+    <a class="nav-btn" href="indicadores.html">
+      <span class="clip"></span>Indicadores de Gerencia
+    </a>
+  </div>
+  <div class="nav-item" data-nav="asistente-ia">
+    <a class="nav-btn" href="asistente.html" data-mod="asistente-ia">
+      <span class="clip"></span>Asistente IA
+    </a>
+  </div>
+</nav>
+
+<main>
+  <div class="hero">
+    <h1>Asistente IA</h1>
+    <p>Preguntá por ventas, compras, inventario o mermas en lenguaje natural — el asistente consulta los datos reales del sistema antes de responder.</p>
+  </div>
+
+  <div id="setup-warning" class="setup-warning" style="display:none;">
+    Falta configurar la URL del asistente: pegá la URL del Web App en la constante <code>ASISTENTE_URL</code>, arriba del <code>&lt;script&gt;</code> de este archivo.
+  </div>
+
+  <div class="chat-card">
+    <div class="chat-head">
+      <span class="chat-head-title"><span class="clip"></span>Conversación</span>
+      <button class="chat-reset" onclick="nuevaConversacion()">Nueva conversación</button>
+    </div>
+    <div class="chat-log" id="chat-log">
+      <div class="chat-empty" id="chat-empty">
+        Probá con una pregunta:
+        <div class="chips">
+          <button class="chip" onclick="preguntarChip(this)">¿Cuánto vendimos esta semana en Playa Grande?</button>
+          <button class="chip" onclick="preguntarChip(this)">¿Cuánto hemos comprado de cerveza imperial este mes?</button>
+          <button class="chip" onclick="preguntarChip(this)">¿Cómo van las ventas de todos los kioskos hoy?</button>
+          <button class="chip" onclick="preguntarChip(this)">¿Cuánta merma tuvimos en agosto?</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" rows="1" placeholder="Escribí tu pregunta… (Enter para enviar, Shift+Enter para salto de línea)"></textarea>
+      <button class="chat-send" id="chat-send-btn" onclick="enviarPregunta()">Preguntar</button>
+    </div>
+  </div>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PEGAR ACÁ la URL /exec del Web App de Code-asistente-ia-backend.gs
+// (ver instrucciones de despliegue al principio de ese archivo).
+// ═══════════════════════════════════════════════════════════════
+const ASISTENTE_URL = 'https://script.google.com/macros/s/AKfycbx6n01QkhebYr5FbLFYSeDNuzUB9zwEIrQZsfEpV84_mHJWxElxtOn8V-F2sZ-2Nxlr/exec';
+
+// ── CONTROL DE ACCESO (mismo patrón que el resto del sistema) ──
+function verificarAcceso() {
+  const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+  if (!sesion || (Date.now() - sesion.ts) > 8 * 60 * 60 * 1000) {
+    localStorage.removeItem('portal_sesion');
+    window.location.href = 'login.html';
+    return null;
+  }
+  return sesion;
+}
+function cerrarSesion() {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+const sesionActual = verificarAcceso();
+if (sesionActual) {
+  const nombreEl = document.getElementById('user-nombre');
+  if (nombreEl) nombreEl.textContent = sesionActual.nombre;
+}
+
+document.getElementById('fecha-hoy').textContent =
+  new Date().toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+if (!ASISTENTE_URL || ASISTENTE_URL.indexOf('PEGAR_AQUI') === 0) {
+  document.getElementById('setup-warning').style.display = 'block';
+}
+
+// ── CHAT ──────────────────────────────────────────────────────
+// historialClaude: formato interno de mensajes que exige la API de Claude
+// (incluye bloques tool_use/tool_result) — se manda y se recibe tal cual en
+// cada pregunta para que el asistente recuerde la conversación. El chat NO
+// necesita entender esta estructura: solo la guarda y la reenvía.
+let historialClaude = [];
+let enviando = false;
+
+const chatLog = document.getElementById('chat-log');
+const chatInput = document.getElementById('chat-input');
+const chatSendBtn = document.getElementById('chat-send-btn');
+
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+});
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    enviarPregunta();
+  }
+});
+
+function ocultarEstadoVacio() {
+  const vacio = document.getElementById('chat-empty');
+  if (vacio) vacio.remove();
+}
+
+function agregarBurbuja(texto, clase) {
+  ocultarEstadoVacio();
+  const div = document.createElement('div');
+  div.className = 'msg ' + clase;
+  div.textContent = texto;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
+}
+
+function preguntarChip(btn) {
+  chatInput.value = btn.textContent;
+  enviarPregunta();
+}
+
+function nuevaConversacion() {
+  historialClaude = [];
+  chatLog.innerHTML =
+    '<div class="chat-empty" id="chat-empty">Probá con una pregunta:' +
+    '<div class="chips">' +
+    '<button class="chip" onclick="preguntarChip(this)">¿Cuánto vendimos esta semana en Playa Grande?</button>' +
+    '<button class="chip" onclick="preguntarChip(this)">¿Cuánto hemos comprado de cerveza imperial este mes?</button>' +
+    '<button class="chip" onclick="preguntarChip(this)">¿Cómo van las ventas de todos los kioskos hoy?</button>' +
+    '<button class="chip" onclick="preguntarChip(this)">¿Cuánta merma tuvimos en agosto?</button>' +
+    '</div></div>';
+}
+
+async function enviarPregunta() {
+  const pregunta = chatInput.value.trim();
+  if (!pregunta || enviando) return;
+  if (!ASISTENTE_URL || ASISTENTE_URL.indexOf('PEGAR_AQUI') === 0) {
+    document.getElementById('setup-warning').style.display = 'block';
+    return;
+  }
+
+  agregarBurbuja(pregunta, 'msg-user');
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+
+  enviando = true;
+  chatSendBtn.disabled = true;
+  const pensando = agregarBurbuja('', 'msg-thinking');
+  pensando.innerHTML = '<span class="spinner"></span> Consultando datos…';
+
+  try {
+    const resp = await fetch(ASISTENTE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ pregunta: pregunta, historial: historialClaude })
+    });
+    const out = await resp.json();
+    pensando.remove();
+    if (!out.ok) throw new Error(out.error || 'Error desconocido del asistente.');
+    historialClaude = out.historial || historialClaude;
+    agregarBurbuja(out.respuesta, 'msg-bot');
+  } catch (e) {
+    pensando.remove();
+    agregarBurbuja('No pude obtener una respuesta: ' + e.message, 'msg-error');
+  } finally {
+    enviando = false;
+    chatSendBtn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
