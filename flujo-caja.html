@@ -218,6 +218,16 @@
     </div>
   </div>
 
+  <!-- ── Reporte manual para Contabilidad (botón, sin backend/trigger — ver
+       enviarResumenContabilidad() más abajo) ── -->
+  <div class="card card-pad" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+    <div>
+      <p class="card-title" style="margin-bottom:.25rem">Reporte para Contabilidad</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0;">Arma un correo con el resumen del periodo y los kioskos de arriba, y descarga aparte el detalle en Excel para adjuntar.</p>
+    </div>
+    <button type="button" class="btn-add" id="btn-enviar-contabilidad" onclick="enviarResumenContabilidad()">📧 Enviar resumen a Contabilidad</button>
+  </div>
+
   <!-- ── Banner: facturas sin fecha proyectada ── -->
   <div class="banner banner-warn" id="banner-sin-fecha" style="display:none;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -878,6 +888,162 @@ function calcularLineaTiempo() {
 
   const fechas = Object.keys(porFecha).sort();
   return { desde, hasta, fechas, porFecha };
+}
+
+// ── REPORTE PARA CONTABILIDAD (manual, sin backend ni trigger) ─────
+// Pedido de Jorge (2026-08-25): en vez de un envío automático semanal, un
+// botón que arma el correo a mano para revisarlo antes de mandarlo. Como
+// ninguna herramienta puede abrir Gmail con un archivo YA adjunto (limitación
+// de cualquier webmail, no de este proyecto), el botón hace dos cosas
+// separadas: descarga el detalle en CSV (se abre con Excel) y abre Gmail con
+// Para/Asunto/Cuerpo ya redactados — Jorge arrastra el archivo descargado al
+// correo abierto y le da Enviar. 100% frontend, reusa calcularResumen() /
+// calcularLineaTiempo() (mismos números que ya se ven en pantalla), no hace
+// falta desplegar nada nuevo en Apps Script.
+const LS_CORREO_CONTABILIDAD = 'fc_correo_contabilidad';
+
+function etiquetaPeriodoActual() {
+  const { desde, hasta } = rangoActual();
+  if (!desde || !hasta) return '';
+  return desde === hasta ? fechaLarga(desde) : (fechaCorta(desde) + ' – ' + fechaCorta(hasta));
+}
+function etiquetaKioskosActual() {
+  const lista = kioskosEnFiltro();
+  return (!kioskosSeleccionados.size || lista.length === KIOSKOS.length) ? 'todos los kioskos' : lista.join(', ');
+}
+
+// Detalle línea por línea de cada pago programado, mismas fuentes y mismos
+// filtros (periodo + kiosko) que calcularResumen() — pero sin sumar, una fila
+// por factura/estimado/desembolso, para el CSV adjunto. El saldo REAL de
+// Servicio 10% no tiene fecha propia ("a hoy"), así que se agrupa en una fila
+// por kiosko fechada hoy, sin importar el periodo elegido — mismo criterio
+// que el KPI de arriba (que tampoco lo filtra por periodo).
+function construirDetallePagosProgramados() {
+  const { desde, hasta } = rangoActual();
+  const filas = [];
+
+  apItems.forEach(f => {
+    if (f.sinTipoCambio || !kioskoVisible(f.kiosko) || !f.fechaProyectada) return;
+    if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
+    filas.push({ fecha: f.fechaProyectada, kiosko: f.kiosko, categoria: ETIQUETAS_TIPO_PAGO.ap,
+      concepto: (f.proveedor || '(sin proveedor)') + ' — factura ' + f.numero, monto: f.saldo,
+      nota: f.moneda !== 'CRC' ? ('Convertido de ' + f.moneda) : '' });
+  });
+
+  const saldoServicioPorKiosko = {};
+  dataServicioDetalle.forEach(r => {
+    if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
+    saldoServicioPorKiosko[r['Kiosko']] = (saldoServicioPorKiosko[r['Kiosko']] || 0) + (Number(r['Monto ₡']) || 0);
+  });
+  Object.keys(saldoServicioPorKiosko).forEach(k => {
+    if (!saldoServicioPorKiosko[k]) return;
+    filas.push({ fecha: hoyISO, kiosko: k, categoria: ETIQUETAS_TIPO_PAGO.servicio,
+      concepto: 'Saldo pendiente a hoy', monto: saldoServicioPorKiosko[k], nota: 'No depende del periodo elegido' });
+  });
+
+  dataServicioManual.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    filas.push({ fecha: f, kiosko: r['Kiosko'], categoria: ETIQUETAS_TIPO_PAGO.servicio + ' (manual)',
+      concepto: r['Nota'] || 'Ajuste manual', monto: Number(r['Monto']) || 0, nota: '' });
+  });
+
+  dataPlanillaEstimada.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    filas.push({ fecha: f, kiosko: r['Kiosko'], categoria: ETIQUETAS_TIPO_PAGO.planilla,
+      concepto: r['Nota'] || 'Estimado de planilla', monto: Number(r['Monto']) || 0, nota: '' });
+  });
+
+  dataComprasProveedores.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
+    filas.push({ fecha: f, kiosko: r['Kiosko'], categoria: ETIQUETAS_TIPO_PAGO.comprasProv,
+      concepto: r['Proveedor'] || '(sin proveedor)', monto: Number(r['Monto']) || 0, nota: r['Nota'] || '' });
+  });
+
+  dataOtrosDesembolsos.forEach(r => {
+    const f = String(r['Fecha']||'').slice(0,10);
+    const esGeneral = !r['Kiosko'] || r['Kiosko'] === 'Todos';
+    if (!esGeneral && !kioskoVisible(r['Kiosko'])) return;
+    if (f < desde || f > hasta) return;
+    filas.push({ fecha: f, kiosko: esGeneral ? 'General (todos)' : r['Kiosko'], categoria: ETIQUETAS_TIPO_PAGO.otros,
+      concepto: r['Descripcion'] || r['Categoria'] || 'Otro desembolso', monto: Number(r['Monto']) || 0, nota: r['Nota'] || '' });
+  });
+
+  filas.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.kiosko.localeCompare(b.kiosko));
+  return filas;
+}
+
+// CSV (no .xlsx real) a propósito — se abre con Excel igual, y no depende de
+// ninguna librería nueva ni de un backend que lo genere. BOM al inicio para
+// que Excel detecte UTF-8 y no rompa tildes/₡.
+function descargarDetalleCSV(filas, nombreArchivo) {
+  const encabezados = ['Fecha programada', 'Kiosko', 'Categoría', 'Proveedor / concepto', 'Monto (₡)', 'Nota'];
+  const filaCSV = valores => valores.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',');
+  const lineas = [filaCSV(encabezados)].concat(
+    filas.map(f => filaCSV([f.fecha, f.kiosko, f.categoria, f.concepto, Math.round(f.monto), f.nota]))
+  );
+  const csv = '\uFEFF' + lineas.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombreArchivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function enviarResumenContabilidad() {
+  const resumen = calcularResumen();
+  const t = totalesGlobales(resumen.porKiosko);
+  if (!t.total) { showToast('No hay pagos programados en este periodo/kiosko para reportar.', 'error'); return; }
+
+  const correoGuardado = localStorage.getItem(LS_CORREO_CONTABILIDAD) || '';
+  const correo = prompt('¿A qué correo enviamos el resumen?', correoGuardado);
+  if (correo === null) return; // canceló
+  if (!correo.trim()) { showToast('Falta el correo de destino.', 'error'); return; }
+  localStorage.setItem(LS_CORREO_CONTABILIDAD, correo.trim());
+
+  const periodoTxt = etiquetaPeriodoActual();
+  const kioskosTxt = etiquetaKioskosActual();
+  const asunto = 'Pagos programados — ' + periodoTxt;
+
+  const filasPorKiosko = Object.entries(resumen.porKiosko)
+    .map(([k, f]) => [k, f.ap + f.servicio + f.planilla + f.comprasProv + f.otros])
+    .filter(([, v]) => v)
+    .sort((a, b) => b[1] - a[1]);
+
+  const lineasCuerpo = [
+    'Resumen de pagos programados — ' + periodoTxt + ' (' + kioskosTxt + ')',
+    '',
+    'Por categoría:',
+    '- ' + ETIQUETAS_TIPO_PAGO.ap + ': ' + fmt(t.ap),
+    '- ' + ETIQUETAS_TIPO_PAGO.servicio + ': ' + fmt(t.servicio),
+    '- ' + ETIQUETAS_TIPO_PAGO.planilla + ': ' + fmt(t.planilla),
+    '- ' + ETIQUETAS_TIPO_PAGO.comprasProv + ': ' + fmt(t.comprasProv),
+    '- ' + ETIQUETAS_TIPO_PAGO.otros + ': ' + fmt(t.otros),
+    '- TOTAL: ' + fmt(t.total),
+    '',
+    'Por kiosko:',
+  ].concat(filasPorKiosko.map(([k, v]) => '- ' + k + ': ' + fmt(v)));
+
+  if (resumen.apSinFecha.count > 0) {
+    lineasCuerpo.push('', 'Nota: ' + resumen.apSinFecha.count + ' factura(s) por ' + fmt(resumen.apSinFecha.monto) + ' sin fecha proyectada de pago — no están incluidas en este resumen (asignales fecha en Cuentas por Pagar).');
+  }
+  lineasCuerpo.push('', 'El detalle línea por línea va en el Excel adjunto (se descargó aparte de este correo — arrastralo acá antes de enviar).');
+  const cuerpo = lineasCuerpo.join('\n');
+
+  const filas = construirDetallePagosProgramados();
+  const nombreArchivo = 'Pagos programados ' + resumen.desde + ' a ' + resumen.hasta + '.csv';
+  descargarDetalleCSV(filas, nombreArchivo);
+
+  const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1'
+    + '&to=' + encodeURIComponent(correo.trim())
+    + '&su=' + encodeURIComponent(asunto)
+    + '&body=' + encodeURIComponent(cuerpo);
+  window.open(gmailUrl, '_blank');
+
+  showToast('Se descargó el Excel y se abrió Gmail — arrastrá el archivo al correo y enviá.');
 }
 
 // ── RENDER ───────────────────────────────────────────────────────
