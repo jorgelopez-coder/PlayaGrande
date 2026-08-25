@@ -313,7 +313,6 @@
   <!-- ── Tabs ── -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('resumen',this)">Resumen</button>
-    <button class="tab" onclick="switchTab('linea',this)">Línea de tiempo</button>
     <button class="tab" onclick="switchTab('ap',this)">Cuentas por pagar</button>
     <button class="tab" onclick="switchTab('servicio',this)">Servicio 10%</button>
     <button class="tab" onclick="switchTab('planilla',this)">Planilla estimada</button>
@@ -321,7 +320,8 @@
     <button class="tab" onclick="switchTab('otros',this)">Otros desembolsos</button>
   </div>
 
-  <!-- ══ TAB RESUMEN ══ -->
+  <!-- ══ TAB RESUMEN (incluye la Línea de tiempo, fusionada acá el 2026-08-25
+       a pedido de Jorge — antes era una pestaña aparte) ══ -->
   <div id="tab-resumen">
     <div class="card">
       <div class="chart-wrap"><canvas id="chart-resumen"></canvas></div>
@@ -329,10 +329,10 @@
     <div class="card">
       <div class="tabla-wrap" id="tabla-resumen"><div class="empty"><span class="spinner"></span></div></div>
     </div>
-  </div>
 
-  <!-- ══ TAB LÍNEA DE TIEMPO ══ -->
-  <div id="tab-linea" style="display:none;">
+    <div style="margin:1.5rem 0 .75rem;">
+      <p class="card-title">Línea de tiempo</p>
+    </div>
     <div class="card">
       <div class="hint-strip">
         <span class="hint-chip">Necesidad de efectivo por fecha, dentro del periodo elegido arriba. Cuentas por pagar, planilla estimada, otros desembolsos y montos manuales de Servicio 10% usan su fecha; el saldo <b>real</b> de Servicio 10% (que no tiene fecha propia) se agrupa en "Hoy" si el periodo elegido incluye el día de hoy.</span>
@@ -1537,11 +1537,13 @@ async function odEliminar(id) {
 
 // ── TABS ─────────────────────────────────────────────────────────
 function switchTab(tab, el) {
-  ['resumen','linea','ap','servicio','planilla','compras','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
+  ['resumen','ap','servicio','planilla','compras','otros'].forEach(t => document.getElementById('tab-'+t).style.display = (t===tab ? 'block' : 'none'));
   document.querySelectorAll('.tabs .tab').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  if (tab === 'resumen') renderChart(calcularResumen());
-  if (tab === 'linea') renderChartLinea(calcularLineaTiempo());
+  // Ambos gráficos (Resumen y Línea de tiempo) viven ahora en la misma pestaña
+  // — Chart.js no dibuja bien en un canvas que estuvo oculto (display:none),
+  // así que los dos se re-renderizan al entrar a "Resumen".
+  if (tab === 'resumen') { renderChart(calcularResumen()); renderChartLinea(calcularLineaTiempo()); }
 }
 
 // ── ARRANQUE ─────────────────────────────────────────────────────
