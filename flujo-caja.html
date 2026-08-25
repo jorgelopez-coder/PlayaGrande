@@ -901,6 +901,7 @@ function calcularLineaTiempo() {
 // calcularLineaTiempo() (mismos números que ya se ven en pantalla), no hace
 // falta desplegar nada nuevo en Apps Script.
 const LS_CORREO_CONTABILIDAD = 'fc_correo_contabilidad';
+const URL_CUENTAS_POR_PAGAR = 'https://jorgelopez-coder.github.io/PlayaGrande/cuentas-por-pagar.html';
 
 function etiquetaPeriodoActual() {
   const { desde, hasta } = rangoActual();
@@ -1008,40 +1009,44 @@ function enviarResumenContabilidad() {
   const kioskosTxt = etiquetaKioskosActual();
   const asunto = 'Pagos programados — ' + periodoTxt;
 
-  // Cuerpo organizado por fecha (Jorge, 2026-08-25): el objetivo principal es
-  // que Contabilidad vea cuánto dinero se necesita cada día, no un resumen
-  // agregado por categoría/kiosko. Reusa calcularLineaTiempo() — misma
-  // agrupación por fecha (con porKiosko por día) que ya se ve en la pestaña
-  // "Línea de tiempo", así el correo coincide con lo que está en pantalla.
-  const { fechas, porFecha } = calcularLineaTiempo();
+  // Cuerpo organizado por kiosko → fecha → tipo de pago (Jorge, 2026-08-25):
+  // ya no hay Excel adjunto, así que el correo pasa a llevar el detalle
+  // completo. Reusa construirDetallePagosProgramados() (mismas filas que
+  // antes armaban el CSV: fecha + kiosko + categoría + monto, con los mismos
+  // filtros de periodo/kiosko que calcularResumen()) y las agrupa acá mismo.
+  const filas = construirDetallePagosProgramados();
+  const porKiosko = {};
+  filas.forEach(fila => {
+    const k = porKiosko[fila.kiosko] || (porKiosko[fila.kiosko] = { total: 0, porFecha: {} });
+    k.total += fila.monto;
+    const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {} });
+    d.total += fila.monto;
+    d.porTipo[fila.categoria] = (d.porTipo[fila.categoria] || 0) + fila.monto;
+  });
+  const kioskosOrdenados = Object.entries(porKiosko).sort((a, b) => b[1].total - a[1].total);
 
   const lineasCuerpo = [
     'Resumen de pagos programados — ' + periodoTxt + ' (' + kioskosTxt + ')',
     '',
-    'Dinero necesario por día:',
+    'Detalle completo y edición de fechas de pago en Cuentas por Pagar:',
+    URL_CUENTAS_POR_PAGAR,
     '',
   ];
 
-  fechas.forEach(f => {
-    const d = porFecha[f];
-    const totalDia = Object.values(d.porKiosko).reduce((a, b) => a + b, 0);
-    const kioskosOrdenados = Object.entries(d.porKiosko).sort((a, b) => b[1] - a[1]);
-    const etiqueta = fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '');
-    lineasCuerpo.push(etiqueta + ': ' + fmt(totalDia));
-    kioskosOrdenados.forEach(([k, v]) => lineasCuerpo.push('   - ' + k + ': ' + fmt(v)));
+  kioskosOrdenados.forEach(([kiosko, datosKiosko]) => {
+    lineasCuerpo.push(kiosko + ' — TOTAL: ' + fmt(datosKiosko.total));
+    Object.keys(datosKiosko.porFecha).sort().forEach(f => {
+      const d = datosKiosko.porFecha[f];
+      const etiqueta = fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '');
+      lineasCuerpo.push('   ' + etiqueta + ': ' + fmt(d.total));
+      Object.entries(d.porTipo).sort((a, b) => b[1] - a[1])
+        .forEach(([tipo, monto]) => lineasCuerpo.push('      - ' + tipo + ': ' + fmt(monto)));
+    });
+    lineasCuerpo.push('');
   });
 
-  lineasCuerpo.push('', 'TOTAL del periodo: ' + fmt(t.total));
-
-  if (resumen.apSinFecha.count > 0) {
-    lineasCuerpo.push('', 'Nota: ' + resumen.apSinFecha.count + ' factura(s) por ' + fmt(resumen.apSinFecha.monto) + ' sin fecha proyectada de pago — no están incluidas en este resumen (asignales fecha en Cuentas por Pagar).');
-  }
-  lineasCuerpo.push('', 'El detalle línea por línea va en el Excel adjunto (se descargó aparte de este correo — arrastralo acá antes de enviar).');
+  lineasCuerpo.push('TOTAL del periodo: ' + fmt(t.total));
   const cuerpo = lineasCuerpo.join('\n');
-
-  const filas = construirDetallePagosProgramados();
-  const nombreArchivo = 'Pagos programados ' + resumen.desde + ' a ' + resumen.hasta + '.csv';
-  descargarDetalleCSV(filas, nombreArchivo);
 
   const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1'
     + '&to=' + encodeURIComponent(correo.trim())
@@ -1049,7 +1054,7 @@ function enviarResumenContabilidad() {
     + '&body=' + encodeURIComponent(cuerpo);
   window.open(gmailUrl, '_blank');
 
-  showToast('Se descargó el Excel y se abrió Gmail — arrastrá el archivo al correo y enviá.');
+  showToast('Se abrió Gmail con el resumen listo — revisá y enviá.');
 }
 
 // ── RENDER ───────────────────────────────────────────────────────
