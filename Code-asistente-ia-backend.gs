@@ -153,7 +153,7 @@ function responderPregunta(pregunta, historialPrevio) {
     'Sos el asistente de datos del "Ecosistema Kioskos" de Casa Aguizotes, kioskos de cerveza y ' +
     'cocteles en Costa Rica (' + kioskosTodos.join(', ') + '). ' +
     'Hoy es ' + hoyCR + ' (zona horaria Costa Rica). Tenés herramientas para consultar TODOS los ' +
-    'módulos del sistema: ventas, compras, inventario, mermas, personal, vacaciones, amonestaciones, ' +
+    'módulos del sistema: ventas, compras, cuentas por pagar a proveedores, inventario, mermas, personal, vacaciones, amonestaciones, ' +
     'horas extra, liquidaciones/terminaciones, aguinaldo, planilla, servicio 10%, horarios, caja ' +
     'chica, mantenimiento, activos, proveedores, recetas/costeo de menú, pedido sugerido de compra, ' +
     'efectivo pendiente de depositar y COGS de inventario. Respondé SIEMPRE en español, de forma ' +
@@ -161,8 +161,8 @@ function responderPregunta(pregunta, historialPrevio) {
     '(₡) salvo que se pida en dólares. Usá las herramientas disponibles para obtener los números ' +
     'reales — nunca inventes cifras ni redondees a ojo. Cuando te pregunten por "todos los kioskos" o ' +
     'no especifiquen kiosko en una herramienta que lo pide, usá kiosko="todos" (consultar_ventas, ' +
-    'consultar_mermas, consultar_inventario, consultar_caja_chica, consultar_pedido_sugerido y ' +
-    'consultar_cogs lo soportan) en vez de asumir un solo kiosko o dejar el resto sin consultar. Si una ' +
+    'consultar_mermas, consultar_inventario, consultar_caja_chica, consultar_pedido_sugerido, ' +
+    'consultar_cogs y consultar_cuentas_por_pagar lo soportan) en vez de asumir un solo kiosko o dejar el resto sin consultar. Si una ' +
     'herramienta no cubre algo (ej. inventario en tiempo real, un kiosko sin Square propio, Flujo de ' +
     'Caja que todavía no está desplegado) decilo con claridad en la respuesta en vez de asumir. Si la ' +
     'pregunta no trae fechas, ' +
@@ -545,6 +545,22 @@ function obtenerDefinicionHerramientas(kioskosTodos) {
       },
       required: ['kiosko']
     }
+  },
+  {
+    name: 'consultar_cuentas_por_pagar',
+    description: 'Cuentas por pagar a proveedores: saldo pendiente por factura, facturas vencidas y ' +
+      'próximas a vencer (7 días), desglose por proveedor y por kiosko. El saldo es TOTAL de la ' +
+      'factura menos abonos ya registrados; el vencimiento es la fecha de factura más los días de ' +
+      'crédito configurados para ese proveedor.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kiosko: { type: 'string', description: "Uno de: " + kioskosTodos.map(function (k) { return "'" + k + "'"; }).join(', ') + ", o 'todos'. Por defecto 'todos'." },
+        proveedor: { type: 'string', description: 'Nombre o parte del nombre del proveedor (opcional).' },
+        estado: { type: 'string', description: "Filtrar por estado de la factura: 'Vencida', 'A tiempo', 'Abono', 'Cancelada', o 'pendientes' (todo lo que no esté Cancelada). Por defecto trae todos los estados." }
+      },
+      required: []
+    }
   }
   ];
 }
@@ -552,6 +568,7 @@ function obtenerDefinicionHerramientas(kioskosTodos) {
 function ejecutarHerramienta(nombre, input) {
   if (nombre === 'consultar_ventas') return consultarVentas(input);
   if (nombre === 'consultar_compras') return consultarCompras(input);
+  if (nombre === 'consultar_cuentas_por_pagar') return consultarCuentasPorPagar(input);
   if (nombre === 'consultar_inventario') return consultarInventario(input);
   if (nombre === 'consultar_mermas') return consultarMermas(input);
   if (nombre === 'consultar_personal') return consultarPersonal(input);
@@ -890,6 +907,165 @@ function consultarCompras(input) {
     facturas_distintas_aprox: Object.keys(facturasVistas).length,
     desglose_por_producto: desglose
   };
+}
+
+// ============ CUENTAS POR PAGAR ============
+// Misma hoja (COMPRAS_SHEET_ID = "Facturas y CxP - Kioskos") que usa
+// consultarCompras(), pestañas "Registro Facturas" + "Abonos". Reimplementa
+// en modo lectura la misma lógica de saldo/estado/vencimiento que
+// cuentas-por-pagar.html (construirFacturasAP): saldo = TOTAL − abonos ya
+// registrados, vencimiento = Fecha de factura + días de crédito del
+// proveedor (hoja "Proveedores" del Sheet de Inventario), estado según
+// fechaRealPago/abonos/vencimiento. Diferencia con la UI: acá el tipo de
+// cambio USD→CRC siempre es TIPO_CAMBIO_USD_DEFAULT (el script no tiene
+// dónde recordar un tipo de cambio manual por factura, a diferencia de la UI).
+
+function sumarDiasISO(fechaISO, dias) {
+  if (!fechaISO) return '';
+  const d = new Date(fechaISO + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
+  return Utilities.formatDate(d, 'America/Costa_Rica', 'yyyy-MM-dd');
+}
+
+function consultarCuentasPorPagar(input) {
+  const kioskoFiltro = input.kiosko && normalizarTexto(input.kiosko) !== 'todos' ? input.kiosko : '';
+  const proveedorFiltro = input.proveedor || '';
+  const estadoFiltro = input.estado || '';
+  const hoyCR = Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
+  const en7dias = sumarDiasISO(hoyCR, 7);
+
+  const ss = SpreadsheetApp.openById(COMPRAS_SHEET_ID);
+  const hojaFacturas = ss.getSheetByName('Registro Facturas');
+  const hojaAbonos = ss.getSheetByName('Abonos');
+  if (!hojaFacturas || hojaFacturas.getLastRow() < 2) {
+    return { nota: 'No hay facturas registradas todavía en Cuentas por Pagar.' };
+  }
+
+  // Días de crédito por proveedor — mismo join por nombre (jurídico o
+  // comercial) que buscarProveedor() en cuentas-por-pagar.html.
+  const diasCreditoPorProveedor = {};
+  const hojaProveedores = SpreadsheetApp.openById(INVENTARIO_SHEET_ID).getSheetByName('Proveedores');
+  if (hojaProveedores && hojaProveedores.getLastRow() > 1) {
+    filasComoObjetosDesdeHoja(hojaProveedores).forEach(function (p) {
+      const dias = parseInt(p['Condición de pago'], 10) || 0;
+      if (p['Nombre jurídico']) diasCreditoPorProveedor[normalizarTexto(p['Nombre jurídico'])] = dias;
+      if (p['Nombre comercial']) diasCreditoPorProveedor[normalizarTexto(p['Nombre comercial'])] = dias;
+    });
+  }
+
+  // Total abonado por factura: la hoja Abonos no tiene clave propia, se
+  // agrupa por Kiosko + número de Factura.
+  const abonadoPorFactura = {};
+  if (hojaAbonos && hojaAbonos.getLastRow() > 1) {
+    filasComoObjetosDesdeHoja(hojaAbonos).forEach(function (a) {
+      const clave = normalizarTexto(a['Kiosko']) + '||' + normalizarTexto(a['Factura']);
+      abonadoPorFactura[clave] = (abonadoPorFactura[clave] || 0) + (Number(a['Monto abonado']) || 0);
+    });
+  }
+
+  const facturas = filasComoObjetosDesdeHoja(hojaFacturas).filter(function (f) { return String(f['Factura'] || '').trim(); });
+  const resultado = [];
+
+  facturas.forEach(function (f) {
+    const kiosko = String(f['Kiosko'] || '');
+    if (kioskoFiltro && normalizarTexto(kiosko) !== normalizarTexto(kioskoFiltro)) return;
+
+    const proveedor = String(f['Proveedor'] || '');
+    if (proveedorFiltro && !contiene(proveedor, proveedorFiltro)) return;
+
+    const numero = String(f['Factura'] || '').trim();
+    const fechaFactura = aFechaISO(f['Fecha']);
+    const moneda = String(f['Moneda'] || 'CRC');
+    const monto = Number(f['TOTAL']) || 0;
+    const montoColones = moneda.toUpperCase().indexOf('USD') !== -1 || moneda === '$' ? monto * TIPO_CAMBIO_USD_DEFAULT : monto;
+
+    const claveAbono = normalizarTexto(kiosko) + '||' + normalizarTexto(numero);
+    const totalAbonado = abonadoPorFactura[claveAbono] || 0;
+
+    const diasCredito = diasCreditoPorProveedor[normalizarTexto(proveedor)] || 0;
+    const fechaVencimiento = sumarDiasISO(fechaFactura, diasCredito);
+    const fechaRealPago = aFechaISO(f['Fecha de pago']);
+
+    let saldoPendiente = Math.round((montoColones - totalAbonado) * 100) / 100;
+    let estado;
+    if (fechaRealPago) {
+      estado = 'Cancelada';
+    } else if (totalAbonado > 0 && saldoPendiente > 0.01) {
+      estado = 'Abono';
+    } else if (totalAbonado > 0 && saldoPendiente <= 0.01) {
+      estado = 'Cancelada';
+    } else if (fechaVencimiento && hoyCR > fechaVencimiento) {
+      estado = 'Vencida';
+    } else {
+      estado = 'A tiempo';
+    }
+    if (estado === 'Cancelada') saldoPendiente = 0;
+
+    if (estadoFiltro) {
+      if (normalizarTexto(estadoFiltro) === 'pendientes') {
+        if (estado === 'Cancelada') return;
+      } else if (normalizarTexto(estado) !== normalizarTexto(estadoFiltro)) {
+        return;
+      }
+    }
+
+    resultado.push({
+      numero: numero, kiosko: kiosko, proveedor: proveedor, fecha_factura: fechaFactura, moneda: moneda,
+      monto_colones: Math.round(montoColones), total_abonado_colones: Math.round(totalAbonado),
+      saldo_pendiente_colones: saldoPendiente, estado: estado,
+      fecha_vencimiento: fechaVencimiento || '(proveedor sin condición de pago registrada)'
+    });
+  });
+
+  const pendientes = resultado.filter(function (r) { return r.estado !== 'Cancelada'; });
+  const vencidas = pendientes.filter(function (r) { return r.estado === 'Vencida'; });
+  const porVencer7dias = pendientes.filter(function (r) { return r.estado !== 'Vencida' && r.fecha_vencimiento && r.fecha_vencimiento <= en7dias; });
+
+  const totalPorPagar = pendientes.reduce(function (a, r) { return a + r.saldo_pendiente_colones; }, 0);
+  const totalVencidas = vencidas.reduce(function (a, r) { return a + r.saldo_pendiente_colones; }, 0);
+  const totalPorVencer7dias = porVencer7dias.reduce(function (a, r) { return a + r.saldo_pendiente_colones; }, 0);
+
+  const porProveedor = {};
+  pendientes.forEach(function (r) {
+    if (!porProveedor[r.proveedor]) porProveedor[r.proveedor] = { cantidad_facturas: 0, saldo_pendiente_colones: 0 };
+    porProveedor[r.proveedor].cantidad_facturas++;
+    porProveedor[r.proveedor].saldo_pendiente_colones += r.saldo_pendiente_colones;
+  });
+  const porProveedorLista = Object.keys(porProveedor)
+    .map(function (p) { return { proveedor: p, cantidad_facturas: porProveedor[p].cantidad_facturas, saldo_pendiente_colones: Math.round(porProveedor[p].saldo_pendiente_colones) }; })
+    .sort(function (a, b) { return b.saldo_pendiente_colones - a.saldo_pendiente_colones; })
+    .slice(0, 15);
+
+  let porKioskoLista = null;
+  if (!kioskoFiltro) {
+    const porKiosko = {};
+    pendientes.forEach(function (r) {
+      porKiosko[r.kiosko] = (porKiosko[r.kiosko] || 0) + r.saldo_pendiente_colones;
+    });
+    porKioskoLista = Object.keys(porKiosko)
+      .map(function (k) { return { kiosko: k, saldo_pendiente_colones: Math.round(porKiosko[k]) }; })
+      .sort(function (a, b) { return b.saldo_pendiente_colones - a.saldo_pendiente_colones; });
+  }
+
+  const topPendientes = pendientes.slice()
+    .sort(function (a, b) { return b.saldo_pendiente_colones - a.saldo_pendiente_colones; })
+    .slice(0, 15);
+
+  const salida = {
+    kiosko: kioskoFiltro || 'todos',
+    proveedor_filtro: proveedorFiltro || '(sin filtro)',
+    estado_filtro: estadoFiltro || '(todos los estados)',
+    tipo_cambio_usd_usado: TIPO_CAMBIO_USD_DEFAULT,
+    total_facturas_encontradas: resultado.length,
+    total_por_pagar_colones: Math.round(totalPorPagar),
+    facturas_vencidas: { cantidad: vencidas.length, total_colones: Math.round(totalVencidas) },
+    facturas_por_vencer_7_dias: { cantidad: porVencer7dias.length, total_colones: Math.round(totalPorVencer7dias) },
+    por_proveedor: porProveedorLista,
+    top_facturas_pendientes: topPendientes
+  };
+  if (porKioskoLista) salida.por_kiosko = porKioskoLista;
+  return salida;
 }
 
 // ============ INVENTARIO ============
