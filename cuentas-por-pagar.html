@@ -1559,7 +1559,7 @@ function rangoSemanaActual() {
 let chartSemana = null;
 const DIAS_SEMANA_CORTO = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const CHART_COLORS_SEMANA = ['#185fa5', '#1a7a4a', '#6a3a9a', '#c87820', '#c84a20', '#0891b2', '#a21caf'];
-const semanaGruposAbiertos = new Set(); // proveedores expandidos (colapsado por defecto)
+const semanaGruposAbiertos = new Set(); // fechas expandidas (colapsado por defecto)
 
 function renderSemana() {
   const { inicio, fin } = rangoSemanaActual();
@@ -1617,36 +1617,41 @@ function renderSemana() {
     });
   }
 
-  // ── Lista agrupada por proveedor (contraída), ordenada por monto total desc ──
+  // ── Lista agrupada por fecha proyectada (contraída), proveedores adentro de cada fecha ──
   const grupos = new Map();
   lista.forEach(f => {
-    if (!grupos.has(f.proveedor)) grupos.set(f.proveedor, { total: 0, facturas: [] });
-    const g = grupos.get(f.proveedor);
+    if (!grupos.has(f.fechaProyectada)) grupos.set(f.fechaProyectada, { total: 0, proveedores: new Map() });
+    const g = grupos.get(f.fechaProyectada);
     g.total += f.saldoPendiente;
-    g.facturas.push(f);
+    if (!g.proveedores.has(f.proveedor)) g.proveedores.set(f.proveedor, { total: 0, facturas: [] });
+    const p = g.proveedores.get(f.proveedor);
+    p.total += f.saldoPendiente;
+    p.facturas.push(f);
   });
-  const gruposOrdenados = [...grupos.entries()].sort((a,b) => b[1].total - a[1].total);
+  const gruposOrdenados = [...grupos.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+  const etiquetaFechaGrupo = dia => `${DIAS_SEMANA_CORTO[new Date(dia + 'T00:00:00').getDay()]} ${dia.slice(8,10)}/${dia.slice(5,7)}`;
 
-  document.getElementById('lista-semana').innerHTML = gruposOrdenados.map(([proveedor, g], i) => {
-    const abierto = semanaGruposAbiertos.has(proveedor);
+  document.getElementById('lista-semana').innerHTML = gruposOrdenados.map(([fecha, g], i) => {
+    const abierto = semanaGruposAbiertos.has(fecha);
+    const proveedoresOrdenados = [...g.proveedores.entries()].sort((a,b) => b[1].total - a[1].total);
     return `
     <div style="border-bottom:1px solid var(--border);">
       <div class="semana-grupo-head" data-idx="${i}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.6rem 0;cursor:pointer;user-select:none;">
         <div style="display:flex;align-items:center;gap:6px;min-width:0;">
           <svg class="toggle-arrow${abierto ? ' open' : ''}" data-arrow-idx="${i}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;color:var(--subtle);"><path d="M4 6l4 4 4-4"/></svg>
-          <strong style="font-size:13px;">${proveedor}</strong>
-          <span style="font-size:11px;color:var(--muted);">(${g.facturas.length})</span>
+          <strong style="font-size:13px;">${etiquetaFechaGrupo(fecha)}</strong>
+          <span style="font-size:11px;color:var(--muted);">(${proveedoresOrdenados.length} proveedor${proveedoresOrdenados.length!==1?'es':''})</span>
         </div>
         <span class="num" style="font-weight:700;white-space:nowrap;">${fmt(g.total)}</span>
       </div>
       <div class="semana-grupo-detalle" data-detalle-idx="${i}" style="display:${abierto ? 'block' : 'none'};padding:0 0 .5rem;">
-        ${g.facturas.map(f => `
+        ${proveedoresOrdenados.map(([proveedor, p]) => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.3rem 0 .3rem .5rem;">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${f.fechaProyectada}</span>
-              <span style="font-size:12px;color:var(--muted);">${f.numero} ${kioskoTagHTML(f.kiosko)}</span>
+              <span style="font-size:12px;color:var(--muted);">${proveedor}</span>
+              <span style="font-size:11px;color:var(--muted);">(${p.facturas.length})</span>
             </div>
-            <span class="num" style="font-size:12.5px;white-space:nowrap;">${fmt(f.saldoPendiente)}</span>
+            <span class="num" style="font-size:12.5px;white-space:nowrap;">${fmt(p.total)}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -1655,9 +1660,9 @@ function renderSemana() {
   document.querySelectorAll('#lista-semana .semana-grupo-head').forEach(el => {
     el.onclick = () => {
       const idx = Number(el.dataset.idx);
-      const proveedor = gruposOrdenados[idx][0];
-      const abierto = semanaGruposAbiertos.has(proveedor);
-      if (abierto) semanaGruposAbiertos.delete(proveedor); else semanaGruposAbiertos.add(proveedor);
+      const fecha = gruposOrdenados[idx][0];
+      const abierto = semanaGruposAbiertos.has(fecha);
+      if (abierto) semanaGruposAbiertos.delete(fecha); else semanaGruposAbiertos.add(fecha);
       document.querySelector(`#lista-semana .semana-grupo-detalle[data-detalle-idx="${idx}"]`).style.display = abierto ? 'none' : 'block';
       document.querySelector(`#lista-semana .toggle-arrow[data-arrow-idx="${idx}"]`).classList.toggle('open', !abierto);
     };
