@@ -139,6 +139,23 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .compare-detail-block { margin-bottom:.5rem; }
 .compare-detail-block:last-child { margin-bottom:0; }
 .compare-detail-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:.3rem 0 .2rem; }
+/* ── INDICADORES (tarjetas con desglose por kiosko) ─────── */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; padding:1.1rem 1.25rem; }
+.kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; cursor:pointer; }
+.kpi-card:hover { border-color:var(--border-h); }
+.kpi-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.kpi-label { font-size:11.5px; color:var(--muted); margin-bottom:4px; }
+.kpi-total { font-family:var(--font-m); font-size:21px; font-weight:600; }
+.kpi-delta { font-size:11px; margin-top:4px; }
+.kpi-chevron { display:inline-flex; color:var(--subtle); transition:transform .15s; flex-shrink:0; margin-top:2px; }
+.kpi-card.open .kpi-chevron { transform:rotate(180deg); color:var(--text); }
+.kpi-breakdown { display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.kpi-card.open .kpi-breakdown { display:block; }
+.kpi-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:.35rem 0; font-size:12.5px; }
+.kpi-row + .kpi-row { border-top:1px solid var(--border); }
+.kpi-row-kiosko { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.kpi-row-val { text-align:right; }
+.kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 
 /* ── MATRIZ DE CUMPLIMIENTO (kiosko × fecha) ────────────── */
 .matrix-wrap { overflow-x:auto; }
@@ -485,31 +502,18 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
     </div>
   </div>
 
-  <!-- Comparativo por kiosko: mismos indicadores para todos, uno al lado del otro -->
+  <!-- Indicadores: tarjetas resumen con desglose por kiosko al hacer clic
+       (reemplaza la tabla "Comparativo por kiosko" desde 2026-08-26). -->
   <div class="section-card" style="margin-bottom:1.5rem;">
     <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Comparativo por kiosko</span>
+      <span class="section-title"><span class="clip"></span>Indicadores</span>
       <a href="configuracion.html" class="section-link">Configurar kioskos →</a>
     </div>
-    <div class="compare-wrap">
-      <table class="compare-table">
-        <thead>
-          <tr>
-            <th>Kiosko</th>
-            <th>Último cierre</th>
-            <th>Cuadre</th>
-            <th>Ventas hoy (Square)</th>
-            <th>Tips pendientes</th>
-            <th>Efectivo pendiente</th>
-          </tr>
-        </thead>
-        <tbody id="compare-kioskos-body">
-          <tr><td colspan="6"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
-        </tbody>
-      </table>
+    <div id="kpi-grid" class="kpi-grid">
+      <div class="no-alerts"><span class="spinner"></span></div>
     </div>
     <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      "Ventas hoy" solo aparece en kioskos con su propio Square conectado (ver README). Los demás indicadores salen de los cierres de caja diarios y aplican igual a todos los kioskos. Haga clic en una fila con tips o efectivo pendiente para ver el detalle por fecha.
+      "Ventas" solo aparece en kioskos con su propio Square conectado (ver README). Efectivo pendiente y Caja chica son saldos actuales (no cambian con el período). Haga clic en una tarjeta para ver el desglose por kiosko.
     </div>
   </div>
 
@@ -764,6 +768,13 @@ const MERMAS_URL = 'https://script.google.com/macros/s/AKfycbwLkispLszMirRKOEauR
 const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 const INVENTARIO_HIST_TAB = 'HISTORIAL_inventario';
 
+// URLs/IDs para "Caja chica" del grid de Indicadores (mismo Sheet y mismos
+// criterios que caja-chica.html: saldo = monto inicial del período abierto
+// menos gastos con "Medio de pago"="Caja chica" desde su fecha de inicio;
+// ver calcularSaldosCajaChica() más abajo).
+const SHEET_ID_CAJA_CHICA = '1FVlGF4-GP1L11SD3QfmvfG_XFfuSH-UI3NbkojJ_shU';
+const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
+
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
@@ -872,14 +883,10 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.nav-item')) {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
   }
-  if (!e.target.closest('.compare-row') && !e.target.closest('.compare-detail-row')) {
-    cerrarCompareDetail();
-  }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
-    cerrarCompareDetail();
   }
 });
 
@@ -891,22 +898,12 @@ function toggleAccionesRapidas() {
   chevron.classList.toggle('open', !body.classList.contains('closed'));
 }
 
-// ── DETALLE DESPLEGABLE DEL COMPARATIVO POR KIOSKO ───────────
-// (tips pendientes / efectivo pendiente, por fila de kiosko) ──
-function cerrarCompareDetail() {
-  document.querySelectorAll('.compare-detail-row').forEach(r => r.classList.add('closed'));
-  document.querySelectorAll('.compare-row.open').forEach(r => r.classList.remove('open'));
-}
-function toggleCompareDetail(rowId) {
-  const fila = document.getElementById(rowId);
-  if (!fila) return;
-  const abriendo = fila.classList.contains('closed');
-  cerrarCompareDetail();
-  if (abriendo) {
-    fila.classList.remove('closed');
-    const trigger = document.querySelector(`.compare-row[data-row="${rowId}"]`);
-    if (trigger) trigger.classList.add('open');
-  }
+// ── INDICADORES: tarjetas con desglose por kiosko ────────────
+// Cada tarjeta abre/cierra su propio desglose de forma independiente (no
+// se cierran entre sí como pasaba con las filas del viejo comparativo).
+function toggleKpiCard(id) {
+  const card = document.getElementById(id);
+  if (card) card.classList.toggle('open');
 }
 
 // ── KPIs ──────────────────────────────────────────────────────
@@ -928,25 +925,35 @@ async function cargarKPIs() {
   let kioskosActivos = [];
   let totalKioskos = 0;
   let personalActivo = 0;
-  const compareBody = document.getElementById('compare-kioskos-body');
+  const kpiGridEl = document.getElementById('kpi-grid');
   const squareEntries = Object.entries(SQUARE_KIOSKOS);
 
-  // Las 3 fuentes de esta pantalla (kioskos, personal, cierres+pendientes+
-  // ventas Square) son independientes entre sí — antes se pedían en 2 tandas
-  // secuenciales (esperar kioskos, DESPUÉS esperar personal, DESPUÉS recién
-  // arrancar el resto), sumando el arranque en frío de cada Web App de Apps
-  // Script uno atrás del otro. Ahora las 3 solicitudes salen a la vez acá
-  // arriba; cada bloque de abajo espera (await) solo la suya, en el momento
-  // en que la necesita — el único que depende de otro es
-  // renderComparativoKioskos() al final, que necesita "listaKioskos" (armado
-  // con la respuesta de kioskos), pero para entonces la lectura de Cierres
-  // ya viene resuelta o resolviéndose en paralelo, no atrás.
+  // Las fuentes de esta pantalla (kioskos, personal, cierres+pendientes+
+  // ventas Square, mermas de hoy, caja chica) son independientes entre sí —
+  // antes se pedían en 2 tandas secuenciales (esperar kioskos, DESPUÉS
+  // esperar personal, DESPUÉS recién arrancar el resto), sumando el
+  // arranque en frío de cada Web App de Apps Script uno atrás del otro.
+  // Ahora todas las solicitudes salen a la vez acá arriba; cada bloque de
+  // abajo espera (await) solo la suya, en el momento en que la necesita —
+  // el único que depende de otro es renderIndicadores() al final, que
+  // necesita "listaKioskos" (armado con la respuesta de kioskos), pero
+  // para entonces el resto ya viene resuelto o resolviéndose en paralelo,
+  // no atrás.
   const kioskosPromise = cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos');
   const personalPromise = fetch(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json());
   const cierresPromise = Promise.all([
     fetch(SHEETS_URL_CIERRES + '?action=read'),
     fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
     ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
+  ]);
+
+  // Mermas de hoy y saldo de Caja chica: mismas fuentes que mermas.html y
+  // caja-chica.html, leídas en paralelo con lo de arriba (independientes
+  // entre sí, no bloquean ni son bloqueadas por Cierres/Square).
+  const mermasPromise = fetch(MERMAS_URL + '?modulo=mermas').then(r => r.json()).catch(() => ({ registros: [] }));
+  const cajaChicaPromise = Promise.all([
+    fetchGvizSheet(SHEET_ID_CAJA_CHICA, 'CajaChica_Periodos'),
+    fetchGvizSheet(COMPRAS_SHEET_ID, 'Registro Facturas')
   ]);
 
   // 1. KIOSKOS
@@ -1039,9 +1046,22 @@ async function cargarKPIs() {
       if (!porKiosko[r.kiosko] || r.fecha > porKiosko[r.kiosko].fecha) porKiosko[r.kiosko] = r;
     });
 
-    renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen);
+    // Mermas de hoy por kiosko (mismo campo "Peso Neto Merma (g)" que usa
+    // mermas.html) y saldo de Caja chica del período abierto de cada kiosko.
+    const [dataMermas, [periodosCajaChicaRows, facturasCajaChicaRows]] = await Promise.all([mermasPromise, cajaChicaPromise]);
+    const hoyISO = isoDate(new Date());
+    const mermasHoyPorKiosko = {};
+    (dataMermas.registros || []).forEach(r => {
+      const fecha = String(r['Fecha']||'').slice(0,10);
+      const kiosko = r['Kiosko'] || '';
+      if (fecha !== hoyISO || !kiosko) return;
+      mermasHoyPorKiosko[kiosko] = (mermasHoyPorKiosko[kiosko]||0) + (Number(r['Peso Neto Merma (g)'])||0);
+    });
+    const saldosCajaChica = calcularSaldosCajaChica(periodosCajaChicaRows, facturasCajaChicaRows);
+
+    renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasHoyPorKiosko, saldosCajaChica);
   } catch(e) {
-    compareBody.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No se pudo cargar el comparativo por kiosko.</div></td></tr>';
+    if (kpiGridEl) kpiGridEl.innerHTML = '<div class="no-alerts">No se pudo cargar los indicadores.</div>';
   }
 
   document.getElementById('status-dot').className = 'sdot';
@@ -1129,105 +1149,198 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw, salidasFondoRaw) {
   return pendientes;
 }
 
-// ── COMPARATIVO POR KIOSKO — mismos indicadores en una fila por kiosko,
-// para poder comparar de un vistazo (Último cierre/cuadre desde Cierres,
-// Ventas hoy desde el Square propio de cada kiosko si existe, Tips y
-// Efectivo pendientes filtrados de los mismos datos que ya alimentan los
-// tickets/dropdowns generales de arriba). ──
-function renderComparativoKioskos(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen) {
-  const body = document.getElementById('compare-kioskos-body');
+// ── INDICADORES — tarjetas con el total de cada indicador y su desglose
+// por kiosko (reemplaza el viejo "Comparativo por kiosko" de una tabla con
+// una fila por kiosko, desde 2026-08-26). Ventas: Square propio de cada
+// kiosko si existe, igual que antes. Mermas: gramos de HOY (columna "Peso
+// Neto Merma (g)", mismo campo que mermas.html) — el sistema no valora
+// mermas en colones, así que se muestra en gramos/kg, no en ₡. Efectivo
+// pendiente y Tips: mismos datos que ya trae "action=pendientes" arriba.
+// Caja chica: saldo del período abierto de cada kiosko (monto inicial –
+// gastos con "Medio de pago"="Caja chica" desde la fecha de inicio del
+// período), con los mismos criterios que caja-chica.html — ver
+// calcularSaldosCajaChica() más abajo.
+const KPI_KIOSKO_PALETTE = ['var(--blue)', 'var(--green)', 'var(--amber)', 'var(--purple)', 'var(--red)'];
+function colorKiosko(nombre, listaKioskos) {
+  const i = listaKioskos.indexOf(nombre);
+  return KPI_KIOSKO_PALETTE[(i >= 0 ? i : 0) % KPI_KIOSKO_PALETTE.length];
+}
+function fmtGramos(g) {
+  const n = Math.round(g || 0);
+  return n >= 1000
+    ? (n / 1000).toLocaleString('es-CR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kg'
+    : n.toLocaleString('es-CR') + ' g';
+}
+
+function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasHoyPorKiosko, saldosCajaChica) {
+  const grid = document.getElementById('kpi-grid');
+  if (!grid) return;
   if (!listaKioskos.length) {
-    body.innerHTML = '<tr><td colspan="6"><div class="no-alerts">No hay kioskos configurados.</div></td></tr>';
+    grid.innerHTML = '<div class="no-alerts">No hay kioskos configurados.</div>';
     return;
   }
 
-  body.innerHTML = listaKioskos.map(nombre => {
-    const cierre = porKiosko[nombre];
-    const esNuevo = !cierre && SQUARE_KIOSKOS[nombre];
+  const filaKiosko = (nombre, valorHtml) => `
+    <div class="kpi-row">
+      <span class="kpi-row-kiosko"><span class="kpi-dot" style="background:${colorKiosko(nombre, listaKioskos)};"></span>${nombre}</span>
+      <span class="kpi-row-val">${valorHtml}</span>
+    </div>`;
 
-    let cierreHtml, cuadraHtml, dotColor;
-    if (cierre) {
-      const cuadra = cierre.cajaCuadra && cierre.tarjetaCuadra;
-      const dK = diasDesde(cierre.fecha);
-      dotColor = cuadra ? 'var(--green)' : 'var(--red)';
-      cierreHtml = `<div class="compare-val">${etiquetaDias(dK)}</div><div class="compare-sub">${cierre.fecha}</div>`;
-      cuadraHtml = `<span class="kiosko-badge ${cuadra ? 'kb-ok' : 'kb-warn'}">${cuadra ? 'Cuadra' : 'Revisar'}</span>`;
-    } else {
-      dotColor = 'var(--subtle)';
-      cierreHtml = '<span class="compare-dash">Sin registros</span>';
-      cuadraHtml = '<span class="kiosko-badge kb-none">—</span>';
-    }
-
-    let ventasHtml;
+  // Ventas (hoy, Square propio) — mismo criterio que antes: solo kioskos
+  // con Square propio conectado tienen dato; los demás quedan "Sin Square
+  // propio" (ver README/memoria de proyecto).
+  const squareKioskoNames = Object.keys(SQUARE_KIOSKOS);
+  let totalVentas = 0, kioskosConVentasHoy = 0;
+  const filasVentas = listaKioskos.map(nombre => {
     const sq = squareResumen[nombre];
-    if (sq === undefined) {
-      ventasHtml = '<span class="compare-dash">Sin Square propio</span>';
-    } else if (sq === null) {
-      ventasHtml = '<span class="compare-dash">Sin conexión</span>';
-    } else if (sq.sinDatos) {
-      ventasHtml = '<span class="compare-dash">Sin ventas hoy</span>';
-    } else {
-      ventasHtml = `<div class="compare-val" style="color:var(--amber);">${fmtCRC(sq.netas)}</div>` +
-        (sq.descuentos > 0 ? `<div class="compare-sub">Desc. ${fmtCRC(sq.descuentos)}</div>` : '');
+    let valor;
+    if (!squareKioskoNames.includes(nombre)) valor = '<span class="compare-dash">Sin Square propio</span>';
+    else if (sq === null || sq === undefined) valor = '<span class="compare-dash">Sin conexión</span>';
+    else if (sq.sinDatos) valor = '<span class="compare-dash">Sin ventas hoy</span>';
+    else {
+      totalVentas += sq.netas; kioskosConVentasHoy++;
+      valor = `<span class="compare-val" style="color:var(--amber);">${fmtCRC(sq.netas)}</span>`;
     }
-
-    const tipsK = tipsPendientesArr.filter(t => t.kiosko === nombre);
-    const tipsTotal = tipsK.reduce((s,t) => s + t.monto, 0);
-    const tipsHtml = tipsK.length
-      ? `<div class="compare-val" style="color:var(--amber);">${fmtCRC(tipsTotal)}</div><div class="compare-sub">${tipsK.length} cierre${tipsK.length===1?'':'s'}</div>`
-      : `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`;
-
-    const efK = efectivoPendientesArr.filter(p => p.kiosko === nombre);
-    const efCrc = efK.reduce((s,p) => s + p.crc, 0);
-    const efUsd = efK.reduce((s,p) => s + p.usd, 0);
-    const efHtml = efK.length
-      ? `<div class="compare-val" style="color:var(--red);">${fmtCRC(efCrc)}</div><div class="compare-sub">${efK.length} fecha${efK.length===1?'':'s'}${efUsd ? ' · ' + fmtUSD(efUsd) : ''}</div>`
-      : `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`;
-
-    const tieneDetalle = tipsK.length > 0 || efK.length > 0;
-    const rowId = 'cmp-' + nombre.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const chevron = tieneDetalle
-      ? `<span class="compare-chevron"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
-      : '';
-
-    const filaPrincipal = `<tr class="compare-row${tieneDetalle ? ' clickable' : ''}"${tieneDetalle ? ` onclick="toggleCompareDetail('${rowId}')" data-row="${rowId}"` : ''}>
-      <td><div class="compare-kiosko"><span class="compare-dot" style="background:${dotColor};"></span>${nombre}${esNuevo ? '<span class="compare-tag-new">Nuevo</span>' : ''}${chevron}</div></td>
-      <td>${cierreHtml}</td>
-      <td>${cuadraHtml}</td>
-      <td>${ventasHtml}</td>
-      <td>${tipsHtml}</td>
-      <td>${efHtml}</td>
-    </tr>`;
-
-    if (!tieneDetalle) return filaPrincipal;
-
-    const tipsDetalle = tipsK.length
-      ? `<div class="compare-detail-block">
-          <div class="compare-detail-title">Propinas pendientes de pago</div>
-          ${tipsK.map(t => `
-            <div class="persona-row">
-              <div class="persona-nombre">${t.fecha}</div>
-              <div class="persona-puesto" style="color:var(--amber);font-family:var(--font-m);">${fmtCRC(t.monto)}</div>
-            </div>`).join('')}
-        </div>`
-      : '';
-    const efDetalle = efK.length
-      ? `<div class="compare-detail-block">
-          <div class="compare-detail-title">Efectivo pendiente de depositar</div>
-          ${efK.map(p => `
-            <div class="persona-row">
-              <div class="persona-nombre">${p.fecha}</div>
-              <div class="persona-puesto" style="color:var(--red);font-family:var(--font-m);">${fmtCRC(p.crc)}${p.usd ? ' + ' + fmtUSD(p.usd) : ''}</div>
-            </div>`).join('')}
-        </div>`
-      : '';
-
-    const filaDetalle = `<tr class="compare-detail-row closed" id="${rowId}">
-      <td colspan="6"><div class="compare-detail-inner">${tipsDetalle}${efDetalle}</div></td>
-    </tr>`;
-
-    return filaPrincipal + filaDetalle;
+    return filaKiosko(nombre, valor);
   }).join('');
+
+  // Mermas (hoy, gramos) — solo pesa lo capturado hoy; ver comentario de
+  // cabecera sobre por qué no se muestra en ₡.
+  let kioskosConMermaHoy = 0;
+  const filasMermas = listaKioskos.map(nombre => {
+    const g = mermasHoyPorKiosko[nombre] || 0;
+    if (g > 0) kioskosConMermaHoy++;
+    return filaKiosko(nombre, `<span class="compare-val">${fmtGramos(g)}</span>`);
+  }).join('');
+  const totalMermas = listaKioskos.reduce((s, n) => s + (mermasHoyPorKiosko[n] || 0), 0);
+
+  // Efectivo pendiente de depositar — saldo real a hoy, no se filtra por
+  // período (mismo criterio que indicadores.html y depositos.html).
+  let totalEfectivoCrc = 0, totalEfectivoUsd = 0, kioskosConSaldoEf = 0;
+  const filasEfectivo = listaKioskos.map(nombre => {
+    const efK = efectivoPendientesArr.filter(p => p.kiosko === nombre);
+    if (!efK.length) {
+      const cierre = porKiosko[nombre];
+      return filaKiosko(nombre, `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`);
+    }
+    const efCrc = efK.reduce((s, p) => s + p.crc, 0);
+    const efUsd = efK.reduce((s, p) => s + p.usd, 0);
+    totalEfectivoCrc += efCrc; totalEfectivoUsd += efUsd; kioskosConSaldoEf++;
+    return filaKiosko(nombre, `<span class="compare-val" style="color:var(--red);">${fmtCRC(efCrc)}</span>${efUsd ? `<div class="compare-sub">+ ${fmtUSD(efUsd)}</div>` : ''}`);
+  }).join('');
+
+  // Caja chica — saldo del período abierto de cada kiosko; kioskos sin
+  // período abierto quedan "Sin período abierto" (no es un error, solo
+  // significa que nadie abrió caja chica todavía en ese kiosko).
+  let totalCajaChica = 0, kioskosConPeriodo = 0, kioskosSaldoNeg = 0;
+  const filasCajaChica = listaKioskos.map(nombre => {
+    const info = saldosCajaChica[nombre];
+    if (!info) return filaKiosko(nombre, '<span class="compare-dash">Sin período abierto</span>');
+    totalCajaChica += info.saldo; kioskosConPeriodo++;
+    if (info.saldo < 0) kioskosSaldoNeg++;
+    return filaKiosko(nombre, `<span class="compare-val" style="color:${info.saldo < 0 ? 'var(--red)' : 'var(--text)'};">${fmtCRC(info.saldo)}</span>`);
+  }).join('');
+
+  // Tips pendientes de pago — mismo dato que "action=pendientes" arriba.
+  let totalTips = 0, kioskosConTips = 0;
+  const filasTips = listaKioskos.map(nombre => {
+    const tipsK = tipsPendientesArr.filter(t => t.kiosko === nombre);
+    if (!tipsK.length) {
+      const cierre = porKiosko[nombre];
+      return filaKiosko(nombre, `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`);
+    }
+    const tipsTotal = tipsK.reduce((s, t) => s + t.monto, 0);
+    totalTips += tipsTotal; kioskosConTips++;
+    return filaKiosko(nombre, `<span class="compare-val" style="color:var(--amber);">${fmtCRC(tipsTotal)}</span><div class="compare-sub">${tipsK.length} cierre${tipsK.length === 1 ? '' : 's'}</div>`);
+  }).join('');
+
+  const tarjeta = (id, label, total, delta, deltaColor, filas) => `
+    <div class="kpi-card" id="${id}" onclick="toggleKpiCard('${id}')">
+      <div class="kpi-card-head">
+        <div>
+          <p class="kpi-label">${label}</p>
+          <p class="kpi-total">${total}</p>
+          <p class="kpi-delta" style="color:${deltaColor};">${delta}</p>
+        </div>
+        <span class="kpi-chevron"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </div>
+      <div class="kpi-breakdown">${filas}</div>
+    </div>`;
+
+  grid.innerHTML =
+    tarjeta('kpi-ventas', 'Ventas (hoy)', fmtCRC(totalVentas),
+      `${kioskosConVentasHoy} de ${squareKioskoNames.length} kioskos con Square propio`, 'var(--muted)', filasVentas) +
+    tarjeta('kpi-mermas', 'Mermas (hoy)', fmtGramos(totalMermas),
+      kioskosConMermaHoy ? `${kioskosConMermaHoy} kiosko${kioskosConMermaHoy === 1 ? '' : 's'} con registro hoy` : 'Sin registros hoy', 'var(--muted)', filasMermas) +
+    tarjeta('kpi-efectivo', 'Efectivo pendiente', fmtCRC(totalEfectivoCrc) + (totalEfectivoUsd ? ' + ' + fmtUSD(totalEfectivoUsd) : ''),
+      kioskosConSaldoEf ? `${kioskosConSaldoEf} kiosko${kioskosConSaldoEf === 1 ? '' : 's'} con saldo pendiente` : 'Todos al día ✓',
+      kioskosConSaldoEf ? 'var(--amber)' : 'var(--green)', filasEfectivo) +
+    tarjeta('kpi-caja-chica', 'Caja chica', fmtCRC(totalCajaChica),
+      kioskosSaldoNeg ? `${kioskosSaldoNeg} kiosko${kioskosSaldoNeg === 1 ? '' : 's'} con saldo negativo` : `${kioskosConPeriodo} de ${listaKioskos.length} con período abierto`,
+      kioskosSaldoNeg ? 'var(--red)' : 'var(--muted)', filasCajaChica) +
+    tarjeta('kpi-tips', 'Tips pendientes', fmtCRC(totalTips),
+      kioskosConTips ? `${kioskosConTips} kiosko${kioskosConTips === 1 ? '' : 's'} con tips pendientes` : 'Todos al día ✓',
+      kioskosConTips ? 'var(--amber)' : 'var(--green)', filasTips);
+}
+
+// ── CAJA CHICA (saldo por kiosko) — mismo Sheet y mismos criterios que
+// caja-chica.html (ver SHEET_ID_CAJA_CHICA/COMPRAS_SHEET_ID arriba):
+// saldo = monto inicial del período "Abierto" menos gastos con "Medio de
+// pago"="Caja chica" del mismo kiosko desde la fecha de inicio de ese
+// período. Kioskos sin período abierto no aparecen en el resultado. ──
+function limpiarMontoTexto(v) { return parseFloat(String(v || '0').replace(/[,₡\s]/g, '')) || 0; }
+function isoDeCadena(str) {
+  const s = String(str || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return '';
+  const [, d, mo, y] = m;
+  return y + '-' + mo.padStart(2, '0') + '-' + d.padStart(2, '0');
+}
+function calcularSaldosCajaChica(periodosRows, facturasRows) {
+  const gastosCajaChica = facturasRows
+    .filter(r => (r['Medio de pago'] || '').trim().toLowerCase() === 'caja chica')
+    .map(r => ({
+      kiosko: r['Kiosko'] || '',
+      monto: limpiarMontoTexto(r['TOTAL']),
+      fechaPago: isoDeCadena(r['Fecha de pago'])
+    }))
+    .filter(g => g.kiosko && g.fechaPago);
+
+  const saldos = {};
+  periodosRows
+    .filter(r => r['ID'] && (r['Estado'] || '') === 'Abierto' && r['Kiosko'])
+    .forEach(r => {
+      const kiosko = r['Kiosko'];
+      const fechaInicio = isoDeCadena(r['Fecha inicio']);
+      const montoInicial = limpiarMontoTexto(r['Monto inicial']);
+      const gastado = gastosCajaChica
+        .filter(g => g.kiosko === kiosko && (!fechaInicio || g.fechaPago >= fechaInicio))
+        .reduce((s, g) => s + g.monto, 0);
+      saldos[kiosko] = { saldo: montoInicial - gastado, fechaInicio, gastado };
+    });
+  return saldos;
+}
+
+// Igual que fetchInventarioHistorial() más abajo pero genérica: cualquier
+// pestaña de cualquier Sheet vía gviz, devuelta como array de objetos
+// { columna: valor } usando el label de cada columna como llave.
+async function fetchGvizSheet(sheetId, hoja) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(hoja)}&headers=1&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const cols = (json.table.cols || []).map(c => c.label || '');
+    return (json.table.rows || []).filter(r => r && r.c).map(fila => {
+      const obj = {};
+      cols.forEach((col, i) => {
+        const cell = fila.c[i];
+        obj[col] = cell ? (cell.f != null ? cell.f : (cell.v != null ? cell.v : '')) : '';
+      });
+      return obj;
+    });
+  } catch (e) { return []; }
 }
 
 // ── SQUARE POR KIOSKO — pestaña "Ventas_Por_Producto" de cada kiosko con
