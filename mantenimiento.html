@@ -674,7 +674,10 @@ function renderSeguimiento() {
   let lista = ordenada.filter(r => {
     if (segVista === 'activos'   && r.estado === 'Resuelto') return false;
     if (segVista === 'resueltos' && r.estado !== 'Resuelto') return false;
-    if (kioskoFiltro && r.kiosko !== kioskoFiltro) return false;
+    // Comparación insensible a mayúsculas/espacios: la hoja de Mantenimiento
+    // puede tener el campo Kiosko con distinta capitalización que el select
+    // "seg-kiosko" (que usa los nombres canónicos de Configuracion).
+    if (kioskoFiltro && String(r.kiosko||'').trim().toLowerCase() !== kioskoFiltro.trim().toLowerCase()) return false;
     if (busq && !(r.tipo+r.detalle+r.encargado+r.kiosko).toLowerCase().includes(busq)) return false;
     return true;
   });

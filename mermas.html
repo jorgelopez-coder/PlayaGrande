@@ -794,6 +794,19 @@ function limpiarMerma() {
 }
 
 // ── HISTORIAL ──────────────────────────────────────────────────────
+// Comparación insensible a mayúsculas/espacios: en la hoja "Mermas" el
+// campo Kiosko puede haberse guardado con distinta capitalización que la
+// lista canónica de Configuración (KIOSKOS) — sin esto, Set.has/===/
+// indexOf/claves de objeto contra KIOSKOS o SQUARE_KIOSKOS fallan en
+// silencio (filtros vacíos, colores y orden de gráfico incorrectos, "cobertura"
+// marcada como faltante aunque exista el registro).
+function normalizarKioskoRegistro(valor) {
+  const raw = String(valor || '').trim();
+  if (!raw) return raw;
+  const canon = KIOSKOS.find(k => k.toLocaleUpperCase('es') === raw.toLocaleUpperCase('es'));
+  return canon || raw;
+}
+
 // fetchMermasData() trae y normaliza los registros crudos de la hoja
 // Mermas — la usan tanto Historial como Análisis para no duplicar el fetch.
 async function fetchMermasData() {
@@ -804,7 +817,7 @@ async function fetchMermasData() {
     mermasData = (data.registros || []).map(r => ({
       id: String(r['ID'] || ''),
       fecha: String(r['Fecha'] || '').slice(0,10),
-      kiosko: r['Kiosko'] || '',
+      kiosko: normalizarKioskoRegistro(r['Kiosko']),
       pesoBruto: Number(r['Peso Bruto (g)']) || 0,
       pesoContenedor: Number(r['Peso Contenedor (g)']) || 0,
       pesoNeto: Number(r['Peso Neto Merma (g)']) || 0,

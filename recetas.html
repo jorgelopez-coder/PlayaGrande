@@ -1234,6 +1234,15 @@ function onNivel2ModalChange() {
 }
 
 // ── Kioskos (copiado casi literal de maestro-productos.html) ───────
+// Comparación insensible a mayúsculas/espacios: el campo "Kioskos" del
+// plato es texto libre tipeado a mano y a veces no coincide en
+// capitalización con el nombre canónico de Configuración/KIOSKOS — sin
+// esto, k.includes(chk.value) fallaba en silencio y el checkbox del
+// kiosko quedaba sin marcar aunque el plato sí aplicara ahí.
+function listaIncluyeKiosko(lista, kiosko) {
+  const norm = String(kiosko||'').trim().toLowerCase();
+  return (lista||[]).some(k => String(k||'').trim().toLowerCase() === norm);
+}
 function marcarKioskosPlatoModal(kioskosStr) {
   document.getElementById('pm-kioskos-lista').innerHTML = KIOSKOS.map(k =>
     `<label class="check-row"><input type="checkbox" class="pm-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
@@ -1243,7 +1252,7 @@ function marcarKioskosPlatoModal(kioskosStr) {
     : null; // null = "Todos"
   document.getElementById('pm-kioskos-todos').checked = !k;
   document.getElementById('pm-kioskos-lista').style.display = k ? 'grid' : 'none';
-  document.querySelectorAll('.pm-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+  document.querySelectorAll('.pm-kiosko-chk').forEach(chk => { chk.checked = k ? listaIncluyeKiosko(k, chk.value) : false; });
 }
 function toggleKioskosPlatoTodos() {
   const todos = document.getElementById('pm-kioskos-todos').checked;

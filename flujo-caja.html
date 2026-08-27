@@ -591,9 +591,16 @@ function kioskosEnFiltro() {
 // a un kiosko veía igual las cuentas por pagar/servicio 10%/planilla de
 // TODOS los kioskos apenas entraba (estado por defecto = nada seleccionado).
 // Ahora primero exige que el kiosko esté en la lista permitida.
+// Comparación insensible a mayúsculas/acentos: los registros de cuentas por
+// pagar, servicio 10%, planilla y otros desembolsos a veces traen el campo
+// Kiosko con distinta capitalización que KIOSKOS/kioskosSeleccionados
+// (canónicos, desde Configuracion) — sin normalizar, .includes()/.has()
+// fallan en silencio y ese kiosko queda invisible en todo el módulo.
+// Reusa normalizarTexto (ya usada para esto mismo en colorKiosko).
 function kioskoVisible(k) {
-  if (!KIOSKOS.includes(k)) return false;
-  return !kioskosSeleccionados.size || kioskosSeleccionados.has(k);
+  const norm = normalizarTexto(k);
+  if (!KIOSKOS.some(x => normalizarTexto(x) === norm)) return false;
+  return !kioskosSeleccionados.size || [...kioskosSeleccionados].some(x => normalizarTexto(x) === norm);
 }
 
 // ── PERIODO ──────────────────────────────────────────────────────
@@ -747,7 +754,7 @@ async function postFlujo(modulo, payload) {
 function usuarioActual() { return (PORTAL_SESION && PORTAL_SESION.nombre) || ''; }
 
 function ultimaPlanillaReal(kiosko) {
-  const filas = dataPlanillas.filter(p => p['Kiosko'] === kiosko).sort((a,b) => String(b['Fecha fin']||'').localeCompare(String(a['Fecha fin']||'')));
+  const filas = dataPlanillas.filter(p => normalizarTexto(p['Kiosko']) === normalizarTexto(kiosko)).sort((a,b) => String(b['Fecha fin']||'').localeCompare(String(a['Fecha fin']||'')));
   return filas[0] || null;
 }
 

@@ -1151,7 +1151,12 @@ function abrirModalEditar() {
   document.getElementById('edit-cedula').value = p['Cédula'] || '';
   document.getElementById('edit-fecha-nac').value = (p['Fecha nacimiento'] || '').toString().slice(0,10);
   document.getElementById('edit-nacionalidad').value = p['Nacionalidad'] || '';
-  document.getElementById('edit-kiosko').value = p['Kiosko'] || '';
+  // Normalizado contra KIOSKOS (Title Case): en la hoja "Personal" el campo
+  // Kiosko a veces se guardó con otra capitalización, y asignar el valor
+  // crudo a un <select> falla en silencio si no calza exacto con la opción.
+  const kioskoActualRaw = p['Kiosko'] || '';
+  const kioskoOpcion = KIOSKOS.find(k => k.trim().toLowerCase() === kioskoActualRaw.trim().toLowerCase());
+  document.getElementById('edit-kiosko').value = kioskoOpcion || kioskoActualRaw;
   document.getElementById('edit-departamento').value = p['Departamento'] || '';
   document.getElementById('edit-puesto').value = p['Puesto'] || '';
   document.getElementById('edit-fecha-ingreso').value = (p['Fecha ingreso'] || '').toString().slice(0,10);

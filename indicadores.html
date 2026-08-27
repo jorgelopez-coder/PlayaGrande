@@ -420,6 +420,12 @@ const DENOMS_BILLETES_CRC = [50000,20000,10000,5000,2000,1000];
 const DENOMS_MONEDAS_CRC  = [500,100,50,25,10,5];
 
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+// Comparación insensible a mayúsculas/espacios: en varias hojas (Mermas,
+// Cierres, Planillas) el campo Kiosko puede haberse guardado con distinta
+// capitalización que la lista canónica de Configuracion (ej. "CATALINAS"
+// vs "Catalinas"), lo que hacía fallar en silencio las comparaciones ===
+// / .includes() contra KIOSKOS.
+const normKiosko = v => String(v || '').trim().toLowerCase();
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
 // nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
@@ -708,7 +714,7 @@ async function obtenerMermasTodas() {
 function mermasPorDiaKiosko(mermasRaw, kiosko, desde, hasta) {
   const porDia = {};
   mermasRaw.forEach(r => {
-    if ((r['Kiosko']||'') !== kiosko) return;
+    if (normKiosko(r['Kiosko']) !== normKiosko(kiosko)) return;
     const fecha = String(r['Fecha']||'').slice(0,10);
     if (!enRango(fecha, desde, hasta)) return;
     porDia[fecha] = (porDia[fecha]||0) + (Number(r['Peso Neto Merma (g)'])||0);
@@ -746,7 +752,7 @@ async function obtenerPendientes() {
 function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
   const porDia = {};
   cierresRaw.forEach(r => {
-    if ((r[COL_KIOSKO]||'') !== kiosko) return;
+    if (normKiosko(r[COL_KIOSKO]) !== normKiosko(kiosko)) return;
     const fecha = String(r[COL_FECHA]||'').slice(0,10);
     if (!enRango(fecha, desde, hasta)) return;
     porDia[fecha] = (porDia[fecha]||0) + (+r[COL_TIPS]||0);
@@ -762,7 +768,7 @@ function tipsPorDiaKiosko(cierresRaw, kiosko, desde, hasta) {
 function efectivoPendienteKiosko(efectivoPendienteArr, kiosko) {
   let crc = 0, usd = 0, nFechas = 0;
   (efectivoPendienteArr||[]).forEach(x => {
-    if (x.kiosko !== kiosko) return;
+    if (normKiosko(x.kiosko) !== normKiosko(kiosko)) return;
     crc += x.crc||0; usd += x.usd||0; nFechas++;
   });
   return { crc, usd, nFechas };
@@ -928,7 +934,10 @@ async function calcularPlanillaVsVentas() {
   ]);
   const porKiosko = {};
   planillas.forEach(p => {
-    const kiosko = String(p['Kiosko']||'').trim();
+    const kioskoRaw = String(p['Kiosko']||'').trim();
+    // La hoja "Planillas" puede tener distinto case que Configuracion —
+    // matchear al nombre canónico antes de comparar contra KIOSKOS/SQUARE_KIOSKOS.
+    const kiosko = KIOSKOS.find(k => normKiosko(k) === normKiosko(kioskoRaw)) || kioskoRaw;
     if (!SQUARE_KIOSKOS[kiosko] || !KIOSKOS.includes(kiosko)) return;
     const periodo = p['Periodo'];
     const desde = String(p['Fecha inicio']||'').slice(0,10);

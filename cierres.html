@@ -543,6 +543,10 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de la
+// hoja "Cierres" (historialData) a veces se guardó en mayúsculas mientras
+// que KIOSKOS/los <select> usan el nombre canónico en Title Case.
+const normKiosko = v => String(v || '').trim().toLowerCase();
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
 // campo si comparte fila solo con su label, o solo el <select> si comparte
@@ -1324,7 +1328,7 @@ function filaFiltrada() {
   const hasta  = document.getElementById('hist-fecha-hasta')?.value||'';
   return historialData.filter(r =>
     (!busq   || (r.encargado||'').toLowerCase().includes(busq)) &&
-    (!kiosko || r.kiosko === kiosko) &&
+    (!kiosko || normKiosko(r.kiosko) === normKiosko(kiosko)) &&
     (!anio   || String(r.anio) === anio) &&
     (!mes    || String(r.mes) === mes) &&
     (!desde  || (r.fecha && r.fecha >= desde)) &&
@@ -1544,15 +1548,18 @@ function renderFaltantes() {
   }
 
   const presente = {}; // 'kiosko|fecha' -> true si hay al menos un cierre
+  // Se normaliza la clave porque el Kiosko de historialData a veces viene
+  // en mayúsculas mientras que kioskosCols (KIOSKOS) es canónico — si no se
+  // normalizan ambos lados, un cierre real se marca como "faltante".
   historialData.forEach(r => {
     if (!r.fecha || !r.kiosko) return;
-    presente[r.kiosko + '|' + r.fecha] = true;
+    presente[normKiosko(r.kiosko) + '|' + r.fecha] = true;
   });
 
   const fechasDesc = [...fechas].sort((a,b) => b.localeCompare(a));
   const filas = fechasDesc.map(fecha => {
     const porKiosko = {};
-    kioskosCols.forEach(k => { porKiosko[k] = !!presente[k + '|' + fecha]; });
+    kioskosCols.forEach(k => { porKiosko[k] = !!presente[normKiosko(k) + '|' + fecha]; });
     return { fecha, porKiosko };
   });
   ultimasFilasFaltantes = filas;

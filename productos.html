@@ -586,6 +586,19 @@ document.getElementById('date-chip').textContent =
 let productos = [];
 let minimos = []; // filas crudas de la pestaña "Minimos": [{ 'Producto ID', 'Kiosko', 'Mínimo', 'Actualizado' }, ...]
 let minimosPorProducto = {}; // { productoId: { kiosko: numero } } — construido a partir de "minimos" en cada cargarDatos()
+// Comparación insensible a mayúsculas/espacios: la hoja "Minimos" puede
+// tener el Kiosko guardado con distinta capitalización que el nombre
+// canónico usado al recorrer KIOSKOS más abajo — sin esto, la búsqueda
+// directa minimosPorProducto[pid][kiosko] fallaba en silencio y la celda
+// se veía vacía aunque el mínimo sí estuviera guardado.
+function valorMinimoKiosko(pid, kiosko) {
+  const mapa = minimosPorProducto[pid];
+  if (!mapa) return undefined;
+  if (mapa[kiosko] !== undefined) return mapa[kiosko];
+  const norm = String(kiosko||'').trim().toLowerCase();
+  const key = Object.keys(mapa).find(k => String(k||'').trim().toLowerCase() === norm);
+  return key !== undefined ? mapa[key] : undefined;
+}
 let vistaActual = 'catalogo';
 let categoriasSugeridas = CATEGORIAS_DEFAULT.slice();
 let areasSugeridas = AREAS_DEFAULT.slice();
@@ -809,6 +822,15 @@ function kioskosDeProducto(p) {
   if (!raw || raw.toLowerCase() === 'todos') return { esTodos:true, lista: KIOSKOS.slice() };
   return { esTodos:false, lista: raw.split(',').map(k=>k.trim()).filter(Boolean) };
 }
+// Comparación insensible a mayúsculas/espacios: el campo "Kioskos" del
+// producto es texto libre tipeado a mano y a veces no coincide en
+// capitalización con el nombre canónico de Configuración/KIOSKOS — sin
+// esto, k.lista.includes(...) fallaba en silencio (filtro y tabla de
+// mínimos mostraban "No aplica" para un kiosko que sí aplicaba).
+function listaIncluyeKiosko(lista, kiosko) {
+  const norm = String(kiosko||'').trim().toLowerCase();
+  return (lista||[]).some(k => String(k||'').trim().toLowerCase() === norm);
+}
 function badgeKioskos(p) {
   const k = kioskosDeProducto(p);
   if (k.esTodos) return `<span class="badge b-kiosko"><span class="b-dot"></span>Todos</span>`;
@@ -832,7 +854,7 @@ function _renderTabla() {
     let matchKiosko = true;
     if (kioskoSel) {
       const k = kioskosDeProducto(p);
-      matchKiosko = k.esTodos || k.lista.includes(kioskoSel);
+      matchKiosko = k.esTodos || listaIncluyeKiosko(k.lista, kioskoSel);
     }
     return matchBusq && matchCat && matchEstado && matchKiosko;
   });
@@ -924,8 +946,8 @@ function renderMinimosTabla() {
   const filas = lista.map(p => {
     const k = kioskosDeProducto(p);
     const celdas = KIOSKOS.map(kiosko => {
-      if (!k.esTodos && !k.lista.includes(kiosko)) return `<td><span class="min-na">No aplica</span></td>`;
-      const valorActual = (minimosPorProducto[p.id] && minimosPorProducto[p.id][kiosko]) || '';
+      if (!k.esTodos && !listaIncluyeKiosko(k.lista, kiosko)) return `<td><span class="min-na">No aplica</span></td>`;
+      const valorActual = valorMinimoKiosko(p.id, kiosko) || '';
       const idInput = 'min-' + p.id + '-' + kiosko.replace(/[^a-zA-Z0-9]/g, '');
       return `<td><input type="number" class="min-input" id="${idInput}" min="0" step="1" value="${valorActual}"
         placeholder="—" onchange="guardarMinimoCelda('${p.id}', '${kiosko.replace(/'/g,"\\'")}', this)"/></td>`;
@@ -1160,7 +1182,7 @@ function marcarKioskosEnModal(kioskosStr) {
     : null; // null = "Todos"
   document.getElementById('mp-kioskos-todos').checked = !k;
   document.getElementById('mp-kioskos-lista').style.display = k ? 'grid' : 'none';
-  document.querySelectorAll('.mp-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+  document.querySelectorAll('.mp-kiosko-chk').forEach(chk => { chk.checked = k ? listaIncluyeKiosko(k, chk.value) : false; });
 }
 function leerKioskosDeModal() {
   if (document.getElementById('mp-kioskos-todos').checked) return 'Todos';

@@ -451,7 +451,10 @@ async function cargarMinimosDelKiosko() {
   if (!kioskoActual || !INVENTARIO_SHEET_ID || INVENTARIO_SHEET_ID.indexOf('TODO_') === 0) return;
   try {
     const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'Minimos');
-    rows.filter(r => String(r['Kiosko']||'').trim() === kioskoActual).forEach(r => {
+    // Comparación insensible a mayúsculas/espacios (claveNorm ya definido
+    // arriba): la hoja "Minimos" puede tener Kiosko tipeado con distinta
+    // capitalización que el valor canónico del <select>.
+    rows.filter(r => claveNorm(r['Kiosko']) === claveNorm(kioskoActual)).forEach(r => {
       const nombre = String(r['Producto']||'').trim();
       if (nombre) MINIMOS_KIOSKO[claveNorm(nombre)] = parseFloat(r['Mínimo']) || 0;
     });
@@ -558,7 +561,7 @@ async function cargarListaInventarios() {
     return;
   }
   try {
-    var rows = (await cargarHistorial()).filter(function(r){ return String(r['Kiosko']||'').trim() === kioskoActual; });
+    var rows = (await cargarHistorial()).filter(function(r){ return claveNorm(r['Kiosko']) === claveNorm(kioskoActual); });
 
     var ids = [], fechas = {};
     rows.forEach(function(r){
@@ -595,7 +598,7 @@ async function cargarInventarioSeleccionado() {
     '<div class="empty"><span class="spinner"></span> Cargando stock de ' + tomaId + '...</div>';
 
   try {
-    var rows = (await cargarHistorial()).filter(function(r){ return String(r['Kiosko']||'').trim() === kioskoActual; });
+    var rows = (await cargarHistorial()).filter(function(r){ return claveNorm(r['Kiosko']) === claveNorm(kioskoActual); });
     rows.filter(function(r){ return String(r['Toma ID']||'').trim() === tomaId; })
       .forEach(function(r){
         var nombre = String(r['Producto']||'').trim().toLowerCase();
@@ -618,8 +621,11 @@ async function cargarCierres() {
   if (cierresCache[kioskoActual]) return cierresCache[kioskoActual];
   var resp = await fetch(SHEETS_URL_CIERRES);
   var data = await resp.json();
+  // Comparación insensible a mayúsculas/espacios (claveNorm ya definido
+  // arriba): en la hoja "Cierres" el Kiosko (columna 3) puede haberse
+  // guardado con distinta capitalización que el valor canónico del <select>.
   var lista = (data.records || [])
-    .filter(function(r){ return String(r[3]||'').trim() === kioskoActual; })
+    .filter(function(r){ return claveNorm(r[3]) === claveNorm(kioskoActual); })
     .map(function(r){ return { fecha: String(r[1]||'').slice(0,10), totalVentas: parseFloat(r[10]) || 0 }; })
     .filter(function(r){ return r.fecha; });
   cierresCache[kioskoActual] = lista;

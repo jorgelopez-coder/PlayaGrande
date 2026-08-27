@@ -422,6 +422,11 @@ function showToast(msg, type='success') {
 // Trae siempre la lista de kioskos activos desde Configuración (RRHH
 // backend), sin nombres hardcodeados (mismo patrón que mantenimiento.html).
 let KIOSKOS = [];
+// Comparación insensible a mayúsculas/espacios: en registros de otras hojas
+// (ej. 'Kiosko Actual' en Activos) el nombre de kiosko a veces se guardó en
+// mayúsculas mientras que KIOSKOS/los <select> usan el nombre canónico en
+// Title Case.
+const normKiosko = v => String(v || '').trim().toLowerCase();
 async function cargarKioskos() {
   const data = await fetchJsonConReintentos(APPS_SCRIPT_RRHH + '?modulo=kioskos', 'No se pudo cargar la lista de kioskos tras 3 intentos.');
   if (!data.ok) showToast('No se pudo cargar la lista de kioskos. Verificá tu conexión y recargá la página.', 'error');
@@ -889,7 +894,7 @@ function renderInventario() {
   const busq = (document.getElementById('inv-buscar')?.value || '').toLowerCase().trim();
 
   let lista = activosDataSheet.filter(a => {
-    if (kioskoFiltro && a.kiosko !== kioskoFiltro) return false;
+    if (kioskoFiltro && normKiosko(a.kiosko) !== normKiosko(kioskoFiltro)) return false;
     if (categoriaFiltro && a.categoria !== categoriaFiltro) return false;
     const esBaja = (a.estado || '').toLowerCase().includes('baja');
     if (estadoFiltro === 'activos' && esBaja) return false;
@@ -1047,7 +1052,7 @@ function toggleTraslado(id) {
     form.classList.add('show');
     const activo = activosDataSheet.find(a => String(a.id) === String(id));
     const selK = document.getElementById('traslado-kiosko-'+id);
-    selK.innerHTML = KIOSKOS.filter(k => k !== activo?.kiosko).map(k => `<option>${k}</option>`).join('');
+    selK.innerHTML = KIOSKOS.filter(k => normKiosko(k) !== normKiosko(activo?.kiosko)).map(k => `<option>${k}</option>`).join('');
     document.getElementById('traslado-por-'+id).value = '';
     document.getElementById('traslado-motivo-'+id).value = '';
     // La cantidad a trasladar arranca en el total disponible (traslado

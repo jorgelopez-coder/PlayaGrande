@@ -358,6 +358,13 @@ async function cargarDatos() {
   }
 }
 
+// Comparación insensible a mayúsculas/espacios: en la hoja "Cierres" (y en
+// los pagos de tips) el campo Kiosko a veces se guardó con distinta
+// capitalización que el valor canónico que viene del <select> (KIOSKOS,
+// desde Configuracion) — sin normalizar, === o .includes() fallan en
+// silencio y el filtro muestra listas vacías.
+const normKiosko = v => String(v || '').trim().toLocaleUpperCase('es');
+
 // Recalcula pendientes/historial para el kiosko seleccionado (o todos) y
 // vuelve a pintar las 2 pestañas — se llama al cargar por primera vez y
 // cada vez que cambia el filtro de kiosko.
@@ -381,7 +388,7 @@ function recalcularYRenderizar() {
 
   tipsPendientes = todosTips
     .filter(t => !idsPagados.has(t.id))
-    .filter(t => !kioskoActual || t.kiosko === kioskoActual)
+    .filter(t => !kioskoActual || normKiosko(t.kiosko) === normKiosko(kioskoActual))
     .sort((a,b) => b.fecha.localeCompare(a.fecha));
 
   tipsPagosData = tipsPagosRaw.map(r => {
@@ -393,7 +400,7 @@ function recalcularYRenderizar() {
       idsCubiertos: ids.map(String), kioskos: r[5] || '', montoTotal: +r[6]||0, notas: r[7] || ''
     };
   })
-  .filter(p => !kioskoActual || p.kioskos.split(',').map(k=>k.trim()).includes(kioskoActual))
+  .filter(p => !kioskoActual || p.kioskos.split(',').map(k=>normKiosko(k)).includes(normKiosko(kioskoActual)))
   .sort((a,b) => (b.fechaPago||'').localeCompare(a.fechaPago||''));
 
   seleccion.clear();

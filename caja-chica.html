@@ -465,6 +465,11 @@ let kioskoActual = localStorage.getItem('kiosko_actual') || '';
 // múltiple — ahí sí tiene sentido ver varios a la vez). Set vacío = "todos
 // los kioskos permitidos".
 let kioskosSeleccionados = new Set();
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de
+// Registro Facturas / CajaChica_Periodos / FondoCaja_Periodos a veces se
+// guardó en mayúsculas mientras que kioskoActual/KIOSKOS/kioskosSeleccionados
+// usan el nombre canónico en Title Case.
+const normKiosko = v => String(v || '').trim().toLowerCase();
 
 const BILLETES = [50000, 20000, 10000, 5000, 2000, 1000];
 const MONEDAS  = [500, 100, 50, 25, 10, 5];
@@ -804,7 +809,7 @@ async function cargarDatos() {
 // Gastos de caja chica del KIOSKO ACTUAL dentro de un rango de fechas
 // [desde, hasta] (ISO, inclusive).
 function gastosDelPeriodo(desde, hasta) {
-  return dataFacturas.filter(g => g.kiosko === kioskoActual && g.fechaPago >= desde && (!hasta || g.fechaPago <= hasta));
+  return dataFacturas.filter(g => normKiosko(g.kiosko) === normKiosko(kioskoActual) && g.fechaPago >= desde && (!hasta || g.fechaPago <= hasta));
 }
 
 function totalGastos(gastos) {
@@ -814,7 +819,7 @@ function totalGastos(gastos) {
 // Pagos hechos con Fondo de Caja del KIOSKO ACTUAL dentro de un rango de
 // fechas [desde, hasta].
 function pagosFondoDelPeriodo(desde, hasta) {
-  return dataPagosFondo.filter(g => g.kiosko === kioskoActual && g.fechaPago >= desde && (!hasta || g.fechaPago <= hasta));
+  return dataPagosFondo.filter(g => normKiosko(g.kiosko) === normKiosko(kioskoActual) && g.fechaPago >= desde && (!hasta || g.fechaPago <= hasta));
 }
 
 function totalPorMoneda(lista, moneda) {
@@ -826,8 +831,8 @@ function render() {
   // El período abierto depende del kiosko activo — se recalcula acá (no solo
   // al cargar los datos) para que cambiar el selector de kiosko re-renderice
   // al toque, sin tener que volver a pedirle los datos a Google Sheets.
-  periodoAbierto = dataPeriodos.find(p => p.estado === 'Abierto' && p.kiosko === kioskoActual) || null;
-  periodoFondoAbierto = dataPeriodosFondo.find(p => p.estado === 'Abierto' && p.kiosko === kioskoActual) || null;
+  periodoAbierto = dataPeriodos.find(p => p.estado === 'Abierto' && normKiosko(p.kiosko) === normKiosko(kioskoActual)) || null;
+  periodoFondoAbierto = dataPeriodosFondo.find(p => p.estado === 'Abierto' && normKiosko(p.kiosko) === normKiosko(kioskoActual)) || null;
 
   renderPeriodoActual();
   renderReembolsos();
@@ -923,8 +928,11 @@ function renderReembolsos() {
   // Blindaje de acceso: solo kioskos que el rol puede ver (KIOSKOS ya viene
   // filtrado por rol vía kioskosPermitidos() en cargarKioskos()), y dentro de
   // esos, los que estén marcados en el filtro multi-selección (vacío = todos).
-  let items = dataReembolsos.filter(r => KIOSKOS.includes(r.kiosko));
-  if (kioskosSeleccionados.size) items = items.filter(r => kioskosSeleccionados.has(r.kiosko));
+  let items = dataReembolsos.filter(r => KIOSKOS.some(k => normKiosko(k) === normKiosko(r.kiosko)));
+  if (kioskosSeleccionados.size) {
+    const kioskosSeleccionadosNorm = new Set(Array.from(kioskosSeleccionados).map(normKiosko));
+    items = items.filter(r => kioskosSeleccionadosNorm.has(normKiosko(r.kiosko)));
+  }
   items = items.filter(r => {
     if (filtro === 'pendientes') return !r.fechaReembolso;
     if (filtro === 'pagados') return !!r.fechaReembolso;
@@ -1014,7 +1022,7 @@ async function guardarReembolsoFila(btn) {
 }
 
 function renderHistorialPeriodos() {
-  const cerrados = dataPeriodos.filter(p => p.estado === 'Cerrado' && p.kiosko === kioskoActual)
+  const cerrados = dataPeriodos.filter(p => p.estado === 'Cerrado' && normKiosko(p.kiosko) === normKiosko(kioskoActual))
     .sort((a,b) => (b.fechaCierre||'').localeCompare(a.fechaCierre||''));
   const cont = document.getElementById('tabla-historial-periodos');
   if (!cerrados.length) {
@@ -1134,7 +1142,7 @@ function renderFondoCaja() {
 }
 
 function renderHistorialFondo() {
-  const cerrados = dataPeriodosFondo.filter(p => p.estado === 'Cerrado' && p.kiosko === kioskoActual)
+  const cerrados = dataPeriodosFondo.filter(p => p.estado === 'Cerrado' && normKiosko(p.kiosko) === normKiosko(kioskoActual))
     .sort((a,b) => (b.fechaCierre||'').localeCompare(a.fechaCierre||''));
   const cont = document.getElementById('tabla-historial-fondo');
   if (!cerrados.length) {

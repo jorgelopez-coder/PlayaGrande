@@ -526,6 +526,10 @@ async function cargarKioskosDesdeBackend(url, conTimeout) {
   return { ok: false };
 }
 let KIOSKOS_LISTA = [];
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de
+// Cierres a veces se guardó en mayúsculas mientras que los checkboxes
+// de filtro (y las listas canónicas) usan el nombre en Title Case.
+const normKiosko = v => String(v || '').trim().toLowerCase();
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -699,8 +703,9 @@ function renderAll() {
   const kioskosSel = kioskosSeleccionados();
   const diasSel = diasSemanaSeleccionados();
 
+  const kioskosSelNorm = new Set(Array.from(kioskosSel).map(normKiosko));
   const filtrado = VENTAS_ROWS.filter(r =>
-    r.fecha >= desde && r.fecha <= hasta && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha))
+    r.fecha >= desde && r.fecha <= hasta && kioskosSelNorm.has(normKiosko(r.kiosko)) && diasSel.has(diaSemana(r.fecha))
   );
 
   renderResumenKPIs(filtrado, desde, hasta, kioskosSel, diasSel);
@@ -746,7 +751,8 @@ function renderResumenKPIs(filtrado, desde, hasta, kioskosSel, diasSel) {
   const dias = Math.round((new Date(hasta+'T00:00:00') - new Date(desde+'T00:00:00')) / 86400000) + 1;
   const antHasta = addDias(desde, -1);
   const antDesde = addDias(antHasta, -(dias-1));
-  const filtradoAnt = VENTAS_ROWS.filter(r => r.fecha >= antDesde && r.fecha <= antHasta && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
+  const kioskosSelNormAnt = new Set(Array.from(kioskosSel).map(normKiosko));
+  const filtradoAnt = VENTAS_ROWS.filter(r => r.fecha >= antDesde && r.fecha <= antHasta && kioskosSelNormAnt.has(normKiosko(r.kiosko)) && diasSel.has(diaSemana(r.fecha)));
   const totalAnt = filtradoAnt.reduce((s,r) => s + r.total, 0);
   const variacion = totalAnt > 0 ? ((total - totalAnt) / totalAnt * 100) : (total > 0 ? 100 : 0);
 
@@ -771,7 +777,7 @@ function renderVentasPorKiosko(filtrado, kioskosSel, desde, hasta, diasSel) {
   }
 
   body.innerHTML = kioskosOrdenados.map((nombre, i) => {
-    const rows = filtrado.filter(r => r.kiosko === nombre);
+    const rows = filtrado.filter(r => normKiosko(r.kiosko) === normKiosko(nombre));
     const total = rows.reduce((s,r) => s + r.total, 0);
     const fechasSet = new Set(rows.map(r => r.fecha));
     const promedio = fechasSet.size ? total / fechasSet.size : 0;
@@ -944,12 +950,13 @@ function compararPeriodos() {
     return;
   }
 
-  const filtA = VENTAS_ROWS.filter(r => r.fecha >= aD && r.fecha <= aH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
-  const filtB = VENTAS_ROWS.filter(r => r.fecha >= bD && r.fecha <= bH && kioskosSel.has(r.kiosko) && diasSel.has(diaSemana(r.fecha)));
+  const kioskosSelNormCmp = new Set(Array.from(kioskosSel).map(normKiosko));
+  const filtA = VENTAS_ROWS.filter(r => r.fecha >= aD && r.fecha <= aH && kioskosSelNormCmp.has(normKiosko(r.kiosko)) && diasSel.has(diaSemana(r.fecha)));
+  const filtB = VENTAS_ROWS.filter(r => r.fecha >= bD && r.fecha <= bH && kioskosSelNormCmp.has(normKiosko(r.kiosko)) && diasSel.has(diaSemana(r.fecha)));
 
   const porKioskoA = {}, porKioskoB = {};
-  filtA.forEach(r => porKioskoA[r.kiosko] = (porKioskoA[r.kiosko]||0) + r.total);
-  filtB.forEach(r => porKioskoB[r.kiosko] = (porKioskoB[r.kiosko]||0) + r.total);
+  filtA.forEach(r => porKioskoA[normKiosko(r.kiosko)] = (porKioskoA[normKiosko(r.kiosko)]||0) + r.total);
+  filtB.forEach(r => porKioskoB[normKiosko(r.kiosko)] = (porKioskoB[normKiosko(r.kiosko)]||0) + r.total);
 
   const todos = Array.from(kioskosSel).sort();
   if (!todos.length) {
@@ -959,7 +966,7 @@ function compararPeriodos() {
 
   let totalA = 0, totalB = 0;
   const filas = todos.map(nombre => {
-    const a = porKioskoA[nombre] || 0, b = porKioskoB[nombre] || 0;
+    const a = porKioskoA[normKiosko(nombre)] || 0, b = porKioskoB[normKiosko(nombre)] || 0;
     totalA += a; totalB += b;
     const varPct = b > 0 ? ((a - b) / b * 100) : (a > 0 ? 100 : 0);
     const color = varPct >= 0 ? 'var(--green)' : 'var(--red)';

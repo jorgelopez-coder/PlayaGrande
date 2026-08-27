@@ -527,17 +527,24 @@ async function cargarDatos() {
   }
 }
 
+// Comparación insensible a mayúsculas/espacios: en las hojas "Cierres",
+// "Depositos" y "SalidasFondoCaja" el campo Kiosko a veces se guardó con
+// distinta capitalización que el valor canónico que viene del <select>
+// (KIOSKOS, desde Configuracion) — sin normalizar, === o !== fallan en
+// silencio y el kiosko seleccionado aparece sin cierres ni depósitos.
+const normKiosko = v => String(v || '').trim().toLocaleUpperCase('es');
+
 // Recalcula el resumen por fecha y la lista de depósitos para el kiosko
 // seleccionado actualmente, y vuelve a pintar las 3 pestañas — se llama al
 // cargar datos por primera vez y cada vez que se cambia de kiosko (sin
 // necesidad de volver a pedirle nada al Sheet).
 function recalcularYRenderizar() {
-  const registrosKiosko = cierresRaw.filter(r => (r[COL_KIOSKO]||'') === kioskoActual);
+  const registrosKiosko = cierresRaw.filter(r => normKiosko(r[COL_KIOSKO]) === normKiosko(kioskoActual));
   porFecha = agregarPorFecha(registrosKiosko);
   aplicarSalidasFondo(porFecha, kioskoActual);
   fechasOrdenadas = Object.keys(porFecha).sort((a,b) => b.localeCompare(a));
 
-  depositosData = depositosRaw.filter(r => r[0] && (r[3]||'') === kioskoActual).map(r => {
+  depositosData = depositosRaw.filter(r => r[0] && normKiosko(r[3]) === normKiosko(kioskoActual)).map(r => {
     let fechas = [];
     try { fechas = JSON.parse(r[7] || '[]'); } catch(e) { fechas = []; }
     if (!Array.isArray(fechas)) fechas = [];
@@ -603,7 +610,7 @@ function agregarPorFecha(records) {
 // hay de dónde rebajarlo (queda solo en el registro de Cuentas por pagar).
 function aplicarSalidasFondo(porFechaObj, kiosko) {
   salidasFondoRaw.forEach(r => {
-    if (!r[0] || (r[3]||'') !== kiosko) return;
+    if (!r[0] || normKiosko(r[3]) !== normKiosko(kiosko)) return;
     const fecha = soloFecha(r[2]);
     const d = porFechaObj[fecha];
     if (!fecha || !d) return;

@@ -1161,9 +1161,13 @@ function marcarFichaKioskosEnModal(kioskosStr) {
   const k = kioskosStr && kioskosStr.trim() && kioskosStr.trim().toLowerCase() !== 'todos'
     ? kioskosStr.split(',').map(s=>s.trim()).filter(Boolean)
     : null; // null = "Todos"
+  // Comparación insensible a mayúsculas: el campo "Kioskos" del producto
+  // (kioskosStr) puede haberse guardado con distinta capitalización que la
+  // lista canónica de Configuracion que llena estos checkboxes.
+  const kNorm = k ? k.map(s => s.toLowerCase()) : null;
   document.getElementById('fi-kioskos-todos').checked = !k;
   document.getElementById('fi-kioskos-lista').style.display = k ? 'grid' : 'none';
-  document.querySelectorAll('.fi-kiosko-chk').forEach(chk => { chk.checked = k ? k.includes(chk.value) : false; });
+  document.querySelectorAll('.fi-kiosko-chk').forEach(chk => { chk.checked = kNorm ? kNorm.includes(chk.value.toLowerCase()) : false; });
 }
 function leerFichaKioskos() {
   if (document.getElementById('fi-kioskos-todos').checked) return 'Todos';

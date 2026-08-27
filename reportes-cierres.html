@@ -315,6 +315,14 @@ function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
   return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
 }
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de las
+// hojas de operación (Cierres, Depositos, SalidasFondoCaja, planillas
+// aprobadas) a veces se guardó con otra capitalización que el nombre
+// canónico de Configuración/KIOSKOS o que el valor elegido en el <select>
+// de arriba — sin esto, comparaciones "===" y claves "kiosko|fecha"
+// fallaban en silencio (filtros vacíos, depósitos sin calzar, matriz de
+// faltantes marcando "Falta" un día que sí tiene cierre).
+const normKiosko = v => String(v || '').trim().toLocaleUpperCase('es');
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
 // campo si comparte fila solo con su label, o solo el <select> si comparte
@@ -521,7 +529,7 @@ function recalcularYRenderizar() {
 // ── TAB 1: VENTAS POR MEDIO DE PAGO ──────────────────────────────────
 function renderVentas(desde, hasta) {
   const filas = cierresRaw
-    .filter(r => !kioskoActual || (r[COL_KIOSKO]||'') === kioskoActual)
+    .filter(r => !kioskoActual || normKiosko(r[COL_KIOSKO]) === normKiosko(kioskoActual))
     .map(r => ({
       id: r[COL_ID], fecha: soloFecha(r[COL_FECHA]), kiosko: r[COL_KIOSKO]||'',
       encargado: r[COL_ENCARGADO]||'', turno: r[COL_TURNO]||'',
@@ -576,7 +584,7 @@ function renderPropinas(desde, hasta) {
 
   const filas = cierresRaw
     .filter(r => (+r[COL_TIPS]||0) > 0)
-    .filter(r => !kioskoActual || (r[COL_KIOSKO]||'') === kioskoActual)
+    .filter(r => !kioskoActual || normKiosko(r[COL_KIOSKO]) === normKiosko(kioskoActual))
     .map(r => {
       const id = String(r[COL_ID]);
       const pago = pagoPorId.get(id);
@@ -622,7 +630,11 @@ function agregarPorKioskoFecha(records) {
     const fecha = soloFecha(r[COL_FECHA]);
     const kiosko = r[COL_KIOSKO] || '';
     if (!fecha) return;
-    const key = kiosko + '|' + fecha;
+    // Clave normalizada (ver normKiosko arriba) para que calce con las
+    // claves de aplicarSalidasFondoTodos/asignadas aunque el Kiosko se
+    // haya tipeado con otra capitalización en cada hoja — kiosko (sin
+    // normalizar) se conserva para mostrar en pantalla/CSV.
+    const key = normKiosko(kiosko) + '|' + fecha;
     if (!out[key]) out[key] = { fecha, kiosko, crc: 0, usd: 0 };
     const d = out[key];
     const fondo = +r[COL_FONDO]||0, usdTotal = +r[COL_USD_TOTAL]||0;
@@ -640,7 +652,7 @@ function aplicarSalidasFondoTodos(porKF) {
   salidasFondoRaw.forEach(r => {
     if (!r[0]) return;
     const kiosko = r[3] || '', fecha = soloFecha(r[2]);
-    const key = kiosko + '|' + fecha;
+    const key = normKiosko(kiosko) + '|' + fecha;
     const d = porKF[key];
     if (!fecha || !d) return;
     d.crc = Math.round((d.crc - (+r[4]||0)) * 100) / 100;
@@ -651,20 +663,20 @@ function renderDepositos(desde, hasta) {
   const porKF = agregarPorKioskoFecha(cierresRaw);
   aplicarSalidasFondoTodos(porKF);
 
-  const asignadas = {}; // 'kiosko|fecha' -> depósito que la cubre
+  const asignadas = {}; // 'kiosko|fecha' (normalizado) -> depósito que la cubre
   depositosRaw.forEach(r => {
     let fc = []; try { fc = JSON.parse(r[7] || '[]'); } catch(e) { fc = []; }
     if (!Array.isArray(fc)) return;
     const kiosko = r[3] || '';
     const dep = { fechaDeposito: soloFecha(r[2]), referencia: r[4] || '', diferenciaCrc: +r[10]||0 };
-    fc.forEach(f => { asignadas[kiosko + '|' + f] = dep; });
+    fc.forEach(f => { asignadas[normKiosko(kiosko) + '|' + f] = dep; });
   });
 
   const filas = Object.values(porKF)
-    .filter(d => !kioskoActual || d.kiosko === kioskoActual)
+    .filter(d => !kioskoActual || normKiosko(d.kiosko) === normKiosko(kioskoActual))
     .filter(d => enRango(d.fecha, desde, hasta))
     .map(d => {
-      const dep = asignadas[d.kiosko + '|' + d.fecha];
+      const dep = asignadas[normKiosko(d.kiosko) + '|' + d.fecha];
       return { ...d, pendiente: !dep, fechaDeposito: dep ? dep.fechaDeposito : '', referencia: dep ? dep.referencia : '', diferenciaCrc: dep ? dep.diferenciaCrc : null };
     })
     .sort((a,b) => b.fecha.localeCompare(a.fecha) || a.kiosko.localeCompare(b.kiosko));
@@ -703,7 +715,7 @@ function renderPlanillas(desde, hasta) {
 
   const filas = planillasRaw
     .filter(p => String(p['Estado']||'') === 'Aprobada')
-    .filter(p => !kioskoActual || (p['Kiosko']||'') === kioskoActual)
+    .filter(p => !kioskoActual || normKiosko(p['Kiosko']) === normKiosko(kioskoActual))
     .filter(p => rangosSolapan(String(p['Fecha inicio']||'').slice(0,10), String(p['Fecha fin']||'').slice(0,10), desde, hasta))
     .map(p => {
       const detalle = detallePorId[p['ID']] || [];
@@ -792,7 +804,7 @@ function renderFaltantes(desde, hasta) {
     const fecha = soloFecha(r[COL_FECHA]);
     const kiosko = r[COL_KIOSKO] || '';
     if (!fecha || !kiosko) return;
-    presente[kiosko + '|' + fecha] = true;
+    presente[normKiosko(kiosko) + '|' + fecha] = true;
   });
 
   // Fechas de más reciente a más antigua, como el resto de las pestañas.
@@ -800,7 +812,7 @@ function renderFaltantes(desde, hasta) {
 
   const filas = fechasDesc.map(fecha => {
     const porKiosko = {};
-    kioskosCols.forEach(k => { porKiosko[k] = !!presente[k + '|' + fecha]; });
+    kioskosCols.forEach(k => { porKiosko[k] = !!presente[normKiosko(k) + '|' + fecha]; });
     return { fecha, porKiosko };
   });
   ultimasFilasFaltantes = filas;

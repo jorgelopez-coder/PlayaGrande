@@ -1007,12 +1007,24 @@ function toggleKioskoItem(checkbox, kiosko) {
   inicializar();
 }
 
+// Comparación insensible a mayúsculas/acentos: en facturas y abonos el campo
+// Kiosko a veces se guardó con distinta capitalización que el valor canónico
+// marcado en el filtro del encabezado (kioskosSeleccionados, poblado desde
+// KIOSKOS/Configuracion) — sin normalizar, Set.has() falla en silencio y el
+// kiosko seleccionado aparece con listas vacías. Reusa normalizarTexto (ya
+// usada para esto mismo en colorKiosko), definida más abajo en este archivo.
+function kioskosSeleccionadosTiene(valor) {
+  const norm = normalizarTexto(valor);
+  for (const k of kioskosSeleccionados) { if (normalizarTexto(k) === norm) return true; }
+  return false;
+}
+
 // Dataset visible según los kioskos marcados en el encabezado (vacío = todos).
 function datasetActual() {
-  return kioskosSeleccionados.size ? facturasAP.filter(f => kioskosSeleccionados.has(f.kiosko)) : facturasAP;
+  return kioskosSeleccionados.size ? facturasAP.filter(f => kioskosSeleccionadosTiene(f.kiosko)) : facturasAP;
 }
 function abonosVisibles() {
-  return kioskosSeleccionados.size ? dataAbonos.filter(a => kioskosSeleccionados.has(a['Kiosko'])) : dataAbonos;
+  return kioskosSeleccionados.size ? dataAbonos.filter(a => kioskosSeleccionadosTiene(a['Kiosko'])) : dataAbonos;
 }
 
 // ── GVIZ: leer hoja pública del Sheet de compras ──────────────────
@@ -1586,13 +1598,13 @@ function renderSemana() {
   }
   const etiquetasDias = dias.map(dia => `${DIAS_SEMANA_CORTO[new Date(dia + 'T00:00:00').getDay()]} ${dia.slice(8,10)}/${dia.slice(5,7)}`);
 
-  const kioskosEnSemana = KIOSKOS.filter(k => lista.some(f => f.kiosko === k));
+  const kioskosEnSemana = KIOSKOS.filter(k => lista.some(f => normalizarTexto(f.kiosko) === normalizarTexto(k)));
   // Por si aparece algún kiosko en los datos que no esté en KIOSKOS (edge case).
-  lista.forEach(f => { if (f.kiosko && !kioskosEnSemana.includes(f.kiosko)) kioskosEnSemana.push(f.kiosko); });
+  lista.forEach(f => { if (f.kiosko && !kioskosEnSemana.some(k => normalizarTexto(k) === normalizarTexto(f.kiosko))) kioskosEnSemana.push(f.kiosko); });
 
   const datasets = kioskosEnSemana.map((k, i) => ({
     label: k,
-    data: dias.map(dia => lista.filter(f => f.kiosko === k && f.fechaProyectada === dia).reduce((a,f) => a + f.saldoPendiente, 0)),
+    data: dias.map(dia => lista.filter(f => normalizarTexto(f.kiosko) === normalizarTexto(k) && f.fechaProyectada === dia).reduce((a,f) => a + f.saldoPendiente, 0)),
     borderColor: CHART_COLORS_SEMANA[i % CHART_COLORS_SEMANA.length],
     backgroundColor: CHART_COLORS_SEMANA[i % CHART_COLORS_SEMANA.length],
     tension: .25, spanGaps: true, pointRadius: 2, borderWidth: 2
@@ -2430,7 +2442,7 @@ function renderLogCambios() {
   const el = document.getElementById('tabla-log-cambios');
   if (!el) return;
   const visibles = kioskosSeleccionados.size
-    ? dataLogCambios.filter(r => kioskosSeleccionados.has(r['Kiosko anterior']) || kioskosSeleccionados.has(r['Kiosko nuevo']))
+    ? dataLogCambios.filter(r => kioskosSeleccionadosTiene(r['Kiosko anterior']) || kioskosSeleccionadosTiene(r['Kiosko nuevo']))
     : dataLogCambios;
   const filas = [...visibles].reverse(); // más reciente primero
 

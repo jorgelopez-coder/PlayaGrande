@@ -356,7 +356,10 @@ function renderPersonal() {
 
   const filtrado = personalData.filter(p => {
     if (buscar && !(p['Nombre completo']||'').toLowerCase().includes(buscar)) return false;
-    if (kiosko && (p['Kiosko']||'') !== kiosko) return false;
+    // Comparación insensible a mayúsculas/espacios: en la hoja "Personal" el
+    // campo Kiosko a veces se guardó con distinta capitalización que la lista
+    // canónica de Configuración usada en el <select> de filtro.
+    if (kiosko && String(p['Kiosko']||'').trim().toLowerCase() !== kiosko.trim().toLowerCase()) return false;
     if (estado && (p['Estado']||'').toString().toUpperCase() !== estado) return false;
     return true;
   }).sort((a,b) => (a['Nombre completo']||'').localeCompare(b['Nombre completo']||''));

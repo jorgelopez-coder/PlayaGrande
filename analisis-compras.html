@@ -511,6 +511,11 @@ async function cargarKioskosDesdeBackend(url, conTimeout) {
   return { ok: false };
 }
 let KIOSKOS_LISTA = [];
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de
+// compras (Desglose_IA) o cierres a veces se guardó en mayúsculas
+// mientras que los checkboxes de filtro usan el nombre canónico en
+// Title Case (KIOSKOS_LISTA).
+const normKiosko = v => String(v || '').trim().toLowerCase();
 
 const pad = n => String(n).padStart(2,'0');
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
@@ -896,9 +901,10 @@ function setPreset(tipo) {
 // ── FILTRADO ────────────────────────────────────────────────
 // Base: fecha + kiosko (usada por el Resumen).
 function lineasBase(desde, hasta, kioskosSel) {
+  const kioskosSelNorm = new Set(Array.from(kioskosSel).map(normKiosko));
   return LINEAS.filter(l => {
     if (l.fecha < desde || l.fecha > hasta) return false;
-    if (!kioskosSel.has(l.kiosko)) return false;
+    if (!kioskosSelNorm.has(normKiosko(l.kiosko))) return false;
     return true;
   });
 }
@@ -979,7 +985,8 @@ function toggleConfigMeta() {
 function renderResumen(base, desde, hasta, kioskosSel) {
   const cfg = leerConfigMeta();
   const totalCompras = base.reduce((s,l) => s + l.montoCRC, 0);
-  const ventasFiltradas = VENTAS_ROWS.filter(v => v.fecha >= desde && v.fecha <= hasta && kioskosSel.has(v.kiosko));
+  const kioskosSelNorm = new Set(Array.from(kioskosSel).map(normKiosko));
+  const ventasFiltradas = VENTAS_ROWS.filter(v => v.fecha >= desde && v.fecha <= hasta && kioskosSelNorm.has(normKiosko(v.kiosko)));
   const totalVentas = ventasFiltradas.reduce((s,v) => s + v.total, 0);
   const ventasNetas = totalVentas / (1 + cfg.ivaPct/100);
   const metaColones = ventasNetas * (cfg.metaPct/100);

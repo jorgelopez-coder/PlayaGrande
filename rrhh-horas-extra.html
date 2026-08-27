@@ -252,10 +252,17 @@ async function cargarColaboradores() {
 
     if (data.ok && data.registros && data.registros.length > 0) {
       const activos = data.registros.filter(p => String(p['Estado']||'ACTIVO').toUpperCase() === 'ACTIVO');
-      const permitidosKiosko = PORTAL_SESION && PORTAL_SESION.kioskos !== 'todos' ? PORTAL_SESION.kioskos : null;
+      // Comparación tolerante a mayúsculas/espacios: el Kiosko en Personal a veces
+      // se cargó en MAYÚSCULAS (p.ej. "CATALINAS") mientras que Roles/Configuracion
+      // usan Title Case ("Catalinas") — sin esto, el colaborador queda invisible
+      // para su propio kiosko aunque el rol tenga el acceso bien configurado.
+      const normKiosko = v => String(v || '').trim().toLocaleUpperCase('es');
+      const permitidosKiosko = PORTAL_SESION && PORTAL_SESION.kioskos !== 'todos'
+        ? PORTAL_SESION.kioskos.map(normKiosko)
+        : null;
 
       activos
-        .filter(p => !permitidosKiosko || permitidosKiosko.includes(p['Kiosko']))
+        .filter(p => !permitidosKiosko || permitidosKiosko.includes(normKiosko(p['Kiosko'])))
         .forEach(p => {
           const nombre = p['Nombre completo'] || '';
           if (!nombre.trim()) return;

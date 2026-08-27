@@ -301,7 +301,14 @@ function populateKioskos(){
   var todos=[];
   snapshots.forEach(function(s){if(!todos.includes(s.kiosko))todos.push(s.kiosko);});
   todos.sort(function(a,b){return a.localeCompare(b,'es');});
-  var permitidos=kioskosPermitidos(todos);
+  // "todos" viene del campo Kiosko de las tomas de inventario (histAll), que
+  // a veces se tipeó con distinta capitalización que PORTAL_SESION.kioskos
+  // (canónico) — se compara normalizado (claveNorm) en vez de usar
+  // kioskosPermitidos() directamente, para no perder kioskos del usuario por
+  // diferencias de mayúsculas/espacios.
+  var permitidos=(PORTAL_SESION&&PORTAL_SESION.kioskos!=='todos')
+    ?todos.filter(function(k){return PORTAL_SESION.kioskos.some(function(pk){return claveNorm(pk)===claveNorm(k);});})
+    :todos;
   var sel=document.getElementById('sel-kiosko');
   sel.innerHTML='<option value="">— Seleccioná kiosko —</option>';
   permitidos.forEach(function(k){

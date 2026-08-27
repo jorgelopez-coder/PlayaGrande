@@ -1122,7 +1122,10 @@ async function renderHistorial() {
     if (!INVENTARIO_SHEET_ID || INVENTARIO_SHEET_ID.indexOf('TODO_') === 0) throw new Error('Sin Sheet configurado');
     const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'HISTORIAL_inventario');
     const tomasMap = {};
-    rows.filter(r => String(r['Kiosko']||'').trim() === kioskoActual).forEach(r => {
+    // Comparación insensible a mayúsculas/espacios: HISTORIAL_inventario
+    // puede tener el campo Kiosko con distinta capitalización que kioskoActual
+    // (el nombre canónico elegido en el <select>).
+    rows.filter(r => String(r['Kiosko']||'').trim().toLowerCase() === kioskoActual.toLowerCase()).forEach(r => {
       const id = String(r['Toma ID']||'').trim();
       if (!id) return;
       if (!tomasMap[id]) tomasMap[id] = { id, fecha: String(r['Fecha toma']||'').trim(), lineas: [] };
