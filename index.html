@@ -155,7 +155,17 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
 .kpi-row + .kpi-row { border-top:1px solid var(--border); }
 .kpi-row-kiosko { display:flex; align-items:center; gap:8px; color:var(--muted); }
 .kpi-row-val { text-align:right; }
-.kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+ .kpi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+input[type=date] { background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-b); font-size:13px; padding:7px 10px; outline:none; appearance:none; transition:border-color .15s; }
+input[type=date]:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26,122,74,.08); }
+.kpi-periodo { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:1rem 1.25rem 0; }
+.kpi-chip-row { display:flex; gap:6px; flex-wrap:wrap; }
+.kpi-chip-btn { font-size:12px; padding:6px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; font-weight:500; transition:all .15s; font-family:var(--font-b); }
+.kpi-chip-btn:hover { border-color:var(--border-h); color:var(--text); }
+.kpi-chip-btn.active { background:var(--green-bg); border-color:var(--green); color:var(--green); font-weight:600; }
+.kpi-periodo-dates { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-left:auto; }
+.kpi-periodo-dates input[type=date] { width:132px; }
+.kpi-periodo-lbl { font-size:12px; color:var(--muted); white-space:nowrap; }
 
 /* ── MATRIZ DE CUMPLIMIENTO (kiosko × fecha) ────────────── */
 .matrix-wrap { overflow-x:auto; }
@@ -459,6 +469,10 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
         <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="15" x2="16" y2="15"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Permiso sin goce</div><div class="mod-tile-area">PSG · fechas y motivo</div></div>
       </a>
+      <a href="rrhh-horas-extra.html" class="mod-tile" data-mod="rrhh-horas-extra">
+        <div class="mod-tile-icon ic-blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16.5 14.5"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Horas extra</div><div class="mod-tile-area">Reporte 50%/100% · aprobación</div></div>
+      </a>
       <a href="rrhh-cambio-salario.html" class="mod-tile" data-mod="rrhh-cambio-salario">
         <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Cambio de salario</div><div class="mod-tile-area">Ajustes de planilla</div></div>
@@ -509,11 +523,28 @@ main { max-width:1080px; margin:0 auto; padding:2rem 2rem 4rem; }
       <span class="section-title"><span class="clip"></span>Indicadores</span>
       <a href="configuracion.html" class="section-link">Configurar kioskos →</a>
     </div>
+    <div class="kpi-periodo">
+      <div class="kpi-chip-row" id="kpi-periodo-atajos">
+        <button type="button" class="kpi-chip-btn active" data-atajo="hoy" onclick="aplicarAtajoFechaKpi('hoy')">Hoy</button>
+        <button type="button" class="kpi-chip-btn" data-atajo="semana" onclick="aplicarAtajoFechaKpi('semana')">Esta semana</button>
+        <button type="button" class="kpi-chip-btn" data-atajo="mes" onclick="aplicarAtajoFechaKpi('mes')">Este mes</button>
+        <button type="button" class="kpi-chip-btn" data-atajo="anio" onclick="aplicarAtajoFechaKpi('anio')">Este año</button>
+      </div>
+      <div class="kpi-periodo-dates">
+        <span class="kpi-periodo-lbl">Día:</span>
+        <input type="date" id="kpi-periodo-dia" onchange="aplicarDiaKpi()"/>
+        <span class="kpi-periodo-lbl">Rango:</span>
+        <input type="date" id="kpi-periodo-desde" onchange="aplicarRangoKpi()"/>
+        <span class="kpi-periodo-lbl">a</span>
+        <input type="date" id="kpi-periodo-hasta" onchange="aplicarRangoKpi()"/>
+      </div>
+    </div>
+    <p id="kpi-periodo-resumen" style="padding:0 1.25rem .75rem; font-size:11px; color:var(--muted);"></p>
     <div id="kpi-grid" class="kpi-grid">
       <div class="no-alerts"><span class="spinner"></span></div>
     </div>
     <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      "Ventas" solo aparece en kioskos con su propio Square conectado (ver README). Efectivo pendiente y Caja chica son saldos actuales (no cambian con el período). Haga clic en una tarjeta para ver el desglose por kiosko.
+      "Ventas" solo aparece en kioskos con su propio Square conectado (ver README). Ventas y Mermas suman el período elegido. Efectivo pendiente y Tips muestran solo lo generado dentro del período que sigue pendiente (puede no incluir pendientes de antes del rango). Caja chica muestra el saldo a la fecha de corte del período (no lo gastado en el período). Haga clic en una tarjeta para ver el desglose por kiosko.
     </div>
   </div>
 
@@ -906,6 +937,68 @@ function toggleKpiCard(id) {
   if (card) card.classList.toggle('open');
 }
 
+// ── PERÍODO DE LOS INDICADORES — chips (Hoy/Esta semana/Este mes/Este
+// año), un día puntual o un rango personalizado; mismo patrón que el
+// selector de indicadores.html (aplicarAtajoFecha/rangoActual/enRango),
+// agregado 2026-08-26. A diferencia de indicadores.html, acá el rango SÍ
+// afecta a Efectivo pendiente/Tips (decisión explícita del usuario) y a
+// Caja chica (como fecha de corte del saldo, no como filtro de gastos) —
+// ver el comentario de cabecera de renderIndicadores() más abajo.
+function enRango(fecha, desde, hasta) {
+  return fecha && (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
+}
+function periodoKpiActual() {
+  const desdeEl = document.getElementById('kpi-periodo-desde');
+  const hastaEl = document.getElementById('kpi-periodo-hasta');
+  return { desde: desdeEl ? desdeEl.value : '', hasta: hastaEl ? hastaEl.value : '' };
+}
+function fmtFechaCorta(iso) {
+  const [y, m, d] = String(iso || '').split('-');
+  return (d && m && y) ? `${d}/${m}/${y}` : '—';
+}
+function actualizarResumenPeriodoKpi() {
+  const { desde, hasta } = periodoKpiActual();
+  const el = document.getElementById('kpi-periodo-resumen');
+  if (!el) return;
+  el.textContent = (!desde && !hasta) ? ''
+    : (desde === hasta) ? `Mostrando: ${fmtFechaCorta(desde)}`
+    : `Mostrando: ${fmtFechaCorta(desde)} – ${fmtFechaCorta(hasta)}`;
+}
+function aplicarAtajoFechaKpi(atajo) {
+  const hoyD = new Date();
+  let desde = new Date(hoyD), hasta = new Date(hoyD);
+  if (atajo === 'semana') { const dow = (hoyD.getDay() + 6) % 7; desde.setDate(hoyD.getDate() - dow); }
+  else if (atajo === 'mes') { desde = new Date(hoyD.getFullYear(), hoyD.getMonth(), 1); }
+  else if (atajo === 'anio') { desde = new Date(hoyD.getFullYear(), 0, 1); }
+  document.getElementById('kpi-periodo-desde').value = isoDate(desde);
+  document.getElementById('kpi-periodo-hasta').value = isoDate(hasta);
+  document.getElementById('kpi-periodo-dia').value = '';
+  document.querySelectorAll('#kpi-periodo-atajos .kpi-chip-btn').forEach(b => b.classList.toggle('active', b.dataset.atajo === atajo));
+  actualizarResumenPeriodoKpi();
+  cargarKPIs();
+}
+function aplicarDiaKpi() {
+  const dia = document.getElementById('kpi-periodo-dia').value;
+  if (!dia) return;
+  document.getElementById('kpi-periodo-desde').value = dia;
+  document.getElementById('kpi-periodo-hasta').value = dia;
+  document.querySelectorAll('#kpi-periodo-atajos .kpi-chip-btn').forEach(b => b.classList.remove('active'));
+  actualizarResumenPeriodoKpi();
+  cargarKPIs();
+}
+function aplicarRangoKpi() {
+  document.getElementById('kpi-periodo-dia').value = '';
+  document.querySelectorAll('#kpi-periodo-atajos .kpi-chip-btn').forEach(b => b.classList.remove('active'));
+  actualizarResumenPeriodoKpi();
+  cargarKPIs();
+}
+function inicializarPeriodoKpi() {
+  const hoyStr = isoDate(new Date());
+  document.getElementById('kpi-periodo-desde').value = hoyStr;
+  document.getElementById('kpi-periodo-hasta').value = hoyStr;
+  actualizarResumenPeriodoKpi();
+}
+
 // ── KPIs ──────────────────────────────────────────────────────
 function diasDesde(fechaISO) {
   if (!fechaISO) return null;
@@ -927,24 +1020,25 @@ async function cargarKPIs() {
   let personalActivo = 0;
   const kpiGridEl = document.getElementById('kpi-grid');
   const squareEntries = Object.entries(SQUARE_KIOSKOS);
+  const { desde, hasta } = periodoKpiActual();
 
   // Las fuentes de esta pantalla (kioskos, personal, cierres+pendientes+
-  // ventas Square, mermas de hoy, caja chica) son independientes entre sí —
-  // antes se pedían en 2 tandas secuenciales (esperar kioskos, DESPUÉS
-  // esperar personal, DESPUÉS recién arrancar el resto), sumando el
-  // arranque en frío de cada Web App de Apps Script uno atrás del otro.
-  // Ahora todas las solicitudes salen a la vez acá arriba; cada bloque de
-  // abajo espera (await) solo la suya, en el momento en que la necesita —
-  // el único que depende de otro es renderIndicadores() al final, que
-  // necesita "listaKioskos" (armado con la respuesta de kioskos), pero
-  // para entonces el resto ya viene resuelto o resolviéndose en paralelo,
-  // no atrás.
+  // ventas Square, mermas, caja chica) son independientes entre sí — antes
+  // se pedían en 2 tandas secuenciales (esperar kioskos, DESPUÉS esperar
+  // personal, DESPUÉS recién arrancar el resto), sumando el arranque en
+  // frío de cada Web App de Apps Script uno atrás del otro. Ahora todas
+  // las solicitudes salen a la vez acá arriba, ya con el rango de fechas
+  // elegido (desde/hasta); cada bloque de abajo espera (await) solo la
+  // suya, en el momento en que la necesita — el único que depende de otro
+  // es renderIndicadores() al final, que necesita "listaKioskos" (armado
+  // con la respuesta de kioskos), pero para entonces el resto ya viene
+  // resuelto o resolviéndose en paralelo, no atrás.
   const kioskosPromise = cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos');
   const personalPromise = fetch(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json());
   const cierresPromise = Promise.all([
     fetch(SHEETS_URL_CIERRES + '?action=read'),
     fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
-    ...squareEntries.map(([, cfg]) => obtenerResumenHoySquare(cfg))
+    ...squareEntries.map(([, cfg]) => obtenerResumenRangoSquare(cfg, desde, hasta))
   ]);
 
   // Mermas de hoy y saldo de Caja chica: mismas fuentes que mermas.html y
@@ -1046,20 +1140,21 @@ async function cargarKPIs() {
       if (!porKiosko[r.kiosko] || r.fecha > porKiosko[r.kiosko].fecha) porKiosko[r.kiosko] = r;
     });
 
-    // Mermas de hoy por kiosko (mismo campo "Peso Neto Merma (g)" que usa
-    // mermas.html) y saldo de Caja chica del período abierto de cada kiosko.
+    // Mermas del período por kiosko (mismo campo "Peso Neto Merma (g)" que
+    // usa mermas.html) y saldo de Caja chica a la fecha de corte del
+    // período (ver calcularSaldosCajaChica() y el comentario de cabecera
+    // de renderIndicadores() más abajo).
     const [dataMermas, [periodosCajaChicaRows, facturasCajaChicaRows]] = await Promise.all([mermasPromise, cajaChicaPromise]);
-    const hoyISO = isoDate(new Date());
-    const mermasHoyPorKiosko = {};
+    const mermasPeriodoPorKiosko = {};
     (dataMermas.registros || []).forEach(r => {
       const fecha = String(r['Fecha']||'').slice(0,10);
       const kiosko = r['Kiosko'] || '';
-      if (fecha !== hoyISO || !kiosko) return;
-      mermasHoyPorKiosko[kiosko] = (mermasHoyPorKiosko[kiosko]||0) + (Number(r['Peso Neto Merma (g)'])||0);
+      if (!enRango(fecha, desde, hasta) || !kiosko) return;
+      mermasPeriodoPorKiosko[kiosko] = (mermasPeriodoPorKiosko[kiosko]||0) + (Number(r['Peso Neto Merma (g)'])||0);
     });
-    const saldosCajaChica = calcularSaldosCajaChica(periodosCajaChicaRows, facturasCajaChicaRows);
+    const saldosCajaChica = calcularSaldosCajaChica(periodosCajaChicaRows, facturasCajaChicaRows, hasta);
 
-    renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasHoyPorKiosko, saldosCajaChica);
+    renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasPeriodoPorKiosko, saldosCajaChica, desde, hasta);
   } catch(e) {
     if (kpiGridEl) kpiGridEl.innerHTML = '<div class="no-alerts">No se pudo cargar los indicadores.</div>';
   }
@@ -1151,15 +1246,25 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw, salidasFondoRaw) {
 
 // ── INDICADORES — tarjetas con el total de cada indicador y su desglose
 // por kiosko (reemplaza el viejo "Comparativo por kiosko" de una tabla con
-// una fila por kiosko, desde 2026-08-26). Ventas: Square propio de cada
-// kiosko si existe, igual que antes. Mermas: gramos de HOY (columna "Peso
-// Neto Merma (g)", mismo campo que mermas.html) — el sistema no valora
-// mermas en colones, así que se muestra en gramos/kg, no en ₡. Efectivo
-// pendiente y Tips: mismos datos que ya trae "action=pendientes" arriba.
-// Caja chica: saldo del período abierto de cada kiosko (monto inicial –
-// gastos con "Medio de pago"="Caja chica" desde la fecha de inicio del
-// período), con los mismos criterios que caja-chica.html — ver
-// calcularSaldosCajaChica() más abajo.
+// una fila por kiosko, desde 2026-08-26; filtro de período agregado el
+// mismo día). Todas las tarjetas respetan el rango [desde,hasta] elegido
+// arriba, pero el SIGNIFICADO cambia según el indicador:
+// - Ventas y Mermas: SUMAN lo ocurrido dentro del rango (ventas Square en
+//   colones; mermas en gramos — el sistema no valora mermas en ₡, ver
+//   mermas.html). Un rango más amplio = un total más grande, como es de
+//   esperar.
+// - Efectivo pendiente y Tips: son colas de "todavía no resuelto" — el
+//   filtro acá NO agranda el total con un rango más amplio, sino que
+//   ACOTA cuáles pendientes se cuentan a los generados dentro del rango
+//   (decisión explícita del usuario 2026-08-26: puede esconder pendientes
+//   generados ANTES del rango elegido; con "Hoy" seleccionado, un
+//   pendiente de la semana pasada no aparece acá aunque siga sin
+//   resolverse).
+// - Caja chica: NO es algo que "pase" en un rango — es un saldo. Se
+//   muestra el saldo A LA FECHA DE CORTE (el "hasta" del rango), calculado
+//   con los mismos criterios que caja-chica.html — ver
+//   calcularSaldosCajaChica() más abajo. El "desde" del rango no afecta
+//   este cálculo.
 const KPI_KIOSKO_PALETTE = ['var(--blue)', 'var(--green)', 'var(--amber)', 'var(--purple)', 'var(--red)'];
 function colorKiosko(nombre, listaKioskos) {
   const i = listaKioskos.indexOf(nombre);
@@ -1172,13 +1277,14 @@ function fmtGramos(g) {
     : n.toLocaleString('es-CR') + ' g';
 }
 
-function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasHoyPorKiosko, saldosCajaChica) {
+function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoPendientesArr, squareResumen, mermasPeriodoPorKiosko, saldosCajaChica, desde, hasta) {
   const grid = document.getElementById('kpi-grid');
   if (!grid) return;
   if (!listaKioskos.length) {
     grid.innerHTML = '<div class="no-alerts">No hay kioskos configurados.</div>';
     return;
   }
+  const mismoDia = desde && hasta && desde === hasta;
 
   const filaKiosko = (nombre, valorHtml) => `
     <div class="kpi-row">
@@ -1186,39 +1292,39 @@ function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoP
       <span class="kpi-row-val">${valorHtml}</span>
     </div>`;
 
-  // Ventas (hoy, Square propio) — mismo criterio que antes: solo kioskos
-  // con Square propio conectado tienen dato; los demás quedan "Sin Square
-  // propio" (ver README/memoria de proyecto).
+  // Ventas (suma del período, Square propio) — mismo criterio de siempre:
+  // solo kioskos con Square propio conectado tienen dato; los demás
+  // quedan "Sin Square propio" (ver README/memoria de proyecto).
   const squareKioskoNames = Object.keys(SQUARE_KIOSKOS);
-  let totalVentas = 0, kioskosConVentasHoy = 0;
+  let totalVentas = 0, kioskosConVentasPeriodo = 0;
   const filasVentas = listaKioskos.map(nombre => {
     const sq = squareResumen[nombre];
     let valor;
     if (!squareKioskoNames.includes(nombre)) valor = '<span class="compare-dash">Sin Square propio</span>';
     else if (sq === null || sq === undefined) valor = '<span class="compare-dash">Sin conexión</span>';
-    else if (sq.sinDatos) valor = '<span class="compare-dash">Sin ventas hoy</span>';
+    else if (sq.sinDatos) valor = `<span class="compare-dash">Sin ventas ${mismoDia ? 'ese día' : 'en el período'}</span>`;
     else {
-      totalVentas += sq.netas; kioskosConVentasHoy++;
+      totalVentas += sq.netas; kioskosConVentasPeriodo++;
       valor = `<span class="compare-val" style="color:var(--amber);">${fmtCRC(sq.netas)}</span>`;
     }
     return filaKiosko(nombre, valor);
   }).join('');
 
-  // Mermas (hoy, gramos) — solo pesa lo capturado hoy; ver comentario de
-  // cabecera sobre por qué no se muestra en ₡.
-  let kioskosConMermaHoy = 0;
+  // Mermas (suma del período, gramos) — ver comentario de cabecera sobre
+  // por qué no se muestra en ₡.
+  let kioskosConMermaPeriodo = 0;
   const filasMermas = listaKioskos.map(nombre => {
-    const g = mermasHoyPorKiosko[nombre] || 0;
-    if (g > 0) kioskosConMermaHoy++;
+    const g = mermasPeriodoPorKiosko[nombre] || 0;
+    if (g > 0) kioskosConMermaPeriodo++;
     return filaKiosko(nombre, `<span class="compare-val">${fmtGramos(g)}</span>`);
   }).join('');
-  const totalMermas = listaKioskos.reduce((s, n) => s + (mermasHoyPorKiosko[n] || 0), 0);
+  const totalMermas = listaKioskos.reduce((s, n) => s + (mermasPeriodoPorKiosko[n] || 0), 0);
 
-  // Efectivo pendiente de depositar — saldo real a hoy, no se filtra por
-  // período (mismo criterio que indicadores.html y depositos.html).
+  // Efectivo pendiente de depositar — acota la cola de pendientes a los
+  // generados DENTRO del rango elegido (ver comentario de cabecera).
   let totalEfectivoCrc = 0, totalEfectivoUsd = 0, kioskosConSaldoEf = 0;
   const filasEfectivo = listaKioskos.map(nombre => {
-    const efK = efectivoPendientesArr.filter(p => p.kiosko === nombre);
+    const efK = efectivoPendientesArr.filter(p => p.kiosko === nombre && enRango(p.fecha, desde, hasta));
     if (!efK.length) {
       const cierre = porKiosko[nombre];
       return filaKiosko(nombre, `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`);
@@ -1229,9 +1335,10 @@ function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoP
     return filaKiosko(nombre, `<span class="compare-val" style="color:var(--red);">${fmtCRC(efCrc)}</span>${efUsd ? `<div class="compare-sub">+ ${fmtUSD(efUsd)}</div>` : ''}`);
   }).join('');
 
-  // Caja chica — saldo del período abierto de cada kiosko; kioskos sin
-  // período abierto quedan "Sin período abierto" (no es un error, solo
-  // significa que nadie abrió caja chica todavía en ese kiosko).
+  // Caja chica — saldo A LA FECHA DE CORTE (hasta) de cada kiosko; el
+  // "desde" del rango no aplica acá (ver comentario de cabecera y
+  // calcularSaldosCajaChica()). Kioskos sin período abierto a esa fecha
+  // quedan "Sin período abierto" (no es un error).
   let totalCajaChica = 0, kioskosConPeriodo = 0, kioskosSaldoNeg = 0;
   const filasCajaChica = listaKioskos.map(nombre => {
     const info = saldosCajaChica[nombre];
@@ -1241,10 +1348,11 @@ function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoP
     return filaKiosko(nombre, `<span class="compare-val" style="color:${info.saldo < 0 ? 'var(--red)' : 'var(--text)'};">${fmtCRC(info.saldo)}</span>`);
   }).join('');
 
-  // Tips pendientes de pago — mismo dato que "action=pendientes" arriba.
+  // Tips pendientes de pago — mismo criterio que Efectivo pendiente: acota
+  // a los tips generados DENTRO del rango elegido.
   let totalTips = 0, kioskosConTips = 0;
   const filasTips = listaKioskos.map(nombre => {
-    const tipsK = tipsPendientesArr.filter(t => t.kiosko === nombre);
+    const tipsK = tipsPendientesArr.filter(t => t.kiosko === nombre && enRango(t.fecha, desde, hasta));
     if (!tipsK.length) {
       const cierre = porKiosko[nombre];
       return filaKiosko(nombre, `<span class="compare-dash">${cierre ? 'Al día ✓' : '—'}</span>`);
@@ -1268,26 +1376,30 @@ function renderIndicadores(listaKioskos, porKiosko, tipsPendientesArr, efectivoP
     </div>`;
 
   grid.innerHTML =
-    tarjeta('kpi-ventas', 'Ventas (hoy)', fmtCRC(totalVentas),
-      `${kioskosConVentasHoy} de ${squareKioskoNames.length} kioskos con Square propio`, 'var(--muted)', filasVentas) +
-    tarjeta('kpi-mermas', 'Mermas (hoy)', fmtGramos(totalMermas),
-      kioskosConMermaHoy ? `${kioskosConMermaHoy} kiosko${kioskosConMermaHoy === 1 ? '' : 's'} con registro hoy` : 'Sin registros hoy', 'var(--muted)', filasMermas) +
+    tarjeta('kpi-ventas', 'Ventas', fmtCRC(totalVentas),
+      `${kioskosConVentasPeriodo} de ${squareKioskoNames.length} kioskos con Square propio`, 'var(--muted)', filasVentas) +
+    tarjeta('kpi-mermas', 'Mermas', fmtGramos(totalMermas),
+      kioskosConMermaPeriodo ? `${kioskosConMermaPeriodo} kiosko${kioskosConMermaPeriodo === 1 ? '' : 's'} con registro` : 'Sin registros en el período', 'var(--muted)', filasMermas) +
     tarjeta('kpi-efectivo', 'Efectivo pendiente', fmtCRC(totalEfectivoCrc) + (totalEfectivoUsd ? ' + ' + fmtUSD(totalEfectivoUsd) : ''),
-      kioskosConSaldoEf ? `${kioskosConSaldoEf} kiosko${kioskosConSaldoEf === 1 ? '' : 's'} con saldo pendiente` : 'Todos al día ✓',
+      kioskosConSaldoEf ? `${kioskosConSaldoEf} kiosko${kioskosConSaldoEf === 1 ? '' : 's'} con pendiente en el período` : 'Ninguno en el período',
       kioskosConSaldoEf ? 'var(--amber)' : 'var(--green)', filasEfectivo) +
     tarjeta('kpi-caja-chica', 'Caja chica', fmtCRC(totalCajaChica),
-      kioskosSaldoNeg ? `${kioskosSaldoNeg} kiosko${kioskosSaldoNeg === 1 ? '' : 's'} con saldo negativo` : `${kioskosConPeriodo} de ${listaKioskos.length} con período abierto`,
+      kioskosSaldoNeg ? `${kioskosSaldoNeg} kiosko${kioskosSaldoNeg === 1 ? '' : 's'} con saldo negativo` : `Saldo al ${fmtFechaCorta(hasta)} · ${kioskosConPeriodo} de ${listaKioskos.length} con período abierto`,
       kioskosSaldoNeg ? 'var(--red)' : 'var(--muted)', filasCajaChica) +
     tarjeta('kpi-tips', 'Tips pendientes', fmtCRC(totalTips),
-      kioskosConTips ? `${kioskosConTips} kiosko${kioskosConTips === 1 ? '' : 's'} con tips pendientes` : 'Todos al día ✓',
+      kioskosConTips ? `${kioskosConTips} kiosko${kioskosConTips === 1 ? '' : 's'} con pendiente en el período` : 'Ninguno en el período',
       kioskosConTips ? 'var(--amber)' : 'var(--green)', filasTips);
 }
 
-// ── CAJA CHICA (saldo por kiosko) — mismo Sheet y mismos criterios que
-// caja-chica.html (ver SHEET_ID_CAJA_CHICA/COMPRAS_SHEET_ID arriba):
-// saldo = monto inicial del período "Abierto" menos gastos con "Medio de
-// pago"="Caja chica" del mismo kiosko desde la fecha de inicio de ese
-// período. Kioskos sin período abierto no aparecen en el resultado. ──
+// ── CAJA CHICA (saldo por kiosko, A LA FECHA DE CORTE = "hasta" del
+// período elegido) — mismo Sheet y mismos criterios que caja-chica.html
+// (ver SHEET_ID_CAJA_CHICA/COMPRAS_SHEET_ID arriba): saldo = monto inicial
+// del período "Abierto" menos gastos con "Medio de pago"="Caja chica" del
+// mismo kiosko, desde la fecha de inicio de ese período HASTA la fecha de
+// corte (nunca desde el "desde" del filtro — el saldo es acumulado, no un
+// movimiento del rango). Si el período abrió después de la fecha de
+// corte, el kiosko no aparece en el resultado (no había caja chica
+// abierta todavía en esa fecha). ──
 function limpiarMontoTexto(v) { return parseFloat(String(v || '0').replace(/[,₡\s]/g, '')) || 0; }
 function isoDeCadena(str) {
   const s = String(str || '').trim();
@@ -1297,7 +1409,7 @@ function isoDeCadena(str) {
   const [, d, mo, y] = m;
   return y + '-' + mo.padStart(2, '0') + '-' + d.padStart(2, '0');
 }
-function calcularSaldosCajaChica(periodosRows, facturasRows) {
+function calcularSaldosCajaChica(periodosRows, facturasRows, hasta) {
   const gastosCajaChica = facturasRows
     .filter(r => (r['Medio de pago'] || '').trim().toLowerCase() === 'caja chica')
     .map(r => ({
@@ -1313,9 +1425,10 @@ function calcularSaldosCajaChica(periodosRows, facturasRows) {
     .forEach(r => {
       const kiosko = r['Kiosko'];
       const fechaInicio = isoDeCadena(r['Fecha inicio']);
+      if (fechaInicio && hasta && hasta < fechaInicio) return;
       const montoInicial = limpiarMontoTexto(r['Monto inicial']);
       const gastado = gastosCajaChica
-        .filter(g => g.kiosko === kiosko && (!fechaInicio || g.fechaPago >= fechaInicio))
+        .filter(g => g.kiosko === kiosko && (!fechaInicio || g.fechaPago >= fechaInicio) && (!hasta || g.fechaPago <= hasta))
         .reduce((s, g) => s + g.monto, 0);
       saldos[kiosko] = { saldo: montoInicial - gastado, fechaInicio, gastado };
     });
@@ -1345,35 +1458,33 @@ async function fetchGvizSheet(sheetId, hoja) {
 
 // ── SQUARE POR KIOSKO — pestaña "Ventas_Por_Producto" de cada kiosko con
 // Square propio (ver SQUARE_KIOSKOS arriba), la misma que alimenta el Top 10
-// y el volumen de cerveza. NO se usa Resumen_Cierre_Diario para "hoy" porque
-// esa pestaña se llena con un resumen diario que corre después del cierre
-// del día (normalmente de madrugada) y por eso nunca trae la fila de la
-// fecha de hoy mientras el kiosko sigue abierto. Ventas_Por_Producto en
-// cambio se sincroniza en el momento con cada venta, así que "hoy" siempre
-// tiene datos. Se suma el "Total Línea" (columna J) de todas las líneas de
-// hoy — Devuelve null si falla la conexión, o { netas, brutas, descuentos,
-// sinDatos } si conectó bien. ──
-async function obtenerResumenHoySquare(cfg) {
+// y el volumen de cerveza. NO se usa Resumen_Cierre_Diario porque esa
+// pestaña se llena con un resumen diario que corre después del cierre del
+// día (normalmente de madrugada) y por eso nunca trae la fila de hoy
+// mientras el kiosko sigue abierto. Ventas_Por_Producto en cambio se
+// sincroniza en el momento con cada venta. Se suma el "Total Línea"
+// (columna J) de todas las líneas dentro de [desde, hasta] (inclusive;
+// mismo enRango() que el resto de las tarjetas) — Devuelve null si falla
+// la conexión, o { netas, brutas, descuentos, sinDatos } si conectó bien.
+async function obtenerResumenRangoSquare(cfg, desde, hasta) {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
     const resp = await fetch(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const filas = json.table.rows || [];
-    const ahora = new Date();
-    const hoyISO = ahora.getFullYear() + '-' + pad(ahora.getMonth() + 1) + '-' + pad(ahora.getDate());
 
     // Columnas de Ventas_Por_Producto: Fecha, Hora, Location ID, Order ID,
     // Producto, Categoría, Cantidad, Precio Unitario, Descuento, Total
     // Línea. Se suma línea por línea (una fila = un producto de un pedido).
-    const filasHoy = filas.filter(fila => {
+    const filasPeriodo = filas.filter(fila => {
       const c = fila.c || [];
       const fecha = c[0] && (c[0].f || c[0].v);
-      return fecha === hoyISO;
+      return enRango(String(fecha||'').slice(0,10), desde, hasta);
     });
 
-    if (!filasHoy.length) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
-    const totales = filasHoy.reduce((acc, fila) => {
+    if (!filasPeriodo.length) return { netas:0, brutas:0, descuentos:0, sinDatos:true };
+    const totales = filasPeriodo.reduce((acc, fila) => {
       const c = fila.c || [];
       const cantidad = Number((c[6] && c[6].v) || 0);
       const precioUnitario = Number((c[7] && c[7].v) || 0);
@@ -1411,7 +1522,7 @@ function mondayOf(d) {
 // traer "Date(año,mes0based,día)" como string y f el valor ya formateado
 // según el formato de la columna — se intenta f primero (si ya es ISO) y
 // si no se cae al parseo de Date(...) de v (mismo patrón que
-// obtenerResumenHoySquare, pero para fechas en vez de números).
+// obtenerResumenRangoSquare, pero para fechas en vez de números).
 function parseGvizDateStr(cell) {
   if (!cell) return '';
   if (cell.f && /^\d{4}-\d{2}-\d{2}/.test(cell.f)) return cell.f.slice(0,10);
@@ -1533,6 +1644,7 @@ function initMatrixTooltip() {
 // ── INIT ──────────────────────────────────────────────────────
 if (sesionActual) aplicarRol(sesionActual);
 initMatrixTooltip();
+inicializarPeriodoKpi();
 cargarKPIs();
 </script>
 </body>
