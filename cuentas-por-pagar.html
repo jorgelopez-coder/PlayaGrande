@@ -947,6 +947,8 @@ let dataLogCambios = [];   // hoja "Log Cambios" (auditoría — hoy solo cambio
 let facturasAP   = [];   // dataset ya calculado (estado, saldo, kiosko, etc.) — TODOS los kioskos
 let proyeccionListaActual = []; // último resultado de renderProyeccion() (grupos por proveedor), para que
                                  // el popover de cuenta y el modal "Pagar todo" puedan indexar por idx
+let proveedorCanonico = new Map(); // clave normalizada (normalizarTexto) -> nombre de proveedor "canónico" a
+                                    // mostrar (la variante más frecuente en Registro Facturas; ver proveedorDisplay)
 let pagFacturas  = 1;
 const POR_PAGINA = 100;
 const seleccionadas = new Set(); // claves compuestas "numero§kiosko" marcadas con check
@@ -1172,6 +1174,18 @@ function normalizarTexto(s) {
     .replace(/\s+/g, ' ');
 }
 
+// Nombre a mostrar para un proveedor, tolerando que el mismo proveedor esté
+// escrito con distinta mayúscula/acentos/espacios en "Registro Facturas" (p.ej.
+// "Jossue David Montenegro Gomez" vs "JOSSUE DAVID MONTENEGRO GOMEZ"). Sin esto,
+// cada variante armaba su propia fila/total en Proyección, Por proveedor, el
+// indicador de la semana y el filtro — misma clase de bug que ya se corrigió
+// para Kiosko. Se resuelve contra proveedorCanonico, calculado en
+// construirFacturasAP() a partir de la variante más vista.
+function proveedorDisplay(nombre) {
+  const base = nombre || '(Sin proveedor)';
+  return proveedorCanonico.get(normalizarTexto(base)) || base;
+}
+
 // Clave de "duplicado posible": kiosko + proveedor + fecha de factura + moneda
 // + monto. Incluye el kiosko porque el mismo proveedor puede facturarle a dos
 // kioskos distintos el mismo día por el mismo monto sin que eso sea un duplicado.
@@ -1359,6 +1373,24 @@ function construirFacturasAP() {
       saldoPendiente, estado, duplicada: esDuplicada(p), duplicadaMonto: esDuplicadaPorMonto(p), duplicadaSinProveedor: esDuplicadaSinProveedor(p), ordinal: contadorOrdinal[claveOrdinal]
     };
   });
+
+  // Nombre "canónico" por proveedor: la variante de mayúsculas/espacios más
+  // vista entre todas sus facturas, para no partir un mismo proveedor en
+  // varias filas cuando el nombre viene escrito de formas distintas (ver
+  // proveedorDisplay más arriba).
+  const conteoNombresProveedor = new Map(); // clave normalizada -> Map(nombre real -> conteo)
+  facturasAP.forEach(f => {
+    const nombre = f.proveedor || '(Sin proveedor)';
+    const clave = normalizarTexto(nombre);
+    if (!conteoNombresProveedor.has(clave)) conteoNombresProveedor.set(clave, new Map());
+    const m = conteoNombresProveedor.get(clave);
+    m.set(nombre, (m.get(nombre) || 0) + 1);
+  });
+  proveedorCanonico = new Map();
+  conteoNombresProveedor.forEach((m, clave) => {
+    const masFrecuente = [...m.entries()].sort((a,b) => b[1] - a[1])[0][0];
+    proveedorCanonico.set(clave, masFrecuente);
+  });
 }
 
 function abonosDeFactura(numero, kiosko) {
@@ -1408,7 +1440,7 @@ function inicializar() {
   renderKpiDetalles({ dataset, pendientes, facturasVencidas, facturasPorVencer, facturasPagadasMes, pagosCompletosMes, abonosMes, abonosDelMes, topPendientes });
 
   // Filtro de proveedores (según el kiosko actual)
-  const provsUnicos = [...new Set(dataset.map(f => f.proveedor).filter(Boolean))].sort();
+  const provsUnicos = [...new Set(dataset.map(f => proveedorDisplay(f.proveedor)).filter(Boolean))].sort();
   const selProv = document.getElementById('f-proveedor');
   const valProv = selProv.value;
   selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
@@ -1635,8 +1667,9 @@ function renderSemana() {
     if (!grupos.has(f.fechaProyectada)) grupos.set(f.fechaProyectada, { total: 0, proveedores: new Map() });
     const g = grupos.get(f.fechaProyectada);
     g.total += f.saldoPendiente;
-    if (!g.proveedores.has(f.proveedor)) g.proveedores.set(f.proveedor, { total: 0, facturas: [] });
-    const p = g.proveedores.get(f.proveedor);
+    const proveedorKey = normalizarTexto(f.proveedor || '(Sin proveedor)');
+    if (!g.proveedores.has(proveedorKey)) g.proveedores.set(proveedorKey, { nombre: proveedorDisplay(f.proveedor), total: 0, facturas: [] });
+    const p = g.proveedores.get(proveedorKey);
     p.total += f.saldoPendiente;
     p.facturas.push(f);
   });
@@ -1657,10 +1690,10 @@ function renderSemana() {
         <span class="num" style="font-weight:700;white-space:nowrap;">${fmt(g.total)}</span>
       </div>
       <div class="semana-grupo-detalle" data-detalle-idx="${i}" style="display:${abierto ? 'block' : 'none'};padding:0 0 .5rem;">
-        ${proveedoresOrdenados.map(([proveedor, p]) => `
+        ${proveedoresOrdenados.map(([, p]) => `
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:.3rem 0 .3rem .5rem;">
             <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-              <span style="font-size:12px;color:var(--muted);">${proveedor}</span>
+              <span style="font-size:12px;color:var(--muted);">${p.nombre}</span>
               <span style="font-size:11px;color:var(--muted);">(${p.facturas.length})</span>
             </div>
             <span class="num" style="font-size:12.5px;white-space:nowrap;">${fmt(p.total)}</span>
@@ -1773,7 +1806,7 @@ function obtenerFacturasFiltradas() {
       (f.referenciaPago||'').toLowerCase().includes(busq) ||
       abonosDeFactura(f.numero, f.kiosko).some(a => (a['Referencia']||'').toLowerCase().includes(busq));
     const matchEstado    = !estados.length || estados.includes(f.estado);
-    const matchProveedor = !proveedor || f.proveedor === proveedor;
+    const matchProveedor = !proveedor || normalizarTexto(f.proveedor) === normalizarTexto(proveedor);
     const matchAnio      = !anio || f.fechaFactura.substring(0,4) === anio;
     const matchMes       = !mes || f.fechaFactura.substring(5,7) === mes;
     const matchDesde     = !desde || (f.fechaFactura && f.fechaFactura >= desde);
@@ -1995,8 +2028,8 @@ function renderPorProveedor() {
 
   const grupos = {};
   dataset.forEach(f => {
-    const key = f.proveedor || '(Sin proveedor)';
-    if (!grupos[key]) grupos[key] = { proveedor: key, facturas: [] };
+    const key = normalizarTexto(f.proveedor || '(Sin proveedor)');
+    if (!grupos[key]) grupos[key] = { proveedor: proveedorDisplay(f.proveedor), facturas: [] };
     grupos[key].facturas.push(f);
   });
 
@@ -2181,8 +2214,8 @@ function renderProyeccion() {
 
   const grupos = {};
   conFecha.forEach(f => {
-    const key = f.proveedor || '(Sin proveedor)';
-    if (!grupos[key]) grupos[key] = { proveedor: key, facturas: [] };
+    const key = normalizarTexto(f.proveedor || '(Sin proveedor)');
+    if (!grupos[key]) grupos[key] = { proveedor: proveedorDisplay(f.proveedor), facturas: [] };
     grupos[key].facturas.push(f);
   });
 
@@ -2372,17 +2405,17 @@ function enviarWhatsAppSemana() {
     const fecha = f.fechaProyectada;
     if (!porFecha.has(fecha)) porFecha.set(fecha, new Map());
     const porProveedor = porFecha.get(fecha);
-    const clave = `${f.proveedor || '(Sin proveedor)'}|||${f.kiosko || '(Sin kiosko)'}`;
-    porProveedor.set(clave, (porProveedor.get(clave) || 0) + f.saldoPendiente);
+    // Clave normalizada (ver proveedorDisplay) para no listar el mismo proveedor
+    // dos veces si su nombre viene escrito distinto entre facturas.
+    const clave = `${normalizarTexto(f.proveedor || '(Sin proveedor)')}|||${f.kiosko || '(Sin kiosko)'}`;
+    porProveedor.set(clave, (porProveedor.get(clave) || { nombre: proveedorDisplay(f.proveedor), kiosko: f.kiosko || '(Sin kiosko)', monto: 0 }));
+    porProveedor.get(clave).monto += f.saldoPendiente;
   });
 
   const fechasOrdenadas = [...porFecha.keys()].sort();
   const bloques = fechasOrdenadas.map(fecha => {
-    const entradas = [...porFecha.get(fecha).entries()]
-      .map(([clave, monto]) => {
-        const [prov, k] = clave.split('|||');
-        return { prov, k, monto };
-      })
+    const entradas = [...porFecha.get(fecha).values()]
+      .map(e => ({ prov: e.nombre, k: e.kiosko, monto: e.monto }))
       .sort((a,b) => a.k.localeCompare(b.k) || a.prov.localeCompare(b.prov));
     const totalFecha = entradas.reduce((a,e) => a + e.monto, 0);
     const lineas = entradas.map(e => `• ${e.prov} (${e.k}): ${fmt(e.monto)}`).join('\n');
