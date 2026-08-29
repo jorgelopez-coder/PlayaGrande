@@ -484,6 +484,14 @@ function interseccionDias(aIni, aFin, bIni, bFin) {
   return Math.round((fin - ini) / 86400000) + 1;
 }
 
+// Un día antes de una fecha ISO (yyyy-mm-dd). Se usa para excluir el día de
+// regreso de un permiso sin goce antes de intersecarlo con interseccionDias.
+function fechaMenosUnDia(iso) {
+  const d = new Date(iso+'T00:00:00');
+  d.setDate(d.getDate()-1);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
 function alCambiarSelector() {
   localStorage.setItem('kiosko_actual_planilla', document.getElementById('pl-kiosko').value);
   actualizarChipPeriodo();
@@ -815,7 +823,9 @@ function calcularClientePreview(part) {
 
   const permisoDias = esExtra ? 0 : PERMISOS_CACHE
     .filter(v => (v['Colaborador']||'')===part.nombre && (v['Estado']||'').toLowerCase()==='aprobado')
-    .reduce((acc,v) => acc + interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin), 0);
+    // "Fecha fin" es el día de regreso, no cuenta como día sin goce — mismo
+    // criterio que vacaciones (rrhh-vacaciones.html) y horarios.html (aplicarPermisos).
+    .reduce((acc,v) => acc + (v['Fecha inicio'] && v['Fecha fin'] ? interseccionDias(v['Fecha inicio'], fechaMenosUnDia(v['Fecha fin']), r.fechaInicio, r.fechaFin) : 0), 0);
 
   const subsidioMonto = numOr(part.subsidioMonto,0) * numOr(part.subsidioDias,0);
 
@@ -1395,7 +1405,8 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
         <table class="calc-tabla" style="margin-bottom:8px">
           <thead><tr><th>Del</th><th>Al</th><th>Motivo</th><th style="text-align:right">Días en esta quincena</th></tr></thead>
           <tbody>${permisosDelColaborador.map(v => {
-            const diasEnPeriodo = interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin);
+            // "Fecha fin" es el día de regreso, no cuenta como día sin goce.
+            const diasEnPeriodo = v['Fecha inicio'] && v['Fecha fin'] ? interseccionDias(v['Fecha inicio'], fechaMenosUnDia(v['Fecha fin']), r.fechaInicio, r.fechaFin) : 0;
             return `<tr><td>${fechaBonita(v['Fecha inicio'])}</td><td>${fechaBonita(v['Fecha fin'])}</td><td>${v['Motivo']||'—'}</td><td class="monto">${diasEnPeriodo>0?diasEnPeriodo:'—'}</td></tr>`;
           }).join('')}</tbody>
         </table>
