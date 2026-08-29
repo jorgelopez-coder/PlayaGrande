@@ -148,6 +148,10 @@
     .proy-wrap.open .proj-input { display:inline-block; }
     .proy-toggle { display:flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); background:transparent; border:1px solid var(--border); border-radius:7px; padding:5px 8px; cursor:pointer; white-space:nowrap; }
     .proy-toggle:hover { color:var(--text); border-color:var(--border-h); }
+    .proy-wrap .proy-clear { display:none; }
+    .proy-wrap.open .proy-clear { display:inline-flex; }
+    .proy-clear { align-items:center; justify-content:center; width:24px; height:24px; margin-left:4px; font-size:13px; line-height:1; color:var(--muted); background:transparent; border:1px solid var(--border); border-radius:7px; cursor:pointer; vertical-align:middle; }
+    .proy-clear:hover { color:var(--red); border-color:var(--red-lt); background:var(--red-bg); }
 
     /* Arrow toggle */
     .toggle-arrow { width:16px; height:16px; transition:transform .2s; color:var(--subtle); }
@@ -1893,6 +1897,8 @@ function _renderFacturas() {
             </button>
             <input type="date" class="proj-input" value="${f.fechaProyectada||''}" ${!puedeAccionar?'disabled':''}
               onchange="guardarProyeccionFactura('${f.numero}','${f.kiosko}', this.value, '${rowId}')">
+            <button type="button" class="proy-clear" title="Quitar fecha proyectada" ${!puedeAccionar?'disabled':''}
+              onclick="event.stopPropagation(); guardarProyeccionFactura('${f.numero}','${f.kiosko}', '', '${rowId}')">&#10005;</button>
           </span><br>
           Fecha real de pago: <strong style="color:var(--text);">${f.fechaRealPago||'—'}</strong><br>
           ${f.fechaRealPago ? `Medio de pago: <strong style="color:var(--text);">${f.medioPago||'—'}</strong><br>Referencia: <strong style="color:var(--text);">${f.referenciaPago||'—'}</strong><br>` : ''}
@@ -1978,6 +1984,7 @@ function _renderFacturas() {
           <div class="row-actions">
             <button class="btn-mini pago" ${!puedeAccionar?'disabled':''} onclick="abrirModalPago('${f.numero}','${f.kiosko}')">Pago total</button>
             <button class="btn-mini abono" ${!puedeAccionar?'disabled':''} onclick="abrirModalAbono('${f.numero}','${f.kiosko}')">Abono</button>
+            <button class="btn-mini" title="Eliminar factura" style="border-color:var(--red-lt);background:var(--red-bg);color:var(--red);" onclick="eliminarFactura('${f.numero}','${f.kiosko}', ${f.ordinal})">Eliminar</button>
           </div>
         </td>
       </tr>
@@ -2257,6 +2264,8 @@ function renderProyeccion() {
             <input type="date" class="proj-input" value="${f.fechaProyectada||''}"
               onclick="event.stopPropagation()"
               onchange="event.stopPropagation(); guardarProyeccionFactura('${f.numero}','${f.kiosko}', this.value, '${frowId}')">
+            <button type="button" class="proy-clear" title="Quitar fecha proyectada"
+              onclick="event.stopPropagation(); guardarProyeccionFactura('${f.numero}','${f.kiosko}', '', '${frowId}')">&#10005;</button>
           </span>
         </td>
         <td class="num" style="font-weight:600;">${fmt(f.saldoPendiente)}</td>
@@ -2708,6 +2717,29 @@ function irATabDuplicados() {
   switchTab('duplicados', btn);
 }
 
+// Elimina una factura desde la tabla principal de Facturas (no solo desde el
+// control de duplicados). Usa el mismo endpoint backend `eliminar_factura`
+// que ya usa eliminarFacturaDuplicada() (justo abajo): borra la fila de
+// Registro Facturas y, si existen, sus lineas de producto asociadas en
+// Desglose_IA. No elimina abonos ya registrados contra la factura (se avisa
+// en el confirm si los tiene).
+async function eliminarFactura(numero, kiosko, ordinal) {
+  const f = facturaPorNumero(numero, kiosko);
+  const montoTxt = f ? (f.moneda === 'USD' ? 'US$'+fmtN(f.monto) : fmt(f.monto)) : '';
+  const detalle = f ? `${f.fechaFactura||'—'} · ${f.proveedor} [${f.kiosko}] · ${montoTxt}` : numero;
+  const avisoAbono = (f && f.totalAbonado) ? `\n\n⚠ Esta factura tiene ${fmt(f.totalAbonado)} en abonos registrados. Los abonos no se eliminan junto con la factura.` : '';
+  if (!confirm(`¿Eliminar la factura ${numero}?\n\n${detalle}\n\nSe borrara de la hoja Registro Facturas, junto con sus lineas de producto asociadas en Desglose_IA (si las tiene). Esta accion no se puede deshacer.${avisoAbono}`)) return;
+
+  try {
+    const res = await postAP({ modulo: 'eliminar_factura', numero_factura: numero, kiosko: kiosko, ordinal: ordinal });
+    const extra = res && res.lineas_desglose_eliminadas ? ` (+ ${res.lineas_desglose_eliminadas} linea(s) de Desglose_IA)` : '';
+    showToast('Factura eliminada' + extra + '. Actualizando datos…', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo eliminar: ' + e.message, 'error');
+  }
+}
+
 // Busca la copia exacta (numero + kiosko + ordinal) en el dataset completo.
 async function eliminarFacturaDuplicada(numero, kiosko, ordinal) {
   const copia = facturasAP.find(o => o.numero === numero && o.kiosko === kiosko && o.ordinal === ordinal);
@@ -2910,13 +2942,15 @@ async function guardarProyeccionFactura(numero, kiosko, fecha, rowId) {
       monto: f.monto, fecha_proyectada: fecha
     });
     f.fechaProyectada = fecha;
-    showToast('Fecha proyectada guardada ✓', 'success');
+    showToast(fecha ? 'Fecha proyectada guardada ✓' : 'Fecha proyectada eliminada ✓', 'success');
     if (rowId) {
       const wrap = document.getElementById('proy-' + rowId);
       if (wrap) {
         wrap.classList.remove('open');
         const txt = wrap.querySelector('.proy-txt');
         if (txt) txt.textContent = fecha || 'Sin definir';
+        const inp = wrap.querySelector('.proj-input');
+        if (inp) inp.value = fecha || '';
       }
     }
     renderProyeccion();
