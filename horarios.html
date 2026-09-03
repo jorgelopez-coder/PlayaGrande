@@ -499,8 +499,12 @@ async function cargarHorarioGuardado(){
   }
 }
 
-async function guardarSemana(){
-  if(!employees.length){toast('No hay colaboradores cargados');return}
+async function guardarSemanaDatos(){
+  // Arma y envía los registros de la planilla actual a la hoja "Horarios".
+  // Separado de guardarSemana() (el botón) para poder reutilizarlo desde
+  // cerrarSemana() y así guardar siempre antes de cerrar (ver comentario en
+  // cerrarSemana).
+  if(!employees.length) return {ok:false, error:'No hay colaboradores cargados', dias:[]};
   const dates=getWeekDatesISO();
   const semana=document.getElementById('week-start').value;
   const dias=[];
@@ -518,22 +522,26 @@ async function guardarSemana(){
       });
     });
   });
-
-  const btn=document.getElementById('btn-guardar-semana');
-  if(btn){btn.disabled=true;btn.textContent='Guardando…';}
   try{
     const resp=await fetch(APPS_SCRIPT_URL,{
       method:'POST',
       body:new URLSearchParams({data:JSON.stringify({modulo:'horario_semana',semana_inicio:semana,dias})})
     });
     const out=await resp.json();
-    if(out.ok) toast('Semana guardada ✓ ('+dias.length+' registros)');
-    else toast('Error al guardar: '+(out.error||'desconocido'));
+    if(!out.ok) return {ok:false, error:out.error||'desconocido', dias};
+    return {ok:true, dias};
   }catch(e){
-    toast('Sin conexión — no se pudo guardar');
-  }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='&#128190; Guardar semana';}
+    return {ok:false, error:'sin_conexion', dias};
   }
+}
+
+async function guardarSemana(){
+  const btn=document.getElementById('btn-guardar-semana');
+  if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+  const r=await guardarSemanaDatos();
+  if(r.ok) toast('Semana guardada ✓ ('+r.dias.length+' registros)');
+  else toast(r.error==='sin_conexion'?'Sin conexión — no se pudo guardar':'Error al guardar: '+r.error);
+  if(btn){btn.disabled=false;btn.innerHTML='&#128190; Guardar semana';}
 }
 
 /* ── Copiar horario de la semana anterior ──
@@ -696,8 +704,22 @@ async function cerrarSemana(){
   const semana=document.getElementById('week-start').value;
 
   const btn=document.getElementById('btn-cerrar-semana');
-  if(btn){btn.disabled=true;btn.textContent='Generando PDF…';}
+  if(btn){btn.disabled=true;btn.textContent='Guardando…';}
 
+  // Guardar la planilla en la hoja "Horarios" ANTES de generar el PDF y
+  // cerrar: "Cerrar horario" solo genera un PDF con lo que hay en pantalla
+  // en ese momento y bloquea la semana, así que si esto no se hace primero
+  // las horas cargadas quedan solo en el PDF y nunca llegan a la hoja (bug
+  // reportado 2026-09-03: kiosko Catalinas, semana 31/8–6/9 2026, quedó
+  // "cerrada" con la hoja vacía porque alguien cerró sin guardar antes).
+  const guardado=await guardarSemanaDatos();
+  if(!guardado.ok){
+    toast(guardado.error==='sin_conexion'?'Sin conexión — no se pudo guardar antes de cerrar':'Error al guardar antes de cerrar: '+guardado.error);
+    if(btn){btn.disabled=false;btn.innerHTML='&#128274; Cerrar horario';}
+    return;
+  }
+
+  if(btn){btn.textContent='Generando PDF…';}
   const r=await generarPDF();
   if(!r){ if(btn){btn.disabled=false;btn.innerHTML='&#128274; Cerrar horario';} return }
   const pdfBase64=pdfABase64(r.pdf);
@@ -712,7 +734,7 @@ async function cerrarSemana(){
     semanaCerrada=true;
     horarioPdfUrl=(out.result&&out.result.pdf_url)||'';
     aplicarEstadoUI();
-    toast('Horario cerrado 🔒 — copia guardada en Drive');
+    toast('Horario guardado y cerrado 🔒 — copia guardada en Drive');
   }catch(e){
     toast('Sin conexión — no se pudo cerrar');
   }finally{
