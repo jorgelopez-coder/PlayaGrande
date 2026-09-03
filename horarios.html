@@ -344,7 +344,7 @@ function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt
 
 /* ── Week ── */
 function getMondayOf(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);return m}
-function fmt(d){return d.toISOString().slice(0,10)}
+function fmt(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+dd}
 function fmtShort(d){return d.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'})}
 function initWeek(){
   const el=document.getElementById('week-start');
