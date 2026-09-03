@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Cuentas Square · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+
+main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
+
+.intro{margin-bottom:1.5rem}
+.intro h1{font-family:var(--font-d);font-size:20px;font-weight:800}
+.intro p{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.section-block{margin-top:2.25rem}
+.section-block:first-child{margin-top:0}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{padding:9px 14px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;transition:color .15s,border-color .15s;font-family:var(--font-b);white-space:nowrap}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-text{background:none;border:none;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px}
+.btn-text:hover{color:var(--text)}
+.btn-danger-text{background:none;border:none;color:var(--red);font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px}
+.btn-danger-text:hover{opacity:.75}
+
+.rol-list{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+.rol-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem}
+.rol-card.inactive{opacity:.55}
+.rc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rc-name-wrap{display:flex;align-items:center;gap:9px}
+.rc-name{font-family:var(--font-d);font-size:15px;font-weight:700}
+.rc-badges{display:flex;gap:6px;align-items:center}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px}
+.badge-ok{background:var(--green-bg);color:var(--green)}
+.badge-off{background:var(--red-bg);color:var(--red)}
+.rc-actions{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.rc-detail{display:flex;flex-direction:column;gap:4px;margin-top:.75rem;font-size:12px}
+.rc-detail-item{display:flex;gap:8px;color:var(--muted)}
+.rc-detail-item .v{color:var(--text);font-weight:500}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem;display:none}
+.card.open{display:block}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=password],input[type=number],select{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.token-row{display:flex;gap:8px;align-items:stretch}
+.token-row input{flex:1}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+
+.log-table-wrap{overflow-x:auto}
+.log-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.log-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.log-table td{padding:7px 8px;border-bottom:1px solid var(--surface);color:var(--text);white-space:nowrap}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+.status-bar{position:fixed;bottom:0;left:0;right:0;height:34px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 2rem;font-size:11px;color:var(--muted)}
+
+@media(max-width:600px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 5rem}
+  .field-row{grid-template-columns:1fr}
+  .status-bar{padding:0 1rem}
+  .rc-actions{margin-left:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">Cuentas Square</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="intro">
+    <h1>Cuentas Square</h1>
+    <p>Registrá cada punto de venta que tenga su propia cuenta de Square (nombre, location ID y access token). El sistema descarga ventas por producto, pagos, descuentos y devoluciones de cada cuenta activa, en la frecuencia que elijas abajo, y las consolida en este mismo Sheet para análisis de ventas, revisión de inventario y control de operación.</p>
+  </div>
+
+  <div class="section-block">
+    <div class="section-head">
+      <span class="section-title" id="cuenta-count">Cargando…</span>
+      <button class="btn-primary" onclick="abrirForm()">+ Agregar cuenta</button>
+    </div>
+
+    <div class="rol-list" id="cuenta-list">
+      <div class="empty-state">Cargando cuentas…</div>
+    </div>
+
+    <div class="card" id="form-card">
+      <p class="card-title" id="form-title">Nueva cuenta</p>
+
+      <div class="field">
+        <label for="f-nombre">Nombre del punto de venta <span class="req">*</span></label>
+        <input type="text" id="f-nombre" placeholder="Ej: Playa Grande"/>
+      </div>
+
+      <div class="field">
+        <label for="f-locations">Location ID(s) de Square <span class="req">*</span></label>
+        <input type="text" id="f-locations" placeholder="Ej: LDJGGGQMD5ZXN"/>
+        <p class="field-hint">Se obtiene en el Dashboard de Square (Configuración → Ubicaciones). Si esta cuenta tiene más de un local, separá los IDs con coma.</p>
+      </div>
+
+      <div class="field">
+        <label for="f-token">Access token <span class="req">*</span></label>
+        <div class="token-row">
+          <input type="password" id="f-token" placeholder="Pegá el access token de producción de Square"/>
+          <button type="button" class="btn-secondary" id="btn-mostrar-token" onclick="toggleMostrarToken()">Mostrar</button>
+        </div>
+        <p class="field-hint" id="token-hint-editar" style="display:none;">Dejalo en blanco para conservar el token que ya está guardado — no se sobreescribe si no escribís uno nuevo.</p>
+        <p class="field-hint">Se guarda de forma segura en las propiedades del proyecto de Apps Script, nunca en una celda del Sheet.</p>
+      </div>
+
+      <div class="field">
+        <label>Estado</label>
+        <select id="f-activo">
+          <option value="Sí">Activa</option>
+          <option value="No">Inactiva</option>
+        </select>
+      </div>
+
+      <div class="submit-area">
+        <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar" onclick="guardarCuenta()">Guardar cuenta ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-head">
+      <span class="section-title">Frecuencia de descarga</span>
+    </div>
+    <div class="panel">
+      <div class="field">
+        <label for="f-frecuencia">Sincronizar automáticamente</label>
+        <select id="f-frecuencia">
+          <option value="">Elegí una frecuencia…</option>
+          <option value="cada_hora">Cada hora</option>
+          <option value="cada_4h">Cada 4 horas</option>
+          <option value="cada_6h">Cada 6 horas</option>
+          <option value="cada_12h">Cada 12 horas</option>
+          <option value="diario_06">Una vez al día (6:00 a.m.)</option>
+        </select>
+        <p class="field-hint" id="frecuencia-estado">Cargando…</p>
+      </div>
+      <div class="submit-area" style="margin-top:1rem;">
+        <button class="btn-primary" id="btn-guardar-frecuencia" onclick="guardarFrecuencia()">Guardar frecuencia ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-head">
+      <span class="section-title">Historial de sincronización</span>
+    </div>
+    <div class="panel">
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Fecha y hora</th><th>Cuenta</th><th>Ventas</th><th>Pagos</th><th>Descuentos</th><th>Devoluciones</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="sync-log-body">
+            <tr><td colspan="7" class="empty-state" style="border:none;">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<div class="status-bar">
+  <span id="status-msg">v1.0 · Cuentas Square · Ecosistema Kioskos</span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO ────────────────────────────────────────────────
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('cuentas-square')) {
+  alert('Tu usuario no tiene acceso a Cuentas Square.');
+  window.location.href = 'index.html';
+}
+
+// ── CONFIG ────────────────────────────────────────────────────────
+// URL /exec de Code-square-cuentas-backend.gs (Sheet propio "Square
+// Consolidado - Kioskos", proyecto de Apps Script propio — ver instrucciones
+// de despliegue arriba de ese archivo). No es el mismo backend de RRHH.
+const APPS_SCRIPT_SQUARE_CUENTAS = 'https://script.google.com/macros/s/AKfycbxGjpfEHgtx0t7jCD_j7uaOV85G1MkeQjwMb7GNGRzTmG4t3tArDTorb7UipR58r3yEWA/exec';
+function squareListo() { return !APPS_SCRIPT_SQUARE_CUENTAS.startsWith('TODO_'); }
+
+const FRECUENCIAS = [
+  { valor: 'cada_hora', texto: 'cada hora' },
+  { valor: 'cada_4h', texto: 'cada 4 horas' },
+  { valor: 'cada_6h', texto: 'cada 6 horas' },
+  { valor: 'cada_12h', texto: 'cada 12 horas' },
+  { valor: 'diario_06', texto: 'una vez al día (6:00 a.m.)' }
+];
+
+let cuentas = [];
+let editando = null;
+let confirmarEliminarId = null;
+
+async function getSquare(modulo, extra) {
+  if (!squareListo()) throw new Error('Todavía no se desplegó Code-square-cuentas-backend.gs — pegá la URL /exec en APPS_SCRIPT_SQUARE_CUENTAS.');
+  const qs = new URLSearchParams(Object.assign({ modulo: modulo }, extra || {}));
+  const resp = await fetch(APPS_SCRIPT_SQUARE_CUENTAS + '?' + qs.toString());
+  if (!resp.ok) throw new Error('Error ' + resp.status);
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'Sin datos');
+  return data;
+}
+
+async function postSquare(modulo, payload) {
+  if (!squareListo()) return { ok:false, error:'Todavía no se desplegó Code-square-cuentas-backend.gs — pegá la URL /exec en APPS_SCRIPT_SQUARE_CUENTAS.' };
+  try {
+    const resp = await fetch(APPS_SCRIPT_SQUARE_CUENTAS, { method:'POST', body:new URLSearchParams({ data: JSON.stringify(Object.assign({ modulo: modulo }, payload)) }) });
+    return await resp.json();
+  } catch (e) { return { ok:false, error:e.message }; }
+}
+
+// ── CUENTAS: carga y render ──────────────────────────────────────
+async function cargarCuentas() {
+  const lista = document.getElementById('cuenta-list');
+  try {
+    const data = await getSquare('cuentas');
+    cuentas = data.registros || [];
+    renderLista();
+  } catch (e) {
+    lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
+      + '<a href="javascript:void(0)" onclick="cargarCuentas()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
+    document.getElementById('cuenta-count').textContent = 'Sin conexión';
+  }
+}
+
+function tiempoDesde(fechaStr) {
+  if (!fechaStr) return 'nunca';
+  const ms = Date.now() - new Date(String(fechaStr).replace(' ', 'T')).getTime();
+  if (isNaN(ms)) return fechaStr;
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return 'hace ' + min + ' min';
+  const horas = Math.floor(min / 60);
+  if (horas < 24) return 'hace ' + horas + ' h';
+  return 'hace ' + Math.floor(horas / 24) + ' d';
+}
+
+function renderLista() {
+  const lista = document.getElementById('cuenta-list');
+  document.getElementById('cuenta-count').textContent =
+    cuentas.length + ' cuenta' + (cuentas.length === 1 ? '' : 's') + ' configurada' + (cuentas.length === 1 ? '' : 's');
+
+  if (!cuentas.length) {
+    lista.innerHTML = '<div class="empty-state">Todavía no hay cuentas de Square — agregá la primera con el botón de arriba.</div>';
+    return;
+  }
+
+  lista.innerHTML = cuentas.map(function (c) {
+    const id = c['ID'] || '';
+    const nombre = c['Nombre'] || '';
+    const activo = String(c['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    const tieneToken = String(c['Token Configurado'] || 'No').trim().toLowerCase() === 'sí';
+    const ultimoError = c['Último Error'] || '';
+    const confirmando = confirmarEliminarId === id;
+    return `
+    <div class="rol-card ${activo ? '' : 'inactive'}">
+      <div class="rc-head">
+        <div class="rc-name-wrap">
+          <span class="rc-name">${nombre}</span>
+          <span class="badge ${tieneToken ? 'badge-ok' : 'badge-off'}">${tieneToken ? 'Token configurado' : 'Falta token'}</span>
+        </div>
+        <div class="rc-badges">
+          <span class="badge ${activo ? 'badge-ok' : 'badge-off'}">${activo ? 'Activa' : 'Inactiva'}</span>
+        </div>
+        <div class="rc-actions">
+          <button class="btn-text" onclick='sincronizarAhora(${JSON.stringify(id)})'>Sincronizar ahora</button>
+          <button class="btn-text" onclick='editarCuenta(${JSON.stringify(id)})'>Editar</button>
+          <button class="btn-text" onclick='toggleActivoCuenta(${JSON.stringify(id)}, ${activo})'>${activo ? 'Desactivar' : 'Activar'}</button>
+          <button class="btn-danger-text" onclick='pedirEliminarCuenta(${JSON.stringify(id)})'>${confirmando ? '¿Confirmar?' : 'Eliminar'}</button>
+        </div>
+      </div>
+      <div class="rc-detail">
+        <div class="rc-detail-item"><span>Location ID(s):</span><span class="v">${c['Location IDs'] || '—'}</span></div>
+        <div class="rc-detail-item"><span>Última sincronización:</span><span class="v">${tiempoDesde(c['Última Sync'])}</span></div>
+        ${ultimoError ? `<div class="rc-detail-item"><span>Último error:</span><span class="v" style="color:var(--red)">${ultimoError}</span></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── FORMULARIO (agregar / editar) ────────────────────────────────
+function abrirForm() {
+  editando = null;
+  document.getElementById('form-title').textContent = 'Nueva cuenta';
+  document.getElementById('f-nombre').value = '';
+  document.getElementById('f-locations').value = '';
+  document.getElementById('f-token').value = '';
+  document.getElementById('f-token').type = 'password';
+  document.getElementById('btn-mostrar-token').textContent = 'Mostrar';
+  document.getElementById('f-token').placeholder = 'Pegá el access token de producción de Square';
+  document.getElementById('f-activo').value = 'Sí';
+  document.getElementById('token-hint-editar').style.display = 'none';
+  document.getElementById('form-card').classList.add('open');
+  document.getElementById('f-nombre').focus();
+  window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
+}
+
+function editarCuenta(id) {
+  const c = cuentas.find(function (x) { return String(x['ID']) === String(id); });
+  if (!c) return;
+  editando = id;
+  document.getElementById('form-title').textContent = 'Editar cuenta';
+  document.getElementById('f-nombre').value = c['Nombre'] || '';
+  document.getElementById('f-locations').value = c['Location IDs'] || '';
+  document.getElementById('f-token').value = '';
+  document.getElementById('f-token').type = 'password';
+  document.getElementById('btn-mostrar-token').textContent = 'Mostrar';
+  document.getElementById('f-token').placeholder = 'Dejar en blanco para no cambiar el token actual';
+  document.getElementById('f-activo').value = String(c['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
+  document.getElementById('token-hint-editar').style.display = 'block';
+  document.getElementById('form-card').classList.add('open');
+  window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
+}
+
+function cerrarForm() {
+  document.getElementById('form-card').classList.remove('open');
+  editando = null;
+}
+
+function toggleMostrarToken() {
+  const input = document.getElementById('f-token');
+  const btn = document.getElementById('btn-mostrar-token');
+  const mostrar = input.type === 'password';
+  input.type = mostrar ? 'text' : 'password';
+  btn.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+}
+
+async function guardarCuenta() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const locationIds = document.getElementById('f-locations').value.trim();
+  const token = document.getElementById('f-token').value.trim();
+  if (!nombre) { showToast('Falta el nombre del punto de venta', 'error'); return; }
+  if (!locationIds) { showToast('Falta al menos un Location ID', 'error'); return; }
+  if (!editando && !token) { showToast('Falta el access token', 'error'); return; }
+
+  const payload = {
+    id: editando || '',
+    nombre: nombre,
+    locationIds: locationIds,
+    token: token,
+    activo: document.getElementById('f-activo').value
+  };
+
+  const btn = document.getElementById('btn-guardar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    const data = await postSquare('cuenta_guardar', payload);
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+    showToast('Cuenta guardada ✓');
+    cerrarForm();
+    await cargarCuentas();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar cuenta ✓';
+  }
+}
+
+async function toggleActivoCuenta(id, activoActual) {
+  try {
+    const data = await postSquare('cuenta_estado', { id: id, activo: activoActual ? 'No' : 'Sí' });
+    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+    showToast(activoActual ? 'Cuenta desactivada ✓' : 'Cuenta activada ✓');
+    await cargarCuentas();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// Borrado con confirmación inline (sin diálogo bloqueante): el primer click
+// deja el botón en "¿Confirmar?" por 4s; un segundo click sobre esa misma
+// cuenta en esa ventana sí elimina.
+function pedirEliminarCuenta(id) {
+  if (confirmarEliminarId === id) {
+    eliminarCuenta(id);
+    return;
+  }
+  confirmarEliminarId = id;
+  renderLista();
+  setTimeout(function () {
+    if (confirmarEliminarId === id) { confirmarEliminarId = null; renderLista(); }
+  }, 4000);
+}
+
+async function eliminarCuenta(id) {
+  confirmarEliminarId = null;
+  try {
+    const data = await postSquare('cuenta_eliminar', { id: id });
+    if (!data.ok) throw new Error(data.error || 'Error al eliminar');
+    showToast('Cuenta eliminada ✓');
+    await cargarCuentas();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function sincronizarAhora(id) {
+  showToast('Sincronizando…');
+  try {
+    const data = await postSquare('sincronizar_ahora', { cuenta_id: id });
+    if (!data.ok) throw new Error(data.error || 'Error al sincronizar');
+    showToast('Sincronización completa ✓');
+    await cargarCuentas();
+    await cargarSyncLog();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── FRECUENCIA ────────────────────────────────────────────────────
+async function cargarFrecuencia() {
+  try {
+    const data = await getSquare('frecuencia');
+    document.getElementById('f-frecuencia').value = data.frecuencia || '';
+    actualizarEstadoFrecuencia(data.frecuencia);
+  } catch (e) {
+    document.getElementById('frecuencia-estado').textContent = 'No se pudo cargar (' + e.message + ')';
+  }
+}
+
+function actualizarEstadoFrecuencia(frecuencia) {
+  const txt = document.getElementById('frecuencia-estado');
+  if (!frecuencia) { txt.textContent = 'Todavía no hay una frecuencia configurada — la descarga automática no está activa.'; return; }
+  const f = FRECUENCIAS.find(function (x) { return x.valor === frecuencia; });
+  txt.textContent = 'Descarga automática activa: ' + (f ? f.texto : frecuencia) + '.';
+}
+
+async function guardarFrecuencia() {
+  const frecuencia = document.getElementById('f-frecuencia').value;
+  if (!frecuencia) { showToast('Elegí una frecuencia', 'error'); return; }
+  const btn = document.getElementById('btn-guardar-frecuencia');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    const data = await postSquare('frecuencia_guardar', { frecuencia: frecuencia });
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+    showToast('Frecuencia guardada ✓');
+    actualizarEstadoFrecuencia(frecuencia);
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar frecuencia ✓';
+  }
+}
+
+// ── HISTORIAL DE SINCRONIZACIÓN ──────────────────────────────────
+async function cargarSyncLog() {
+  const cont = document.getElementById('sync-log-body');
+  try {
+    const data = await getSquare('sync_log', { limit: 20 });
+    const registros = data.registros || [];
+    if (!registros.length) {
+      cont.innerHTML = '<tr><td colspan="7" class="empty-state" style="border:none;">Todavía no hay sincronizaciones registradas.</td></tr>';
+      return;
+    }
+    cont.innerHTML = registros.map(function (r) {
+      const ok = r['Estado'] === 'ok';
+      return `<tr>
+        <td>${r['Fecha Hora'] || ''}</td>
+        <td>${r['Cuenta'] || ''}</td>
+        <td>${r['Ventas Nuevas'] != null ? r['Ventas Nuevas'] : 0}</td>
+        <td>${r['Pagos Nuevos'] != null ? r['Pagos Nuevos'] : 0}</td>
+        <td>${r['Descuentos Nuevos'] != null ? r['Descuentos Nuevos'] : 0}</td>
+        <td>${r['Devoluciones Nuevas'] != null ? r['Devoluciones Nuevas'] : 0}</td>
+        <td><span class="badge ${ok ? 'badge-ok' : 'badge-off'}">${ok ? 'OK' : ('Error' + (r['Error'] ? ': ' + r['Error'] : ''))}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    cont.innerHTML = '<tr><td colspan="7" class="empty-state" style="border:none;">No se pudo cargar (' + e.message + ')</td></tr>';
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, type) {
+  type = type || 'success';
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = 'toast ' + type;
+  requestAnimationFrame(function () { t.classList.add('show'); });
+  setTimeout(function () { t.classList.remove('show'); }, 3500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+cargarCuentas();
+cargarFrecuencia();
+cargarSyncLog();
+</script>
+</body>
+</html>
