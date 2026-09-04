@@ -2204,6 +2204,14 @@ function diasInterseccion(aIni, aFin, bIni, bFin) {
   return Math.round((fin - ini) / 86400000) + 1;
 }
 
+// Un día antes de d (mismo día-mes-año, sin horas). Se usa para excluir el
+// día de regreso de un rango [Fecha inicio, Fecha fin] antes de intersecarlo
+// con diasInterseccion — ver uso en permisoDias más abajo.
+function diaAnterior(d) {
+  if (!d) return d;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+}
+
 // Comparación case-insensitive de nombres de kiosko: "Personal" no siempre
 // tiene el mismo case que la pestaña Configuracion (ej. "PLAYA GRANDE" vs
 // "Playa Grande") — mismo problema ya resuelto en horarios.html
@@ -2379,11 +2387,14 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
 
     // Vacaciones: automático desde "Vacaciones" (Estado=Aprobado) — no se
     // ingresa a mano en Incidencias. Colaborador extra: no se le consideran
-    // (ver esExtra arriba).
+    // (ver esExtra arriba). "Fecha fin" es el día de regreso al trabajo, no
+    // cuenta como día de vacación pagado — mismo criterio que permisoDias
+    // (ver más abajo) y rrhh-vacaciones.html/horarios.html: se resta un día
+    // antes de intersecar con el periodo.
     const vacacionesDias = esExtra ? 0 : vacacionesAprobadas
       .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
       .reduce(function (acc, v) {
-        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), parseFechaISO(v['Fecha fin']), fechaInicio, fechaFin);
+        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
       }, 0);
     const vacacionesMonto = vacacionesDias * salarioDiario;
 
@@ -2394,7 +2405,10 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const permisoDias = esExtra ? 0 : permisosAprobados
       .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
       .reduce(function (acc, v) {
-        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), parseFechaISO(v['Fecha fin']), fechaInicio, fechaFin);
+        // "Fecha fin" es el día de regreso, no cuenta como día sin goce —
+        // mismo criterio que vacaciones (rrhh-vacaciones.html) y horarios.html
+        // (aplicarPermisos): se resta un día antes de intersecar con el periodo.
+        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
       }, 0);
 
     // Subsidio de alimentación/transporte — no forma parte de la base de

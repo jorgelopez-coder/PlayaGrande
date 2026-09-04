@@ -816,9 +816,12 @@ function calcularClientePreview(part) {
     incapInternaMonto = diasInterna * salarioDiario * (numOr(part.incapInternaPct,100)/100);
   }
 
+  // "Fecha fin" es el día de regreso al trabajo, no cuenta como día de
+  // vacación pagado — mismo criterio que permisoDias (justo abajo) y
+  // rrhh-vacaciones.html/horarios.html.
   const vacacionesDias = esExtra ? 0 : VACACIONES_CACHE
     .filter(v => (v['Colaborador']||'')===part.nombre && (v['Estado']||'').toLowerCase()==='aprobado')
-    .reduce((acc,v) => acc + interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin), 0);
+    .reduce((acc,v) => acc + interseccionDias(v['Fecha inicio'], fechaMenosUnDia(v['Fecha fin']), r.fechaInicio, r.fechaFin), 0);
   const vacacionesMonto = vacacionesDias * salarioDiario;
 
   const permisoDias = esExtra ? 0 : PERMISOS_CACHE
