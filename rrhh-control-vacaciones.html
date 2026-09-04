@@ -237,7 +237,7 @@
 
       <div id="sol-dias-wrap" style="display:none;">
         <div class="dias-resumen">
-          <span style="color:var(--muted);">Días hábiles solicitados</span>
+          <span style="color:var(--muted);">Días solicitados</span>
           <span class="dias-num" id="sol-dias-num">0</span>
         </div>
       </div>
@@ -408,12 +408,12 @@ function calcularSaldo(p) {
 
 // ── DÍAS HÁBILES ─────────────────────────────────────────────────
 function diasHabiles(desde, hasta) {
-  // "hasta" es la fecha de regreso, no se cuenta como día de vacaciones
+  // "hasta" es la fecha de regreso, no se cuenta como día de vacaciones.
+  // Se cuentan TODOS los días solicitados (incluye fines de semana), sin distinguir día hábil.
   let count = 0;
   const cur = new Date(desde);
   while (cur < hasta) {
-    const d = cur.getDay();
-    if (d !== 0 && d !== 6) count++;
+    count++;
     cur.setDate(cur.getDate() + 1);
   }
   return count;
