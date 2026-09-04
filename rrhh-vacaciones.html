@@ -598,8 +598,7 @@ async function enviarSolicitud() {
   if (dFin < dIni)   { showToast('La fecha de regreso debe ser posterior al inicio.','error'); return; }
 
   const dias = diasHabiles(dIni, dFin);
-  const bal  = parseFloat(document.getElementById('balance-dias').textContent || 0);
-  if (dias > bal)    { showToast('Días solicitados superan el saldo disponible.','error'); return; }
+  // Se permite enviar la solicitud aunque el saldo quede negativo (el aviso visual ya se muestra en calcularDias()).
 
   const registro = {
     modulo:'vacaciones', id: Date.now(),

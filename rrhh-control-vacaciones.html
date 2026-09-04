@@ -721,7 +721,8 @@ async function enviarSolicitud() {
 
   const dias  = diasHabiles(dD, dH);
   const saldo = calcularSaldo(p);
-  if (dias > saldo) { showToast(`Días solicitados (${dias}) superan el saldo disponible (${saldo}).`, 'error'); return; }
+  // Se permite enviar la solicitud aunque el saldo quede negativo — solo se avisa, no se bloquea.
+  if (dias > saldo) showToast(`Atención: días solicitados (${dias}) superan el saldo disponible (${saldo}).`, 'error');
 
   const registro = {
     modulo: 'vacaciones', id: Date.now(),
