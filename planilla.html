@@ -508,18 +508,20 @@ let FERIADOS_CACHE = [];
 let AMONESTACIONES_CACHE = [];
 let HORAS_EXTRA_CACHE = [];
 let SERVICIO_DETALLE_CACHE = [];
+let HORARIOS_CACHE = []; // filas de la hoja "Horarios" (horarios.html) — para sugerir colaboradores no incluidos y la nota de horas registradas en el Paso 2.
 
 async function cargarDatosCompartidos() {
-  const [rPersonal, rVac, rPerm, rFer, rAmo, rHex, rServ] = await Promise.all([
+  const [rPersonal, rVac, rPerm, rFer, rAmo, rHex, rServ, rHor] = await Promise.all([
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=personal'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=permisos_sin_goce'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
     fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra'),
-    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle')
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle'),
+    fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horarios')
   ]);
-  const [dPersonal, dVac, dPerm, dFer, dAmo, dHex, dServ] = await Promise.all([rPersonal.json(), rVac.json(), rPerm.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json()]);
+  const [dPersonal, dVac, dPerm, dFer, dAmo, dHex, dServ, dHor] = await Promise.all([rPersonal.json(), rVac.json(), rPerm.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json(), rHor.json()]);
   TODOS_PERSONAL = dPersonal.ok ? dPersonal.registros : [];
   VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
   PERMISOS_CACHE = dPerm.ok ? dPerm.registros : [];
@@ -527,6 +529,7 @@ async function cargarDatosCompartidos() {
   AMONESTACIONES_CACHE = dAmo.ok ? dAmo.registros : [];
   HORAS_EXTRA_CACHE = dHex.ok ? dHex.registros : [];
   SERVICIO_DETALLE_CACHE = dServ.ok ? dServ.registros : [];
+  HORARIOS_CACHE = dHor.ok ? dHor.registros : [];
 }
 
 // VACACIONES_CACHE (FERIADOS_CACHE y AMONESTACIONES_CACHE) se cargan una
@@ -543,21 +546,23 @@ async function refrescarVacaciones(btn) {
   const textoOriginal = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    const [rVac, rPerm, rFer, rAmo, rHex, rServ] = await Promise.all([
+    const [rVac, rPerm, rFer, rAmo, rHex, rServ, rHor] = await Promise.all([
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=vacaciones'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=permisos_sin_goce'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=feriados'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
       fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horas_extra'),
-      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle')
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=servicio_detalle'),
+      fetchConTimeout(APPS_SCRIPT_URL + '?modulo=horarios')
     ]);
-    const [dVac, dPerm, dFer, dAmo, dHex, dServ] = await Promise.all([rVac.json(), rPerm.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json()]);
+    const [dVac, dPerm, dFer, dAmo, dHex, dServ, dHor] = await Promise.all([rVac.json(), rPerm.json(), rFer.json(), rAmo.json(), rHex.json(), rServ.json(), rHor.json()]);
     if (dVac.ok) VACACIONES_CACHE = dVac.registros;
     if (dPerm.ok) PERMISOS_CACHE = dPerm.registros;
     if (dFer.ok) FERIADOS_CACHE = dFer.registros;
     if (dAmo.ok) AMONESTACIONES_CACHE = dAmo.registros;
     if (dHex.ok) HORAS_EXTRA_CACHE = dHex.registros;
     if (dServ.ok) SERVICIO_DETALLE_CACHE = dServ.registros;
+    if (dHor.ok) HORARIOS_CACHE = dHor.registros;
     showToast('Cálculo actualizado con las vacaciones, permisos sin goce, feriados, amonestaciones, horas extra y Servicio 10%/Tips más recientes.', 'success');
     renderWizard();
   } catch (err) {
@@ -996,7 +1001,47 @@ function renderWizard() {
 
 // ── PASO 1: VERIFICAR COLABORADORES ACTIVOS ──────────────────────
 let EXTRA_MODO = 'buscar';
+// Nombres que aparecen en el horario (horarios.html, hoja "Horarios") de
+// este kiosko dentro del rango de fechas de la planilla, pero que no están
+// en WIZARD_PARTICIPANTES — sugerencia para no olvidar a alguien que sí
+// trabajó pero no está activo en Personal (o fue agregado directo en el
+// horario). Solo cuenta días marcados "trabajo" (turno real).
+function nombresSugeridosDesdeHorario() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  const yaIncluidos = new Set(WIZARD_PARTICIPANTES.map(p => p.nombre.trim().toLowerCase()));
+  const vistos = new Set();
+  const sugeridos = [];
+  HORARIOS_CACHE.forEach(row => {
+    const nombre = String(row['Colaborador']||'').trim();
+    if (!nombre) return;
+    const clave = nombre.toLowerCase();
+    if (yaIncluidos.has(clave) || vistos.has(clave)) return;
+    if (!mismoKiosko(row['Kiosko'], kiosko)) return;
+    const fecha = String(row['Fecha']||'');
+    if (!fecha || fecha < r.fechaInicio || fecha > r.fechaFin) return;
+    if (String(row['Estado']||'trabajo') !== 'trabajo') return;
+    vistos.add(clave);
+    sugeridos.push(nombre);
+  });
+  return sugeridos.sort((a,b) => a.localeCompare(b,'es'));
+}
+// Agrega un colaborador sugerido desde el horario: si tiene ficha en
+// Personal lo agrega igual que "Buscar existente"; si no, abre el
+// formulario de "Datos nuevos" con el nombre precargado para completar
+// puesto/salario a mano.
+function agregarSugeridoDesdeHorario(nombre) {
+  const persona = TODOS_PERSONAL.find(p => (p['Nombre completo']||'').trim().toLowerCase() === nombre.trim().toLowerCase());
+  if (persona) { agregarExtraExistente(persona['Nombre completo']); return; }
+  const cont = document.getElementById('form-extra');
+  cont.style.display = 'block';
+  EXTRA_MODO = 'manual';
+  renderFormExtra();
+  const inp = document.getElementById('extra-nombre');
+  if (inp) inp.value = nombre;
+}
 function renderPaso1() {
+  const sugeridos = nombresSugeridosDesdeHorario();
   const filas = WIZARD_PARTICIPANTES.map((p, i) => {
     const salarioDiario = (Number(p.salario)||0) / 30;
     const salarioHora = salarioDiario / 8;
@@ -1017,6 +1062,11 @@ function renderPaso1() {
     <div class="card">
       <p class="card-title">Verificar colaboradores activos</p>
       <p class="hint" style="display:block;margin-bottom:10px">Desmarcá a quien no trabajó esta quincena, o agregá a alguien extra con el botón de abajo.</p>
+      ${sugeridos.length ? `
+      <div class="hint" style="display:block;background:var(--gray-bg,#f3f3f3);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+        💡 En el horario de esta quincena aparecen colaboradores que no están en esta lista:
+        ${sugeridos.map(n => `<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 8px 2px 0"><b>${n}</b> <button class="btn-secondary" style="padding:1px 8px;font-size:12px" onclick="agregarSugeridoDesdeHorario(${JSON.stringify(n).replace(/"/g,'&quot;')})">+ Agregar</button></span>`).join('')}
+      </div>` : ''}
       <table class="tabla-wizard">
         <thead><tr><th></th><th>Colaborador</th><th>Cédula</th><th>Puesto</th><th style="text-align:right">Salario</th><th style="text-align:right">Salario/día</th><th style="text-align:right">Salario/hora</th></tr></thead>
         <tbody>${filas || '<tr><td colspan="7" class="hint" style="padding:1rem 0">No hay colaboradores activos en este kiosko.</td></tr>'}</tbody>
@@ -1156,6 +1206,24 @@ async function confirmarPaso1YContinuar() {
 }
 
 // ── PASO 2: INGRESOS ──────────────────────────────────────────────
+// Suma las horas de la hoja "Horarios" (horarios.html) para un colaborador
+// dentro del rango de fechas de la planilla — se muestra como nota bajo el
+// campo "Horas reg." del Paso 2 para poder comparar contra lo cargado a mano.
+function horasHorarioRegistradas(nombre, fechaInicio, fechaFin) {
+  const buscado = String(nombre||'').trim().toLowerCase();
+  const resultado = { horas: 0, dias: 0 };
+  if (!buscado || !fechaInicio || !fechaFin) return resultado;
+  HORARIOS_CACHE.forEach(row => {
+    if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
+    const fecha = String(row['Fecha']||'');
+    if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
+    const horas = Number(row['Horas']) || 0;
+    if (horas <= 0) return;
+    resultado.horas += horas;
+    resultado.dias++;
+  });
+  return resultado;
+}
 let PASO2_EXPANDIDO = -1;
 function renderPaso2() {
   const r = rangoPeriodoActual();
@@ -1168,10 +1236,12 @@ function renderPaso2() {
   const filas = WIZARD_PARTICIPANTES.map((p, i) => {
     const prev = calcularClientePreview(p);
     const detalleAbierto = PASO2_EXPANDIDO === i;
+    const horarioInfo = horasHorarioRegistradas(p.nombre, r.fechaInicio, r.fechaFin);
+    const horarioTxt = horarioInfo.horas > 0 ? `Horario: ${horarioInfo.horas}h (${horarioInfo.dias} día${horarioInfo.dias===1?'':'s'})` : 'Sin horario registrado';
     return `
     <tr>
       <td>${p.nombre}${p.esExtra?'<span class="tag-manual">Extra</span>':''}</td>
-      <td><input type="number" min="0" step="0.5" value="${p.horasRegulares}" oninput="actualizarCampoSilencioso(${i},'horasRegulares',this.value)"></td>
+      <td><input type="number" min="0" step="0.5" value="${p.horasRegulares}" oninput="actualizarCampoSilencioso(${i},'horasRegulares',this.value)"><div class="hint" style="white-space:nowrap;margin-top:2px">${horarioTxt}</div></td>
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra50Horas>0?`${prev.extra50Horas}h`:'—'}</td>
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra100Horas>0?`${prev.extra100Horas}h`:'—'}</td>
       <td class="hint">${prev.diasNoTrabajadosAuto>0?`${prev.diasNoTrabajadosAuto} día(s) auto`:'—'}</td>
