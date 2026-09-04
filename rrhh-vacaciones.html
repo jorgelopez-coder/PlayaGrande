@@ -207,12 +207,16 @@
       </div>
       <div class="cal-selected-summary">
         <div class="cal-sel-chip">
-          <div class="lbl">Fecha de inicio</div>
+          <div class="lbl">Fecha inicio vacaciones</div>
           <div class="val empty" id="resumen-inicio">Elegí un día</div>
         </div>
         <div class="cal-sel-chip">
+          <div class="lbl">Fecha fin vacaciones</div>
+          <div class="val empty" id="resumen-vac-fin">Elegí un día</div>
+        </div>
+        <div class="cal-sel-chip">
           <div class="lbl">Fecha de regreso <span style="font-weight:400;">(automática)</span></div>
-          <div class="val empty" id="resumen-fin">Elegí un día</div>
+          <div class="val empty" id="resumen-regreso">Elegí un día</div>
         </div>
         <button type="button" class="btn-clear" onclick="borrarSeleccionCalendario()" style="padding:8px 12px;font-size:12px;">Borrar fechas</button>
       </div>
@@ -360,14 +364,18 @@ function borrarSeleccionCalendario() {
   document.getElementById('balance-aviso').style.display  = 'none';
 }
 function actualizarResumenFechas() {
-  const elIni = document.getElementById('resumen-inicio');
-  const elFin = document.getElementById('resumen-fin');
+  const elIni     = document.getElementById('resumen-inicio');
+  const elVacFin  = document.getElementById('resumen-vac-fin');
+  const elRegreso = document.getElementById('resumen-regreso');
   const fmt = d => d.toLocaleDateString('es-CR', { weekday:'short', day:'numeric', month:'short' });
-  const regreso = fechaRegreso();
+  const ultimoDia = calFin || calInicio;
+  const regreso   = fechaRegreso();
   elIni.textContent = calInicio ? fmt(calInicio) : 'Elegí un día';
   elIni.classList.toggle('empty', !calInicio);
-  elFin.textContent = regreso ? fmt(regreso) : 'Elegí un día';
-  elFin.classList.toggle('empty', !regreso);
+  elVacFin.textContent = ultimoDia ? fmt(ultimoDia) : 'Elegí un día';
+  elVacFin.classList.toggle('empty', !ultimoDia);
+  elRegreso.textContent = regreso ? fmt(regreso) : 'Elegí un día';
+  elRegreso.classList.toggle('empty', !regreso);
 }
 renderCalendario();
 actualizarResumenFechas();
