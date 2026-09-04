@@ -61,6 +61,28 @@
     }
     textarea { resize:vertical; min-height:70px; line-height:1.5; }
 
+    /* Calendario de vacaciones */
+    .calendario { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; }
+    .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .cal-nav-btn { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); background:var(--card); border-radius:7px; cursor:pointer; color:var(--muted); }
+    .cal-nav-btn:hover { color:var(--text); border-color:var(--border-h); }
+    .cal-nav-btn svg { width:13px; height:13px; }
+    .cal-mes-label { font-family:var(--font-d); font-weight:700; font-size:14px; text-transform:capitalize; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+    .cal-dow-row { margin-bottom:2px; }
+    .cal-dow { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--subtle); text-align:center; padding:4px 0 6px; }
+    .cal-day { position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:7px; cursor:pointer; color:var(--text); background:transparent; user-select:none; }
+    .cal-day.empty { cursor:default; }
+    .cal-day:not(.empty):not(.in-range):not(.range-start):not(.range-end):hover { background:var(--green-lt); }
+    .cal-day.today { font-weight:700; box-shadow:inset 0 0 0 1.5px var(--green); }
+    .cal-day.in-range { background:var(--green-bg); }
+    .cal-day.range-start, .cal-day.range-end { background:var(--green); color:#fff; font-weight:600; }
+    .cal-selected-summary { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+    .cal-sel-chip { flex:1; min-width:140px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 12px; }
+    .cal-sel-chip .lbl { font-size:11px; color:var(--muted); margin-bottom:2px; }
+    .cal-sel-chip .val { font-size:14px; font-weight:600; color:var(--text); }
+    .cal-sel-chip .val.empty { color:var(--subtle); font-weight:400; }
+
     /* Balance card */
     .balance-card { background:var(--green-bg); border:1px solid var(--green-lt); border-radius:var(--radius); padding:1.25rem 1.5rem; display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
     .balance-label { font-size:13px; color:var(--muted); margin-bottom:2px; }
@@ -165,15 +187,33 @@
 
     <div class="card">
       <p class="card-title">Período solicitado</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="fecha-inicio">Fecha de inicio <span class="req">*</span></label>
-          <input type="date" id="fecha-inicio" onchange="calcularDias()" required>
+      <input type="hidden" id="fecha-inicio">
+      <input type="hidden" id="fecha-fin">
+      <div class="calendario">
+        <div class="cal-header">
+          <button type="button" class="cal-nav-btn" onclick="cambiarMesCalendario(-1)" aria-label="Mes anterior">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+          </button>
+          <span class="cal-mes-label" id="cal-mes-label"></span>
+          <button type="button" class="cal-nav-btn" onclick="cambiarMesCalendario(1)" aria-label="Mes siguiente">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+          </button>
         </div>
-        <div class="field">
-          <label for="fecha-fin">Fecha de regreso <span class="req">*</span></label>
-          <input type="date" id="fecha-fin" onchange="calcularDias()" required>
+        <div class="cal-grid cal-dow-row">
+          <div class="cal-dow">Dom</div><div class="cal-dow">Lun</div><div class="cal-dow">Mar</div><div class="cal-dow">Mié</div><div class="cal-dow">Jue</div><div class="cal-dow">Vie</div><div class="cal-dow">Sáb</div>
         </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="cal-selected-summary">
+        <div class="cal-sel-chip">
+          <div class="lbl">Fecha de inicio</div>
+          <div class="val empty" id="resumen-inicio">Elegí un día</div>
+        </div>
+        <div class="cal-sel-chip">
+          <div class="lbl">Fecha de regreso</div>
+          <div class="val empty" id="resumen-fin">Elegí un día</div>
+        </div>
+        <button type="button" class="btn-clear" onclick="borrarSeleccionCalendario()" style="padding:8px 12px;font-size:12px;">Borrar fechas</button>
       </div>
       <div id="dias-resultado" style="display:none;">
         <span class="dias-tag" id="dias-tag">0 días hábiles</span>
@@ -236,6 +276,88 @@ const hoy = new Date();
 const pad = n => String(n).padStart(2,'0');
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
+
+// ─── CALENDARIO DE VACACIONES ────────────────────────────────────────────────────────────
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+let calMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+let calInicio = null;
+let calFin = null;
+
+function fechaToStr(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function esMismaFecha(a, b) {
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+function renderCalendario() {
+  const grid  = document.getElementById('cal-grid');
+  const label = document.getElementById('cal-mes-label');
+  const year  = calMesActual.getFullYear();
+  const month = calMesActual.getMonth();
+  label.textContent = `${MESES_ES[month]} ${year}`;
+
+  const primerDia   = new Date(year, month, 1);
+  const totalDias   = new Date(year, month+1, 0).getDate();
+  const startWeekday = primerDia.getDay();
+
+  let html = '';
+  for (let i=0; i<startWeekday; i++) html += `<div class="cal-day empty"></div>`;
+  for (let d=1; d<=totalDias; d++) {
+    const fecha = new Date(year, month, d);
+    const clases = ['cal-day'];
+    if (esMismaFecha(fecha, hoy)) clases.push('today');
+    if (calInicio && esMismaFecha(fecha, calInicio)) clases.push('range-start');
+    if (calFin && esMismaFecha(fecha, calFin)) clases.push('range-end');
+    if (calInicio && calFin && fecha > calInicio && fecha < calFin) clases.push('in-range');
+    html += `<div class="${clases.join(' ')}" onclick="seleccionarDiaCalendario(${year},${month},${d})">${d}</div>`;
+  }
+  grid.innerHTML = html;
+}
+function cambiarMesCalendario(delta) {
+  calMesActual = new Date(calMesActual.getFullYear(), calMesActual.getMonth()+delta, 1);
+  renderCalendario();
+}
+function seleccionarDiaCalendario(year, month, day) {
+  const fecha = new Date(year, month, day);
+  if (!calInicio || calFin) {
+    calInicio = fecha; calFin = null;
+  } else if (fecha < calInicio) {
+    calFin = calInicio; calInicio = fecha;
+  } else {
+    calFin = fecha;
+  }
+  document.getElementById('fecha-inicio').value = fechaToStr(calInicio);
+  document.getElementById('fecha-fin').value     = calFin ? fechaToStr(calFin) : '';
+  actualizarResumenFechas();
+  renderCalendario();
+  if (calInicio && calFin) {
+    calcularDias();
+  } else {
+    document.getElementById('dias-resultado').style.display = 'none';
+    document.getElementById('balance-aviso').style.display  = 'none';
+  }
+}
+function borrarSeleccionCalendario() {
+  calInicio = null; calFin = null;
+  document.getElementById('fecha-inicio').value = '';
+  document.getElementById('fecha-fin').value    = '';
+  actualizarResumenFechas();
+  renderCalendario();
+  document.getElementById('dias-resultado').style.display = 'none';
+  document.getElementById('balance-aviso').style.display  = 'none';
+}
+function actualizarResumenFechas() {
+  const elIni = document.getElementById('resumen-inicio');
+  const elFin = document.getElementById('resumen-fin');
+  const fmt = d => d.toLocaleDateString('es-CR', { weekday:'short', day:'numeric', month:'short' });
+  elIni.textContent = calInicio ? fmt(calInicio) : 'Elegí un día';
+  elIni.classList.toggle('empty', !calInicio);
+  elFin.textContent = calFin ? fmt(calFin) : 'Elegí un día';
+  elFin.classList.toggle('empty', !calFin);
+}
+renderCalendario();
+actualizarResumenFechas();
+// ────────────────────────────────────────────────────────────
 
 // Cargar colaboradores desde Google Sheets
 async function cargarColaboradores() {
@@ -495,6 +617,10 @@ function limpiarForm() {
   document.getElementById('balance-card').style.display = 'none';
   document.getElementById('dias-resultado').style.display = 'none';
   document.getElementById('balance-aviso').style.display = 'none';
+  calInicio = null; calFin = null;
+  calMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  renderCalendario();
+  actualizarResumenFechas();
 }
 
 function showToast(msg, type='success') {
