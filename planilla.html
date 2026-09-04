@@ -1393,10 +1393,9 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
   `) + subcardColapsable(scId(2,i,'vacaciones'), `Vacaciones${prev.vacacionesDias>0?` (${prev.vacacionesDias} día(s) en esta quincena)`:''}`, p.esExtra ? avisoExtra : `
       ${vacacionesDelColaborador.length ? `
         <table class="calc-tabla" style="margin-bottom:8px">
-          <thead><tr><th>Del</th><th>Al</th><th style="text-align:right">Días solicitados</th><th style="text-align:right">Días en esta quincena</th></tr></thead>
+          <thead><tr><th>Del</th><th>Al</th><th style="text-align:right">Días solicitados</th></tr></thead>
           <tbody>${vacacionesDelColaborador.map(v => {
-            const diasEnPeriodo = interseccionDias(v['Fecha inicio'], v['Fecha fin'], r.fechaInicio, r.fechaFin);
-            return `<tr><td>${fechaBonita(v['Fecha inicio'])}</td><td>${fechaBonita(v['Fecha fin'])}</td><td class="monto">${v['Días']||'—'}</td><td class="monto">${diasEnPeriodo>0?diasEnPeriodo:'—'}</td></tr>`;
+            return `<tr><td>${fechaBonita(v['Fecha inicio'])}</td><td>${fechaBonita(v['Fecha fin'])}</td><td class="monto">${v['Días']||'—'}</td></tr>`;
           }).join('')}</tbody>
         </table>
         <p class="hint" style="display:block">Total pagado por vacaciones en esta quincena: <b>${prev.vacacionesDias} día(s)</b> — ${fmt(prev.vacacionesMonto)}</p>
