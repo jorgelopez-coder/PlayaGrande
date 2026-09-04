@@ -1716,7 +1716,6 @@ async function cerrarYEnviarRevision() {
   const kiosko = document.getElementById('pl-kiosko').value;
   const r = rangoPeriodoActual();
   const calculadoPor = document.getElementById('calc-por').value.trim();
-  if (!calculadoPor) { showToast('Ingresá quién calculó la planilla.', 'error'); return; }
   const btn = document.getElementById('btn-enviar-revision');
   btn.disabled = true; btn.textContent = 'Enviando…';
   try {
@@ -1819,6 +1818,16 @@ function renderDetalleChecklistItem(i) {
     const r = rangoPeriodoActual();
     return `<table class="calc-tabla"><thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra 50%</th><th style="text-align:right">Extra 100%</th><th style="text-align:right">Tardanza</th><th style="text-align:right">Total ingresos</th><th>Comentarios</th></tr></thead>
       <tbody>${filas.map(d => {
+        // "Horas reg." se muestra ya rebajada por las horas no trabajadas
+        // por días de vacaciones del periodo (no cambia el cálculo ni el
+        // Total ingresos, que ya netea esto por separado vía "Días no
+        // trabajados" — esto es solo para que el checklist de verificación
+        // sea más claro sobre qué se pagó como tiempo trabajado vs. vacación).
+        const horasRegMonto = Number(d['Horas regulares monto'])||0;
+        const vacacionesMonto = Number(d['Vacaciones monto'])||0;
+        const horasRegCelda = vacacionesMonto > 0
+          ? `${fmt(horasRegMonto - vacacionesMonto)}<div class="subtit">−${fmt(vacacionesMonto)} vacaciones</div>`
+          : fmt(horasRegMonto);
         const tardanzaMonto = Number(d['Tardanza monto'])||0;
         const tardanzaDet = sumarHorasTardanzaCliente(d['Colaborador'], r.fechaInicio, r.fechaFin);
         const tardanzaCelda = tardanzaMonto > 0
@@ -1838,7 +1847,7 @@ function renderDetalleChecklistItem(i) {
         const comentarios = [
           part && part.comentarioHorasRegulares ? `Horas reg.: ${part.comentarioHorasRegulares}` : ''
         ].filter(Boolean).join('<br>');
-        return `<tr><td>${d['Colaborador']}</td><td class="monto">${fmt(d['Horas regulares monto'])}</td><td class="monto">${extra50Celda}</td><td class="monto">${extra100Celda}</td><td class="monto">${tardanzaCelda}</td><td class="monto">${fmt(d['Total ingresos'])}</td><td class="hint">${comentarios || '—'}</td></tr>`;
+        return `<tr><td>${d['Colaborador']}</td><td class="monto">${horasRegCelda}</td><td class="monto">${extra50Celda}</td><td class="monto">${extra100Celda}</td><td class="monto">${tardanzaCelda}</td><td class="monto">${fmt(d['Total ingresos'])}</td><td class="hint">${comentarios || '—'}</td></tr>`;
       }).join('')}</tbody></table>`;
   }
   if (i === 1) {
