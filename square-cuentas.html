@@ -83,6 +83,7 @@ input::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 .token-row{display:flex;gap:8px;align-items:stretch}
 .token-row input{flex:1}
+.token-row select{flex:1}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 
@@ -122,7 +123,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <div class="intro">
     <h1>Cuentas Square</h1>
-    <p>Registrá cada punto de venta que tenga su propia cuenta de Square (nombre, location ID y access token). El sistema descarga ventas por producto, pagos, descuentos y devoluciones de cada cuenta activa, en la frecuencia que elijas abajo, y las consolida en este mismo Sheet para análisis de ventas, revisión de inventario y control de operación.</p>
+    <p>Registrá cada punto de venta que tenga su propia cuenta de Square (kiosko, location ID y access token). El sistema descarga ventas por producto, pagos, descuentos y devoluciones de cada cuenta activa, en la frecuencia que elijas abajo, y las consolida en este mismo Sheet para análisis de ventas, revisión de inventario y control de operación. El nombre del punto de venta se toma de la lista de kioskos de Configuración, para que coincida con lo que usan Cierres, Indicadores y RRHH.</p>
   </div>
 
   <div class="section-block">
@@ -139,8 +140,19 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <p class="card-title" id="form-title">Nueva cuenta</p>
 
       <div class="field">
-        <label for="f-nombre">Nombre del punto de venta <span class="req">*</span></label>
-        <input type="text" id="f-nombre" placeholder="Ej: Playa Grande"/>
+        <label for="f-nombre">Kiosko (punto de venta) <span class="req">*</span></label>
+        <div class="token-row">
+          <select id="f-nombre">
+            <option value="">Elegí un kiosko…</option>
+          </select>
+          <button type="button" class="btn-secondary" onclick="toggleNuevoKiosko()">+ Nuevo kiosko</button>
+        </div>
+        <div class="token-row" id="nuevo-kiosko-row" style="display:none;margin-top:8px;">
+          <input type="text" id="f-nuevo-kiosko" placeholder="Nombre del kiosko nuevo, ej: Sámara"/>
+          <button type="button" class="btn-secondary" id="btn-crear-kiosko" onclick="crearKioskoRapido()">Crear</button>
+          <button type="button" class="btn-text" onclick="toggleNuevoKiosko(false)">Cancelar</button>
+        </div>
+        <p class="field-hint">La lista viene de Configuración → Kioskos. Si el kiosko todavía no existe ahí, crealo con el botón — después completá ubicación, encargado y horario desde Configuración cuando puedas.</p>
       </div>
 
       <div class="field">
@@ -247,6 +259,14 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 const APPS_SCRIPT_SQUARE_CUENTAS = 'https://script.google.com/macros/s/AKfycbxGjpfEHgtx0t7jCD_j7uaOV85G1MkeQjwMb7GNGRzTmG4t3tArDTorb7UipR58r3yEWA/exec';
 function squareListo() { return !APPS_SCRIPT_SQUARE_CUENTAS.startsWith('TODO_'); }
 
+// URL /exec del backend de RRHH/Configuración (mismo usado en index.html,
+// configuracion.html, cierres.html, etc. — ver Code-rrhh-kioskos-backend.gs).
+// De acá viene la lista canónica de kioskos que alimenta el select de
+// "Kiosko (punto de venta)" de arriba, y el alta rápida de un kiosko nuevo
+// desde el botón "+ Nuevo kiosko" (modulo=kiosko_guardar, mismo endpoint
+// que usa configuracion.html).
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+
 const FRECUENCIAS = [
   { valor: 'cada_hora', texto: 'cada hora' },
   { valor: 'cada_4h', texto: 'cada 4 horas' },
@@ -258,6 +278,7 @@ const FRECUENCIAS = [
 let cuentas = [];
 let editando = null;
 let confirmarEliminarId = null;
+let kioskosDisponibles = []; // nombres de kioskos activos, desde Configuración
 
 async function getSquare(modulo, extra) {
   if (!squareListo()) throw new Error('Todavía no se desplegó Code-square-cuentas-backend.gs — pegá la URL /exec en APPS_SCRIPT_SQUARE_CUENTAS.');
@@ -275,6 +296,97 @@ async function postSquare(modulo, payload) {
     const resp = await fetch(APPS_SCRIPT_SQUARE_CUENTAS, { method:'POST', body:new URLSearchParams({ data: JSON.stringify(Object.assign({ modulo: modulo }, payload)) }) });
     return await resp.json();
   } catch (e) { return { ok:false, error:e.message }; }
+}
+
+// ── KIOSKOS (para el select "Kiosko (punto de venta)") ───────────
+async function cargarKioskosParaSelect() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await resp.json();
+    kioskosDisponibles = (data.kioskos && data.kioskos.length)
+      ? data.kioskos
+      : (data.registros || [])
+          .filter(function (r) { return String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no'; })
+          .map(function (r) { return r['Kiosko']; })
+          .filter(Boolean);
+  } catch (e) {
+    kioskosDisponibles = [];
+  }
+  poblarSelectKioskos();
+}
+
+// Redibuja el <select> de kioskos. Si se pasa forzarNombre (o ya había un
+// valor elegido), lo conserva seleccionado aunque no esté en la lista de
+// Configuración — para no perder el dato de una cuenta ya guardada con un
+// nombre que todavía no está dado de alta ahí (se marca aparte para que se
+// note).
+function poblarSelectKioskos(forzarNombre) {
+  const sel = document.getElementById('f-nombre');
+  const actual = forzarNombre != null ? forzarNombre : sel.value;
+  const opciones = kioskosDisponibles.slice();
+  if (actual && opciones.indexOf(actual) === -1) opciones.push(actual);
+
+  sel.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Elegí un kiosko…';
+  sel.appendChild(placeholder);
+  opciones.forEach(function (k) {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k + (kioskosDisponibles.indexOf(k) === -1 ? ' (no está en Configuración)' : '');
+    sel.appendChild(opt);
+  });
+  sel.value = actual || '';
+}
+
+function toggleNuevoKiosko(forzar) {
+  const row = document.getElementById('nuevo-kiosko-row');
+  const abrir = typeof forzar === 'boolean' ? forzar : row.style.display === 'none';
+  row.style.display = abrir ? 'flex' : 'none';
+  if (abrir) {
+    document.getElementById('f-nuevo-kiosko').value = '';
+    document.getElementById('f-nuevo-kiosko').focus();
+  }
+}
+
+// Alta rápida de un kiosko nuevo sin salir de Cuentas Square — llama al
+// mismo endpoint que usa el formulario completo de configuracion.html
+// (modulo=kiosko_guardar), dejando el resto de los campos (ubicación,
+// encargado, horario, etc.) en blanco para completarlos después ahí.
+async function crearKioskoRapido() {
+  const nombre = document.getElementById('f-nuevo-kiosko').value.trim();
+  if (!nombre) { showToast('Escribí el nombre del kiosko nuevo', 'error'); return; }
+
+  const yaExiste = kioskosDisponibles.find(function (k) { return k.toLowerCase() === nombre.toLowerCase(); });
+  if (yaExiste) {
+    poblarSelectKioskos(yaExiste);
+    toggleNuevoKiosko(false);
+    showToast('Ese kiosko ya existía — lo seleccioné en la lista');
+    return;
+  }
+
+  const btn = document.getElementById('btn-crear-kiosko');
+  btn.disabled = true;
+  btn.textContent = 'Creando…';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ modulo: 'kiosko_guardar', kiosko: nombre, activo: 'Sí' })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al crear el kiosko');
+    await cargarKioskosParaSelect();
+    poblarSelectKioskos(nombre);
+    toggleNuevoKiosko(false);
+    showToast('Kiosko creado ✓ — completá ubicación, encargado y horario en Configuración cuando puedas');
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Crear';
+  }
 }
 
 // ── CUENTAS: carga y render ──────────────────────────────────────
@@ -350,7 +462,8 @@ function renderLista() {
 function abrirForm() {
   editando = null;
   document.getElementById('form-title').textContent = 'Nueva cuenta';
-  document.getElementById('f-nombre').value = '';
+  poblarSelectKioskos('');
+  toggleNuevoKiosko(false);
   document.getElementById('f-locations').value = '';
   document.getElementById('f-token').value = '';
   document.getElementById('f-token').type = 'password';
@@ -368,7 +481,8 @@ function editarCuenta(id) {
   if (!c) return;
   editando = id;
   document.getElementById('form-title').textContent = 'Editar cuenta';
-  document.getElementById('f-nombre').value = c['Nombre'] || '';
+  poblarSelectKioskos(c['Nombre'] || '');
+  toggleNuevoKiosko(false);
   document.getElementById('f-locations').value = c['Location IDs'] || '';
   document.getElementById('f-token').value = '';
   document.getElementById('f-token').type = 'password';
@@ -383,6 +497,7 @@ function editarCuenta(id) {
 function cerrarForm() {
   document.getElementById('form-card').classList.remove('open');
   editando = null;
+  toggleNuevoKiosko(false);
 }
 
 function toggleMostrarToken() {
@@ -397,7 +512,7 @@ async function guardarCuenta() {
   const nombre = document.getElementById('f-nombre').value.trim();
   const locationIds = document.getElementById('f-locations').value.trim();
   const token = document.getElementById('f-token').value.trim();
-  if (!nombre) { showToast('Falta el nombre del punto de venta', 'error'); return; }
+  if (!nombre) { showToast('Elegí el kiosko para esta cuenta', 'error'); return; }
   if (!locationIds) { showToast('Falta al menos un Location ID', 'error'); return; }
   if (!editando && !token) { showToast('Falta el access token', 'error'); return; }
 
@@ -556,6 +671,7 @@ function showToast(msg, type) {
 
 // ── INIT ──────────────────────────────────────────────────────────
 cargarCuentas();
+cargarKioskosParaSelect();
 cargarFrecuencia();
 cargarSyncLog();
 </script>
