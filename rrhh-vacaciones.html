@@ -73,10 +73,11 @@
     .cal-dow { font-size:10px; font-weight:600; text-transform:uppercase; color:var(--subtle); text-align:center; padding:4px 0 6px; }
     .cal-day { position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:7px; cursor:pointer; color:var(--text); background:transparent; user-select:none; }
     .cal-day.empty { cursor:default; }
-    .cal-day:not(.empty):not(.in-range):not(.range-start):not(.range-end):hover { background:var(--green-lt); }
+    .cal-day:not(.empty):not(.in-range):not(.range-start):not(.range-end):not(.return-day):hover { background:var(--green-lt); }
     .cal-day.today { font-weight:700; box-shadow:inset 0 0 0 1.5px var(--green); }
     .cal-day.in-range { background:var(--green-bg); }
     .cal-day.range-start, .cal-day.range-end { background:var(--green); color:#fff; font-weight:600; }
+    .cal-day.return-day { background:var(--blue-bg); color:var(--blue); font-weight:600; box-shadow:inset 0 0 0 1.5px var(--blue); }
     .cal-selected-summary { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
     .cal-sel-chip { flex:1; min-width:140px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:8px 12px; }
     .cal-sel-chip .lbl { font-size:11px; color:var(--muted); margin-bottom:2px; }
@@ -210,7 +211,7 @@
           <div class="val empty" id="resumen-inicio">Elegí un día</div>
         </div>
         <div class="cal-sel-chip">
-          <div class="lbl">Fecha de regreso</div>
+          <div class="lbl">Fecha de regreso <span style="font-weight:400;">(automática)</span></div>
           <div class="val empty" id="resumen-fin">Elegí un día</div>
         </div>
         <button type="button" class="btn-clear" onclick="borrarSeleccionCalendario()" style="padding:8px 12px;font-size:12px;">Borrar fechas</button>
@@ -301,6 +302,7 @@ function renderCalendario() {
   const startWeekday = primerDia.getDay();
 
   let html = '';
+  const regresoActual = fechaRegreso();
   for (let i=0; i<startWeekday; i++) html += `<div class="cal-day empty"></div>`;
   for (let d=1; d<=totalDias; d++) {
     const fecha = new Date(year, month, d);
@@ -309,6 +311,7 @@ function renderCalendario() {
     if (calInicio && esMismaFecha(fecha, calInicio)) clases.push('range-start');
     if (calFin && esMismaFecha(fecha, calFin)) clases.push('range-end');
     if (calInicio && calFin && fecha > calInicio && fecha < calFin) clases.push('in-range');
+    if (regresoActual && esMismaFecha(fecha, regresoActual)) clases.push('return-day');
     html += `<div class="${clases.join(' ')}" onclick="seleccionarDiaCalendario(${year},${month},${d})">${d}</div>`;
   }
   grid.innerHTML = html;
@@ -317,7 +320,16 @@ function cambiarMesCalendario(delta) {
   calMesActual = new Date(calMesActual.getFullYear(), calMesActual.getMonth()+delta, 1);
   renderCalendario();
 }
+// Día de regreso = día siguiente al último día de vacación seleccionado (no es un día de vacación).
+function fechaRegreso() {
+  const ultimo = calFin || calInicio;
+  if (!ultimo) return null;
+  const r = new Date(ultimo);
+  r.setDate(r.getDate() + 1);
+  return r;
+}
 function seleccionarDiaCalendario(year, month, day) {
+  // Cada click selecciona un día que SÍ se toma de vacaciones (inicio o último día del rango).
   const fecha = new Date(year, month, day);
   if (!calInicio || calFin) {
     calInicio = fecha; calFin = null;
@@ -326,11 +338,12 @@ function seleccionarDiaCalendario(year, month, day) {
   } else {
     calFin = fecha;
   }
+  const regreso = fechaRegreso();
   document.getElementById('fecha-inicio').value = fechaToStr(calInicio);
-  document.getElementById('fecha-fin').value     = calFin ? fechaToStr(calFin) : '';
+  document.getElementById('fecha-fin').value     = regreso ? fechaToStr(regreso) : '';
   actualizarResumenFechas();
   renderCalendario();
-  if (calInicio && calFin) {
+  if (calInicio) {
     calcularDias();
   } else {
     document.getElementById('dias-resultado').style.display = 'none';
@@ -350,10 +363,11 @@ function actualizarResumenFechas() {
   const elIni = document.getElementById('resumen-inicio');
   const elFin = document.getElementById('resumen-fin');
   const fmt = d => d.toLocaleDateString('es-CR', { weekday:'short', day:'numeric', month:'short' });
+  const regreso = fechaRegreso();
   elIni.textContent = calInicio ? fmt(calInicio) : 'Elegí un día';
   elIni.classList.toggle('empty', !calInicio);
-  elFin.textContent = calFin ? fmt(calFin) : 'Elegí un día';
-  elFin.classList.toggle('empty', !calFin);
+  elFin.textContent = regreso ? fmt(regreso) : 'Elegí un día';
+  elFin.classList.toggle('empty', !regreso);
 }
 renderCalendario();
 actualizarResumenFechas();
