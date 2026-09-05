@@ -199,6 +199,56 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
     </div>
   </div>
 
+  <div class="intro" style="margin-top:2.5rem;">
+    <h1 style="font-size:17px;">Usuarios individuales (Google)</h1>
+    <p>Cada usuario entra con su cuenta de Google (personal o corporativa) desde <code>login.html</code>, en vez de un PIN compartido. Se le asigna un Rol de la lista de arriba — ese Rol sigue siendo quien define qué módulos y kioskos puede ver.</p>
+  </div>
+
+  <div class="section-head">
+    <span class="section-title" id="usr-count">Cargando…</span>
+    <button class="btn-primary" onclick="abrirFormUsuario()">+ Agregar usuario</button>
+  </div>
+
+  <div class="rol-list" id="usr-list">
+    <div class="empty-state">Cargando usuarios…</div>
+  </div>
+
+  <div class="card" id="form-card-usuario">
+    <p class="card-title" id="form-title-usuario">Nuevo usuario</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="u-nombre">Nombre <span class="req">*</span></label>
+        <input type="text" id="u-nombre" placeholder="Ej: María Rodríguez"/>
+      </div>
+      <div class="field">
+        <label for="u-email">Correo (Google) <span class="req">*</span></label>
+        <input type="text" id="u-email" placeholder="Ej: maria@gmail.com"/>
+        <p class="field-hint">Puede ser un correo personal (Gmail) o corporativo — con esa cuenta va a entrar.</p>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="u-rol">Rol asignado <span class="req">*</span></label>
+        <select id="u-rol"></select>
+        <p class="field-hint">Define qué módulos y kioskos va a ver.</p>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="u-activo">
+          <option value="Sí">Activo</option>
+          <option value="No">Inactivo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="cerrarFormUsuario()">Cancelar</button>
+      <button class="btn-primary" id="btn-guardar-usuario" onclick="guardarUsuario()">Guardar usuario ✓</button>
+    </div>
+  </div>
+
 </main>
 
 <div class="toast" id="toast">
@@ -528,6 +578,166 @@ async function toggleActivoRol(id, activoActual) {
   }
 }
 
+// ── USUARIOS INDIVIDUALES (login con Google) ────────────────────────
+let usuarios = [];       // filas completas (activos e inactivos)
+let editandoUsuario = null;
+
+async function cargarUsuarios() {
+  const lista = document.getElementById('usr-list');
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=usuarios');
+    if (!resp.ok) throw new Error('Error ' + resp.status);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Sin datos');
+    usuarios = data.registros || [];
+    renderListaUsuarios();
+  } catch (e) {
+    lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
+      + '<a href="javascript:void(0)" onclick="cargarUsuarios()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
+    document.getElementById('usr-count').textContent = 'Sin conexión';
+  }
+}
+
+function nombreRolUsuario(id) {
+  const r = roles.find(x => String(x['ID']) === String(id));
+  return r ? r['Nombre'] : (id || '—');
+}
+
+function renderListaUsuarios() {
+  const lista = document.getElementById('usr-list');
+  document.getElementById('usr-count').textContent =
+    usuarios.length + ' usuario' + (usuarios.length === 1 ? '' : 's') + ' registrado' + (usuarios.length === 1 ? '' : 's');
+
+  if (!usuarios.length) {
+    lista.innerHTML = '<div class="empty-state">Todavía no hay usuarios individuales — agregá el primero con el botón de arriba.</div>';
+    return;
+  }
+
+  lista.innerHTML = usuarios.map(u => {
+    const id = u['ID'] || '';
+    const nombre = u['Nombre'] || '';
+    const email = u['Email'] || '';
+    const rolId = u['RolID'] || '';
+    const activo = String(u['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+
+    return `
+    <div class="rol-card ${activo ? '' : 'inactive'}">
+      <div class="rc-head">
+        <div class="rc-name-wrap">
+          <span class="rc-name">${nombre}</span>
+          <span class="badge badge-mono">${email}</span>
+        </div>
+        <div class="rc-badges">
+          <span class="badge ${activo ? 'badge-ok' : 'badge-off'}">${activo ? 'Activo' : 'Inactivo'}</span>
+        </div>
+        <div class="rc-actions">
+          <button class="btn-text" onclick='editarUsuario(${JSON.stringify(id)})'>Editar</button>
+          <button class="${activo ? 'btn-danger-text' : 'btn-text'}" onclick='toggleActivoUsuario(${JSON.stringify(id)}, ${activo})'>${activo ? 'Desactivar' : 'Activar'}</button>
+        </div>
+      </div>
+      <div class="rc-detail">
+        <div class="rc-detail-item"><span>Rol:</span><span class="v">${nombreRolUsuario(rolId)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function poblarSelectRoles() {
+  const sel = document.getElementById('u-rol');
+  const activos = roles.filter(r => String(r['Activo']||'Sí').trim().toLowerCase() !== 'no');
+  sel.innerHTML = activos.length
+    ? activos.map(r => `<option value="${r['ID']}">${r['Nombre']}</option>`).join('')
+    : '<option value="">No hay roles activos — creá uno arriba primero</option>';
+}
+
+function abrirFormUsuario() {
+  editandoUsuario = null;
+  document.getElementById('form-title-usuario').textContent = 'Nuevo usuario';
+  document.getElementById('u-nombre').value = '';
+  document.getElementById('u-email').value = '';
+  document.getElementById('u-activo').value = 'Sí';
+  poblarSelectRoles();
+  document.getElementById('form-card-usuario').classList.add('open');
+  document.getElementById('u-nombre').focus();
+  window.scrollTo({ top: document.getElementById('form-card-usuario').offsetTop - 80, behavior: 'smooth' });
+}
+
+function editarUsuario(id) {
+  const u = usuarios.find(x => String(x['ID']) === String(id));
+  if (!u) return;
+  editandoUsuario = id;
+  document.getElementById('form-title-usuario').textContent = 'Editar usuario';
+  document.getElementById('u-nombre').value = u['Nombre'] || '';
+  document.getElementById('u-email').value = u['Email'] || '';
+  document.getElementById('u-activo').value = String(u['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
+  poblarSelectRoles();
+  document.getElementById('u-rol').value = u['RolID'] || '';
+  document.getElementById('form-card-usuario').classList.add('open');
+  window.scrollTo({ top: document.getElementById('form-card-usuario').offsetTop - 80, behavior: 'smooth' });
+}
+
+function cerrarFormUsuario() {
+  document.getElementById('form-card-usuario').classList.remove('open');
+  editandoUsuario = null;
+}
+
+async function guardarUsuario() {
+  const nombre = document.getElementById('u-nombre').value.trim();
+  const email = document.getElementById('u-email').value.trim();
+  const rolId = document.getElementById('u-rol').value;
+  if (!nombre) { showToast('Falta el nombre', 'error'); return; }
+  if (!email) { showToast('Falta el correo', 'error'); return; }
+  if (!rolId) { showToast('Falta asignar un rol', 'error'); return; }
+
+  const payload = {
+    modulo: 'usuario_guardar',
+    id: editandoUsuario || '',
+    nombre: nombre,
+    email: email,
+    rol_id: rolId,
+    activo: document.getElementById('u-activo').value,
+    registrado_en: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('btn-guardar-usuario');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
+    showToast('Usuario guardado ✓');
+    cerrarFormUsuario();
+    await cargarUsuarios();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar usuario ✓';
+  }
+}
+
+async function toggleActivoUsuario(id, activoActual) {
+  const nuevoEstado = activoActual ? 'No' : 'Sí';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ modulo: 'usuario_estado', id: id, activo: nuevoEstado })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+    showToast(nuevoEstado === 'Sí' ? 'Usuario activado ✓' : 'Usuario desactivado ✓');
+    await cargarUsuarios();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
 // ── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
@@ -547,7 +757,7 @@ document.getElementById('color-presets').innerHTML = COLOR_PRESETS.map(c =>
 document.getElementById('f-color').addEventListener('input', e => marcarColorActivo(e.target.value));
 construirCheckModulos();
 cargarKioskosDisponibles();
-cargarRoles();
+cargarRoles().then(cargarUsuarios);
 </script>
 </body>
 </html>

@@ -59,7 +59,16 @@
       margin-top:12px; display:none; text-align:center;
     }
     .footer { text-align:center; margin-top:1.5rem; font-size:11px; color:var(--subtle); }
+    .divider { display:flex; align-items:center; gap:10px; margin:1.5rem 0 1.25rem; color:var(--subtle); font-size:11px; }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+    .google-wrap { display:flex; justify-content:center; }
+    .google-error {
+      font-size:12px; color:var(--red); background:var(--red-bg);
+      border:1px solid #f0c0a8; border-radius:8px; padding:9px 12px;
+      margin-top:12px; display:none; text-align:center;
+    }
   </style>
+  <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body>
 <div class="card">
@@ -86,10 +95,25 @@
   <button class="btn" id="btn-ingresar" onclick="ingresar()">Ingresar</button>
   <div class="error" id="error-msg">Código incorrecto. Intentá nuevamente.</div>
 
+  <div id="google-section" style="display:none;">
+    <div class="divider">o</div>
+    <div class="google-wrap" id="g_id_button"></div>
+    <div class="google-error" id="google-error-msg"></div>
+  </div>
+
   <div class="footer">Playa Grande Brew House · Portal interno de kioskos</div>
 </div>
 
 <script>
+// Iniciar sesión con Google (además del PIN por rol) — cada correo debe
+// estar dado de alta en admin-accesos.html > Usuarios individuales, con un
+// Rol asignado; ese Rol es quien define módulos y kioskos, igual que con el
+// login por PIN. Pegar acá el Client ID de Google Cloud (APIs & Services >
+// Credentials > OAuth 2.0 Client ID, tipo "Web application", con este mismo
+// origen en "Authorized JavaScript origins"). Mientras esté vacío, el botón
+// de Google queda oculto y el portal sigue funcionando solo con PIN.
+const GOOGLE_CLIENT_ID = '853957823193-fncpv7krc70cd4okguamathqr44ld6ka.apps.googleusercontent.com';
+
 // Misma URL /exec del backend de RRHH que usan cierres.html, configuracion.html
 // y admin-accesos.html — ahí vive la pestaña "Roles" (nombre, PIN, color,
 // módulos y kioskos permitidos por rol).
@@ -167,6 +191,52 @@ document.getElementById('pin').disabled = true;
 document.getElementById('btn-ingresar').disabled = true;
 cargarRoles();
 document.getElementById('pin').focus();
+
+// ── LOGIN CON GOOGLE ──────────────────────────────────────────────
+// El token que entrega Google (response.credential, un ID token firmado) se
+// manda tal cual al backend — es el backend (resolverLoginGoogle) quien lo
+// valida contra Google y recién ahí busca el correo en Usuarios. Acá nunca
+// se confía en el email "a simple vista": si alguien manipulara este JS en
+// su propio navegador, igual necesitaría un token real y válido de Google
+// para conseguir una sesión, porque el backend es quien decide.
+async function handleGoogleCredential(response) {
+  const errBox = document.getElementById('google-error-msg');
+  errBox.style.display = 'none';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ modulo: 'usuario_login_google', credential: response.credential })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'No se pudo validar con Google.');
+    const r = data.result;
+    if (!r || !r.encontrado) {
+      throw new Error('Tu correo no tiene acceso asignado en el portal — pedile a un administrador que te agregue en Accesos.');
+    }
+    localStorage.setItem('portal_sesion', JSON.stringify({
+      rol_id:     r.rol_id,
+      nombre:     r.nombre,
+      modulos:    parseLista(r.modulos),
+      kioskos:    parseLista(r.kioskos),
+      email:      r.email,
+      usuario_id: r.usuario_id,
+      ts:         Date.now()
+    }));
+    window.location.href = 'index.html';
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = 'block';
+  }
+}
+
+if (GOOGLE_CLIENT_ID && window.google && google.accounts && google.accounts.id) {
+  document.getElementById('google-section').style.display = 'block';
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+  google.accounts.id.renderButton(document.getElementById('g_id_button'), {
+    theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 300
+  });
+}
 </script>
 </body>
 </html>
