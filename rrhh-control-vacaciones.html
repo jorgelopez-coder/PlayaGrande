@@ -349,12 +349,6 @@ function parsearFecha(valor) {
 }
 
 function calcularSaldo(p) {
-  // Saldo manual tiene prioridad
-  // Ignorar si: es 0, es NaN, parece año (> 365), o parece número serial de fecha de Excel (> 40000)
-  const saldoRaw   = p['Saldo vacaciones'];
-  const saldoNum   = parseFloat(saldoRaw);
-  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
-
   const nombre = p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim();
 
   // Días tomados (aprobados) — tolerante a variaciones de encabezados del Sheet
@@ -370,40 +364,51 @@ function calcularSaldo(p) {
       return acc + (isNaN(d) ? 0 : d);
     }, 0);
 
-  if (saldoSheet > 0) return Math.max(0, saldoSheet - diasTomados);
-
-  // Calcular desde fecha de ingreso
+  // Regla legal (Código de Trabajo Art. 153): 1 día de vacaciones por cada
+  // mes completo trabajado desde la fecha de ingreso (+ 1 día extra si ya
+  // pasaron más de 20 días del mes en curso), acumulable mientras no se
+  // disfrute. Se recalcula SIEMPRE en vivo según la antigüedad real —
+  // "Saldo vacaciones" ya NO actúa como techo fijo: antes, en cuanto ese
+  // campo tenía un valor, el saldo quedaba congelado para siempre y solo
+  // bajaba al aprobar vacaciones, sin sumar los meses de antigüedad que
+  // seguían corriendo (ver feedback_vacaciones_antiguedad_no_acumula.md).
   const ingreso = p['Fecha ingreso'] || p['fecha_ingreso'] || '';
   const dIng    = parsearFecha(ingreso);
-  if (!dIng) return 0;
 
-  // Años y meses completos
-  let anios = hoy.getFullYear() - dIng.getFullYear();
-  let meses = hoy.getMonth()    - dIng.getMonth();
-  let dias  = hoy.getDate()     - dIng.getDate();
+  if (dIng) {
+    // Años y meses completos
+    let anios = hoy.getFullYear() - dIng.getFullYear();
+    let meses = hoy.getMonth()    - dIng.getMonth();
+    let dias  = hoy.getDate()     - dIng.getDate();
 
-  // Ajustar si los días son negativos (mes no completo aún)
-  if (dias < 0) meses--;
-  if (meses < 0) { anios--; meses += 12; }
+    // Ajustar si los días son negativos (mes no completo aún)
+    if (dias < 0) meses--;
+    if (meses < 0) { anios--; meses += 12; }
 
-  const mesesCompletos = Math.max(0, anios * 12 + meses);
+    const mesesCompletos = Math.max(0, anios * 12 + meses);
 
-  // Días transcurridos en el mes en curso (desde el día de ingreso hasta hoy)
-  let diasEnMesActual;
-  if (dias >= 0) {
-    diasEnMesActual = dias;
-  } else {
-    // dias es negativo: retrocedemos al mes anterior para contar correctamente
-    const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
-    diasEnMesActual = diasEnMesAnterior + dias;
+    // Días transcurridos en el mes en curso (desde el día de ingreso hasta hoy)
+    let diasEnMesActual;
+    if (dias >= 0) {
+      diasEnMesActual = dias;
+    } else {
+      // dias es negativo: retrocedemos al mes anterior para contar correctamente
+      const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
+      diasEnMesActual = diasEnMesAnterior + dias;
+    }
+
+    // Si lleva más de 20 días en el mes actual, cuenta como mes adicional
+    const extra = diasEnMesActual > 20 ? 1 : 0;
+    const diasDevengados = mesesCompletos + extra;
+
+    return Math.max(0, diasDevengados - diasTomados);
   }
 
-  // Si lleva más de 20 días en el mes actual, cuenta como mes adicional
-  const extra = diasEnMesActual > 20 ? 1 : 0;
-
-  const diasDevengados = mesesCompletos + extra;
-
-  return Math.max(0, diasDevengados - diasTomados);
+  // Respaldo: sin fecha de ingreso válida no se puede calcular por
+  // antigüedad — se usa "Saldo vacaciones" solo como valor manual de reserva.
+  const saldoNum   = parseFloat(p['Saldo vacaciones']);
+  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
+  return Math.max(0, saldoSheet - diasTomados);
 }
 
 // ── DÍAS HÁBILES ─────────────────────────────────────────────────

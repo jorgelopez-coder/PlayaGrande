@@ -605,6 +605,7 @@ function colorMovimiento(tipo) {
     case 'Puesto':
     case 'Departamento':  return ['var(--purple-bg)', 'var(--purple)'];
     case 'Kiosko':        return ['var(--amber-bg)', 'var(--amber)'];
+    case 'Vacaciones':    return ['var(--green-bg)', 'var(--green)'];
     case 'Estado':
     case 'Terminación':   return ['var(--red-bg)', 'var(--red)'];
     default:               return ['var(--surface)', 'var(--muted)'];
@@ -824,12 +825,6 @@ function parsearFechaExp(valor) {
 }
 
 function calcVacExpediente(p) {
-  // Mismo cálculo que control de vacaciones:
-  // Ignorar saldo si parece año/serial (> 365)
-  const saldoRaw = p['Saldo vacaciones'];
-  const saldoNum = parseFloat(saldoRaw);
-  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
-
   // Días tomados de solicitudes aprobadas
   // (solicitudes viene del array global cargado en cargarDatos)
   const nombre = p['Nombre completo'] || ((p['Nombre']||'') + ' ' + (p['Apellidos']||'')).trim();
@@ -845,29 +840,37 @@ function calcVacExpediente(p) {
       return acc + (isNaN(d) ? 0 : d);
     }, 0);
 
-  if (saldoSheet > 0) return Math.max(0, saldoSheet - diasTomados);
-
-  // Calcular desde fecha de ingreso
+  // Regla legal (Código de Trabajo Art. 153): 1 día por mes completo desde
+  // la fecha de ingreso (+1 si ya pasaron más de 20 días del mes en curso),
+  // acumulable. Recalculado siempre en vivo — "Saldo vacaciones" ya NO es
+  // un techo fijo (congelaba el saldo sin sumar la antigüedad que seguía
+  // corriendo; ver feedback_vacaciones_antiguedad_no_acumula.md).
   const ingreso = p['Fecha ingreso'] || '';
   const dIng    = parsearFechaExp(ingreso);
-  if (!dIng) return 0;
 
-  let anios = hoy.getFullYear() - dIng.getFullYear();
-  let meses = hoy.getMonth()    - dIng.getMonth();
-  let dias  = hoy.getDate()     - dIng.getDate();
-  if (dias  < 0) meses--;
-  if (meses < 0) { anios--; meses += 12; }
-  const mesesCompletos = Math.max(0, anios * 12 + meses);
+  if (dIng) {
+    let anios = hoy.getFullYear() - dIng.getFullYear();
+    let meses = hoy.getMonth()    - dIng.getMonth();
+    let dias  = hoy.getDate()     - dIng.getDate();
+    if (dias  < 0) meses--;
+    if (meses < 0) { anios--; meses += 12; }
+    const mesesCompletos = Math.max(0, anios * 12 + meses);
 
-  let diasEnMesActual;
-  if (dias >= 0) {
-    diasEnMesActual = dias;
-  } else {
-    const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
-    diasEnMesActual = diasEnMesAnterior + dias;
+    let diasEnMesActual;
+    if (dias >= 0) {
+      diasEnMesActual = dias;
+    } else {
+      const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
+      diasEnMesActual = diasEnMesAnterior + dias;
+    }
+    const extra = diasEnMesActual > 20 ? 1 : 0;
+    return Math.max(0, mesesCompletos + extra - diasTomados);
   }
-  const extra = diasEnMesActual > 20 ? 1 : 0;
-  return Math.max(0, mesesCompletos + extra - diasTomados);
+
+  // Respaldo: sin fecha de ingreso válida, usar "Saldo vacaciones" manual.
+  const saldoNum   = parseFloat(p['Saldo vacaciones']);
+  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
+  return Math.max(0, saldoSheet - diasTomados);
 }
 
 // ── VER EXPEDIENTE ────────────────────────────────────────────────
@@ -953,7 +956,8 @@ function verExpediente(idx) {
     : '<div class="amon-empty">Sin amonestaciones registradas</div>';
 
   // Histórico de movimientos de este colaborador (salario, puesto,
-  // departamento, kiosko, nombre, estado, terminación) — más reciente primero.
+  // departamento, kiosko, nombre, estado, terminación, vacaciones) — más
+  // reciente primero.
   const movimientos = (window._movimientos || [])
     .filter(m => (m.colaborador || '').trim().toLowerCase() === nombre.toLowerCase())
     .sort((a, b) => String(b.registrado_en || '').localeCompare(String(a.registrado_en || '')));

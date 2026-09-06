@@ -243,13 +243,80 @@ document.getElementById('date-chip').textContent =
 
 let todosPersonal = [];
 let seleccionado  = null;
+let solicitudesVacGlobal = [];
+
+function parsearFechaVacG(valor) {
+  if (!valor) return null;
+  const str = String(valor).trim().substring(0, 10);
+  const p   = str.split('-');
+  if (p.length < 3) return null;
+  const anio = parseInt(p[0]);
+  const mes  = parseInt(p[1]) - 1;
+  const dia  = parseInt(p[2]);
+  if (isNaN(anio) || isNaN(mes) || isNaN(dia)) return null;
+  return new Date(anio, mes, dia);
+}
+
+// Regla legal (Código de Trabajo Art. 153): 1 día por mes completo desde la
+// fecha de ingreso (+1 si ya pasaron más de 20 días del mes en curso),
+// acumulable — es el saldo que corresponde pagar en la liquidación. Se
+// recalcula siempre en vivo; "Saldo vacaciones" ya NO es un techo fijo
+// (ver feedback_vacaciones_antiguedad_no_acumula.md), solo respaldo si no
+// hay fecha de ingreso válida.
+function calcularBalanceColaborador(nombre, ingresoStr, saldoRaw) {
+  const diasTomados = solicitudesVacGlobal
+    .filter(s => {
+      const colab  = (s['Colaborador'] || s.colaborador || '').toString().trim();
+      const estado = (s['Estado']      || s.estado      || '').toString().trim();
+      return colab.toLowerCase() === (nombre||'').toLowerCase() &&
+             estado.toLowerCase() === 'aprobado';
+    })
+    .reduce((acc, s) => {
+      const d = parseFloat(s['Días'] || s.dias || 0);
+      return acc + (isNaN(d) ? 0 : d);
+    }, 0);
+
+  const dIng = parsearFechaVacG(ingresoStr);
+  if (dIng) {
+    let anios = hoy.getFullYear() - dIng.getFullYear();
+    let meses = hoy.getMonth()    - dIng.getMonth();
+    let dias  = hoy.getDate()     - dIng.getDate();
+    if (dias < 0) meses--;
+    if (meses < 0) { anios--; meses += 12; }
+    const mesesCompletos = Math.max(0, anios * 12 + meses);
+
+    let diasEnMesActual;
+    if (dias >= 0) {
+      diasEnMesActual = dias;
+    } else {
+      const diasEnMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate();
+      diasEnMesActual = diasEnMesAnterior + dias;
+    }
+    const extra = diasEnMesActual > 20 ? 1 : 0;
+    return Math.max(0, mesesCompletos + extra - diasTomados);
+  }
+
+  const saldoNum   = parseFloat(saldoRaw);
+  const saldoSheet = (!isNaN(saldoNum) && saldoNum > 0 && saldoNum <= 365) ? saldoNum : 0;
+  return Math.max(0, saldoSheet - diasTomados);
+}
 
 // ── CARGAR PERSONAL EN LIQUIDACIÓN ───────────────────────────────
 async function cargarDatos() {
   try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
-    const data = await resp.json();
+    const [respPersonal, respVac] = await Promise.all([
+      fetch(APPS_SCRIPT_URL + '?modulo=personal'),
+      fetch(APPS_SCRIPT_URL + '?modulo=vacaciones').catch(() => null)
+    ]);
+    const data = await respPersonal.json();
     todosPersonal = data.ok ? data.registros : [];
+
+    if (respVac) {
+      try {
+        const dataVac = await respVac.json();
+        solicitudesVacGlobal = (dataVac.ok && Array.isArray(dataVac.registros)) ? dataVac.registros : [];
+      } catch { solicitudesVacGlobal = []; }
+    }
 
     const enLiquidacion = todosPersonal.filter(p =>
       (p['Estado'] || '').toUpperCase().includes('LIQUID')
@@ -312,7 +379,7 @@ function renderPanel(p) {
   const depto    = p['Departamento']    || '—';
   const salario  = parseFloat(p['Salario'] || 0);
   const ingreso  = p['Fecha ingreso']   || '';
-  const balance  = parseFloat(p['Saldo vacaciones'] || 0);
+  const balance  = calcularBalanceColaborador(nombre, ingreso, p['Saldo vacaciones']);
   const pagado   = (p['Estado'] || '').toUpperCase() === 'INACTIVO';
 
   // Fecha de salida desde terminaciones locales o hoy

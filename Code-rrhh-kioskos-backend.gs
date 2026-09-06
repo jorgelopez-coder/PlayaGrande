@@ -38,7 +38,17 @@ const HOJA_HORARIOS        = 'Horarios';
 const HOJA_HORARIOS_ESTADO = 'HorariosEstado';
 const HOJA_CONFIGURACION   = 'Configuracion';
 const HOJA_ROLES           = 'Roles';
+const HOJA_USUARIOS        = 'Usuarios';
 const HOJA_HORAS_EXTRA     = 'SolicitudesHorasExtra';
+
+// ID de cliente OAuth de Google (Google Cloud Console > APIs & Services >
+// Credentials > OAuth 2.0 Client ID, tipo "Web application") — se usa para
+// verificar que el token que manda login.html con "Iniciar sesión con
+// Google" fue realmente emitido para ESTE portal (resolverLoginGoogle()
+// rechaza cualquier token con otro "aud"). Pegar acá el Client ID después
+// de crearlo en Google Cloud — mientras esté vacío, no se valida el "aud"
+// (solo que el token sea de Google y el correo esté verificado).
+const GOOGLE_CLIENT_ID = '853957823193-fncpv7krc70cd4okguamathqr44ld6ka.apps.googleusercontent.com';
 
 // Ficha completa de personal (igual que Lorito) + "Kiosko" para saber la
 // ubicación del colaborador (Lorito es un solo punto de venta, no lo tiene).
@@ -83,10 +93,11 @@ const ENCABEZADOS_CAMBIOS_SALARIO = [
 // Histórico de movimientos del expediente (sección "Histórico de movimientos"
 // en rrhh-personal.html): un renglón por cada cambio relevante que se le hace
 // a un colaborador — salario, puesto, departamento, kiosko, nombre, estado,
-// terminación. No tiene pantalla de captura propia: se alimenta desde las
-// funciones que ya escriben esos cambios (registrarCambioSalario,
-// editarColaborador, cambiarEstado, registrarTerminacion) vía
-// registrarMovimiento().
+// terminación, solicitudes de vacaciones. No tiene pantalla de captura
+// propia: se alimenta desde las funciones que ya escriben esos cambios
+// (registrarCambioSalario, editarColaborador, cambiarEstado,
+// registrarTerminacion, crearSolicitudVacaciones, cambiarEstadoVacaciones)
+// vía registrarMovimiento().
 const ENCABEZADOS_MOVIMIENTOS = [
   'Colaborador', 'Tipo', 'Valor anterior', 'Valor nuevo', 'Motivo', 'Fecha efectiva', 'Registrado por', 'Registrado'
 ];
@@ -159,6 +170,14 @@ const KIOSKOS_POR_DEFECTO = ['Playa Grande', 'Liberia', 'Nosara', 'Playa Hermosa
 // no puede ver nada por error de carga.
 const ENCABEZADOS_ROLES = [
   'ID', 'Nombre', 'PIN', 'Color', 'Modulos', 'Kioskos', 'Activo', 'Registrado'
+];
+
+// Login individual con Google (además del PIN por rol) — cada usuario queda
+// vinculado a un Rol ya existente (RolID → Roles.ID): el login con Google no
+// duplica permisos, solo agrega identidad real (nombre + correo) a una
+// sesión que por lo demás resuelve los mismos modulos/kioskos que el rol.
+const ENCABEZADOS_USUARIOS = [
+  'ID', 'Nombre', 'Email', 'RolID', 'Activo', 'Registrado'
 ];
 
 // ── PLANILLA (planilla.html) ──────────────────────────────────────
@@ -567,28 +586,32 @@ function configurarHojas() {
   prepararHoja(HOJA_PLANILLAS_DETALLE, ENCABEZADOS_PLANILLAS_DETALLE);
   prepararHoja(HOJA_SERVICIO_REPARTOS, ENCABEZADOS_SERVICIO_REPARTOS);
   prepararHoja(HOJA_SERVICIO_DETALLE, ENCABEZADOS_SERVICIO_DETALLE);
+  prepararHoja(HOJA_USUARIOS, ENCABEZADOS_USUARIOS);
   sembrarConfiguracion();
   sembrarRoles();
   sembrarFeriados();
 }
 
-// ── CALCULAR BALANCE INICIAL DE VACACIONES (correr UNA VEZ) ─────────
-// Corré esta función UNA VEZ desde el editor de Apps Script (▶ con esta
-// función seleccionada) para llenar la columna "Saldo vacaciones" de
-// "Personal" con el saldo calculado de cada colaborador ACTIVO, como punto
-// de partida inicial. Una vez corrida, ese saldo queda escrito en el Sheet y
-// rrhh-control-vacaciones.html lo toma como base fija (ver calcularSaldo()
-// ahí: si "Saldo vacaciones" > 0, tiene prioridad sobre el cálculo
-// automático desde "Fecha ingreso") — las vacaciones que se aprueben de ahí
-// en adelante se restan solas de ese saldo. No hace falta volver a correrla
-// salvo que se quiera reiniciar el cálculo desde cero para todos.
+// ── CALCULAR BALANCE INICIAL DE VACACIONES (DEPRECADA — ver nota) ────
+// [2026-09-06] DEJÁ DE HACER FALTA CORRERLA. El bug que esto "arreglaba" era
+// justo el problema: en cuanto esta función escribía un valor en "Saldo
+// vacaciones", calcularSaldo() (rrhh-control-vacaciones.html) y las
+// pantallas equivalentes (rrhh-vacaciones.html, rrhh-liquidaciones.html,
+// rrhh-personal.html) lo tomaban como techo FIJO para siempre — el saldo
+// dejaba de sumar los meses de antigüedad que seguían corriendo y solo
+// bajaba al aprobar vacaciones. Se confirmó en los datos reales: varios
+// colaboradores llevaban desde julio 2026 con el mismo saldo congelado.
+// Las 4 pantallas ahora recalculan SIEMPRE en vivo desde "Fecha ingreso"
+// (ver feedback_vacaciones_antiguedad_no_acumula.md) y solo usan "Saldo
+// vacaciones" como respaldo si a alguien le falta la fecha de ingreso. NO
+// volver a correr esta función salvo para ese caso puntual — escribirle un
+// valor a alguien que sí tiene fecha de ingreso válida vuelve a congelarlo.
 //
 // Regla legal (Código de Trabajo, Art. 153): 1 día por mes completo
 // trabajado + 1 día extra si ya pasaron más de 20 días del mes en curso
-// desde la fecha de ingreso — misma fórmula que calcularSaldo() usa en el
-// navegador, replicada acá para que el saldo guardado coincida con lo que
-// esa pantalla mostraría si no hubiera saldo manual. Se le restan los días
-// ya tomados y Aprobados en la pestaña "Vacaciones".
+// desde la fecha de ingreso — misma fórmula que usan las pantallas del
+// navegador. Se le restan los días ya tomados y Aprobados en la pestaña
+// "Vacaciones".
 function calcularBalanceVacacionesInicial() {
   const hojaPersonal = prepararHoja(HOJA_PERSONAL, ENCABEZADOS_PERSONAL);
   const personal = filasComoObjetos(hojaPersonal);
@@ -850,6 +873,13 @@ function doGet(e) {
         // filtra a Activo=Sí del lado del cliente antes de comparar el PIN.
         hoja = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
         break;
+      case 'usuarios':
+        // Trae TODOS los usuarios individuales (activos e inactivos) —
+        // admin-accesos.html los administra igual que a los roles. El login
+        // con Google en sí NO pasa por acá (ver 'usuario_login_google' en
+        // doPost, que exige el token de Google como prueba de identidad).
+        hoja = prepararHoja(HOJA_USUARIOS, ENCABEZADOS_USUARIOS);
+        break;
       default:
         return jsonOut({ ok: false, error: 'Módulo no reconocido: ' + modulo });
     }
@@ -884,7 +914,7 @@ var RRHH_CACHE_MODULOS = [
   'cambios_salario', 'movimientos', 'liquidaciones', 'aguinaldos',
   'horarios', 'horarios_estado', 'feriados', 'incidencias', 'horas_extra',
   'planillas', 'planillas_detalle', 'servicio_repartos', 'servicio_detalle',
-  'kioskos', 'roles'
+  'kioskos', 'roles', 'usuarios'
 ];
 
 function rrhhConCache(modulo, calcular) {
@@ -976,6 +1006,9 @@ function doPost(e) {
       case 'kiosko_estado':         result = cambiarEstadoKiosko(payload); break;
       case 'rol_guardar':           result = guardarRol(payload); break;
       case 'rol_estado':            result = cambiarEstadoRol(payload); break;
+      case 'usuario_guardar':       result = guardarUsuario(payload); break;
+      case 'usuario_estado':        result = cambiarEstadoUsuario(payload); break;
+      case 'usuario_login_google':  result = resolverLoginGoogle(payload); break;
       case 'feriado_guardar':       result = guardarFeriado(payload); break;
       case 'feriado_estado':        result = cambiarEstadoFeriado(payload); break;
       case 'incidencia_guardar':    result = guardarIncidencia(payload); break;
@@ -1251,6 +1284,7 @@ function crearSolicitudVacaciones(p) {
   if (!p.colaborador) throw new Error('Falta el colaborador.');
   const hoja = prepararHoja(HOJA_VACACIONES, ENCABEZADOS_VACACIONES);
   const fila = hoja.getLastRow() + 1;
+  const registradoEn = p.registrado || p.registrado_en || new Date().toISOString();
   escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_VACACIONES, {
     'ID': p.id || Date.now(),
     'Colaborador': p.colaborador,
@@ -1259,7 +1293,16 @@ function crearSolicitudVacaciones(p) {
     'Días': Number(p.dias) || 0,
     'Observaciones': p.observaciones || '',
     'Estado': p.estado || 'Pendiente',
-    'Registrado': p.registrado || p.registrado_en || new Date().toISOString()
+    'Registrado': registradoEn
+  });
+
+  // Reflejar la solicitud en el histórico de movimientos del expediente.
+  registrarMovimiento({
+    colaborador: p.colaborador, tipo: 'Vacaciones',
+    valor_anterior: '', valor_nuevo: p.estado || 'Pendiente',
+    motivo: `${Number(p.dias) || 0} días (${p.fecha_inicio || '?'} → ${p.fecha_fin || '?'})${p.observaciones ? ' — ' + p.observaciones : ''}`,
+    fecha_efectiva: p.fecha_inicio || '',
+    registrado_en: registradoEn
   });
   return { fila: fila };
 }
@@ -1271,11 +1314,33 @@ function cambiarEstadoVacaciones(p) {
   if (nFilas <= 0) throw new Error('No hay solicitudes registradas.');
   const colId = colPorEncabezado(hoja, 'ID');
   const colEstado = colPorEncabezado(hoja, 'Estado');
+  const colColaborador = colPorEncabezado(hoja, 'Colaborador');
+  const colFechaInicio = colPorEncabezado(hoja, 'Fecha inicio');
+  const colFechaFin = colPorEncabezado(hoja, 'Fecha fin');
+  const colDias = colPorEncabezado(hoja, 'Días');
   const ids = hoja.getRange(2, colId, nFilas, 1).getValues();
   for (let i = 0; i < ids.length; i++) {
     if (String(ids[i][0]) === String(p.id)) {
-      hoja.getRange(i + 2, colEstado).setValue(p.estado || 'Pendiente');
-      return { fila: i + 2 };
+      const fila = i + 2;
+      const estadoAnterior = hoja.getRange(fila, colEstado).getValue();
+      const estadoNuevo = p.estado || 'Pendiente';
+      hoja.getRange(fila, colEstado).setValue(estadoNuevo);
+
+      // Reflejar el cambio de estado (Pendiente → Aprobado/Rechazado) en el
+      // histórico de movimientos del expediente.
+      if (String(estadoAnterior || '') !== String(estadoNuevo)) {
+        const colaborador = hoja.getRange(fila, colColaborador).getValue();
+        const fechaInicio = hoja.getRange(fila, colFechaInicio).getValue();
+        const fechaFin = hoja.getRange(fila, colFechaFin).getValue();
+        const dias = hoja.getRange(fila, colDias).getValue();
+        registrarMovimiento({
+          colaborador: colaborador, tipo: 'Vacaciones',
+          valor_anterior: estadoAnterior, valor_nuevo: estadoNuevo,
+          motivo: `${dias || 0} días (${fechaInicio || '?'} → ${fechaFin || '?'})`,
+          fecha_efectiva: fechaInicio || ''
+        });
+      }
+      return { fila: fila };
     }
   }
   throw new Error('No se encontró la solicitud ' + p.id);
@@ -2023,6 +2088,134 @@ function cambiarEstadoRol(p) {
   const colActivo = colPorEncabezado(hoja, 'Activo');
   hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
   return { fila: fila };
+}
+
+// ── USUARIOS INDIVIDUALES (login con Google) ──────────────────────────
+// Cada usuario individual queda vinculado a un Rol existente (RolID) — el
+// login con Google no duplica permisos, solo agrega identidad real (nombre
+// + correo) a una sesión que por lo demás tiene la misma forma que la
+// sesión por PIN. El email debe ser único entre usuarios ACTIVOS (dos
+// inactivos pueden compartir email sin problema, igual que con los PIN).
+function guardarUsuario(p) {
+  const nombre = String(p.nombre || '').trim();
+  if (!nombre) throw new Error('Falta el nombre.');
+  const email = String(p.email || '').trim().toLowerCase();
+  if (!email) throw new Error('Falta el correo.');
+  const rolId = String(p.rol_id || '').trim();
+  if (!rolId) throw new Error('Falta asignar un rol.');
+
+  const hojaRoles = prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES);
+  if (filaPorColumna(hojaRoles, ENCABEZADOS_ROLES, 'ID', rolId) === -1) {
+    throw new Error('Ese rol ya no existe — elegí otro.');
+  }
+
+  const hoja = prepararHoja(HOJA_USUARIOS, ENCABEZADOS_USUARIOS);
+  const id = String(p.id || '').trim();
+  const filaExistente = id ? filaPorColumna(hoja, ENCABEZADOS_USUARIOS, 'ID', id) : -1;
+  const activo = p.activo === 'No' ? 'No' : 'Sí';
+
+  if (activo === 'Sí') {
+    const chocaEmail = filasComoObjetos(hoja).some(function (r) {
+      return String(r['ID']) !== id
+        && String(r['Email'] || '').trim().toLowerCase() === email
+        && String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+    });
+    if (chocaEmail) throw new Error('Ya hay otro usuario activo con ese correo.');
+  }
+
+  const valores = {
+    'ID': id || ('usr_' + Date.now()),
+    'Nombre': nombre,
+    'Email': email,
+    'RolID': rolId,
+    'Activo': activo,
+    'Registrado': p.registrado_en || new Date().toISOString()
+  };
+
+  if (filaExistente !== -1) {
+    escribirFilaPorEncabezado(hoja, filaExistente, ENCABEZADOS_USUARIOS, valores);
+    return { fila: filaExistente, id: valores['ID'] };
+  }
+  const fila = agregarFilaPorEncabezado(hoja, ENCABEZADOS_USUARIOS, valores);
+  return { fila: fila, id: valores['ID'] };
+}
+
+// Activa/desactiva un usuario individual sin borrar su fila (mismo patrón
+// que cambiarEstadoRol) — un usuario inactivo deja de poder entrar con
+// Google aunque su correo siga registrado.
+function cambiarEstadoUsuario(p) {
+  if (!p.id) throw new Error('Falta el ID del usuario.');
+  const hoja = prepararHoja(HOJA_USUARIOS, ENCABEZADOS_USUARIOS);
+  const fila = filaPorColumna(hoja, ENCABEZADOS_USUARIOS, 'ID', p.id);
+  if (fila === -1) throw new Error('No se encontró ese usuario.');
+  const colActivo = colPorEncabezado(hoja, 'Activo');
+  hoja.getRange(fila, colActivo).setValue(p.activo || 'No');
+  return { fila: fila };
+}
+
+// Dado un correo YA verificado (ver resolverLoginGoogle, que es quien debe
+// llamar a esto — nunca exponer esta función a un endpoint que reciba el
+// email en crudo sin probar que quien pregunta es dueño de esa cuenta),
+// busca el usuario activo y arma la misma sesión que login.html construye
+// para el login por PIN (rol_id/nombre/modulos/kioskos/color), pero con el
+// nombre real de la persona en vez del nombre del rol — así el resto del
+// portal, que ya sabe leer modulos/kioskos de portal_sesion, no necesita
+// ningún cambio para soportar el login individual.
+function resolverLoginUsuario(email) {
+  const correo = String(email || '').trim().toLowerCase();
+  if (!correo) return { encontrado: false };
+
+  const usuarios = filasComoObjetos(prepararHoja(HOJA_USUARIOS, ENCABEZADOS_USUARIOS));
+  const usuario = usuarios.find(function (u) {
+    return String(u['Email'] || '').trim().toLowerCase() === correo
+      && String(u['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+  });
+  if (!usuario) return { encontrado: false };
+
+  const roles = filasComoObjetos(prepararHoja(HOJA_ROLES, ENCABEZADOS_ROLES));
+  const rol = roles.find(function (r) {
+    return String(r['ID']) === String(usuario['RolID'])
+      && String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
+  });
+  if (!rol) return { encontrado: false };
+
+  return {
+    encontrado: true,
+    usuario_id: usuario['ID'],
+    nombre: usuario['Nombre'],
+    email: correo,
+    rol_id: rol['ID'],
+    rol_nombre: rol['Nombre'],
+    color: rol['Color'] || '#1a7a4a',
+    modulos: rol['Modulos'] || 'todos',
+    kioskos: rol['Kioskos'] || 'todos'
+  };
+}
+
+// Verifica el ID token que manda login.html con Google Identity Services
+// contra el propio endpoint de Google (tokeninfo) — así Apps Script no
+// necesita manejar criptografía: Google confirma que el token es genuino,
+// a qué Client ID fue emitido ("aud") y si el correo está verificado. Con
+// eso ya probado, recién ahí se busca el correo en Usuarios.
+function resolverLoginGoogle(p) {
+  const idToken = String(p.credential || '').trim();
+  if (!idToken) throw new Error('Falta el token de Google.');
+
+  const resp = UrlFetchApp.fetch(
+    'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+    { muteHttpExceptions: true }
+  );
+  if (resp.getResponseCode() !== 200) throw new Error('Token de Google inválido o vencido — intentá de nuevo.');
+  const info = JSON.parse(resp.getContentText());
+
+  if (GOOGLE_CLIENT_ID && info.aud !== GOOGLE_CLIENT_ID) {
+    throw new Error('Ese token de Google no corresponde a este portal.');
+  }
+  if (String(info.email_verified) !== 'true') {
+    throw new Error('Ese correo de Google no está verificado.');
+  }
+
+  return resolverLoginUsuario(info.email);
 }
 
 // ── PLANILLA (planilla.html) ──────────────────────────────────────────
