@@ -629,9 +629,31 @@ const SQUARE_KIOSKOS = {
   },
   'Catalinas': {
     sheetId: '1okiGwQqSzgwBHNDGM1fLn7QE8yBBulqkU-BYnKwyehY',
-    resumenTab: 'Resumen_Cierre_Diario'
+    resumenTab: 'Resumen_Cierre_Diario',
+    // gid: la lectura por nombre de pestaña (?sheet=Resumen_Cierre_Diario) da
+    // 401 específicamente en esta hoja aunque el sharing y los permisos están
+    // igual que en los demás kioskos — por gid sí funciona, así que se usa
+    // como respaldo acá (ver obtenerResumenFechaSquare).
+    gid: '1124052141',
+    execUrl: 'https://script.google.com/macros/s/AKfycbw1FzJ33wZnKfWJdrGGGmk8dvfhMEx6pTLeik2mQui7nKJ4S8rJ5bbCvWNlBP7wAfsqBQ/exec'
   }
 };
+
+// Kioskos cuya operación (Square, datáfono, SINPE, fondo de caja) es en
+// dólares en vez de colones — afecta el símbolo mostrado y la tolerancia de
+// cuadre en "Cierres de Caja". El conteo físico de efectivo (denominaciones
+// ₡ y $) no cambia: eso sigue reflejando lo que realmente hay en caja.
+const KIOSKOS_USD = ['Catalinas'];
+function esKioskoUSD(kiosko) { return KIOSKOS_USD.includes(kiosko); }
+function fmtMoneda(n, kiosko) {
+  if (esKioskoUSD(kiosko)) {
+    return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return fmtCRC(n);
+}
+// ₡500 ≈ $1 al tipo de cambio típico — mismo criterio de tolerancia, expresado
+// en la moneda del kiosko.
+function toleranciaCuadre(kiosko) { return esKioskoUSD(kiosko) ? 1 : 500; }
 
 // ── DENOMINACIONES ────────────────────────────────────────────────
 const DENOMS_CRC = [50000,20000,10000,5000,2000,1000,500,100,50,25,10,5];
@@ -678,7 +700,26 @@ function poblarKioskos() {
 function alCambiarKiosko() {
   const kiosko = document.getElementById('f-kiosko').value;
   if (kiosko) localStorage.setItem('kiosko_actual', kiosko);
+  actualizarEtiquetasMoneda(kiosko);
   cargarVentasSquare();
+}
+
+// Los campos de venta (Datáfono, Propina, Fondo de Caja, SINPE) se cobran en
+// la misma moneda en la que opera el kiosko — acá solo se actualiza el
+// símbolo en la etiqueta; el conteo físico de efectivo (denominaciones ₡/$)
+// no cambia porque ese sí puede recibir ambas monedas.
+function actualizarEtiquetasMoneda(kiosko) {
+  const simbolo = esKioskoUSD(kiosko) ? '$' : '₡';
+  [
+    ['f-df-base', 'Total Base Ventas'],
+    ['f-df-propina', 'Propina'],
+    ['f-df-total', 'Venta Total Datáfono'],
+    ['f-fondo', 'Fondo de Caja Inicial'],
+    ['f-sinpe', 'Ventas por SINPE']
+  ].forEach(([id, texto]) => {
+    const lbl = document.querySelector(`label[for="${id}"]`);
+    if (lbl) lbl.textContent = `${texto} (${simbolo})`;
+  });
 }
 
 // ── FOTOS DE RESPALDO ────────────────────────────────────────────
@@ -800,7 +841,8 @@ function aplicarExtraccionIA(d) {
   calcCuadre();
   const resultBox = document.getElementById('ia-resultado');
   resultBox.style.display = 'block';
-  const fmt = v => v === null || v === undefined ? '—' : fmtCRC(v);
+  const kioskoIA = document.getElementById('f-kiosko')?.value;
+  const fmt = v => v === null || v === undefined ? '—' : fmtMoneda(v, kioskoIA);
   resultBox.innerHTML = `<div class="ia-box ia-ok"><b>✓ Extraído</b><br/>
     Venta total: ${fmt(d.ventaTotal)} · Base: ${fmt(d.base)} · Propina: ${fmt(d.propina)}<br/>
     Revisá los montos antes de guardar.</div>`;
@@ -875,6 +917,7 @@ function calcCuadre() {
 function actualizarCuadreGeneral() {
   const cgBase = document.getElementById('cg-base');
   if (!cgBase) return;
+  const kiosko = document.getElementById('f-kiosko')?.value;
 
   let totalCaja = 0;
   DENOMS_CRC.forEach(d => { totalCaja += (parseInt(document.getElementById('d-'+d)?.value)||0) * d; });
@@ -891,28 +934,30 @@ function actualizarCuadreGeneral() {
   const totalDeclarado = base + efectivoVentas + sinpe;
   const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
   const diff = totalDeclarado - ventasNetasSquare;
-  const cuadra = Math.abs(diff) <= 500;
+  const tolerancia = toleranciaCuadre(kiosko);
+  const cuadra = Math.abs(diff) <= tolerancia;
 
-  document.getElementById('cg-contado').textContent = fmtCRC(totalContado);
-  document.getElementById('cg-fondo').textContent = fmtCRC(fondo);
-  document.getElementById('cg-efectivo').textContent = fmtCRC(efectivoVentas);
-  document.getElementById('cg-base').textContent = fmtCRC(base);
-  document.getElementById('cg-sinpe').textContent = fmtCRC(sinpe);
-  document.getElementById('cg-declarado').textContent = fmtCRC(totalDeclarado);
-  document.getElementById('cg-square').textContent = fmtCRC(ventasNetasSquare);
+  document.getElementById('cg-contado').textContent = fmtMoneda(totalContado, kiosko);
+  document.getElementById('cg-fondo').textContent = fmtMoneda(fondo, kiosko);
+  document.getElementById('cg-efectivo').textContent = fmtMoneda(efectivoVentas, kiosko);
+  document.getElementById('cg-base').textContent = fmtMoneda(base, kiosko);
+  document.getElementById('cg-sinpe').textContent = fmtMoneda(sinpe, kiosko);
+  document.getElementById('cg-declarado').textContent = fmtMoneda(totalDeclarado, kiosko);
+  document.getElementById('cg-square').textContent = fmtMoneda(ventasNetasSquare, kiosko);
 
   const diffEl = document.getElementById('cg-diff');
-  diffEl.textContent = (diff >= 0 ? '+' : '') + fmtCRC(diff);
+  diffEl.textContent = (diff >= 0 ? '+' : '') + fmtMoneda(diff, kiosko);
   diffEl.className = 'val ' + (cuadra ? 'diff-ok' : 'diff-warn');
 
   const badge = document.getElementById('cg-badge');
   const sinDatos = !base && !sinpe && !totalContado && !squareResumenActual;
+  const tolTxt = fmtMoneda(tolerancia, kiosko);
   if (sinDatos) {
     badge.innerHTML = '';
   } else {
     badge.innerHTML = cuadra
-      ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±₡500)</div>`
-      : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtCRC(Math.abs(diff))} (tolerancia ±₡500)</div>`;
+      ? `<div class="ia-box ia-ok">✅ Cuadra — diferencia dentro de tolerancia (±${tolTxt})</div>`
+      : `<div class="ia-box ia-warn">⚠️ No cuadra — diferencia de ${fmtMoneda(Math.abs(diff), kiosko)} (tolerancia ±${tolTxt})</div>`;
   }
 
   const resultadoCard = document.getElementById('cg-resultado-card');
@@ -926,7 +971,9 @@ function actualizarCuadreGeneral() {
 // Fecha, Location ID, Ventas Brutas, Descuentos y Cortesías, Ventas Netas.
 async function obtenerResumenFechaSquare(cfg, fechaISO) {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
+    const url = cfg.gid
+      ? `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&gid=${encodeURIComponent(cfg.gid)}`
+      : `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
     const resp = await fetch(url);
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
@@ -1069,10 +1116,11 @@ function renderVentasSquare(resumen, mensaje) {
       estado.style.display = 'block';
     } else {
       estado.style.display = 'none';
+      const kiosko = document.getElementById('f-kiosko')?.value;
       grid.innerHTML = `
-        <div class="resumen-item"><span>Ventas Brutas</span><span class="v">${fmtCRC(resumen.ventasBrutas)}</span></div>
-        <div class="resumen-item"><span>Descuentos y Cortesías</span><span class="v">${fmtCRC(resumen.descuentosCortesias)}</span></div>
-        <div class="resumen-item"><span>Ventas Netas</span><span class="v" style="color:var(--green);font-weight:700">${fmtCRC(resumen.ventasNetas)}</span></div>
+        <div class="resumen-item"><span>Ventas Brutas</span><span class="v">${fmtMoneda(resumen.ventasBrutas, kiosko)}</span></div>
+        <div class="resumen-item"><span>Descuentos y Cortesías</span><span class="v">${fmtMoneda(resumen.descuentosCortesias, kiosko)}</span></div>
+        <div class="resumen-item"><span>Ventas Netas</span><span class="v" style="color:var(--green);font-weight:700">${fmtMoneda(resumen.ventasNetas, kiosko)}</span></div>
       `;
     }
   }
@@ -1224,18 +1272,19 @@ function buildWAMessage(r) {
   const diff = r.diferenciaCaja || 0;
   const cuadra = !!r.cajaCuadra;
   const emoji = cuadra ? '✅' : '⚠️';
+  const m = v => fmtMoneda(v, r.kiosko);
 
   return `📊 *Cierre de Caja*
 🏖️ Kiosko: ${r.kiosko || '—'}
 📅 Fecha: ${fecha}
 
-💰 *Ventas Netas Square: ₡${(r.efectivoEsperado||0).toLocaleString('es-CR')}*
-• Base tarjeta (datáfono): ₡${(r.tarjeta||0).toLocaleString('es-CR')}
-• Efectivo de ventas: ₡${(r.efectivo||0).toLocaleString('es-CR')}${r.sinpe?`\n• SINPE: ₡${r.sinpe.toLocaleString('es-CR')}`:''}
-• Total declarado: ₡${(r.cajaTotalContada||0).toLocaleString('es-CR')}
+💰 *Ventas Netas Square: ${m(r.efectivoEsperado||0)}*
+• Base tarjeta (datáfono): ${m(r.tarjeta||0)}
+• Efectivo de ventas: ${m(r.efectivo||0)}${r.sinpe?`\n• SINPE: ${m(r.sinpe)}`:''}
+• Total declarado: ${m(r.cajaTotalContada||0)}
 
-📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ₡${Math.abs(diff).toLocaleString('es-CR')})
-${r.tips?`\n💵 Propina del día: ₡${r.tips.toLocaleString('es-CR')} (informativo)`:''}
+📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ${m(Math.abs(diff))})
+${r.tips?`\n💵 Propina del día: ${m(r.tips)} (informativo)`:''}
 ${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}
 ${r.fotoDatafonoUrl?`\n📎 Foto del cierre de tarjeta: ${r.fotoDatafonoUrl}`:''}`;
 }
@@ -1367,7 +1416,7 @@ function renderDashboardKiosko() {
     const g = grupos[k];
     return `<div class="dashboard-item">
       <div class="dm-label">${k}</div>
-      <div class="dm-total">${fmtCRC(g.ventas)}</div>
+      <div class="dm-total">${fmtMoneda(g.ventas, k)}</div>
       <div class="dm-count">${g.count} cierre${g.count===1?'':'s'}</div>
     </div>`;
   }).join('');
@@ -1419,7 +1468,7 @@ function renderHistorial() {
           <div class="hist-fecha">${fechaLbl} · ${r.hora||'—'}</div>
           <div class="hist-sub"><span class="badge badge-kiosko">${r.kiosko||'—'}</span> ${r.encargado||'—'}</div>
         </div>
-        <div class="hist-total ${balanceFinal>=0?'':'warn'}">${(balanceFinal>=0?'+':'')+fmtCRC(balanceFinal)}</div>
+        <div class="hist-total ${balanceFinal>=0?'':'warn'}">${(balanceFinal>=0?'+':'')+fmtMoneda(balanceFinal, r.kiosko)}</div>
       </div>
       <div class="hist-row">
         <div class="cuadre-icons">${iconBalance}</div>
@@ -1437,24 +1486,25 @@ function toggleDetalle(i) {
 
 function renderDetalleCierre(r) {
   const item = (label, val) => `<div class="hist-detail-item"><span>${label}</span><span class="v">${val}</span></div>`;
+  const m = v => fmtMoneda(v, r.kiosko);
   return `
     <div class="hist-detail-section">
       <div class="hist-detail-title">Ventas</div>
       <div class="hist-detail-grid">
-        ${item('Base tarjeta (datáfono)', fmtCRC(r.tarjeta))}
-        ${item('Efectivo de ventas', fmtCRC(r.efectivo))}
-        ${item('SINPE', fmtCRC(r.sinpe))}
-        ${item('Venta total datáfono', fmtCRC(r.datafonoTotal))}
+        ${item('Base tarjeta (datáfono)', m(r.tarjeta))}
+        ${item('Efectivo de ventas', m(r.efectivo))}
+        ${item('SINPE', m(r.sinpe))}
+        ${item('Venta total datáfono', m(r.datafonoTotal))}
         ${r.turno ? item('Turno', r.turno) : ''}
-        ${r.tips ? item('Propina (informativo)', fmtCRC(r.tips)) : ''}
+        ${r.tips ? item('Propina (informativo)', m(r.tips)) : ''}
       </div>
     </div>
     <div class="hist-detail-section">
       <div class="hist-detail-title">Cuadre General</div>
       <div class="hist-detail-grid">
-        ${item('Total declarado (Base + Efectivo + SINPE)', fmtCRC(r.cajaTotalContada))}
-        ${item('Ventas Netas Square', fmtCRC(r.efectivoEsperado))}
-        ${item('Diferencia', (r.diferenciaCaja>=0?'+':'')+fmtCRC(r.diferenciaCaja))}
+        ${item('Total declarado (Base + Efectivo + SINPE)', m(r.cajaTotalContada))}
+        ${item('Ventas Netas Square', m(r.efectivoEsperado))}
+        ${item('Diferencia', (r.diferenciaCaja>=0?'+':'')+m(r.diferenciaCaja))}
         ${item('Cuadra', r.cajaCuadra ? '✅ Sí' : '⚠️ No')}
       </div>
     </div>
