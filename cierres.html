@@ -655,6 +655,21 @@ function fmtMoneda(n, kiosko) {
 // en la moneda del kiosko.
 function toleranciaCuadre(kiosko) { return esKioskoUSD(kiosko) ? 1 : 500; }
 
+// Total físico contado en caja, expresado en la moneda en la que OPERA el
+// kiosko (₡ normalmente; $ en kioskos USD como Catalinas). El conteo físico
+// (denominaciones ₡ y $) siempre puede incluir ambas monedas porque se puede
+// recibir pago en cualquiera de las dos — acá se convierte la que NO es la
+// moneda de operación del kiosko, usando el tipo de cambio del día, para que
+// el total quede en una sola moneda y se pueda comparar contra Fondo/SINPE/
+// Datáfono/Ventas Square (que para un kiosko USD se cobran/reportan en $).
+function totalContadoEnMonedaKiosko(kiosko, tc, totalCaja, totalUsd) {
+  if (esKioskoUSD(kiosko)) {
+    const totalCrcEnUsd = tc > 0 ? (totalCaja / tc) : 0;
+    return totalUsd + totalCrcEnUsd;
+  }
+  return totalCaja + Math.round(totalUsd * tc);
+}
+
 // ── DENOMINACIONES ────────────────────────────────────────────────
 const DENOMS_CRC = [50000,20000,10000,5000,2000,1000,500,100,50,25,10,5];
 const DENOMS_USD = [
@@ -924,8 +939,7 @@ function actualizarCuadreGeneral() {
   let totalUsd = 0;
   DENOMS_USD.forEach(({id,val}) => { totalUsd += (parseInt(document.getElementById('d-'+id)?.value)||0) * val; });
   const tc = getTC();
-  const totalUsdEnColones = Math.round(totalUsd * tc);
-  const totalContado = totalCaja + totalUsdEnColones;
+  const totalContado = totalContadoEnMonedaKiosko(kiosko, tc, totalCaja, totalUsd);
   const fondo = parseFloat(document.getElementById('f-fondo')?.value) || 0;
   const efectivoVentas = totalContado - fondo;
 
@@ -1174,13 +1188,13 @@ function construirPayload() {
   const usdDenomDetalle = Object.fromEntries(DENOMS_USD.map(({id}) => [id, parseInt(document.getElementById('d-'+id)?.value)||0]));
   const usdCajaTotalContado = DENOMS_USD.reduce((s,{id,val}) => s+(parseInt(document.getElementById('d-'+id)?.value)||0)*val, 0);
   const usdCajaEnColones = Math.round(usdCajaTotalContado * tc);
-  const cajaTotalConUsd = caja + usdCajaEnColones;
-  const efectivoVentas = cajaTotalConUsd - fondo;
+  const totalContado = totalContadoEnMonedaKiosko(kiosko, tc, caja, usdCajaTotalContado);
+  const efectivoVentas = totalContado - fondo;
 
   const ventasNetasSquare = squareResumenActual ? squareResumenActual.ventasNetas : 0;
   const totalDeclarado = base + efectivoVentas + sinpe;
   const diferenciaCaja = totalDeclarado - ventasNetasSquare;
-  const cajaCuadra = Math.abs(diferenciaCaja) <= 500;
+  const cajaCuadra = Math.abs(diferenciaCaja) <= toleranciaCuadre(kiosko);
 
   // Chequeo interno de consistencia del recibo del datáfono (Base + Propina
   // debería coincidir con la Venta Total extraída de la misma foto).
