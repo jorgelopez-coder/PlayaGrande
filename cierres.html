@@ -679,6 +679,7 @@ const DENOMS_USD = [
 
 // ── HISTORIAL LOCAL ───────────────────────────────────────────────
 let historialData = [];
+let historialListaActual = []; // última lista renderizada en Historial (para reenviar por WhatsApp)
 let personalData = [];
 
 // ── KIOSKO ────────────────────────────────────────────────────────
@@ -1322,6 +1323,25 @@ function actualizarWhatsAppBtn() {
   btns.innerHTML = `<button class="btn-wa" onclick="window.open('${waUrl}'+encodeURIComponent(\`${msg.replace(/`/g,'\\`')}\`),'_blank')">${WA_SVG} Enviar resumen por WhatsApp</button>`;
 }
 
+// Abre WhatsApp con un mensaje ya armado (mismo criterio de wa.me/api.whatsapp.com
+// que actualizarWhatsAppBtn — sin WA_NUMERO_DEFAULT se deja elegir el contacto).
+function abrirWhatsAppConMensaje(msg) {
+  const numero = WA_NUMERO_DEFAULT || '';
+  const waUrl = numero
+    ? `https://wa.me/${numero}?text=`
+    : `https://api.whatsapp.com/send?text=`;
+  window.open(waUrl + encodeURIComponent(msg), '_blank');
+}
+
+// Reenvía por WhatsApp el reporte de un cierre ya guardado, desde el
+// Historial. "i" es el índice dentro de historialListaActual (la lista
+// filtrada que está en pantalla en ese momento — ver renderHistorial()).
+function reenviarWhatsAppHistorial(i) {
+  const r = historialListaActual[i];
+  if (!r) { showToast('No se encontró ese cierre', 'error'); return; }
+  abrirWhatsAppConMensaje(buildWAMessage(r));
+}
+
 // ── HISTORIAL ─────────────────────────────────────────────────────
 function soloFecha(fecha) { return fecha ? String(fecha).slice(0, 10) : ''; }
 
@@ -1462,6 +1482,7 @@ function renderDashboardMensual() {
 
 function renderHistorial() {
   const lista = filaFiltrada();
+  historialListaActual = lista;
   renderDashboardKiosko();
   renderDashboardMensual();
   document.getElementById('hist-count').textContent = lista.length + ' de ' + historialData.length + ' cierres';
@@ -1489,7 +1510,7 @@ function renderHistorial() {
         ${r.obs?`<span title="${r.obs.replace(/"/g,'')}" style="color:var(--amber)">📝 Observación</span>`:''}
       </div>
     </div>
-    <div class="hist-detail" id="hist-detail-${i}">${renderDetalleCierre(r)}</div>`;
+    <div class="hist-detail" id="hist-detail-${i}">${renderDetalleCierre(r, i)}</div>`;
   }).join('');
 }
 
@@ -1498,7 +1519,7 @@ function toggleDetalle(i) {
   if (el) el.classList.toggle('open');
 }
 
-function renderDetalleCierre(r) {
+function renderDetalleCierre(r, i) {
   const item = (label, val) => `<div class="hist-detail-item"><span>${label}</span><span class="v">${val}</span></div>`;
   const m = v => fmtMoneda(v, r.kiosko);
   return `
@@ -1527,6 +1548,9 @@ function renderDetalleCierre(r) {
       ${r.fotoSistemaUrl?`<a href="${r.fotoSistemaUrl}" target="_blank">📷 Foto sistema</a>`:''}
       ${r.fotoDatafonoUrl?`<a href="${r.fotoDatafonoUrl}" target="_blank">💳 Foto datáfono</a>`:''}
     </div></div>` : ''}
+    <div class="hist-detail-section">
+      <button class="btn-wa" onclick="event.stopPropagation(); reenviarWhatsAppHistorial(${i})">${WA_SVG} Reenviar por WhatsApp</button>
+    </div>
   `;
 }
 
