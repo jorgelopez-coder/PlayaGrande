@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Producción · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<!-- QR de la etiqueta. Si no carga (sin internet o CDN caída) la etiqueta se
+     imprime igual, con el número de lote en grande — ver dibujarQR(). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --purple:#6a3a9a;--purple-bg:#f4eefb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+
+main{max-width:980px;margin:0 auto;padding:2rem 2rem 5rem}
+.page{display:none}.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=date],input[type=number],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+textarea{min-height:70px;resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+input[readonly]{background:var(--green-bg);color:var(--muted)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+
+.btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--font-b)}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s;font-family:var(--font-b)}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-sm.danger{color:var(--red);border-color:var(--red-lt)}
+.btn-sm.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap;align-items:center}
+
+/* ── Barra de acciones ── */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.toolbar .spacer{flex:1}
+.toolbar select,.toolbar input[type=date]{width:auto;font-size:13px;padding:8px 12px}
+.toolbar select{padding-right:34px}
+
+/* ── Lista de lotes ── */
+.lote-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;margin-bottom:.75rem;cursor:pointer;transition:border-color .15s}
+.lote-card:hover{border-color:var(--border-h)}
+.lote-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.lote-id{font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--green)}
+.lote-nombre{font-family:var(--font-d);font-size:15px;font-weight:700;flex:1;min-width:140px}
+.lote-meta{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.6rem}
+.lote-metric{min-width:88px}
+.lote-metric-lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.lote-metric-val{font-family:var(--font-m);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+
+.pill{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill.proceso{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-lt)}
+.pill.terminado{background:var(--green-bg);color:var(--green);border:1px solid var(--green-lt)}
+.pill.descartado{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+.pill.vencido{background:var(--red-bg);color:var(--red);border:1px solid var(--red-lt)}
+.pill.porvencer{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-lt)}
+.val-ok{color:var(--green)}.val-warn{color:var(--amber)}.val-bad{color:var(--red)}
+
+/* ── Tabla de insumos ── */
+.tabla-wrap{overflow-x:auto;margin:0 -.25rem}
+table.datos{width:100%;border-collapse:collapse;font-size:12.5px}
+table.datos th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.6rem .7rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
+table.datos td{padding:.5rem .7rem;border-bottom:1px solid var(--border);vertical-align:middle}
+table.datos tbody tr:last-child td{border-bottom:none}
+table.datos td.num{text-align:right;font-family:var(--font-m);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.datos tfoot td{padding:.65rem .7rem;font-weight:700;border-top:2px solid var(--border)}
+.inp-cant{width:104px;padding:6px 8px;font-family:var(--font-m);font-size:12.5px;text-align:right}
+.sin-costo{font-size:10.5px;color:var(--red);font-weight:600}
+
+/* ── Resumen de cierre ── */
+.resumen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:1rem}
+.resumen-item{background:var(--card);padding:.9rem 1rem}
+.resumen-lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.resumen-val{font-family:var(--font-m);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.aviso{border-radius:9px;padding:.75rem 1rem;font-size:12.5px;margin-top:1rem;display:flex;gap:9px;align-items:flex-start}
+.aviso.warn{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber)}
+.aviso.info{background:var(--blue-bg);border:1px solid var(--blue-lt);color:var(--blue)}
+.aviso.err{background:var(--red-bg);border:1px solid var(--red-lt);color:var(--red)}
+.aviso strong{font-weight:700}
+
+/* ── Modal ── */
+.modal-bg{position:fixed;inset:0;background:rgba(28,58,40,.45);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:2rem 1rem;overflow-y:auto}
+.modal-bg.show{display:flex}
+.modal{background:var(--bg);border-radius:14px;width:100%;max-width:760px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:auto}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);border-radius:14px 14px 0 0;z-index:2}
+.modal-title{font-family:var(--font-d);font-size:16px;font-weight:700}
+.modal-sub{font-size:11.5px;color:var(--muted);font-family:var(--font-m)}
+.modal-x{background:none;border:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.modal-x:hover{color:var(--text)}
+.modal-body{padding:1.5rem}
+.modal-foot{display:flex;gap:10px;flex-wrap:wrap;padding:1.1rem 1.5rem;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg);border-radius:0 0 14px 14px}
+.modal-foot .spacer{flex:1}
+
+.seccion{margin-top:1.75rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.seccion:first-child{margin-top:0;padding-top:0;border-top:none}
+.seccion-titulo{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+/* ── Productos ── */
+.prod-row{display:flex;align-items:center;gap:12px;padding:.9rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.prod-row:last-child{border-bottom:none}
+.prod-codigo{font-family:var(--font-m);font-size:12px;font-weight:700;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:6px;padding:3px 8px}
+.prod-info{flex:1;min-width:180px}
+.prod-nombre{font-size:13.5px;font-weight:600}
+.prod-detalle{font-size:11.5px;color:var(--muted)}
+.config-row{display:flex;align-items:center;gap:12px;padding:.9rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.config-row:last-child{border-bottom:none}
+.config-nombre{flex:1;min-width:200px;font-size:13.5px;font-weight:600}
+.config-nombre small{display:block;font-weight:400;font-size:11.5px;color:var(--muted)}
+.config-input{width:130px}
+
+/* ── ETIQUETAS ── */
+#etiquetas-area{display:none}
+.etiqueta{
+  border:1px dashed var(--border);border-radius:4px;background:#fff;color:#000;
+  padding:2mm 2.5mm;display:flex;gap:2mm;align-items:stretch;overflow:hidden;
+  page-break-after:always;break-after:page;
+}
+/* overflow:hidden es obligatorio: sin él las líneas con white-space:nowrap
+   se desbordan y se imprimen POR DEBAJO del QR. */
+.etq-txt{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
+/* Hasta 2 líneas: un nombre largo se parte en vez de cortarse a la mitad. */
+.etq-nombre{font-family:'Inter Tight',sans-serif;font-weight:700;line-height:1.05;text-transform:uppercase;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.etq-linea{font-family:'JetBrains Mono',monospace;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etq-linea b{font-weight:700}
+/* align-self:center + aspect-ratio: si no, el flex stretch deforma el QR en
+   un rectángulo y deja de ser escaneable. */
+.etq-qr{flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center}
+.etq-qr svg{display:block;width:100%;height:auto;aspect-ratio:1/1}
+.etq-preview-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;display:flex;justify-content:center}
+
+@media print{
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  header,.tabs,main,.toast,.modal-bg{display:none!important}
+  #etiquetas-area{display:block!important}
+  .etiqueta{border:none;border-radius:0;margin:0}
+  /* Sin esto, la última etiqueta saca una etiqueta en blanco de más. */
+  .etiqueta:last-child{page-break-after:auto;break-after:auto}
+}
+@media (max-width:640px){
+  header{padding:0 1rem}main{padding:1.25rem 1rem 4rem}.tabs{padding:0 1rem}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Portal
+    </a>
+    <span class="page-title">Producción</span>
+  </div>
+  <span class="date-chip" id="chip-centro">Centro de Producción</span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('lotes',this)">🧪 Lotes</button>
+  <button class="tab-btn" onclick="showTab('productos',this)">🏷 Productos</button>
+  <button class="tab-btn" onclick="showTab('config',this)">⚙ Configuración</button>
+</div>
+
+<main>
+
+<!-- ══ LOTES ══ -->
+<div class="page active" id="tab-lotes">
+  <div class="toolbar">
+    <select id="f-estado" onchange="cargarLotes()">
+      <option value="">Todos los estados</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Terminado">Terminado</option>
+      <option value="Descartado">Descartado</option>
+    </select>
+    <input type="date" id="f-desde" onchange="cargarLotes()" title="Desde"/>
+    <input type="date" id="f-hasta" onchange="cargarLotes()" title="Hasta"/>
+    <span class="spacer"></span>
+    <button class="btn-primary" onclick="abrirNuevoLote()">+ Nuevo lote</button>
+  </div>
+  <div id="lotes-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+
+<!-- ══ PRODUCTOS ══ -->
+<div class="page" id="tab-productos">
+  <div class="card">
+    <p class="card-title">Productos que se fabrican en el centro</p>
+    <div id="productos-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+  <div class="card">
+    <p class="card-title">Dar de alta un producto</p>
+    <p class="field-hint" style="margin-bottom:1rem">
+      La receta vive en <a href="recetas.html" style="color:var(--green);font-weight:600">Menú y Recetas</a> —
+      acá solo se agrega lo que la producción necesita y el menú no: envase de despacho, vida útil y código de lote.
+    </p>
+    <div class="field">
+      <label for="p-subreceta">Subreceta<span class="req">*</span></label>
+      <select id="p-subreceta" onchange="alElegirSubreceta()"></select>
+      <div class="field-hint" id="p-subreceta-hint"></div>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label for="p-codigo">Código de lote<span class="req">*</span></label>
+        <input type="text" id="p-codigo" maxlength="5" placeholder="JMA" style="text-transform:uppercase;font-family:var(--font-m)"/>
+        <div class="field-hint">2 a 5 letras. Encabeza el número de lote.</div>
+      </div>
+      <div class="field">
+        <label for="p-envase">Envase de despacho</label>
+        <input type="text" id="p-envase" placeholder="Botella 1 L"/>
+      </div>
+      <div class="field">
+        <label for="p-contenido">Contenido por envase</label>
+        <input type="number" id="p-contenido" min="0" step="any" placeholder="1000"/>
+        <div class="field-hint" id="p-contenido-hint">En la unidad de la receta.</div>
+      </div>
+    </div>
+    <div class="field-row-3">
+      <div class="field">
+        <label for="p-vida">Vida útil (días)</label>
+        <input type="number" id="p-vida" min="0" step="1" placeholder="14"/>
+      </div>
+      <div class="field">
+        <label for="p-merma">Merma esperada (%)</label>
+        <input type="number" id="p-merma" min="0" max="100" step="any" placeholder="3"/>
+      </div>
+      <div class="field">
+        <label for="p-costo-envase">Costo del envase (₡)</label>
+        <input type="number" id="p-costo-envase" min="0" step="any" placeholder="0"/>
+      </div>
+    </div>
+    <div class="field">
+      <label for="p-instrucciones">Instrucciones de proceso</label>
+      <textarea id="p-instrucciones" placeholder="Temperatura, tiempo de cocción, cómo saber que está listo…"></textarea>
+    </div>
+    <div class="submit-area">
+      <button class="btn-primary" id="btn-guardar-producto" onclick="guardarProducto()">Guardar producto</button>
+      <button class="btn-secondary" onclick="limpiarFormProducto()">Limpiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIGURACIÓN ══ -->
+<div class="page" id="tab-config">
+  <div class="card">
+    <p class="card-title">Centro y etiqueta</p>
+    <div class="config-row">
+      <div class="config-nombre">Nombre del centro<small>Aparece en la etiqueta y en el libro de movimientos.</small></div>
+      <input type="text" class="config-input" id="c-centro" style="width:210px"/>
+    </div>
+    <div class="config-row">
+      <div class="config-nombre">Tamaño de la etiqueta<small>Ancho × alto del rollo, en milímetros.</small></div>
+      <input type="number" class="config-input" id="c-ancho" min="20" max="200" step="1" style="width:90px"/>
+      <span style="color:var(--muted)">×</span>
+      <input type="number" class="config-input" id="c-alto" min="10" max="200" step="1" style="width:90px"/>
+    </div>
+    <div class="config-row">
+      <div class="config-nombre">Mano de obra en el costo<small>Si está activa, el lote pide horas y las suma al costo.</small></div>
+      <select class="config-input" id="c-mo-activa" style="width:110px"><option>No</option><option>Sí</option></select>
+      <input type="number" class="config-input" id="c-mo-costo" min="0" step="any" placeholder="₡/hora"/>
+    </div>
+    <div class="submit-area">
+      <button class="btn-primary" onclick="guardarConfig()">Guardar configuración</button>
+    </div>
+  </div>
+  <div class="card">
+    <p class="card-title">Probar la etiqueta</p>
+    <p class="field-hint" style="margin-bottom:1rem">Imprimí una etiqueta de ejemplo para calibrar el rollo antes de usar el módulo en serio.</p>
+    <div class="etq-preview-wrap" id="etq-preview"></div>
+    <div class="submit-area">
+      <button class="btn-sm" onclick="previsualizarEtiqueta()">Actualizar vista previa</button>
+      <button class="btn-sm primary" onclick="imprimirEtiquetaPrueba()">Imprimir prueba</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ══ MODAL: NUEVO LOTE ══ -->
+<div class="modal-bg" id="modal-nuevo">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <div><div class="modal-title">Nuevo lote</div></div>
+      <button class="modal-x" onclick="cerrarModal('modal-nuevo')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="n-producto">Producto<span class="req">*</span></label>
+        <select id="n-producto" onchange="alElegirProductoLote()"></select>
+        <div class="field-hint" id="n-producto-hint"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="n-cantidad">Cantidad a producir<span class="req">*</span></label>
+          <input type="number" id="n-cantidad" min="0" step="any"/>
+          <div class="field-hint" id="n-unidad-hint"></div>
+        </div>
+        <div class="field">
+          <label for="n-fecha">Fecha de producción</label>
+          <input type="date" id="n-fecha"/>
+        </div>
+      </div>
+      <div class="field">
+        <label for="n-responsable">Responsable</label>
+        <input type="text" id="n-responsable" placeholder="Quién lo produce"/>
+      </div>
+      <div class="aviso info">
+        <span>Al crear el lote se calculan los insumos según la receta. Las cantidades reales se ajustan en la ficha.</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="cerrarModal('modal-nuevo')">Cancelar</button>
+      <span class="spacer"></span>
+      <button class="btn-primary" id="btn-crear-lote" onclick="crearLote()">Crear lote</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: FICHA DEL LOTE ══ -->
+<div class="modal-bg" id="modal-lote">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="l-nombre">—</div>
+        <div class="modal-sub" id="l-id">—</div>
+      </div>
+      <button class="modal-x" onclick="cerrarModal('modal-lote')">&times;</button>
+    </div>
+    <div class="modal-body" id="l-body"></div>
+    <div class="modal-foot" id="l-foot"></div>
+  </div>
+</div>
+
+<!-- Área de impresión: se llena antes de llamar a window.print() -->
+<div id="etiquetas-area"></div>
+
+<div class="toast" id="toast">
+  <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// Web App de Code-produccion-kioskos-backend.gs (Sheet "Producción - Kioskos").
+// Pegar acá la URL /exec después de implementar el Apps Script.
+const PRODUCCION_URL = 'https://script.google.com/macros/s/AKfycbwP3O02-3_EF2JoxVD47ip7dUs4oHGPBazpAVv1BkBtivmxdrE3xIrl9Qp_8lzRvjxq/exec';
+
+// ── CONTROL DE ACCESO (rol + módulo permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('produccion')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function sesionNombre() {
+  const s = JSON.parse(localStorage.getItem('portal_sesion') || 'null');
+  return (s && (s.nombre || s.rol)) || '';
+}
+
+// ── ESTADO ────────────────────────────────────────────────────────
+let CATALOGO = { productos: [], subrecetasDisponibles: [], config: {} };
+let LOTES = [];
+let loteActual = null;
+
+// ── HELPERS ───────────────────────────────────────────────────────
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function apiGet(params) {
+  const resp = await fetchConTimeout(PRODUCCION_URL + '?' + new URLSearchParams(params));
+  return await resp.json();
+}
+async function apiPost(payload, timeoutMs) {
+  const resp = await fetchConTimeout(PRODUCCION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  }, timeoutMs || 45000);
+  return await resp.json();
+}
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function n(v) { const x = Number(v); return isNaN(x) ? 0 : x; }
+function money(v) { return '₡' + n(v).toLocaleString('es-CR', { maximumFractionDigits: 0 }); }
+function cant(v, dec) {
+  return n(v).toLocaleString('es-CR', { maximumFractionDigits: dec === undefined ? 2 : dec });
+}
+function hoyISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
+// Fecha ISO → dd/mm/aaaa sin pasar por UTC (evita el bug de fmt() en
+// horarios.html, que corría las fechas un día).
+function fechaCorta(iso) {
+  if (!iso) return '—';
+  const p = String(iso).slice(0,10).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+}
+function diasHasta(iso) {
+  if (!iso) return null;
+  const p = String(iso).slice(0,10).split('-');
+  if (p.length !== 3) return null;
+  const objetivo = new Date(+p[0], +p[1]-1, +p[2]);
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Math.round((objetivo - hoy) / 86400000);
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+function abrirModal(id) { document.getElementById(id).classList.add('show'); }
+function cerrarModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('show'); });
+});
+
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'config') previsualizarEtiqueta();
+}
+
+// ── CARGA INICIAL ─────────────────────────────────────────────────
+async function init() {
+  if (PRODUCCION_URL.indexOf('TODO_PEGAR') === 0) {
+    document.getElementById('lotes-lista').innerHTML =
+      '<div class="aviso err"><span>Falta pegar la URL del Web App de Producción en <b>PRODUCCION_URL</b> dentro de produccion.html.</span></div>';
+    return;
+  }
+  try {
+    const data = await apiGet({ accion: 'catalogo' });
+    if (!data.ok) throw new Error(data.error || 'No se pudo cargar el catálogo');
+    CATALOGO = data;
+    document.getElementById('chip-centro').textContent = data.config.centro_nombre || 'Centro de Producción';
+    poblarProductos();
+    poblarConfig();
+  } catch (e) {
+    showToast(e.message, 'error');
+    document.getElementById('lotes-lista').innerHTML =
+      '<div class="aviso err"><span>' + esc(e.message) + '</span></div>';
+    return;
+  }
+  cargarLotes();
+  // Trazabilidad: el QR de la etiqueta abre produccion.html?lote=XXX
+  const loteParam = new URLSearchParams(location.search).get('lote');
+  if (loteParam) abrirLote(loteParam);
+}
+
+// ── LOTES ─────────────────────────────────────────────────────────
+async function cargarLotes() {
+  const cont = document.getElementById('lotes-lista');
+  cont.innerHTML = '<div class="empty-state">Cargando…</div>';
+  try {
+    const data = await apiGet({
+      accion: 'lotes',
+      estado: document.getElementById('f-estado').value,
+      desde: document.getElementById('f-desde').value,
+      hasta: document.getElementById('f-hasta').value
+    });
+    if (!data.ok) throw new Error(data.error || 'Error al cargar lotes');
+    LOTES = data.lotes || [];
+    renderLotes();
+  } catch (e) {
+    cont.innerHTML = '<div class="aviso err"><span>' + esc(e.message) + '</span></div>';
+  }
+}
+
+function renderLotes() {
+  const cont = document.getElementById('lotes-lista');
+  if (!LOTES.length) {
+    cont.innerHTML = '<div class="empty-state">No hay lotes con esos filtros.<br/>Empezá con “+ Nuevo lote”.</div>';
+    return;
+  }
+  cont.innerHTML = LOTES.map(l => {
+    const dias = l.estado === 'Terminado' ? diasHasta(l.fechaVencimiento) : null;
+    let pillVenc = '';
+    if (dias !== null && l.fechaVencimiento) {
+      if (dias < 0) pillVenc = '<span class="pill vencido">Vencido</span>';
+      else if (dias <= 3) pillVenc = '<span class="pill porvencer">Vence en ' + dias + ' d</span>';
+    }
+    const clase = l.estado === 'Terminado' ? 'terminado'
+                : l.estado === 'Descartado' ? 'descartado' : 'proceso';
+    const rend = n(l.rendimientoPct);
+    const claseRend = !rend ? '' : rend >= 97 ? 'val-ok' : rend >= 90 ? 'val-warn' : 'val-bad';
+
+    const metricas = l.estado === 'Terminado' ? `
+      <div class="lote-metric"><div class="lote-metric-lbl">Rendimiento</div>
+        <div class="lote-metric-val ${claseRend}">${cant(rend,1)}%</div></div>
+      <div class="lote-metric"><div class="lote-metric-lbl">Envases</div>
+        <div class="lote-metric-val">${cant(l.envasesProducidos,0)}</div></div>
+      <div class="lote-metric"><div class="lote-metric-lbl">Costo / envase</div>
+        <div class="lote-metric-val">${money(l.costoPorEnvase)}</div></div>
+      <div class="lote-metric"><div class="lote-metric-lbl">Vence</div>
+        <div class="lote-metric-val">${fechaCorta(l.fechaVencimiento)}</div></div>`
+      : `
+      <div class="lote-metric"><div class="lote-metric-lbl">Planificado</div>
+        <div class="lote-metric-val">${cant(l.cantidadPlanificada)} ${esc(l.unidadRendimiento)}</div></div>
+      <div class="lote-metric"><div class="lote-metric-lbl">Insumos</div>
+        <div class="lote-metric-val">${l.insumos.length}</div></div>
+      <div class="lote-metric"><div class="lote-metric-lbl">Responsable</div>
+        <div class="lote-metric-val" style="font-family:var(--font-b);font-size:13px">${esc(l.responsable || '—')}</div></div>`;
+
+    return `<div class="lote-card" onclick="abrirLote('${esc(l.loteID)}')">
+      <div class="lote-top">
+        <span class="lote-id">${esc(l.loteID)}</span>
+        <span class="lote-nombre">${esc(l.nombre)}</span>
+        ${pillVenc}
+        <span class="pill ${clase}">${esc(l.estado)}</span>
+      </div>
+      <div class="lote-meta">${metricas}</div>
+    </div>`;
+  }).join('');
+}
+
+function abrirNuevoLote() {
+  const activos = CATALOGO.productos.filter(p => p.activo && !p.huerfano);
+  if (!activos.length) {
+    showToast('Primero dá de alta un producto en la pestaña Productos.', 'error');
+    return;
+  }
+  document.getElementById('n-producto').innerHTML =
+    '<option value="" disabled selected>Elegí un producto…</option>' +
+    activos.map(p => `<option value="${esc(p.subrecetaID)}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('');
+  document.getElementById('n-cantidad').value = '';
+  document.getElementById('n-fecha').value = hoyISO();
+  document.getElementById('n-responsable').value = '';
+  document.getElementById('n-producto-hint').textContent = '';
+  document.getElementById('n-unidad-hint').textContent = '';
+  abrirModal('modal-nuevo');
+}
+
+function alElegirProductoLote() {
+  const p = CATALOGO.productos.filter(x => x.subrecetaID === document.getElementById('n-producto').value)[0];
+  if (!p) return;
+  document.getElementById('n-cantidad').value = p.rendimiento || '';
+  document.getElementById('n-unidad-hint').textContent = 'En ' + (p.unidadRendimiento || 'la unidad de la receta');
+  const porEnvase = p.contenidoPorEnvase > 0
+    ? ' · rinde ~' + cant((p.rendimiento || 0) / p.contenidoPorEnvase, 0) + ' ' + (p.envaseDespacho || 'envases')
+    : '';
+  document.getElementById('n-producto-hint').textContent =
+    'Receta base: ' + cant(p.rendimiento) + ' ' + p.unidadRendimiento + porEnvase;
+}
+
+async function crearLote() {
+  const btn = document.getElementById('btn-crear-lote');
+  const subrecetaID = document.getElementById('n-producto').value;
+  const cantidad = n(document.getElementById('n-cantidad').value);
+  if (!subrecetaID) { showToast('Elegí un producto', 'error'); return; }
+  if (cantidad <= 0) { showToast('Ingresá la cantidad a producir', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Creando…';
+  try {
+    const out = await apiPost({
+      accion: 'lote_crear',
+      subrecetaID,
+      cantidadPlanificada: cantidad,
+      fechaProduccion: document.getElementById('n-fecha').value,
+      responsable: document.getElementById('n-responsable').value,
+      usuario: sesionNombre()
+    });
+    if (!out.ok) throw new Error(out.error || 'No se pudo crear el lote');
+    cerrarModal('modal-nuevo');
+    showToast('Lote ' + out.loteID + ' creado ✓');
+    await cargarLotes();
+    mostrarLote(out.lote);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear lote';
+  }
+}
+
+async function abrirLote(loteID) {
+  try {
+    const data = await apiGet({ accion: 'lote', id: loteID });
+    if (!data.ok) throw new Error(data.error || 'No se encontró el lote');
+    mostrarLote(data.lote);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function productoDe(lote) {
+  return CATALOGO.productos.filter(p => p.subrecetaID === lote.subrecetaID)[0] || {};
+}
+
+function mostrarLote(lote) {
+  loteActual = lote;
+  document.getElementById('l-nombre').textContent = lote.nombre;
+  document.getElementById('l-id').textContent =
+    lote.loteID + ' · ' + fechaCorta(lote.fechaProduccion) + ' · ' + lote.estado;
+  if (lote.estado === 'Terminado') renderLoteTerminado(lote);
+  else renderLoteEnProceso(lote);
+  abrirModal('modal-lote');
+}
+
+// ── Ficha: lote EN PROCESO ────────────────────────────────────────
+function renderLoteEnProceso(lote) {
+  const prod = productoDe(lote);
+  const moActiva = String(CATALOGO.config.mano_obra_activa || 'No').toLowerCase() === 'sí' ||
+                   String(CATALOGO.config.mano_obra_activa || 'No').toLowerCase() === 'si';
+  const sinCosto = lote.insumos.filter(i => i.sinCosto);
+
+  document.getElementById('l-body').innerHTML = `
+    <div class="seccion">
+      <div class="seccion-titulo">Insumos — ajustá lo que realmente se usó</div>
+      ${sinCosto.length ? `<div class="aviso warn"><span><strong>${sinCosto.length} insumo(s) sin costo:</strong>
+        ${esc(sinCosto.map(i => i.nombre).join(', '))}. Se costean en ₡0 hasta que se homologuen en
+        <a href="maestro-productos.html" style="color:inherit;text-decoration:underline">Maestro de Productos</a>.</span></div>` : ''}
+      <div class="tabla-wrap">
+        <table class="datos">
+          <thead><tr>
+            <th>Insumo</th><th class="num">Teórico</th><th class="num">Real</th>
+            <th>Unidad</th><th class="num">Costo unit.</th><th class="num">Costo</th>
+          </tr></thead>
+          <tbody>
+            ${lote.insumos.map((i, idx) => `<tr>
+              <td>${esc(i.nombre)}${i.sinCosto ? '<div class="sin-costo">sin costo</div>' : ''}</td>
+              <td class="num">${cant(i.cantidadTeorica, 3)}</td>
+              <td class="num"><input type="number" class="inp-cant" id="ins-${idx}"
+                   value="${n(i.cantidadReal)}" step="any" min="0" oninput="recalcularInsumos()"/></td>
+              <td>${esc(i.unidad)}</td>
+              <td class="num">${money(i.costoUnitario)}</td>
+              <td class="num" id="ins-costo-${idx}">${money(i.costoLinea)}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot><tr>
+            <td colspan="5">Costo de insumos</td>
+            <td class="num" id="ins-total">${money(lote.insumos.reduce((s,i)=>s+n(i.costoLinea),0))}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <div class="seccion-titulo">Cerrar el lote</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="t-cantidad">Cantidad real obtenida<span class="req">*</span></label>
+          <input type="number" id="t-cantidad" min="0" step="any" value="${n(lote.cantidadPlanificada)}" oninput="estimarEnvases()"/>
+          <div class="field-hint">Planificado: ${cant(lote.cantidadPlanificada)} ${esc(lote.unidadRendimiento)}</div>
+        </div>
+        <div class="field">
+          <label for="t-envases">Envases llenados<span class="req">*</span></label>
+          <input type="number" id="t-envases" min="0" step="1"/>
+          <div class="field-hint" id="t-envases-hint">${prod.contenidoPorEnvase > 0
+            ? esc(prod.envaseDespacho || 'envase') + ' de ' + cant(prod.contenidoPorEnvase) + ' ' + esc(lote.unidadRendimiento)
+            : 'Definí el contenido por envase en la pestaña Productos para estimarlo solo.'}</div>
+        </div>
+      </div>
+      ${moActiva ? `<div class="field">
+        <label for="t-horas">Horas de mano de obra</label>
+        <input type="number" id="t-horas" min="0" step="any" value="${n(lote.horasManoObra)}"/>
+        <div class="field-hint">A ${money(CATALOGO.config.mano_obra_costo_hora)} la hora.</div>
+      </div>` : ''}
+      <div class="field">
+        <label for="t-responsable">Responsable</label>
+        <input type="text" id="t-responsable" value="${esc(lote.responsable)}"/>
+      </div>
+      <div class="field">
+        <label for="t-notas">Notas</label>
+        <textarea id="t-notas" placeholder="Algo fuera de lo normal en este lote…">${esc(lote.notas)}</textarea>
+      </div>
+      <div class="aviso info"><span>Al terminar el lote se congela el costo por envase, se calcula el
+        vencimiento y se descuentan los insumos. <strong>No se puede deshacer.</strong></span></div>
+    </div>`;
+
+  document.getElementById('l-foot').innerHTML = `
+    <button class="btn-sm danger" onclick="descartarLote()">Descartar lote</button>
+    <span class="spacer"></span>
+    <button class="btn-sm" onclick="guardarAvance()">Guardar avance</button>
+    <button class="btn-primary" id="btn-terminar" onclick="terminarLote()">Terminar lote</button>`;
+
+  estimarEnvases();
+}
+
+function leerInsumosDelForm() {
+  return loteActual.insumos.map((i, idx) => {
+    const inp = document.getElementById('ins-' + idx);
+    const real = inp ? n(inp.value) : n(i.cantidadReal);
+    return Object.assign({}, i, {
+      cantidadReal: real,
+      costoLinea: real * n(i.costoUnitario)
+    });
+  });
+}
+
+function recalcularInsumos() {
+  const insumos = leerInsumosDelForm();
+  insumos.forEach((i, idx) => {
+    const celda = document.getElementById('ins-costo-' + idx);
+    if (celda) celda.textContent = money(i.costoLinea);
+  });
+  document.getElementById('ins-total').textContent =
+    money(insumos.reduce((s, i) => s + i.costoLinea, 0));
+}
+
+function estimarEnvases() {
+  const prod = productoDe(loteActual);
+  const inpEnv = document.getElementById('t-envases');
+  if (!inpEnv || !(prod.contenidoPorEnvase > 0)) return;
+  if (inpEnv.dataset.tocado === '1') return;
+  const real = n(document.getElementById('t-cantidad').value);
+  inpEnv.value = Math.floor(real / prod.contenidoPorEnvase) || '';
+  inpEnv.onchange = () => { inpEnv.dataset.tocado = '1'; };
+}
+
+async function guardarAvance() {
+  try {
+    const out = await apiPost({
+      accion: 'lote_actualizar',
+      loteID: loteActual.loteID,
+      insumos: leerInsumosDelForm(),
+      responsable: document.getElementById('t-responsable').value,
+      notas: document.getElementById('t-notas').value,
+      horasManoObra: document.getElementById('t-horas') ? n(document.getElementById('t-horas').value) : 0
+    });
+    if (!out.ok) throw new Error(out.error || 'No se pudo guardar');
+    loteActual = out.lote;
+    showToast('Avance guardado ✓');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function terminarLote() {
+  const btn = document.getElementById('btn-terminar');
+  const cantidadReal = n(document.getElementById('t-cantidad').value);
+  const envases = n(document.getElementById('t-envases').value);
+  if (cantidadReal <= 0) { showToast('Ingresá la cantidad real obtenida', 'error'); return; }
+  if (envases <= 0) { showToast('Ingresá cuántos envases se llenaron', 'error'); return; }
+  if (!confirm('¿Terminar el lote ' + loteActual.loteID + '?\n\nSe congela el costo y se descuentan los insumos. No se puede deshacer.')) return;
+
+  btn.disabled = true; btn.textContent = 'Cerrando…';
+  try {
+    const out = await apiPost({
+      accion: 'lote_terminar',
+      loteID: loteActual.loteID,
+      cantidadReal, envasesProducidos: envases,
+      insumos: leerInsumosDelForm(),
+      responsable: document.getElementById('t-responsable').value,
+      notas: document.getElementById('t-notas').value,
+      horasManoObra: document.getElementById('t-horas') ? n(document.getElementById('t-horas').value) : 0,
+      usuario: sesionNombre()
+    }, 60000);
+    if (!out.ok) throw new Error(out.error || 'No se pudo cerrar el lote');
+    showToast(out.yaEstaba ? 'El lote ya estaba terminado' : 'Lote terminado ✓ — imprimí las etiquetas');
+    await cargarLotes();
+    mostrarLote(out.lote);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Terminar lote';
+  }
+}
+
+async function descartarLote() {
+  const motivo = prompt('¿Por qué se descarta el lote ' + loteActual.loteID + '?');
+  if (motivo === null) return;
+  try {
+    const out = await apiPost({ accion: 'lote_descartar', loteID: loteActual.loteID, motivo });
+    if (!out.ok) throw new Error(out.error || 'No se pudo descartar');
+    cerrarModal('modal-lote');
+    showToast('Lote descartado');
+    cargarLotes();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+// ── Ficha: lote TERMINADO ─────────────────────────────────────────
+function renderLoteTerminado(lote) {
+  const prod = productoDe(lote);
+  const rend = n(lote.rendimientoPct);
+  const claseRend = rend >= 97 ? 'val-ok' : rend >= 90 ? 'val-warn' : 'val-bad';
+  const varCosto = n(lote.costoTeorico) > 0
+    ? ((n(lote.costoTotal) / n(lote.costoTeorico)) - 1) * 100 : 0;
+  const ambar = n(CATALOGO.config.umbral_variacion_costo) || 5;
+  const rojo = n(CATALOGO.config.umbral_variacion_costo_rojo) || 15;
+  const claseVar = Math.abs(varCosto) > rojo ? 'val-bad'
+                 : Math.abs(varCosto) > ambar ? 'val-warn' : 'val-ok';
+  const dias = diasHasta(lote.fechaVencimiento);
+
+  document.getElementById('l-body').innerHTML = `
+    <div class="resumen-grid">
+      <div class="resumen-item"><div class="resumen-lbl">Rendimiento</div>
+        <div class="resumen-val ${claseRend}">${cant(rend,1)}%</div></div>
+      <div class="resumen-item"><div class="resumen-lbl">Obtenido</div>
+        <div class="resumen-val">${cant(lote.cantidadReal)} <span style="font-size:12px">${esc(lote.unidadRendimiento)}</span></div></div>
+      <div class="resumen-item"><div class="resumen-lbl">Envases</div>
+        <div class="resumen-val">${cant(lote.envasesProducidos,0)}</div></div>
+      <div class="resumen-item"><div class="resumen-lbl">Costo / envase</div>
+        <div class="resumen-val">${money(lote.costoPorEnvase)}</div></div>
+      <div class="resumen-item"><div class="resumen-lbl">Costo total</div>
+        <div class="resumen-val">${money(lote.costoTotal)}</div></div>
+      <div class="resumen-item"><div class="resumen-lbl">vs. teórico</div>
+        <div class="resumen-val ${claseVar}">${varCosto >= 0 ? '+' : ''}${cant(varCosto,1)}%</div></div>
+    </div>
+
+    ${lote.fechaVencimiento ? `<div class="aviso ${dias < 0 ? 'err' : dias <= 3 ? 'warn' : 'info'}">
+      <span>Vence el <strong>${fechaCorta(lote.fechaVencimiento)}</strong>${
+        dias < 0 ? ' — vencido hace ' + Math.abs(dias) + ' día(s)'
+        : ' — quedan ' + dias + ' día(s)'}.</span></div>` : ''}
+
+    <div class="seccion">
+      <div class="seccion-titulo">Desglose del costo</div>
+      <div class="tabla-wrap">
+        <table class="datos">
+          <thead><tr><th>Insumo</th><th class="num">Teórico</th><th class="num">Usado</th><th>Unidad</th><th class="num">Costo</th></tr></thead>
+          <tbody>
+            ${lote.insumos.map(i => `<tr>
+              <td>${esc(i.nombre)}</td>
+              <td class="num">${cant(i.cantidadTeorica,3)}</td>
+              <td class="num">${cant(i.cantidadReal,3)}</td>
+              <td>${esc(i.unidad)}</td>
+              <td class="num">${money(i.costoLinea)}</td></tr>`).join('')}
+            <tr><td colspan="4">Envases (${cant(lote.envasesProducidos,0)} × ${money(prod.costoEnvase)})</td>
+              <td class="num">${money(lote.costoEnvases)}</td></tr>
+            ${n(lote.costoManoObra) ? `<tr><td colspan="4">Mano de obra (${cant(lote.horasManoObra,1)} h)</td>
+              <td class="num">${money(lote.costoManoObra)}</td></tr>` : ''}
+          </tbody>
+          <tfoot><tr><td colspan="4">Costo total</td><td class="num">${money(lote.costoTotal)}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <div class="seccion-titulo">Etiquetas</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="e-copias">¿Cuántas etiquetas?</label>
+          <input type="number" id="e-copias" min="1" step="1" value="${n(lote.envasesProducidos) || 1}"/>
+          <div class="field-hint">Una por envase. Se puede reimprimir cuando sea.</div>
+        </div>
+        <div class="field">
+          <label>Vista previa</label>
+          <div class="etq-preview-wrap" id="l-etq-preview" style="padding:.75rem"></div>
+        </div>
+      </div>
+    </div>
+
+    ${lote.notas ? `<div class="seccion"><div class="seccion-titulo">Notas</div><p>${esc(lote.notas)}</p></div>` : ''}`;
+
+  document.getElementById('l-foot').innerHTML = `
+    <span class="spacer"></span>
+    <button class="btn-sm" onclick="cerrarModal('modal-lote')">Cerrar</button>
+    <button class="btn-primary" onclick="imprimirEtiquetasLote()">🏷 Imprimir etiquetas</button>`;
+
+  const prev = document.getElementById('l-etq-preview');
+  prev.innerHTML = '';
+  prev.appendChild(construirEtiqueta(datosEtiqueta(lote)));
+}
+
+// ── ETIQUETAS ─────────────────────────────────────────────────────
+function medidaEtiqueta() {
+  return {
+    ancho: n(CATALOGO.config.etiqueta_ancho_mm) || 50,
+    alto: n(CATALOGO.config.etiqueta_alto_mm) || 25
+  };
+}
+
+function datosEtiqueta(lote) {
+  const prod = productoDe(lote);
+  return {
+    nombre: lote.nombre,
+    lote: lote.loteID,
+    produccion: fechaCorta(lote.fechaProduccion),
+    vencimiento: lote.fechaVencimiento ? fechaCorta(lote.fechaVencimiento) : '',
+    envase: prod.envaseDespacho || '',
+    centro: CATALOGO.config.centro_nombre || 'Centro de Producción',
+    url: location.origin + location.pathname + '?lote=' + encodeURIComponent(lote.loteID)
+  };
+}
+
+/**
+ * QR en SVG. Si la librería no cargó, devuelve null y la etiqueta se arma
+ * sin QR — el número de lote impreso sigue siendo legible, que es lo que
+ * de verdad no puede faltar.
+ */
+function dibujarQR(texto, ladoMm) {
+  if (typeof qrcode !== 'function') return null;
+  try {
+    const qr = qrcode(0, 'M');       // 0 = versión automática según el largo
+    qr.addData(texto);
+    qr.make();
+    const mods = qr.getModuleCount();
+    let rects = '';
+    for (let r = 0; r < mods; r++) {
+      for (let c = 0; c < mods; c++) {
+        if (qr.isDark(r, c)) rects += `<rect x="${c}" y="${r}" width="1.02" height="1.02"/>`;
+      }
+    }
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${mods} ${mods}`);
+    svg.setAttribute('width', ladoMm + 'mm');
+    svg.setAttribute('height', ladoMm + 'mm');
+    svg.innerHTML = `<rect width="${mods}" height="${mods}" fill="#fff"/><g fill="#000">${rects}</g>`;
+    return svg;
+  } catch (e) {
+    console.warn('No se pudo generar el QR:', e);
+    return null;
+  }
+}
+
+function construirEtiqueta(d) {
+  const m = medidaEtiqueta();
+  const el = document.createElement('div');
+  el.className = 'etiqueta';
+  el.style.width = m.ancho + 'mm';
+  el.style.height = m.alto + 'mm';
+
+  // Escala tipográfica atada al alto del rollo: la misma plantilla sirve
+  // para 25 mm y para 40 mm sin rehacer nada.
+  const base = m.alto / 25;
+  const qrLado = Math.min(m.alto - 4, m.ancho * 0.32);
+
+  const txt = document.createElement('div');
+  txt.className = 'etq-txt';
+  txt.innerHTML = `
+    <div class="etq-nombre" style="font-size:${(3.4*base).toFixed(2)}mm">${esc(d.nombre)}</div>
+    <div>
+      <div class="etq-linea" style="font-size:${(2.7*base).toFixed(2)}mm"><b>${esc(d.lote)}</b></div>
+      <div class="etq-linea" style="font-size:${(2.2*base).toFixed(2)}mm">Prod: ${esc(d.produccion)}</div>
+      ${d.vencimiento ? `<div class="etq-linea" style="font-size:${(2.2*base).toFixed(2)}mm"><b>Vence: ${esc(d.vencimiento)}</b></div>` : ''}
+      <div class="etq-linea" style="font-size:${(1.9*base).toFixed(2)}mm">${esc([d.envase, d.centro].filter(Boolean).join(' · '))}</div>
+    </div>`;
+  el.appendChild(txt);
+
+  const qr = dibujarQR(d.url, qrLado);
+  if (qr) {
+    const wrap = document.createElement('div');
+    wrap.className = 'etq-qr';
+    wrap.style.width = qrLado + 'mm';
+    wrap.appendChild(qr);
+    el.appendChild(wrap);
+  }
+  return el;
+}
+
+function imprimir(datos, copias) {
+  const m = medidaEtiqueta();
+  // @page tiene que coincidir con el rollo o la impresora corta/centra mal.
+  let est = document.getElementById('print-style');
+  if (!est) {
+    est = document.createElement('style');
+    est.id = 'print-style';
+    document.head.appendChild(est);
+  }
+  est.textContent = `@page { size: ${m.ancho}mm ${m.alto}mm; margin: 0; }`;
+
+  const area = document.getElementById('etiquetas-area');
+  area.innerHTML = '';
+  for (let i = 0; i < copias; i++) area.appendChild(construirEtiqueta(datos));
+  window.print();
+}
+
+function imprimirEtiquetasLote() {
+  const copias = Math.max(1, Math.min(500, n(document.getElementById('e-copias').value) || 1));
+  imprimir(datosEtiqueta(loteActual), copias);
+}
+
+function previsualizarEtiqueta() {
+  const cont = document.getElementById('etq-preview');
+  if (!cont) return;
+  cont.innerHTML = '';
+  cont.appendChild(construirEtiqueta(etiquetaDePrueba()));
+}
+function etiquetaDePrueba() {
+  return {
+    nombre: 'Jarabe de maracuyá',
+    lote: 'JMA-' + hoyISO().slice(2).replace(/-/g,'') + '-01',
+    produccion: fechaCorta(hoyISO()),
+    vencimiento: fechaCorta(hoyISO()),
+    envase: 'Botella 1 L',
+    centro: document.getElementById('c-centro').value || 'Centro de Producción',
+    url: location.origin + location.pathname + '?lote=PRUEBA'
+  };
+}
+function imprimirEtiquetaPrueba() { imprimir(etiquetaDePrueba(), 1); }
+
+// ── PRODUCTOS ─────────────────────────────────────────────────────
+function poblarProductos() {
+  const cont = document.getElementById('productos-lista');
+  if (!CATALOGO.productos.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay productos de producción.<br/>Dá de alta el primero acá abajo.</div>';
+  } else {
+    cont.innerHTML = CATALOGO.productos.map(p => `
+      <div class="prod-row">
+        <span class="prod-codigo">${esc(p.codigo)}</span>
+        <div class="prod-info">
+          <div class="prod-nombre">${esc(p.nombre)}${p.activo ? '' : ' <span class="pill descartado">Inactivo</span>'}</div>
+          <div class="prod-detalle">
+            ${esc(p.envaseDespacho || 'sin envase definido')}
+            ${p.contenidoPorEnvase ? ' · ' + cant(p.contenidoPorEnvase) + ' ' + esc(p.unidadRendimiento) + '/envase' : ''}
+            ${p.vidaUtilDias ? ' · vida útil ' + cant(p.vidaUtilDias,0) + ' d' : ' · sin vida útil'}
+            ${p.costoEnvase ? ' · envase ' + money(p.costoEnvase) : ''}
+          </div>
+          ${p.huerfano ? '<div class="sin-costo">La subreceta ya no existe en Menú y Recetas.</div>' : ''}
+        </div>
+        <button class="btn-sm" onclick="editarProducto('${esc(p.subrecetaID)}')">Editar</button>
+      </div>`).join('');
+  }
+
+  const sel = document.getElementById('p-subreceta');
+  const disponibles = CATALOGO.subrecetasDisponibles || [];
+  sel.innerHTML = '<option value="" disabled selected>Elegí una subreceta…</option>' +
+    disponibles.map(s => `<option value="${esc(s.id)}">${esc(s.nombre)}</option>`).join('');
+  if (!disponibles.length) {
+    sel.innerHTML = '<option value="" disabled selected>Todas las subrecetas ya están dadas de alta</option>';
+  }
+}
+
+function alElegirSubreceta() {
+  const id = document.getElementById('p-subreceta').value;
+  const s = (CATALOGO.subrecetasDisponibles || []).filter(x => x.id === id)[0];
+  if (!s) return;
+  document.getElementById('p-subreceta-hint').textContent =
+    'Rinde ' + cant(s.rendimiento) + ' ' + s.unidadRendimiento +
+    ' · ' + s.ingredientes + ' ingrediente(s) · costo ' + money(s.costoPorUnidad) + '/' + s.unidadRendimiento;
+  document.getElementById('p-contenido-hint').textContent = 'En ' + s.unidadRendimiento;
+}
+
+function editarProducto(subrecetaID) {
+  const p = CATALOGO.productos.filter(x => x.subrecetaID === subrecetaID)[0];
+  if (!p) return;
+  const sel = document.getElementById('p-subreceta');
+  // La subreceta que se está editando no está en "disponibles" (ya fue dada
+  // de alta), así que se agrega como opción para poder mostrarla fija.
+  if (!Array.from(sel.options).some(o => o.value === subrecetaID)) {
+    const opt = document.createElement('option');
+    opt.value = subrecetaID; opt.textContent = p.nombre;
+    sel.appendChild(opt);
+  }
+  sel.value = subrecetaID;
+  document.getElementById('p-codigo').value = p.codigo;
+  document.getElementById('p-envase').value = p.envaseDespacho;
+  document.getElementById('p-contenido').value = p.contenidoPorEnvase || '';
+  document.getElementById('p-vida').value = p.vidaUtilDias || '';
+  document.getElementById('p-merma').value = p.mermaEsperadaPct || '';
+  document.getElementById('p-costo-envase').value = p.costoEnvase || '';
+  document.getElementById('p-instrucciones').value = p.instrucciones;
+  document.getElementById('p-subreceta-hint').textContent =
+    'Editando · rinde ' + cant(p.rendimiento) + ' ' + p.unidadRendimiento;
+  document.getElementById('p-contenido-hint').textContent = 'En ' + p.unidadRendimiento;
+  document.getElementById('p-codigo').focus();
+  document.getElementById('p-codigo').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function limpiarFormProducto() {
+  ['p-codigo','p-envase','p-contenido','p-vida','p-merma','p-costo-envase','p-instrucciones']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('p-subreceta').selectedIndex = 0;
+  document.getElementById('p-subreceta-hint').textContent = '';
+}
+
+async function guardarProducto() {
+  const btn = document.getElementById('btn-guardar-producto');
+  const subrecetaID = document.getElementById('p-subreceta').value;
+  const codigo = document.getElementById('p-codigo').value.trim().toUpperCase();
+  if (!subrecetaID) { showToast('Elegí una subreceta', 'error'); return; }
+  if (!/^[A-Z0-9]{2,5}$/.test(codigo)) {
+    showToast('El código debe ser de 2 a 5 letras o números, sin espacios', 'error'); return;
+  }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const out = await apiPost({
+      accion: 'producto_guardar',
+      subrecetaID, codigo,
+      envaseDespacho: document.getElementById('p-envase').value,
+      contenidoPorEnvase: n(document.getElementById('p-contenido').value),
+      vidaUtilDias: n(document.getElementById('p-vida').value),
+      mermaEsperadaPct: n(document.getElementById('p-merma').value),
+      costoEnvase: n(document.getElementById('p-costo-envase').value),
+      instrucciones: document.getElementById('p-instrucciones').value,
+      activo: true
+    });
+    if (!out.ok) throw new Error(out.error || 'No se pudo guardar');
+    showToast('Producto guardado ✓');
+    limpiarFormProducto();
+    const data = await apiGet({ accion: 'catalogo' });
+    if (data.ok) { CATALOGO = data; poblarProductos(); }
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar producto';
+  }
+}
+
+// ── CONFIGURACIÓN ─────────────────────────────────────────────────
+function poblarConfig() {
+  const c = CATALOGO.config || {};
+  document.getElementById('c-centro').value = c.centro_nombre || 'Centro de Producción';
+  document.getElementById('c-ancho').value = c.etiqueta_ancho_mm || 50;
+  document.getElementById('c-alto').value = c.etiqueta_alto_mm || 25;
+  document.getElementById('c-mo-activa').value =
+    String(c.mano_obra_activa || 'No').toLowerCase().indexOf('s') === 0 ? 'Sí' : 'No';
+  document.getElementById('c-mo-costo').value = c.mano_obra_costo_hora || 0;
+}
+
+async function guardarConfig() {
+  const config = {
+    centro_nombre: document.getElementById('c-centro').value.trim(),
+    etiqueta_ancho_mm: n(document.getElementById('c-ancho').value) || 50,
+    etiqueta_alto_mm: n(document.getElementById('c-alto').value) || 25,
+    mano_obra_activa: document.getElementById('c-mo-activa').value,
+    mano_obra_costo_hora: n(document.getElementById('c-mo-costo').value)
+  };
+  try {
+    const out = await apiPost({ accion: 'config_guardar', config });
+    if (!out.ok) throw new Error(out.error || 'No se pudo guardar');
+    CATALOGO.config = out.config;
+    document.getElementById('chip-centro').textContent = out.config.centro_nombre;
+    previsualizarEtiqueta();
+    showToast('Configuración guardada ✓');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+init();
+</script>
+</body>
+</html>
