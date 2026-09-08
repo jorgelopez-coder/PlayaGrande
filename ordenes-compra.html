@@ -185,6 +185,9 @@
         <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Resumen por proveedor</div>
         <div id="resumen-proveedores-lista" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);">
+        <input type="text" id="oc-buscar" placeholder="Buscar producto…" oninput="renderOrden()" style="width:100%;max-width:320px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:7px 10px;outline:none;">
+      </div>
       <div id="totales-orden" style="display:flex;flex-wrap:wrap;border-bottom:1px solid var(--border);"></div>
       <div id="contenido-orden"><div class="empty"><span class="spinner"></span> Cargando productos…</div></div>
       <div class="total-strip" id="total-general" style="display:none;">
@@ -232,6 +235,10 @@
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
 </div>
+
+<!-- Autocompletar del campo Proveedor (pestaña Orden actual), con los
+     nombres de la hoja "Proveedores" (Sheet Inventario) — ver cargarProveedores(). -->
+<datalist id="dl-proveedores"></datalist>
 
 <script>
 // ── CONTROL DE ACCESO (mismo patrón del ecosistema) ────────────────
@@ -416,6 +423,7 @@ function alCambiarKiosko() {
 // ── CATÁLOGO: Maestro de Productos + Mínimos por kiosko ──────────
 let MAESTRO_PRODUCTOS = [];
 let MINIMOS_KIOSKO    = {}; // nombreProducto -> mínimo (del kiosko actual)
+let PROVEEDORES       = []; // nombres de la hoja "Proveedores" (Inventario) — solo para autocompletar
 
 async function cargarMaestroProductos() {
   try {
@@ -459,6 +467,21 @@ async function cargarMinimosDelKiosko() {
       if (nombre) MINIMOS_KIOSKO[claveNorm(nombre)] = parseFloat(r['Mínimo']) || 0;
     });
   } catch(e) { console.warn('No se pudieron cargar los mínimos:', e.message); }
+}
+
+// Nombres de la base de Proveedores (Sheet "Inventario - Kioskos", hoja
+// "Proveedores" — misma base que proveedores.html/flujo-caja.html), solo
+// para el <datalist> que autocompleta el campo Proveedor de la orden.
+// Solo lectura (gviz): no obliga a elegir uno ya registrado, se puede
+// seguir anotando un proveedor que todavía no está dado de alta.
+async function cargarProveedores() {
+  try {
+    const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'Proveedores');
+    PROVEEDORES = [...new Set(rows.map(r => String(r['Nombre comercial'] || r['Nombre jurídico'] || '').trim()).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b, 'es'));
+    const dl = document.getElementById('dl-proveedores');
+    if (dl) dl.innerHTML = PROVEEDORES.map(p => '<option value="' + escHtml(p) + '">').join('');
+  } catch(e) { console.warn('No se pudo cargar la lista de proveedores:', e.message); }
 }
 
 // ── MÍNIMOS: editar el mínimo de cada producto para el kiosko actual ─
@@ -531,7 +554,7 @@ async function cargarCatalogoDelKiosko() {
 // ── INIT ──────────────────────────────────────────────────────────
 async function init() {
   ordenes = getOrdenes();
-  await cargarKioskos();
+  await Promise.all([cargarKioskos(), cargarProveedores()]);
   if (kioskoActual) {
     await cargarCatalogoDelKiosko();
     renderListaOrdenes();
@@ -837,6 +860,8 @@ function guardarFechaOrden() {
 // ── RENDER META ───────────────────────────────────────────────────
 function renderMeta() {
   if (!ordenActual) return;
+  var buscarProdEl = document.getElementById('oc-buscar');
+  if (buscarProdEl) buscarProdEl.value = '';
   document.getElementById('actual-id').textContent = ordenActual.id + ' · ' + ordenActual.kiosko;
   document.getElementById('actual-tipo-badge').innerHTML = ordenActual.tipo === 'recarga'
     ? '<span class="badge b-recarga">⚡ Recarga</span>' : '';
@@ -857,6 +882,10 @@ function renderOrden() {
   var totalesPorArea = {};
   var html = '';
 
+  var buscarOcEl = document.getElementById('oc-buscar');
+  var qRaw = (buscarOcEl && buscarOcEl.value || '').trim();
+  var q    = qRaw.toLowerCase();
+
   var areas = [...new Set(productos.map(function(p){ return p.area || 'Sin área'; }))].sort();
 
   areas.forEach(function(area) {
@@ -864,6 +893,7 @@ function renderOrden() {
     if (!prods.length) return;
     var subtotal = 0;
     var filas = '';
+    var filasVisibles = 0;
 
     prods.forEach(function(p) {
       var min       = parseFloat(p.stock_minimo) || 0;
@@ -875,6 +905,12 @@ function renderOrden() {
       var precioC   = parseFloat(p.precio_sin_iva) || 0;
       var monto     = pedido * precioC;
       subtotal += monto;
+
+      // El buscador solo filtra qué filas se muestran — el subtotal y el
+      // total general de arriba siguen contando TODOS los productos,
+      // aunque estén ocultos por la búsqueda en este momento.
+      if (q && p.nombre.toLowerCase().indexOf(q) === -1) return;
+      filasVisibles++;
 
       var pres     = [p.presentacion, p.tamano].filter(Boolean).join(' ') || '—';
       var colStock = '';
@@ -904,14 +940,15 @@ function renderOrden() {
         + '" oninput="onPedido(\'' + jsArg(p.id) + '\',this)"></td>'
         + '<td class="num" style="color:var(--muted);font-size:12px;">' + fmt2(precioC) + '</td>'
         + '<td class="num" style="font-weight:600;" id="monto-' + slugId(p.id) + '">' + fmt(monto) + '</td>'
-        + '<td><input type="text" class="prov-input" value="' + escHtml(proveedor)
+        + '<td><input type="text" class="prov-input" list="dl-proveedores" value="' + escHtml(proveedor)
         + '" placeholder="Proveedor…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)"></td>'
         + '</tr>';
     });
 
     totalGeneral += subtotal;
     totalesPorArea[area] = subtotal;
-    var abierto = areasAbiertas[area] === true;
+    if (q && !filasVisibles) return; // ningún producto de esta área coincide con la búsqueda
+    var abierto = q ? true : (areasAbiertas[area] === true); // con búsqueda activa, siempre expandida
     html += '<div class="area-header" onclick="toggleArea(\'' + jsArg(area) + '\')" style="cursor:pointer;">'
       + '<span style="display:flex;align-items:center;gap:6px;">'
       + '<svg id="chev-' + slugId(area) + '" style="width:10px;height:10px;transition:transform .15s;transform:rotate(' + (abierto?'90deg':'0deg') + ');" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>'
@@ -928,8 +965,8 @@ function renderOrden() {
       + '</tr></thead><tbody>' + filas + '</tbody></table></div>';
   });
 
-  document.getElementById('contenido-orden').innerHTML =
-    html || '<div class="empty">Sin productos del Maestro para este kiosko.</div>';
+  document.getElementById('contenido-orden').innerHTML = html
+    || '<div class="empty">' + (q ? 'Ningún producto coincide con "' + escHtml(qRaw) + '".' : 'Sin productos del Maestro para este kiosko.') + '</div>';
 
   var totEl = document.getElementById('totales-orden');
   totEl.innerHTML = Object.keys(totalesPorArea).map(function(a){
