@@ -674,6 +674,7 @@ let dataOtrosDesembolsos = [];  // OtrosDesembolsos (este módulo)
 let dataServicioManual = [];    // ServicioManual (este módulo) — montos manuales de Servicio 10%
 let dataComprasProveedores = []; // ComprasProveedores (este módulo) — pedidos a proveedores aún sin factura real
 let PROVEEDORES = []; // nombres de la hoja "Proveedores" (Inventario) — solo para autocompletar
+let PROVEEDORES_CUENTA = {}; // nombre (comercial o jurídico, en minúsculas) → número de cuenta — para el correo a Contabilidad
 
 async function cargarAP() {
   const [facturas, abonos] = await Promise.all([
@@ -741,8 +742,20 @@ async function cargarProveedores() {
   const rows = await gvizLoadSheet(INVENTARIO_SHEET_ID, 'Proveedores');
   PROVEEDORES = [...new Set(rows.map(r => String(r['Nombre comercial'] || r['Nombre jurídico'] || '').trim()).filter(Boolean))]
     .sort((a,b) => a.localeCompare(b));
+  PROVEEDORES_CUENTA = {};
+  rows.forEach(r => {
+    const cuenta = String(r['Cuenta'] || '').trim();
+    if (!cuenta) return;
+    ['Nombre comercial', 'Nombre jurídico'].forEach(col => {
+      const nombre = String(r[col] || '').trim().toLowerCase();
+      if (nombre) PROVEEDORES_CUENTA[nombre] = cuenta;
+    });
+  });
   const dl = document.getElementById('dl-proveedores');
   if (dl) dl.innerHTML = PROVEEDORES.map(p => `<option value="${escapeAttr(p)}">`).join('');
+}
+function cuentaDeProveedor(nombre) {
+  return PROVEEDORES_CUENTA[String(nombre||'').trim().toLowerCase()] || '';
 }
 
 async function postFlujo(modulo, payload) {
@@ -919,6 +932,17 @@ function etiquetaKioskosActual() {
   const lista = kioskosEnFiltro();
   return (!kioskosSeleccionados.size || lista.length === KIOSKOS.length) ? 'todos los kioskos' : lista.join(', ');
 }
+function negrita(texto) {
+  const A = 0x41, a = 0x61, d0 = 0x30;
+  const boldA = 0x1D5D4, bolda = 0x1D5EE, boldd0 = 0x1D7EC; // Mathematical Sans-Serif Bold
+  return String(texto).replace(/[A-Za-z0-9]/g, ch => {
+    const c = ch.codePointAt(0);
+    if (c >= A && c <= A + 25) return String.fromCodePoint(boldA + (c - A));
+    if (c >= a && c <= a + 25) return String.fromCodePoint(bolda + (c - a));
+    if (c >= d0 && c <= d0 + 9) return String.fromCodePoint(boldd0 + (c - d0));
+    return ch;
+  });
+}
 
 // Detalle línea por línea de cada pago programado, mismas fuentes y mismos
 // filtros (periodo + kiosko) que calcularResumen() — pero sin sumar, una fila
@@ -935,7 +959,7 @@ function construirDetallePagosProgramados() {
     if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
     filas.push({ fecha: f.fechaProyectada, kiosko: f.kiosko, categoria: ETIQUETAS_TIPO_PAGO.ap,
       concepto: (f.proveedor || '(sin proveedor)') + ' — factura ' + f.numero, monto: f.saldo,
-      proveedor: f.proveedor || '(sin proveedor)',
+      proveedor: f.proveedor || '(sin proveedor)', numero: f.numero,
       nota: f.moneda !== 'CRC' ? ('Convertido de ' + f.moneda) : '' });
   });
 
@@ -968,7 +992,8 @@ function construirDetallePagosProgramados() {
     const f = String(r['Fecha']||'').slice(0,10);
     if (!kioskoVisible(r['Kiosko']) || f < desde || f > hasta) return;
     filas.push({ fecha: f, kiosko: r['Kiosko'], categoria: ETIQUETAS_TIPO_PAGO.comprasProv,
-      concepto: r['Proveedor'] || '(sin proveedor)', monto: Number(r['Monto']) || 0, nota: r['Nota'] || '' });
+      concepto: r['Proveedor'] || '(sin proveedor)', monto: Number(r['Monto']) || 0, nota: r['Nota'] || '',
+      proveedor: r['Proveedor'] || '(sin proveedor)' });
   });
 
   dataOtrosDesembolsos.forEach(r => {
@@ -1027,11 +1052,16 @@ function enviarResumenContabilidad() {
   filas.forEach(fila => {
     const k = porKiosko[fila.kiosko] || (porKiosko[fila.kiosko] = { total: 0, porFecha: {} });
     k.total += fila.monto;
-    const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {}, porProveedorAP: {} });
+    const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {}, porProveedorAP: {}, porProveedorCompras: {} });
     d.total += fila.monto;
     d.porTipo[fila.categoria] = (d.porTipo[fila.categoria] || 0) + fila.monto;
     if (fila.categoria === ETIQUETAS_TIPO_PAGO.ap) {
-      d.porProveedorAP[fila.proveedor] = (d.porProveedorAP[fila.proveedor] || 0) + fila.monto;
+      // Por proveedor: monto total + qué facturas se están cancelando con ese pago.
+      const reg = d.porProveedorAP[fila.proveedor] || (d.porProveedorAP[fila.proveedor] = { monto: 0, facturas: [] });
+      reg.monto += fila.monto;
+      if (fila.numero) reg.facturas.push(fila.numero);
+    } else if (fila.categoria === ETIQUETAS_TIPO_PAGO.comprasProv) {
+      d.porProveedorCompras[fila.proveedor] = (d.porProveedorCompras[fila.proveedor] || 0) + fila.monto;
     }
   });
   const kioskosOrdenados = Object.entries(porKiosko).sort((a, b) => b[1].total - a[1].total);
@@ -1046,18 +1076,29 @@ function enviarResumenContabilidad() {
 
   kioskosOrdenados.forEach(([kiosko, datosKiosko]) => {
     lineasCuerpo.push(kiosko + ' — TOTAL: ' + fmt(datosKiosko.total));
-    Object.keys(datosKiosko.porFecha).sort().forEach(f => {
+    const fechasOrdenadas = Object.keys(datosKiosko.porFecha).sort();
+    fechasOrdenadas.forEach((f, idx) => {
       const d = datosKiosko.porFecha[f];
-      const etiqueta = fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '');
+      const etiqueta = negrita(fechaLarga(f) + (f === hoyISO ? ' (hoy)' : ''));
       lineasCuerpo.push('   ' + etiqueta + ': ' + fmt(d.total));
       Object.entries(d.porTipo).sort((a, b) => b[1] - a[1])
         .forEach(([tipo, monto]) => {
           lineasCuerpo.push('      - ' + tipo + ': ' + fmt(monto));
           if (tipo === ETIQUETAS_TIPO_PAGO.ap) {
-            Object.entries(d.porProveedorAP).sort((a, b) => b[1] - a[1])
+            // Detalle por proveedor: número de cuenta + facturas que cancela este pago.
+            Object.entries(d.porProveedorAP).sort((a, b) => b[1].monto - a[1].monto)
+              .forEach(([proveedor, reg]) => {
+                const cuenta = cuentaDeProveedor(proveedor) || 'sin registrar';
+                lineasCuerpo.push('         · ' + proveedor + ' — Cta: ' + cuenta + ': ' + fmt(reg.monto));
+                if (reg.facturas.length) lineasCuerpo.push('            Facturas: ' + reg.facturas.join(', '));
+              });
+          } else if (tipo === ETIQUETAS_TIPO_PAGO.comprasProv) {
+            Object.entries(d.porProveedorCompras).sort((a, b) => b[1] - a[1])
               .forEach(([proveedor, montoProv]) => lineasCuerpo.push('         · ' + proveedor + ': ' + fmt(montoProv)));
           }
         });
+      // Espacio entre grupos de fecha para que se lea mejor (Jorge, pedido).
+      if (idx < fechasOrdenadas.length - 1) lineasCuerpo.push('');
     });
     lineasCuerpo.push('');
   });
