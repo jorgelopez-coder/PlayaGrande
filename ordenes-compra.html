@@ -469,16 +469,56 @@ async function cargarMinimosDelKiosko() {
   } catch(e) { console.warn('No se pudieron cargar los mínimos:', e.message); }
 }
 
-// Nombres de la base de Proveedores (Sheet "Inventario - Kioskos", hoja
-// "Proveedores" — misma base que proveedores.html/flujo-caja.html), solo
-// para el <datalist> que autocompleta el campo Proveedor de la orden.
+// Nombres de todos los proveedores a los que efectivamente les hemos
+// comprado, para el <datalist> que autocompleta el campo Proveedor de la
+// orden. Combina dos fuentes (mismo patrón que proveedorDisplay en
+// cuentas-por-pagar.html):
+//  1) hoja "Proveedores" (Sheet Inventario) — catálogo dado de alta a mano,
+//     con su columna "Alias" (variantes conocidas de ese mismo proveedor).
+//  2) hoja "Registro Facturas" (Sheet Compras/Cuentas por Pagar) — el
+//     nombre de Proveedor tal cual quedó en cada factura ya cargada, para
+//     no dejar fuera a quien le compramos pero nunca se dio de alta en el
+//     catálogo. Cuando el mismo proveedor aparece escrito de varias formas
+//     entre las facturas, se muestra la variante más frecuente.
 // Solo lectura (gviz): no obliga a elegir uno ya registrado, se puede
 // seguir anotando un proveedor que todavía no está dado de alta.
 async function cargarProveedores() {
   try {
-    const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'Proveedores');
-    PROVEEDORES = [...new Set(rows.map(r => String(r['Nombre comercial'] || r['Nombre jurídico'] || '').trim()).filter(Boolean))]
-      .sort((a,b) => a.localeCompare(b, 'es'));
+    const [provRows, facturaRows] = await Promise.all([
+      gvizLoad(INVENTARIO_SHEET_ID, 'Proveedores'),
+      gvizLoad(COMPRAS_SHEET_ID, 'Registro Facturas').catch(() => [])
+    ]);
+
+    // 1) Catálogo: cada proveedor registrado + sus alias apuntan al mismo
+    //    nombre canónico (el del catálogo).
+    const canonico = new Map(); // claveNorm(nombre) -> nombre a mostrar
+    provRows.forEach(r => {
+      const nombre = String(r['Nombre comercial'] || r['Nombre jurídico'] || '').trim();
+      if (!nombre) return;
+      canonico.set(claveNorm(nombre), nombre);
+      String(r['Alias'] || '').split('|').map(s => s.trim()).filter(Boolean)
+        .forEach(a => canonico.set(claveNorm(a), nombre));
+    });
+
+    // 2) Facturas: proveedores a los que ya les compramos pero que no
+    //    calzan con el catálogo ni con un alias — se agregan igual, con la
+    //    variante de nombre más vista en Registro Facturas.
+    const conteo = new Map(); // claveNorm(nombre) -> Map(variante -> veces)
+    facturaRows.forEach(r => {
+      const nombre = String(r['Proveedor'] || '').trim();
+      if (!nombre) return;
+      const clave = claveNorm(nombre);
+      if (canonico.has(clave)) return; // ya cubierto por el catálogo/alias
+      if (!conteo.has(clave)) conteo.set(clave, new Map());
+      const m = conteo.get(clave);
+      m.set(nombre, (m.get(nombre) || 0) + 1);
+    });
+    conteo.forEach((m, clave) => {
+      const masVista = [...m.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      canonico.set(clave, masVista);
+    });
+
+    PROVEEDORES = [...new Set(canonico.values())].sort((a, b) => a.localeCompare(b, 'es'));
     const dl = document.getElementById('dl-proveedores');
     if (dl) dl.innerHTML = PROVEEDORES.map(p => '<option value="' + escHtml(p) + '">').join('');
   } catch(e) { console.warn('No se pudo cargar la lista de proveedores:', e.message); }
