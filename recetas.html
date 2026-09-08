@@ -110,6 +110,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-rm:hover{color:var(--red);border-color:var(--red);background:var(--red-bg)}
 .btn-rm svg{width:14px;height:14px}
 .btn-add{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:8px;padding:8px 14px;cursor:pointer;margin-top:4px;width:fit-content}
+.btn-add svg{width:14px;height:14px;flex:none}
 .btn-add:hover{background:var(--green-lt)}
 .btn-add:disabled{opacity:.5;cursor:not-allowed}
 .ing-costo{font-size:12px;color:var(--purple);font-weight:600}
@@ -206,6 +207,95 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .pres-row{grid-template-columns:1fr 1fr}
   .ing-row{grid-template-columns:1fr 1fr}
 }
+
+/* ── v2: navegación por área (Alimentos/Bebidas) ───────────────────── */
+.n1-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.n1-btn{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;font-family:var(--font-b);color:var(--text);transition:all .15s}
+.n1-btn:hover{border-color:var(--border-h)}
+.n1-btn.sel{background:var(--green-bg);border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+.n1-btn .n1-nombre{font-family:var(--font-d);font-size:14px;font-weight:700;display:block}
+.n1-btn .n1-sub{font-size:11.5px;color:var(--muted);display:block;margin-top:2px}
+.n1-btn.sel .n1-nombre,.n1-btn.sel .n1-sub{color:var(--green)}
+
+/* Encabezado de grupo por categoría dentro del menú */
+.grp-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:1.5rem 0 .75rem;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.grp-head:first-child{margin-top:0}
+.grp-nombre{font-family:var(--font-d);font-size:13px;font-weight:700}
+.grp-meta{font-size:11.5px;color:var(--muted)}
+
+/* ── v2: histórico y recomendaciones ───────────────────────────────── */
+.hist-tabs{display:flex;gap:6px}
+.hist-tab{font-size:12.5px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-weight:500}
+.hist-tab.active{background:var(--card);border-color:var(--green);color:var(--green);font-weight:600}
+.hist-row{display:grid;grid-template-columns:1fr 130px 96px 84px;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:7px;background:var(--card)}
+.hist-row:hover{border-color:var(--border-h)}
+.hist-nombre{font-weight:600;font-size:13px}
+.hist-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.hist-num{text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+.hist-var{text-align:right;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.spark{display:block;width:130px;height:34px}
+@media(max-width:760px){
+  .hist-row{grid-template-columns:1fr 84px;grid-template-areas:'nom var' 'spark num'}
+  .hist-row>*:nth-child(1){grid-area:nom}
+  .hist-row>*:nth-child(2){grid-area:spark}
+  .hist-row>*:nth-child(3){grid-area:num}
+  .hist-row>*:nth-child(4){grid-area:var}
+  .spark{width:100%}
+}
+.reco-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:860px){.reco-cols{grid-template-columns:1fr}}
+.reco-card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--card)}
+.reco-card.up{border-left:3px solid var(--green)}
+.reco-card.down{border-left:3px solid var(--red)}
+.reco-nombre{font-weight:600;font-size:13px}
+.reco-motivo{font-size:12px;color:var(--muted);margin-top:3px}
+.reco-cifras{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:11.5px;color:var(--muted)}
+.reco-cifras b{color:var(--text);font-variant-numeric:tabular-nums}
+.chip-prod{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;border:1px solid var(--border);border-radius:20px;padding:3px 10px;margin:0 5px 5px 0;background:var(--surface)}
+
+/* ── v2: productos sin receta ──────────────────────────────────────── */
+.sr-row{display:grid;grid-template-columns:1fr 110px 96px 96px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;background:var(--card)}
+@media(max-width:760px){.sr-row{grid-template-columns:1fr 96px}}
+.sr-nombre{font-weight:600;font-size:13px}
+.sr-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+/* ── v2: combos ────────────────────────────────────────────────────── */
+.cmb-card{border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;background:var(--card)}
+.cmb-card.inactivo{opacity:.55}
+.cmb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cmb-nombre{font-family:var(--font-d);font-size:15px;font-weight:700}
+.cmb-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.cmb-comp{font-size:12.5px;color:var(--text);margin-top:9px;line-height:1.7}
+.cmb-cifras{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.cmb-cifras b{color:var(--text);font-variant-numeric:tabular-nums}
+.cmp-row{display:grid;grid-template-columns:1fr 1fr 90px 34px;gap:10px;align-items:end;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface)}
+@media(max-width:700px){.cmp-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}}
+
+/* ── v2: hoja imprimible para cocina ───────────────────────────────── */
+#hojas-impresion{display:none}
+.hoja{background:#fff;color:#000;padding:16mm 14mm;width:100%;max-width:820px;margin:0 auto 18px;border:1px solid var(--border);border-radius:6px;font-family:var(--font-b)}
+.hoja h2{font-family:var(--font-d);font-size:17px;margin:0 0 2px}
+.hoja .hoja-sub{font-size:11px;color:#555;margin-bottom:14px}
+.hoja .linea{border-bottom:1px solid #000;height:22px;margin-top:3px}
+.hoja .campo{margin-bottom:11px}
+.hoja .campo label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#333;font-weight:600}
+.hoja .fila2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.hoja .fila3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.hoja table{width:100%;border-collapse:collapse;margin-top:5px}
+.hoja th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:1.5px solid #000;padding:4px 5px;color:#000}
+.hoja td{border-bottom:1px solid #999;height:25px;padding:2px 5px}
+.hoja .opciones{font-size:11px;color:#333;margin-top:4px;line-height:1.9}
+.hoja .opciones span{border:1px solid #999;border-radius:3px;padding:2px 7px;margin-right:6px;display:inline-block}
+.hoja .nota{font-size:10px;color:#555;margin-top:14px;border-top:1px solid #ccc;padding-top:7px;line-height:1.5}
+.hoja .firmas{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:22px}
+@media print{
+  header,main,.toast,.modal-overlay{display:none!important}
+  body{background:#fff}
+  #hojas-impresion{display:block!important}
+  .hoja{border:none;border-radius:0;margin:0;padding:14mm 12mm;max-width:none;page-break-after:always}
+  .hoja:last-child{page-break-after:auto}
+}
+
 </style>
 </head>
 <body>
@@ -224,9 +314,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <main>
 
 <div class="mp-tabs">
-  <button class="mp-tab active" id="tab-btn-platos" onclick="switchTab('platos')">Platos</button>
-  <button class="mp-tab" id="tab-btn-recetas" onclick="switchTab('recetas')">Recetas</button>
-  <button class="mp-tab" id="tab-btn-indicadores" onclick="switchTab('indicadores')">📊 Indicadores</button>
+  <button class="mp-tab active" id="tab-btn-platos" onclick="switchTab('platos')">Menú</button>
+  <button class="mp-tab" id="tab-btn-combos" onclick="switchTab('combos')">Combos</button>
+  <button class="mp-tab" id="tab-btn-recetas" onclick="switchTab('recetas')">🧪 Subrecetas</button>
+  <button class="mp-tab" id="tab-btn-costos" onclick="switchTab('costos')">📊 Costos</button>
+  <button class="mp-tab" id="tab-btn-sinreceta" onclick="switchTab('sinreceta')">Sin receta</button>
+  <button class="mp-tab" id="tab-btn-imprimir" onclick="switchTab('imprimir')">🖨 Imprimir</button>
   <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
 
@@ -235,14 +328,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div class="card">
   <div class="card-title-row">
-    <p class="card-title">Menú — platos y bebidas</p>
+    <p class="card-title">Menú</p>
     <button class="btn-primary" onclick="nuevoPlato()">+ Nuevo plato</button>
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Cada tarjeta es un plato o bebida del menú, con sus presentaciones de venta (precio, costo y % de costo
-    calculados a partir de la receta enlazada). Un plato sin receta todavía no tiene costo — usá
-    "+ Crear receta" para armarla desde acá.
+    Elegí el área y abajo aparece el menú agrupado por categoría. Cada plato se registra en una
+    <b>ficha única</b>: datos, receta, foto, indicaciones y presentaciones de venta en la misma pantalla.
+    El costo y el % de costo de cada presentación se calculan solos desde los ingredientes.
   </p>
+  <div class="n1-strip" id="plt-n1-strip"></div>
   <div class="plt-counts">
     <span>Sin receta: <b id="plt-count-sinreceta" style="color:var(--amber)">0</b></span>
     <span>Sin precio: <b id="plt-count-sinprecio" style="color:var(--amber)">0</b></span>
@@ -251,8 +345,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="plt-toolbar">
     <input type="text" id="plt-buscar" placeholder="Buscar plato…" oninput="renderPlatos()"/>
-    <select id="plt-nivel1" onchange="onFiltroNivel1Change()"><option value="">Nivel 1: todos</option></select>
-    <select id="plt-nivel2"><option value="">Nivel 2: todos</option></select>
+    <select id="plt-nivel1" onchange="onFiltroNivel1Change()" style="display:none"><option value="">Nivel 1: todos</option></select>
+    <select id="plt-nivel2" onchange="renderPlatos()"><option value="">Categoría: todas</option></select>
     <select id="plt-estado" onchange="renderPlatos()">
       <option value="">Todos los estados</option>
       <option value="sinReceta">Sin receta</option>
@@ -271,40 +365,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div class="card">
   <div class="card-title-row">
-    <p class="card-title">Recetas y subrecetas</p>
-    <button class="btn-primary" onclick="nuevaReceta('receta')">+ Nueva receta</button>
+    <p class="card-title">Subrecetas reutilizables</p>
+    <button class="btn-primary" onclick="nuevaReceta('subreceta')">+ Nueva subreceta</button>
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Una <b>receta</b> pertenece a un plato del menú. Una <b>subreceta</b> (ej. un barril, una salsa base) no
-    pertenece a ningún plato directamente — se usa como ingrediente dentro de otras recetas, y su costo se
-    calcula por proporción de su rendimiento total.
+    Una <b>subreceta</b> (un barril de cerveza, una salsa base, un mix de cóctel) no pertenece a ningún plato:
+    se usa como ingrediente dentro de otras recetas y su costo se reparte por proporción de su rendimiento.
+    Las recetas de plato ya no viven acá — se editan dentro de la ficha del plato, en la pestaña Menú.
   </p>
   <div class="rec-toolbar">
-    <input type="text" id="rec-buscar" placeholder="Buscar receta o subreceta…" oninput="renderRecetas()"/>
+    <input type="text" id="rec-buscar" placeholder="Buscar subreceta…" oninput="renderRecetas()"/>
     <select id="rec-filtro-tipo" onchange="renderRecetas()">
-      <option value="">Todas</option>
-      <option value="receta">Solo recetas</option>
-      <option value="subreceta">Solo subrecetas</option>
+      <option value="subreceta" selected>Solo subrecetas</option>
+      <option value="">Incluir también recetas de plato</option>
+      <option value="receta">Solo recetas de plato</option>
     </select>
   </div>
   <div id="rec-lista"><div class="empty-state">Cargando…</div></div>
-</div>
-
-</div>
-
-<!-- ═══════════════════ TAB INDICADORES ═══════════════════ -->
-<div id="tab-indicadores" style="display:none">
-
-<div class="card">
-  <p class="card-title">Costo por área vs. costo real según recetas</p>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Por cada Nivel 1 (área), compara el <b>% de costo meta</b> configurado (pestaña Configuración) contra el
-    <b>% de costo real</b> calculado a partir del costo de las recetas enlazadas y el precio de venta de cada
-    presentación activa. El real se pondera por precio de venta (no por unidades vendidas, que no vive en
-    este módulo) — cada presentación pesa según cuánto ingreso representaría. Solo entran platos activos con
-    receta enlazada y precio de venta; el resto queda excluido y se cuenta aparte.
-  </p>
-  <div id="ind-lista"><div class="empty-state">Cargando…</div></div>
 </div>
 
 </div>
@@ -346,13 +423,167 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 </div>
 
+<!-- ═══════════════════ TAB COMBOS ═══════════════════ -->
+<div id="tab-combos" style="display:none">
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Combos y promos</p>
+    <button class="btn-primary" onclick="nuevoCombo()">+ Nuevo combo</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Un combo agrupa platos que ya existen en el menú y les pone un <b>precio propio</b>. El costo se calcula
+    solo, sumando el costo de la presentación elegida de cada plato — no hay que volver a cargar ingredientes.
+    Si el costo de una receta cambia, el combo lo refleja en esta lista sin necesidad de volver a guardarlo.
+  </p>
+  <div class="plt-counts">
+    <span>Combos activos: <b id="cmb-count-activos">0</b></span>
+    <span>Con costo incompleto: <b id="cmb-count-incompletos" style="color:var(--amber)">0</b></span>
+  </div>
+  <div id="cmb-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+</div>
+
+<!-- ═══════════════════ TAB COSTOS ═══════════════════ -->
+<div id="tab-costos" style="display:none">
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Variación histórica del costo</p>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="hist-ventana" style="width:auto" onchange="cargarHistorico(true)">
+        <option value="6">Últimos 6 meses</option>
+        <option value="12" selected>Últimos 12 meses</option>
+        <option value="18">Últimos 18 meses</option>
+        <option value="24">Últimos 24 meses</option>
+      </select>
+      <button class="btn-sm" onclick="cargarHistorico(true)">↻ Recalcular</button>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Reconstruye mes a mes lo que habría costado cada plato, usando el <b>precio real de factura</b> de sus
+    ingredientes (hoja Desglose_IA). El último punto de cada serie coincide con el costo que muestra la ficha
+    hoy; hacia atrás se mueve con la variación real de precios. Los productos que todavía no tienen
+    <b>Nombre Estándar</b> en el Maestro no entran — aparecen en la pestaña "Sin receta".
+  </p>
+  <div id="hist-estado" class="empty-state">Tocá "Recalcular" para traer el histórico. Puede tardar unos segundos.</div>
+  <div id="hist-contenido" style="display:none">
+    <div class="hist-tabs">
+      <button class="hist-tab active" id="hist-tab-btn-platos" onclick="switchHist('platos')">Por plato</button>
+      <button class="hist-tab" id="hist-tab-btn-productos" onclick="switchHist('productos')">Por producto</button>
+    </div>
+    <div class="plt-toolbar" style="margin-top:1rem">
+      <input type="text" id="hist-buscar" placeholder="Buscar…" oninput="renderHistorico()"/>
+      <select id="hist-nivel1" onchange="renderHistorico()"><option value="">Nivel 1: todos</option></select>
+      <select id="hist-orden" onchange="renderHistorico()">
+        <option value="subio">Los que más subieron</option>
+        <option value="bajo">Los que más bajaron</option>
+        <option value="costo">Mayor costo actual</option>
+        <option value="nombre">Nombre</option>
+      </select>
+    </div>
+    <div id="hist-lista"></div>
+  </div>
+</div>
+
+<div class="card">
+  <p class="card-title">Qué impulsar y qué revisar</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Recomendaciones a partir de la variación de precios de los productos. <b>Impulsar</b>: platos cuyo costo
+    bajó o se mantuvo y que ya están debajo de la meta de food-cost — cada venta deja más margen que antes.
+    <b>Revisar precio</b>: platos cuyo costo subió fuerte o que se pasaron de la meta. El orden pondera el
+    margen en colones, no solo el porcentaje: este módulo no tiene unidades vendidas, así que es una
+    recomendación de margen, no de volumen.
+  </p>
+  <div id="reco-contenido"><div class="empty-state">Se llena al recalcular el histórico.</div></div>
+</div>
+
+<div class="card">
+  <p class="card-title">Costo por área vs. costo real según recetas</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Por cada Nivel 1 (área), compara el <b>% de costo meta</b> configurado contra el <b>% de costo real</b>
+    calculado a partir del costo de las recetas y el precio de venta de cada presentación activa, ponderado
+    por precio de venta. Presentaciones sin receta o sin precio quedan fuera y se cuentan aparte.
+  </p>
+  <div id="ind-lista"><div class="empty-state">Cargando…</div></div>
+</div>
+
+</div>
+
+<!-- ═══════════════════ TAB SIN RECETA ═══════════════════ -->
+<div id="tab-sinreceta" style="display:none">
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Productos comprados que no están en ninguna receta</p>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="sr-ventana" style="width:auto" onchange="cargarSinReceta(true)">
+        <option value="3">Últimos 3 meses</option>
+        <option value="6">Últimos 6 meses</option>
+        <option value="12" selected>Últimos 12 meses</option>
+      </select>
+      <button class="btn-sm" onclick="cargarSinReceta(true)">↻ Actualizar</button>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Cruza lo que se compró (facturas homologadas al Maestro) contra lo que se usa como ingrediente en alguna
+    receta o subreceta. Un producto que se compra y no aparece en ninguna receta es plata que no está
+    costeada en ningún plato: o falta armar la receta, o es un producto que no va en receta (empaque,
+    limpieza) y hay que marcarle <b>Aplica Receta = No</b> en el Maestro de Productos. Los que ya están
+    marcados así se listan aparte, solo para control.
+  </p>
+  <div class="plt-counts">
+    <span>Sin receta: <b id="sr-count" style="color:var(--amber)">0</b></span>
+    <span>Compra no costeada: <b id="sr-monto" style="color:var(--amber)">₡0</b></span>
+    <span>Marcados "no aplica": <b id="sr-count-noaplica">0</b></span>
+  </div>
+  <div id="sr-estado" class="empty-state">Tocá "Actualizar" para traer el cruce.</div>
+  <div id="sr-lista"></div>
+  <div id="sr-noaplica-wrap" style="display:none;margin-top:1.5rem">
+    <div class="section-label">Marcados "no aplica a receta" — solo control</div>
+    <div id="sr-noaplica-lista"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════ TAB IMPRIMIR ═══════════════════ -->
+<div id="tab-imprimir" style="display:none">
+<div class="card">
+  <p class="card-title">Formato para que cocina registre recetas a mano</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Genera hojas en blanco para imprimir y repartir en cocina/barra. El equipo escribe la receta a mano y
+    después se digita en el sistema. Cada hoja trae los mismos campos que pide la ficha, en el mismo orden,
+    para que digitar sea copiar de arriba a abajo.
+  </p>
+  <div class="field-row-3">
+    <div class="field">
+      <label>¿Cuántas hojas?</label>
+      <input type="number" id="imp-cantidad" min="1" max="40" value="6"/>
+    </div>
+    <div class="field">
+      <label>Renglones de ingredientes</label>
+      <input type="number" id="imp-renglones" min="4" max="30" value="14"/>
+    </div>
+    <div class="field">
+      <label>Área (opcional)</label>
+      <select id="imp-nivel1"><option value="">Dejar en blanco</option></select>
+    </div>
+  </div>
+  <label class="check-row" style="margin-top:.5rem"><input type="checkbox" id="imp-con-categorias" checked/> Imprimir las categorías del área como opciones para marcar</label>
+  <label class="check-row"><input type="checkbox" id="imp-con-presentaciones" checked/> Incluir el cuadro de presentaciones de venta y precio</label>
+  <div style="margin-top:1.25rem;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn-primary" onclick="imprimirHojas()">🖨 Generar e imprimir</button>
+    <button class="btn-sm" onclick="previsualizarHojas()">Ver una hoja de ejemplo</button>
+  </div>
+  <div id="imp-preview" style="margin-top:1.5rem"></div>
+</div>
+</div>
+
 </main>
 
 <!-- ═══════════════════ MODAL PLATO ═══════════════════ -->
 <div class="modal-overlay" id="modal-plato">
   <div class="modal">
     <div class="modal-head">
-      <h3 id="plato-titulo">Nuevo plato</h3>
+      <h3 id="plato-titulo">Nueva ficha</h3>
       <button class="modal-close" onclick="cerrarModalPlato()">×</button>
     </div>
     <div class="modal-body">
@@ -378,7 +609,38 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
 
       <div class="section-label">🍽️ Receta</div>
-      <div id="pm-receta-info" style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">—</div>
+      <p class="field-hint" style="margin:-.4rem 0 .75rem">
+        Los ingredientes de este plato. El rendimiento es lo que produce la receta completa (un plato simple
+        rinde "1 porción"; un barril puede rendir "5000 ml") y las presentaciones de abajo se cargan como
+        porciones de ese mismo rendimiento.
+      </p>
+      <div class="field-row">
+        <div class="field">
+          <label>Rendimiento total <span class="req">*</span></label>
+          <input type="number" id="fm-rendimiento" min="0" step="any" placeholder="ej: 1" oninput="recalcularCostoRecetaPreview()"/>
+        </div>
+        <div class="field">
+          <label>Unidad de rendimiento <span class="req">*</span></label>
+          <input type="text" id="fm-unidad" list="fm-unidad-list" placeholder="ej: porciones, ml, oz" oninput="recalcularCostoRecetaPreview()"/>
+          <datalist id="fm-unidad-list"></datalist>
+        </div>
+      </div>
+      <datalist id="fm-ingrediente-list"></datalist>
+      <div id="fm-ingredientes"></div>
+      <button type="button" class="btn-add" onclick="agregarIngrediente()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+        Agregar ingrediente
+      </button>
+      <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:12px;color:var(--purple)">Costo total de la receta</div>
+            <div style="font-size:11px;color:var(--purple);opacity:.85" id="fm-costo-por-unidad">Por unidad de rendimiento: ₡0</div>
+          </div>
+          <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--purple)" id="fm-costo-total">₡0</div>
+        </div>
+      </div>
+      <div id="pm-receta-info" style="font-size:12px;color:var(--muted);margin-bottom:1rem"></div>
 
       <div class="section-label">📷 Foto del plato</div>
       <div class="field">
@@ -423,7 +685,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="btn-danger-text" id="pm-btn-eliminar" onclick="eliminarPlatoDuro()" style="display:none">Eliminar definitivamente</button>
       <div class="modal-foot-right" style="margin-left:auto">
         <button class="btn-sm" onclick="cerrarModalPlato()">Cancelar</button>
-        <button class="btn-primary" onclick="guardarPlato()">Guardar plato</button>
+        <button class="btn-primary" onclick="guardarFicha()">Guardar ficha</button>
       </div>
     </div>
   </div>
@@ -515,6 +777,76 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+
+<!-- ═══════════════════ MODAL COMBO ═══════════════════ -->
+<div class="modal-overlay" id="modal-combo">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="combo-titulo">Nuevo combo</h3>
+      <button class="modal-close" onclick="cerrarModalCombo()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nombre del combo <span class="req">*</span></label>
+        <input type="text" id="cm-nombre" placeholder="ej: Combo Atardecer — 2 cervezas + nachos"/>
+      </div>
+      <div class="field">
+        <label>Descripción</label>
+        <input type="text" id="cm-descripcion" placeholder="ej: Válido de 4 a 6 pm"/>
+      </div>
+
+      <div class="section-label">🍽️ Platos incluidos</div>
+      <p class="field-hint" style="margin:-.4rem 0 .75rem">
+        Elegí el plato y cuál de sus presentaciones entra en el combo. La cantidad es cuántas veces entra esa
+        presentación (ej. 2 cervezas de 16 oz = cantidad 2).
+      </p>
+      <div id="cm-componentes"></div>
+      <button type="button" class="btn-add" onclick="agregarComponenteCombo()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+        Agregar plato al combo
+      </button>
+
+      <div class="section-label" style="margin-top:1.5rem">💰 Precio del combo</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Precio de venta <span class="req">*</span></label>
+          <input type="number" id="cm-precio" min="0" step="any" placeholder="0" oninput="recalcularComboPreview()"/>
+        </div>
+        <div class="field">
+          <label>Suma de precios por separado</label>
+          <div class="ing-costo" id="cm-precio-suelto">₡0</div>
+          <div class="field-hint" id="cm-ahorro">—</div>
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1.25rem;margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:12px;color:var(--purple)">Costo del combo</div>
+            <div style="font-size:11px;color:var(--purple);opacity:.85" id="cm-pct-costo">% de costo: —</div>
+          </div>
+          <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--purple)" id="cm-costo-total">₡0</div>
+        </div>
+      </div>
+
+      <label class="check-row" style="margin-top:1.5rem"><input type="checkbox" id="cm-activo" checked/> Combo activo</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-danger-text" id="cm-btn-eliminar" onclick="eliminarComboActual()" style="display:none">Eliminar combo</button>
+      <div class="modal-foot-right" style="margin-left:auto">
+        <button class="btn-sm" onclick="cerrarModalCombo()">Cancelar</button>
+        <button class="btn-primary" onclick="guardarCombo()">Guardar combo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ HOJAS PARA IMPRIMIR ═══════════════════ -->
+<!-- Fuera de <main> a propósito: en @media print se oculta TODO el resto de
+     la página y solo queda este contenedor, así el navegador imprime hojas
+     limpias sin header, tabs ni botones. -->
+<div id="hojas-impresion"></div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -583,6 +915,14 @@ let EDITANDO_RECETA = null;  // copia de trabajo de la receta abierta en el moda
 let RECETA_ORIGINAL_ID = ''; // id de la receta en edición (vacío = nueva)
 let PLATO_FOTO_BASE64 = null; // dataURL de una foto nueva recién seleccionada (null = sin cambios)
 let PLATO_FOTO_QUITADA = false; // true si se quitó explícitamente la foto existente
+
+// ── v2: el editor de ingredientes se usa en DOS modales ───────────────
+// La ficha única del plato ('fm-…') y el modal de subreceta ('rm-…') comparten
+// exactamente el mismo editor de ingredientes. En vez de duplicar
+// renderIngredientesModal/onIngredienteTexto/etc, las funciones leen el
+// prefijo de este global — quien abre el modal lo fija antes de renderizar.
+let PFX_RECETA = 'rm';
+function $r(sufijo) { return document.getElementById(PFX_RECETA + '-' + sufijo); }
 
 // ── UTILIDADES COMPARTIDAS (mismo patrón que maestro-productos.html) ──
 function escHtml(s) {
@@ -681,16 +1021,20 @@ function confirmarResolver(valor) {
   if (_confirmarResolve) { _confirmarResolve(valor); _confirmarResolve = null; }
 }
 
+const TABS_MENU = ['platos', 'combos', 'recetas', 'costos', 'sinreceta', 'imprimir', 'config'];
+
 function switchTab(nombre) {
-  document.getElementById('tab-platos').style.display = nombre === 'platos' ? '' : 'none';
-  document.getElementById('tab-recetas').style.display = nombre === 'recetas' ? '' : 'none';
-  document.getElementById('tab-indicadores').style.display = nombre === 'indicadores' ? '' : 'none';
-  document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
-  document.getElementById('tab-btn-platos').classList.toggle('active', nombre === 'platos');
-  document.getElementById('tab-btn-recetas').classList.toggle('active', nombre === 'recetas');
-  document.getElementById('tab-btn-indicadores').classList.toggle('active', nombre === 'indicadores');
-  document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
-  if (nombre === 'indicadores') renderIndicadores();
+  TABS_MENU.forEach(function(t) {
+    document.getElementById('tab-' + t).style.display = (t === nombre) ? '' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === nombre);
+  });
+  // Los reportes pesados (histórico, cruce de compras) NO se disparan solos al
+  // entrar a su pestaña: leen años de facturas y tardan. Se cargan cuando la
+  // persona toca "Recalcular"/"Actualizar", o si ya se calcularon antes en
+  // esta sesión se vuelven a pintar de memoria.
+  if (nombre === 'costos') { renderIndicadores(); if (HISTORICO) { renderHistorico(); renderRecomendaciones(); } }
+  if (nombre === 'sinreceta' && SINRECETA) renderSinReceta();
+  if (nombre === 'combos') renderCombos();
 }
 
 // ── CARGA DE DATOS ──────────────────────────────────────────────────
@@ -824,11 +1168,18 @@ async function cargarTodo() {
   } catch (e) {
     showToast('No se pudo cargar todo — revisá la conexión. (' + e.message + ')', 'error');
   }
+  renderN1Strip();
   renderPlatos();
   renderRecetas();
   renderIndicadores();
   renderConfigNivel1();
   renderConfigNivel2();
+  poblarSelectNivel1('hist-nivel1', '');
+  poblarSelectNivel1('imp-nivel1', '');
+  // Los combos se leen por endpoint (no gviz) y son livianos: se cargan de
+  // entrada para que la pestaña Combos no muestre un spinner al abrirla. Los
+  // dos reportes pesados —histórico y cruce de compras— NO, van a demanda.
+  cargarCombos().then(renderCombos);
 }
 
 // ── HELPERS DE NEGOCIO ──────────────────────────────────────────────
@@ -996,6 +1347,34 @@ function estadoPlato(plato) {
 
 // ═══════════════════ TAB PLATOS ═══════════════════
 
+// Tira de áreas de la pestaña Menú. No es un filtro más: es la navegación
+// principal del menú. Escribe su valor en el select oculto 'plt-nivel1' para
+// que toda la lógica de filtrado y de poblado de categorías que ya existía
+// siga funcionando sin duplicarse.
+let N1_SEL = '';
+
+function renderN1Strip() {
+  const cont = document.getElementById('plt-n1-strip');
+  const areas = CONFIG.nivel1 || [];
+  const activos = PLATOS.filter(p => p.activo !== false);
+  const botones = [{ valor: '', nombre: 'Todo el menú', n: activos.length }]
+    .concat(areas.map(a => ({ valor: a, nombre: a, n: activos.filter(p => p.nivel1 === a).length })));
+  cont.innerHTML = botones.map(b => {
+    const sinReceta = activos.filter(p => (!b.valor || p.nivel1 === b.valor) && !recetaDePlato(p.id)).length;
+    return `<button type="button" class="n1-btn ${N1_SEL === b.valor ? 'sel' : ''}" onclick="seleccionarN1('${escapeAttr(b.valor)}')">
+      <span class="n1-nombre">${escHtml(b.nombre)}</span>
+      <span class="n1-sub">${b.n} plato(s)${sinReceta ? ' · ' + sinReceta + ' sin receta' : ''}</span>
+    </button>`;
+  }).join('');
+}
+
+function seleccionarN1(valor) {
+  N1_SEL = valor;
+  document.getElementById('plt-nivel1').value = valor;
+  onFiltroNivel1Change();
+  renderN1Strip();
+}
+
 function onFiltroNivel1Change() {
   poblarSelectNivel2(document.getElementById('plt-nivel1').value, 'plt-nivel2', true);
   renderPlatos();
@@ -1003,15 +1382,18 @@ function onFiltroNivel1Change() {
 
 function poblarSelectNivel1(selectId, valorActual) {
   const sel = document.getElementById(selectId);
-  const incluirTodos = selectId === 'plt-nivel1';
-  sel.innerHTML = (incluirTodos ? '<option value="">Nivel 1: todos</option>' : '<option value="" disabled selected>Seleccioná…</option>')
+  // Los selects que filtran (menú, histórico) y el de impresión admiten
+  // "sin valor"; los que capturan un dato de la ficha, no — ahí el vacío
+  // tiene que ser un placeholder deshabilitado para forzar una elección.
+  const etiquetaVacia = { 'plt-nivel1': 'Nivel 1: todos', 'hist-nivel1': 'Área: todas', 'imp-nivel1': 'Dejar en blanco' }[selectId];
+  sel.innerHTML = (etiquetaVacia ? '<option value="">' + etiquetaVacia + '</option>' : '<option value="" disabled selected>Seleccioná…</option>')
     + CONFIG.nivel1.map(n => `<option value="${escapeAttr(n)}" ${n===valorActual?'selected':''}>${escHtml(n)}</option>`).join('');
 }
 
 function poblarSelectNivel2(nivel1, selectId, conTodos) {
   const sel = document.getElementById(selectId);
   const opciones = (CONFIG.nivel2PorNivel1[nivel1] || []);
-  sel.innerHTML = (conTodos ? '<option value="">Nivel 2: todos</option>' : '<option value="" disabled selected>Seleccioná…</option>')
+  sel.innerHTML = (conTodos ? '<option value="">Categoría: todas</option>' : '<option value="" disabled selected>Seleccioná…</option>')
     + opciones.map(n => `<option value="${escapeAttr(n)}">${escHtml(n)}</option>`).join('');
 }
 
@@ -1049,12 +1431,42 @@ function renderPlatos() {
     return;
   }
 
-  cont.innerHTML = `<div class="plt-grid">${filtrados.map(({p, estado}) => {
+  cont.innerHTML = agruparPlatosHTML(filtrados);
+}
+
+// Agrupa el menú filtrado por categoría (Nivel 2) con un encabezado por
+// grupo: es la forma en que se lee un menú en papel, y con 100+ platos una
+// grilla plana se vuelve inmanejable. Dentro de cada grupo el orden es
+// alfabético.
+function agruparPlatosHTML(filtrados) {
+  const grupos = {};
+  filtrados.forEach(function(x) {
+    const cat = x.p.nivel2 || 'Sin categoría';
+    (grupos[cat] = grupos[cat] || []).push(x);
+  });
+  const orden = Object.keys(grupos).sort(function(a, b) { return a.localeCompare(b); });
+  return orden.map(function(cat) {
+    const items = grupos[cat].sort(function(a, b) { return a.p.nombre.localeCompare(b.p.nombre); });
+    const conReceta = items.filter(function(x) { return !x.estado.sinReceta; }).length;
+    return `<div class="grp-head">
+        <span class="grp-nombre">${escHtml(cat)}</span>
+        <span class="grp-meta">${items.length} plato(s) · ${conReceta} con receta</span>
+      </div>
+      <div class="plt-grid">${items.map(tarjetaPlato).join('')}</div>`;
+  }).join('');
+}
+
+// El HTML de la tarjeta no cambió — solo se extrajo de renderPlatos() para
+// poder pintarlo agrupado.
+function tarjetaPlato({p, estado}) {
     const receta = recetaDePlato(p.id);
     const metaPct = CONFIG.metaCostoPorNivel1[p.nivel1];
     const filasPres = p.presentaciones.filter(pr => pr.activo !== false).map(pr => {
       const costo = costoPresentacion(pr, receta);
-      const pct = pctCosto(costo, pr.precioVenta);
+      // Sin receta no hay costo, y por lo tanto tampoco un 0% de costo — que
+      // se pintaría verde y leería como "excelente" cuando en realidad es
+      // "todavía no se sabe".
+      const pct = receta ? pctCosto(costo, pr.precioVenta) : null;
       return `<tr>
         <td>${escHtml(pr.nombre||'—')}</td>
         <td class="num">${pr.precioVenta ? fmtCRC(pr.precioVenta) : '—'}</td>
@@ -1098,12 +1510,11 @@ function renderPlatos() {
         </table>
       </div>` : ''}
       <div class="plt-actions">
-        <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Editar</button>
-        ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Crear receta</button>` : ''}
+        <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Abrir ficha</button>
+        ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Cargar receta</button>` : ''}
         <button class="btn-sm" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
       </div>
     </div>`;
-  }).join('')}</div>`;
 }
 
 function togglePlatoDetalle(id) {
@@ -1121,14 +1532,14 @@ function nuevoPlato() {
     presentaciones: [{ id: nuevoIdLocal(), nombre: 'Regular', cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true }],
     activo: true, fotoUrl: '', indicaciones: ''
   };
-  abrirModalPlatoConEstado('Nuevo plato', false);
+  abrirModalPlatoConEstado('Nueva ficha de plato', false);
 }
 
 function abrirPlato(id) {
   const p = PLATOS.find(x => x.id === id);
   if (!p) return;
   EDITANDO_PLATO = JSON.parse(JSON.stringify(p)); // copia de trabajo — Cancelar no debe mutar PLATOS
-  abrirModalPlatoConEstado('Editar plato', true);
+  abrirModalPlatoConEstado('Editar ficha — ' + p.nombre, true);
 }
 
 function abrirModalPlatoConEstado(titulo, esEdicion) {
@@ -1140,10 +1551,27 @@ function abrirModalPlatoConEstado(titulo, esEdicion) {
   document.getElementById('pm-activo').checked = EDITANDO_PLATO.activo !== false;
   document.getElementById('pm-btn-eliminar').style.display = esEdicion ? '' : 'none';
   marcarKioskosPlatoModal(EDITANDO_PLATO.kioskos);
+
+  // Receta del plato, dentro de la misma ficha. Si el plato todavía no tiene
+  // receta se arranca una vacía en memoria: no se crea nada en el Sheet hasta
+  // que se guarda la ficha con al menos un ingrediente.
+  PFX_RECETA = 'fm';
   const receta = esEdicion ? recetaDePlato(EDITANDO_PLATO.id) : null;
+  RECETA_ORIGINAL_ID = receta ? receta.id : '';
+  EDITANDO_RECETA = receta
+    ? JSON.parse(JSON.stringify(receta))
+    : { id: '', tipo: 'receta', nombre: '', platoId: EDITANDO_PLATO.id,
+        rendimiento: 1, unidadRendimiento: 'porciones',
+        ingredientes: [{ tipoFuente:'producto', ref:'', nombre:'', unidad:'', cantidad:'' }] };
+  document.getElementById('fm-rendimiento').value = EDITANDO_RECETA.rendimiento;
+  document.getElementById('fm-unidad').value = EDITANDO_RECETA.unidadRendimiento;
+  poblarUnidadesDatalist();
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
   document.getElementById('pm-receta-info').innerHTML = receta
-    ? `✓ Receta enlazada — rinde ${escHtml(String(receta.rendimiento))} ${escHtml(receta.unidadRendimiento)}, costo ${fmtCRC(receta.costoTotal)} total (${fmtCRC(receta.costoPorUnidadRendimiento)} por ${escHtml(receta.unidadRendimiento)}).`
-    : (esEdicion ? '⚠ Este plato todavía no tiene una receta enlazada — guardalo y usá "+ Crear receta" desde la tarjeta del plato.' : 'Se guarda el plato primero; la receta se enlaza después desde la tarjeta del plato.');
+    ? `Última actualización de la receta: ${escHtml(String(receta.actualizado||'—'))}. Se guarda junto con la ficha.`
+    : 'Todavía no hay receta guardada para este plato — cargá los ingredientes y se crea al guardar la ficha.';
+
   renderPresentacionesModal();
   document.getElementById('pm-indicaciones').value = EDITANDO_PLATO.indicaciones || '';
   PLATO_FOTO_BASE64 = null;
@@ -1366,7 +1794,11 @@ function quitarPresentacion(idx) {
   renderPresentacionesModal();
 }
 
-async function guardarPlato() {
+// Guarda la ficha completa: plato + receta en un solo POST
+// (menu_ficha_guardar). El backend llama a menuPlatoGuardar y luego a
+// menuRecetaGuardar con el platoId ya resuelto — si el plato se guarda pero la
+// receta falla, devuelve errorReceta y el plato NO se pierde.
+async function guardarFicha() {
   EDITANDO_PLATO.nombre = document.getElementById('pm-nombre').value.trim();
   EDITANDO_PLATO.nivel1 = document.getElementById('pm-nivel1').value;
   EDITANDO_PLATO.nivel2 = document.getElementById('pm-nivel2').value;
@@ -1381,24 +1813,49 @@ async function guardarPlato() {
   const sinNombre = EDITANDO_PLATO.presentaciones.find(p => !p.nombre.trim());
   if (sinNombre) { showToast('Todas las presentaciones necesitan un nombre.', 'error'); return; }
 
+  // ── Receta de la ficha ──────────────────────────────────────────
+  const rendimiento = Number(document.getElementById('fm-rendimiento').value) || 0;
+  const unidadRendimiento = document.getElementById('fm-unidad').value.trim();
+  const sinCoincidencia = EDITANDO_RECETA.ingredientes.find(ing => !ing.ref && (ing.nombre||'').trim());
+  if (sinCoincidencia) { showToast(`"${sinCoincidencia.nombre}" no coincide con ningún ingrediente — elegilo de las opciones sugeridas.`, 'error'); return; }
+  const ingredientesValidos = EDITANDO_RECETA.ingredientes.filter(ing => ing.ref && Number(ing.cantidad) > 0);
+  if (ingredientesValidos.length) {
+    if (!rendimiento || rendimiento <= 0) { showToast('El rendimiento de la receta debe ser mayor a 0.', 'error'); return; }
+    if (!unidadRendimiento) { showToast('Ingresá la unidad de rendimiento de la receta.', 'error'); return; }
+  }
+
   try {
     const result = await postAP({
-      modulo: 'menu_plato_guardar',
-      id: EDITANDO_PLATO.id,
-      nombre: EDITANDO_PLATO.nombre,
-      nivel1: EDITANDO_PLATO.nivel1,
-      nivel2: EDITANDO_PLATO.nivel2,
-      kioskos: EDITANDO_PLATO.kioskos,
-      activo: EDITANDO_PLATO.activo,
-      presentaciones: EDITANDO_PLATO.presentaciones,
-      indicaciones: EDITANDO_PLATO.indicaciones,
-      foto: PLATO_FOTO_BASE64,       // dataURL de foto nueva, o null si no se tocó
-      quitarFoto: PLATO_FOTO_QUITADA // true si se quitó la foto existente sin poner una nueva
+      modulo: 'menu_ficha_guardar',
+      plato: {
+        id: EDITANDO_PLATO.id,
+        nombre: EDITANDO_PLATO.nombre,
+        nivel1: EDITANDO_PLATO.nivel1,
+        nivel2: EDITANDO_PLATO.nivel2,
+        kioskos: EDITANDO_PLATO.kioskos,
+        activo: EDITANDO_PLATO.activo,
+        presentaciones: EDITANDO_PLATO.presentaciones,
+        indicaciones: EDITANDO_PLATO.indicaciones,
+        foto: PLATO_FOTO_BASE64,       // dataURL de foto nueva, o null si no se tocó
+        quitarFoto: PLATO_FOTO_QUITADA // true si se quitó la foto existente sin poner una nueva
+      },
+      receta: ingredientesValidos.length ? {
+        id: EDITANDO_RECETA.id,
+        rendimiento, unidadRendimiento,
+        ingredientes: ingredientesValidos
+      } : null
     });
-    showToast(`Plato "${EDITANDO_PLATO.nombre}" guardado ✓`);
-    cerrarModalPlato();
-    await cargarMenuPlatos();
+
+    if (result.errorReceta) {
+      showToast(`Plato guardado, pero la receta no: ${result.errorReceta}`, 'error');
+    } else {
+      const sinCosto = result.receta && result.receta.ingredientesSinCosto || [];
+      showToast(`Ficha "${EDITANDO_PLATO.nombre}" guardada ✓` + (sinCosto.length ? ` (⚠ sin costear: ${sinCosto.join(', ')})` : ''), sinCosto.length ? 'error' : 'success');
+      cerrarModalPlato();
+    }
+    await Promise.all([cargarMenuPlatos(), cargarMenuRecetas()]);
     renderPlatos();
+    renderRecetas();
     renderIndicadores();
   } catch (e) {
     showToast('No se pudo guardar — ' + e.message, 'error');
@@ -1514,11 +1971,12 @@ function toggleRecetaDetalle(id) {
 
 function nuevaReceta(tipoDefault, platoIdDefault) {
   RECETA_ORIGINAL_ID = '';
+  const tipo = tipoDefault || 'subreceta';
   EDITANDO_RECETA = {
-    id: '', tipo: tipoDefault || 'receta', nombre: '', platoId: platoIdDefault || '',
-    rendimiento: '', unidadRendimiento: '', ingredientes: []
+    id: '', tipo: tipo, nombre: '', platoId: platoIdDefault || '',
+    rendimiento: '', unidadRendimiento: '', ingredientes: [{ tipoFuente:'producto', ref:'', nombre:'', unidad:'', cantidad:'' }]
   };
-  abrirModalRecetaConEstado('Nueva receta', false);
+  abrirModalRecetaConEstado(tipo === 'subreceta' ? 'Nueva subreceta' : 'Nueva receta', false);
 }
 
 function abrirReceta(id) {
@@ -1530,6 +1988,7 @@ function abrirReceta(id) {
 }
 
 function abrirModalRecetaConEstado(titulo, esEdicion) {
+  PFX_RECETA = 'rm';
   document.getElementById('receta-titulo').textContent = titulo;
   document.getElementById('rm-id').value = EDITANDO_RECETA.id;
   document.getElementById('rm-rendimiento').value = EDITANDO_RECETA.rendimiento;
@@ -1551,7 +2010,7 @@ function cerrarModalReceta() {
 }
 
 function poblarUnidadesDatalist() {
-  const dl = document.getElementById('rm-unidad-list');
+  const dl = $r('unidad-list');
   dl.innerHTML = ['porciones','ml','L','oz','g','kg','unidades'].map(u => `<option value="${escapeAttr(u)}">`).join('');
 }
 
@@ -1582,7 +2041,7 @@ function setTipoReceta(tipo, sinTocarPlato) {
 // El datalist es compartido por todas las filas — se llena una vez por
 // apertura de modal (las fuentes no cambian mientras el modal está abierto).
 function poblarIngredientesDatalist() {
-  const dl = document.getElementById('rm-ingrediente-list');
+  const dl = $r('ingrediente-list');
   const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
   dl.innerHTML = fuentes.map(f => `<option value="${escapeAttr(f.nombre)}">`).join('');
 }
@@ -1590,14 +2049,14 @@ function poblarIngredientesDatalist() {
 function renderIngredientesModal() {
   poblarIngredientesDatalist();
   const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
-  document.getElementById('rm-ingredientes').innerHTML = EDITANDO_RECETA.ingredientes.map((ing, idx) => {
+  $r('ingredientes').innerHTML = EDITANDO_RECETA.ingredientes.map((ing, idx) => {
     const fuenteActual = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
     const costoLinea = (fuenteActual ? fuenteActual.costo : 0) * (Number(ing.cantidad)||0);
     const sinCoincidencia = !fuenteActual && (ing.nombre||'').trim();
     return `
     <div class="ing-row" data-idx="${idx}">
       <div class="field"><label>Ingrediente / Subreceta</label>
-        <input type="text" list="rm-ingrediente-list" value="${escapeAttr(ing.nombre||'')}" placeholder="Escribí para buscar…" oninput="onIngredienteTexto(${idx}, this.value)"/>
+        <input type="text" list="${PFX_RECETA}-ingrediente-list" value="${escapeAttr(ing.nombre||'')}" placeholder="Escribí para buscar…" oninput="onIngredienteTexto(${idx}, this.value)"/>
         <div class="field-hint" id="ing-hint-${idx}" style="color:${sinCoincidencia?'var(--red)':'var(--subtle)'}">${fuenteActual ? 'Unidad: ' + escHtml(fuenteActual.unidad||'—') : (sinCoincidencia ? '⚠ no coincide con ningún ingrediente — elegí una opción de la lista' : '')}</div>
       </div>
       <div class="field"><label>Cantidad</label>
@@ -1627,7 +2086,7 @@ function onIngredienteTexto(idx, texto) {
     : { tipoFuente: '', ref: '', nombre: texto, unidad: '', cantidad: cantidadActual };
 
   const costoLinea = (match ? match.costo : 0) * (Number(cantidadActual)||0);
-  const costoCell = document.querySelector(`#rm-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
+  const costoCell = document.querySelector(`#${PFX_RECETA}-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
   const sinCoincidencia = !match && texto.trim();
   if (costoCell) costoCell.textContent = match ? fmtCRC(costoLinea) : (sinCoincidencia ? '⚠ no encontrado' : '—');
   const hint = document.getElementById('ing-hint-' + idx);
@@ -1646,7 +2105,7 @@ function onIngredienteCantidad(idx, valor) {
   const ing = EDITANDO_RECETA.ingredientes[idx];
   const fuente = fuentes.find(f => f.tipoFuente===ing.tipoFuente && f.ref===ing.ref);
   const costoLinea = (fuente ? fuente.costo : 0) * (Number(valor)||0);
-  const costoCell = document.querySelector(`#rm-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
+  const costoCell = document.querySelector(`#${PFX_RECETA}-ingredientes .ing-row[data-idx="${idx}"] .ing-costo`);
   if (costoCell) costoCell.textContent = fuente ? fmtCRC(costoLinea) : (ing.ref || (ing.nombre||'').trim() ? '⚠ no encontrado' : '—');
   recalcularCostoRecetaPreview();
 }
@@ -1663,7 +2122,7 @@ function quitarIngrediente(idx) {
 // Vista previa de costo, en memoria, antes de guardar — el backend
 // recalcula lo mismo server-side al guardar (nunca confía en este número).
 function recalcularCostoRecetaPreview() {
-  const rendimiento = Number(document.getElementById('rm-rendimiento').value) || 0;
+  const rendimiento = Number($r('rendimiento').value) || 0;
   const fuentes = fuentesIngrediente(RECETA_ORIGINAL_ID);
   let total = 0;
   EDITANDO_RECETA.ingredientes.forEach(ing => {
@@ -1671,9 +2130,9 @@ function recalcularCostoRecetaPreview() {
     total += (fuente ? fuente.costo : 0) * (Number(ing.cantidad)||0);
   });
   const porUnidad = rendimiento > 0 ? total / rendimiento : 0;
-  const unidad = document.getElementById('rm-unidad').value || 'unidad';
-  document.getElementById('rm-costo-total').textContent = fmtCRC(total);
-  document.getElementById('rm-costo-por-unidad').textContent = `Por ${unidad}: ${fmtCRC(porUnidad)}`;
+  const unidad = $r('unidad').value || 'unidad';
+  $r('costo-total').textContent = fmtCRC(total);
+  $r('costo-por-unidad').textContent = `Por ${unidad}: ${fmtCRC(porUnidad)}`;
 }
 
 async function guardarReceta() {
@@ -1727,9 +2186,10 @@ async function eliminarRecetaActual() {
   }
 }
 
+// La receta de un plato ya no se crea en un modal aparte: se abre la ficha
+// única del plato, que trae el editor de ingredientes adentro.
 function crearRecetaParaPlato(platoId) {
-  switchTab('recetas');
-  nuevaReceta('receta', platoId);
+  abrirPlato(platoId);
 }
 
 // ═══════════════════ TAB CONFIGURACIÓN ═══════════════════
@@ -1845,6 +2305,611 @@ async function eliminarNivel2(nivel1, valor) {
     showToast('No se pudo eliminar — ' + e.message, 'error');
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// v2 (2026-09-08) — COMBOS, HISTÓRICO DE COSTOS, RECOMENDACIONES,
+//                   PRODUCTOS SIN RECETA Y HOJA IMPRIMIBLE
+// ═══════════════════════════════════════════════════════════════════════
+
+let COMBOS = [];
+let EDITANDO_COMBO = null;
+let HISTORICO = null;      // resultado de accion=historico_costos (null = todavía no se pidió)
+let SINRECETA = null;      // resultado de accion=productos_sin_receta
+let HIST_VISTA = 'platos';
+
+// GET al backend. Los tres reportes nuevos son de solo lectura y pesados, y
+// por eso van por GET y no por postAP: así un reintento nunca puede escribir
+// nada, y el navegador puede cancelarlos sin dejar el Sheet a medias.
+async function getAP(accion, params) {
+  if (!APPS_SCRIPT_RECETAS || APPS_SCRIPT_RECETAS.startsWith('TODO_')) {
+    throw new Error('Todavía no se desplegó Code-recetas-kioskos-backend.gs.');
+  }
+  const qs = new URLSearchParams(Object.assign({ accion }, params || {}));
+  qs.set('_', Date.now());
+  const resp = await fetch(APPS_SCRIPT_RECETAS + '?' + qs.toString());
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al leer');
+  return json.result;
+}
+
+// ═══════════════════ COMBOS ═══════════════════
+
+async function cargarCombos() {
+  try { COMBOS = await getAP('combos'); }
+  catch (e) { COMBOS = []; }
+}
+
+function presentacionesDePlato(platoId) {
+  const p = PLATOS.find(x => x.id === platoId);
+  if (!p) return [];
+  return p.presentaciones.filter(pr => pr.activo !== false);
+}
+
+// Costo de una presentación concreta, resuelto en el cliente igual que lo
+// hace el backend al guardar (costoComponentesCombo_) — se recalcula acá solo
+// para la vista previa del modal; el número que queda guardado siempre es el
+// que calcula el servidor.
+function costoComponente(comp) {
+  const plato = PLATOS.find(x => x.id === comp.platoId);
+  if (!plato) return 0;
+  const receta = recetaDePlato(comp.platoId);
+  if (!receta) return 0;
+  const pres = plato.presentaciones.find(pr => pr.id === comp.presentacionId) || plato.presentaciones[0];
+  if (!pres) return 0;
+  return costoPresentacion(pres, receta) * (Number(comp.cantidad) || 1);
+}
+
+function precioComponente(comp) {
+  const plato = PLATOS.find(x => x.id === comp.platoId);
+  if (!plato) return 0;
+  const pres = plato.presentaciones.find(pr => pr.id === comp.presentacionId) || plato.presentaciones[0];
+  if (!pres) return 0;
+  return (Number(pres.precioVenta) || 0) * (Number(comp.cantidad) || 1);
+}
+
+function renderCombos() {
+  const cont = document.getElementById('cmb-lista');
+  document.getElementById('cmb-count-activos').textContent = COMBOS.filter(c => c.activo).length;
+  document.getElementById('cmb-count-incompletos').textContent =
+    COMBOS.filter(c => c.componentesSinCosto && c.componentesSinCosto.length).length;
+
+  if (!COMBOS.length) {
+    cont.innerHTML = '<div class="empty-state">Todavía no hay combos. Tocá "+ Nuevo combo" para armar el primero.</div>';
+    return;
+  }
+
+  cont.innerHTML = COMBOS.map(c => {
+    const metaPct = null; // un combo puede cruzar Alimentos y Bebidas: no hereda una sola meta
+    const sueltos = (c.componentes || []).reduce((s, comp) => s + precioComponente(comp), 0);
+    const ahorro = sueltos - c.precioVenta;
+    const listaComp = (c.componentes || []).map(comp => {
+      const plato = PLATOS.find(x => x.id === comp.platoId);
+      const pres = plato ? (plato.presentaciones.find(pr => pr.id === comp.presentacionId) || {}) : {};
+      const cant = Number(comp.cantidad) || 1;
+      return `• ${cant > 1 ? cant + '× ' : ''}${escHtml(plato ? plato.nombre : (comp.nombrePlato || '⚠ plato borrado'))}` +
+             `<span style="color:var(--muted)"> · ${escHtml(pres.nombre || comp.nombrePresentacion || '—')}</span>`;
+    }).join('<br/>');
+
+    return `
+    <div class="cmb-card ${c.activo ? '' : 'inactivo'}">
+      <div class="cmb-head">
+        <div>
+          <div class="cmb-nombre">${escHtml(c.nombre)}</div>
+          ${c.descripcion ? `<div class="cmb-desc">${escHtml(c.descripcion)}</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-d);font-size:18px;font-weight:700">${fmtCRC(c.precioVenta)}</div>
+          <div style="font-size:11.5px;color:${c.pctCosto != null ? colorPct(c.pctCosto, 30) : 'var(--muted)'};font-weight:600">
+            ${c.pctCosto != null ? c.pctCosto.toFixed(1) + '% de costo' : '—'}
+          </div>
+        </div>
+      </div>
+      <div class="cmb-comp">${listaComp || '<span style="color:var(--subtle)">Sin componentes.</span>'}</div>
+      ${c.componentesSinCosto && c.componentesSinCosto.length
+        ? `<div class="plt-badge plt-badge-warn" style="margin-top:8px;display:inline-block">⚠ Sin costear: ${escHtml(c.componentesSinCosto.join(', '))}</div>` : ''}
+      <div class="cmb-cifras">
+        <span>Costo: <b>${fmtCRC(c.costoVigente)}</b></span>
+        <span>Margen: <b>${fmtCRC(c.precioVenta - c.costoVigente)}</b></span>
+        <span>Por separado: <b>${fmtCRC(sueltos)}</b></span>
+        <span>Descuento al cliente: <b style="color:${ahorro >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtCRC(ahorro)}</b></span>
+      </div>
+      <div class="plt-actions" style="margin-top:10px">
+        <button class="btn-sm" onclick="abrirCombo('${escapeAttr(c.id)}')">Editar</button>
+        <button class="btn-sm" onclick="toggleActivoCombo('${escapeAttr(c.id)}', ${c.activo})">${c.activo ? 'Desactivar' : 'Activar'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function nuevoCombo() {
+  EDITANDO_COMBO = { id: '', nombre: '', descripcion: '', componentes: [], precioVenta: '', activo: true };
+  agregarComponenteCombo();
+  agregarComponenteCombo();
+  abrirModalComboConEstado('Nuevo combo', false);
+}
+
+function abrirCombo(id) {
+  const c = COMBOS.find(x => x.id === id);
+  if (!c) return;
+  EDITANDO_COMBO = JSON.parse(JSON.stringify(c));
+  abrirModalComboConEstado('Editar combo', true);
+}
+
+function abrirModalComboConEstado(titulo, esEdicion) {
+  document.getElementById('combo-titulo').textContent = titulo;
+  document.getElementById('cm-nombre').value = EDITANDO_COMBO.nombre || '';
+  document.getElementById('cm-descripcion').value = EDITANDO_COMBO.descripcion || '';
+  document.getElementById('cm-precio').value = EDITANDO_COMBO.precioVenta || '';
+  document.getElementById('cm-activo').checked = EDITANDO_COMBO.activo !== false;
+  document.getElementById('cm-btn-eliminar').style.display = esEdicion ? '' : 'none';
+  renderComponentesCombo();
+  document.getElementById('modal-combo').classList.add('open');
+}
+
+function cerrarModalCombo() {
+  document.getElementById('modal-combo').classList.remove('open');
+  EDITANDO_COMBO = null;
+}
+
+function renderComponentesCombo() {
+  const platosConReceta = PLATOS.filter(p => p.activo !== false && recetaDePlato(p.id));
+  document.getElementById('cm-componentes').innerHTML = EDITANDO_COMBO.componentes.map((comp, idx) => {
+    const pres = presentacionesDePlato(comp.platoId);
+    return `
+    <div class="cmp-row">
+      <div class="field" style="margin:0"><label>Plato</label>
+        <select onchange="onComponentePlato(${idx}, this.value)">
+          <option value="">Seleccioná…</option>
+          ${platosConReceta.map(p => `<option value="${escapeAttr(p.id)}" ${p.id===comp.platoId?'selected':''}>${escHtml(p.nombre)} · ${escHtml(p.nivel2)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0"><label>Presentación</label>
+        <select onchange="onComponenteCampo(${idx}, 'presentacionId', this.value)" ${pres.length?'':'disabled'}>
+          ${pres.length ? pres.map(pr => `<option value="${escapeAttr(pr.id)}" ${pr.id===comp.presentacionId?'selected':''}>${escHtml(pr.nombre||'—')} · ${fmtCRC(pr.precioVenta)}</option>`).join('')
+                        : '<option>—</option>'}
+        </select>
+      </div>
+      <div class="field" style="margin:0"><label>Cantidad</label>
+        <input type="number" min="1" step="1" value="${escapeAttr(comp.cantidad||1)}" oninput="onComponenteCampo(${idx}, 'cantidad', this.value)"/>
+      </div>
+      <button type="button" class="btn-rm" onclick="quitarComponenteCombo(${idx})" title="Quitar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+  recalcularComboPreview();
+}
+
+// Al cambiar de plato hay que resetear la presentación: las presentaciones
+// del plato anterior no existen en el nuevo, y dejar el id viejo haría que el
+// backend caiga silenciosamente en la primera presentación.
+function onComponentePlato(idx, platoId) {
+  const comp = EDITANDO_COMBO.componentes[idx];
+  comp.platoId = platoId;
+  const pres = presentacionesDePlato(platoId);
+  comp.presentacionId = pres.length ? pres[0].id : '';
+  renderComponentesCombo();
+}
+
+function onComponenteCampo(idx, campo, valor) {
+  EDITANDO_COMBO.componentes[idx][campo] = valor;
+  recalcularComboPreview();
+}
+
+function agregarComponenteCombo() {
+  EDITANDO_COMBO.componentes.push({ platoId: '', presentacionId: '', cantidad: 1 });
+  renderComponentesCombo();
+}
+
+function quitarComponenteCombo(idx) {
+  EDITANDO_COMBO.componentes.splice(idx, 1);
+  renderComponentesCombo();
+}
+
+function recalcularComboPreview() {
+  const precio = Number(document.getElementById('cm-precio').value) || 0;
+  let costo = 0, sueltos = 0;
+  EDITANDO_COMBO.componentes.forEach(c => { costo += costoComponente(c); sueltos += precioComponente(c); });
+  document.getElementById('cm-costo-total').textContent = fmtCRC(costo);
+  document.getElementById('cm-precio-suelto').textContent = fmtCRC(sueltos);
+  const pct = precio ? (costo / precio) * 100 : null;
+  document.getElementById('cm-pct-costo').textContent = '% de costo: ' + fmtPct(pct);
+  const ahorro = sueltos - precio;
+  document.getElementById('cm-ahorro').textContent = precio
+    ? (ahorro >= 0 ? 'El cliente ahorra ' + fmtCRC(ahorro) : '⚠ El combo cuesta ' + fmtCRC(-ahorro) + ' MÁS que comprarlo suelto')
+    : '—';
+  document.getElementById('cm-ahorro').style.color = (precio && ahorro < 0) ? 'var(--red)' : 'var(--subtle)';
+}
+
+async function guardarCombo() {
+  EDITANDO_COMBO.nombre = document.getElementById('cm-nombre').value.trim();
+  EDITANDO_COMBO.descripcion = document.getElementById('cm-descripcion').value.trim();
+  EDITANDO_COMBO.precioVenta = Number(document.getElementById('cm-precio').value) || 0;
+  EDITANDO_COMBO.activo = document.getElementById('cm-activo').checked;
+
+  if (!EDITANDO_COMBO.nombre) { showToast('Ingresá el nombre del combo.', 'error'); return; }
+  if (EDITANDO_COMBO.precioVenta <= 0) { showToast('El combo necesita su propio precio de venta.', 'error'); return; }
+  const componentes = EDITANDO_COMBO.componentes.filter(c => c.platoId && c.presentacionId);
+  if (componentes.length < 2) { showToast('Un combo necesita al menos 2 platos con presentación elegida.', 'error'); return; }
+
+  // Se guarda también el nombre del plato y de la presentación: si más
+  // adelante alguien borra el plato, el combo sigue mostrando qué tenía en
+  // vez de un ID suelto imposible de interpretar.
+  componentes.forEach(c => {
+    const plato = PLATOS.find(x => x.id === c.platoId);
+    const pres = plato ? plato.presentaciones.find(pr => pr.id === c.presentacionId) : null;
+    c.nombrePlato = plato ? plato.nombre : '';
+    c.nombrePresentacion = pres ? pres.nombre : '';
+    c.cantidad = Number(c.cantidad) || 1;
+  });
+
+  try {
+    const result = await postAP({
+      modulo: 'menu_combo_guardar',
+      id: EDITANDO_COMBO.id, nombre: EDITANDO_COMBO.nombre,
+      descripcion: EDITANDO_COMBO.descripcion, componentes,
+      precioVenta: EDITANDO_COMBO.precioVenta, activo: EDITANDO_COMBO.activo
+    });
+    const aviso = result.componentesSinCosto && result.componentesSinCosto.length
+      ? ' (⚠ sin costear: ' + result.componentesSinCosto.join(', ') + ')' : '';
+    showToast('Combo guardado ✓' + aviso, aviso ? 'error' : 'success');
+    cerrarModalCombo();
+    await cargarCombos();
+    renderCombos();
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  }
+}
+
+async function toggleActivoCombo(id, activoActual) {
+  try {
+    await postAP({ modulo: 'menu_combo_estado', id, activo: !activoActual });
+    showToast(activoActual ? 'Combo desactivado ✓' : 'Combo activado ✓');
+    await cargarCombos();
+    renderCombos();
+  } catch (e) { showToast('No se pudo actualizar — ' + e.message, 'error'); }
+}
+
+async function eliminarComboActual() {
+  if (!EDITANDO_COMBO || !EDITANDO_COMBO.id) return;
+  const ok = await confirmModal(`¿Eliminar definitivamente el combo "${EDITANDO_COMBO.nombre}"? Si solo querés sacarlo del menú por un tiempo, usá "Desactivar".`, 'Eliminar combo');
+  if (!ok) return;
+  try {
+    await postAP({ modulo: 'menu_combo_eliminar', id: EDITANDO_COMBO.id });
+    showToast('Combo eliminado');
+    cerrarModalCombo();
+    await cargarCombos();
+    renderCombos();
+  } catch (e) { showToast('No se pudo eliminar — ' + e.message, 'error'); }
+}
+
+// ═══════════════════ HISTÓRICO DE COSTOS ═══════════════════
+
+// Mini gráfico de línea en SVG puro — no se carga ninguna librería (la página
+// tiene que seguir siendo un solo archivo servido por GitHub Pages).
+function sparkline(serie, colorSube, colorBaja) {
+  const vals = (serie || []).map(v => Number(v) || 0);
+  if (vals.length < 2) return '<svg class="spark"></svg>';
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const rango = (max - min) || 1;
+  const w = 130, h = 34, pad = 3;
+  const puntos = vals.map((v, i) => {
+    const x = pad + (i * (w - pad * 2)) / (vals.length - 1);
+    const y = h - pad - ((v - min) / rango) * (h - pad * 2);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  });
+  const subio = vals[vals.length - 1] >= vals[0];
+  const color = subio ? (colorSube || 'var(--red)') : (colorBaja || 'var(--green)');
+  const area = 'M' + pad + ',' + (h - pad) + ' L' + puntos.join(' L') + ' L' + (w - pad) + ',' + (h - pad) + ' Z';
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <path d="${area}" fill="${color}" opacity="0.10"/>
+    <polyline points="${puntos.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${(w - pad).toFixed(1)}" cy="${puntos[puntos.length-1].split(',')[1]}" r="2.4" fill="${color}"/>
+  </svg>`;
+}
+
+function colorVar(v) { return v > 0.5 ? 'var(--red)' : (v < -0.5 ? 'var(--green)' : 'var(--muted)'); }
+function signoPct(v) { return (v > 0 ? '+' : '') + (Number(v) || 0).toFixed(1) + '%'; }
+
+async function cargarHistorico(forzar) {
+  if (HISTORICO && !forzar) { renderHistorico(); renderRecomendaciones(); return; }
+  const est = document.getElementById('hist-estado');
+  const cont = document.getElementById('hist-contenido');
+  est.style.display = '';
+  est.textContent = 'Recalculando el histórico desde las facturas… esto puede tardar entre 10 y 60 segundos.';
+  cont.style.display = 'none';
+  try {
+    const meses = document.getElementById('hist-ventana').value;
+    HISTORICO = await getAP('historico_costos', { meses });
+    est.style.display = 'none';
+    cont.style.display = '';
+    poblarSelectNivel1('hist-nivel1', document.getElementById('hist-nivel1').value);
+    renderHistorico();
+    renderRecomendaciones();
+  } catch (e) {
+    est.style.display = '';
+    est.innerHTML = '⚠ No se pudo calcular el histórico — ' + escHtml(e.message) +
+      '<br/><span style="font-size:12px">Si el error dice que la acción no se reconoce, falta volver a desplegar Code-recetas-kioskos-backend.gs.</span>';
+  }
+}
+
+function switchHist(vista) {
+  HIST_VISTA = vista;
+  document.getElementById('hist-tab-btn-platos').className = 'hist-tab' + (vista==='platos'?' active':'');
+  document.getElementById('hist-tab-btn-productos').className = 'hist-tab' + (vista==='productos'?' active':'');
+  document.getElementById('hist-nivel1').style.display = vista === 'platos' ? '' : 'none';
+  renderHistorico();
+}
+
+function renderHistorico() {
+  if (!HISTORICO) return;
+  const q = document.getElementById('hist-buscar').value.trim().toLowerCase();
+  const n1 = document.getElementById('hist-nivel1').value;
+  const orden = document.getElementById('hist-orden').value;
+  const meses = HISTORICO.meses || [];
+  const rangoTxt = meses.length ? meses[0] + ' → ' + meses[meses.length-1] : '';
+
+  let filas;
+  if (HIST_VISTA === 'platos') {
+    filas = (HISTORICO.platos || []).filter(p => {
+      if (n1 && p.nivel1 !== n1) return false;
+      if (q && !p.nombre.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  } else {
+    filas = (HISTORICO.productos || []).filter(p => !q || p.nombre.toLowerCase().includes(q));
+  }
+
+  const cmp = {
+    subio: (a, b) => b.varPct - a.varPct,
+    bajo:  (a, b) => a.varPct - b.varPct,
+    costo: (a, b) => (b.costoActual != null ? b.costoActual : b.precioActual) - (a.costoActual != null ? a.costoActual : a.precioActual),
+    nombre:(a, b) => a.nombre.localeCompare(b.nombre)
+  }[orden] || ((a, b) => b.varPct - a.varPct);
+  filas = filas.slice().sort(cmp);
+
+  const cont = document.getElementById('hist-lista');
+  if (!filas.length) {
+    cont.innerHTML = '<div class="empty-state">Sin datos para ese filtro. Si no aparece ningún plato, revisá que sus ingredientes tengan Nombre Estándar en el Maestro y compras registradas en el período.</div>';
+    return;
+  }
+
+  cont.innerHTML = `<p style="font-size:11.5px;color:var(--subtle);margin-bottom:.75rem">Ventana: ${escHtml(rangoTxt)} · ${filas.length} ${HIST_VISTA === 'platos' ? 'platos' : 'productos'}</p>` +
+  filas.map(f => {
+    if (HIST_VISTA === 'platos') {
+      return `<div class="hist-row">
+        <div>
+          <div class="hist-nombre">${escHtml(f.nombre)}</div>
+          <div class="hist-sub">${escHtml(f.nivel1)} › ${escHtml(f.nivel2)} · ${escHtml(f.presentacion)} · precio ${fmtCRC(f.precio)}${f.driver ? ' · mueve: ' + escHtml(f.driver.nombre) + ' ' + signoPct(f.driver.varPct) : ''}</div>
+        </div>
+        ${sparkline(f.serie)}
+        <div class="hist-num">
+          <div>${fmtCRC(f.costoActual)}</div>
+          <div class="hist-sub" style="color:${colorPct(f.pctCostoActual, f.metaPct)}">${fmtPct(f.pctCostoActual)}${f.metaPct ? ' / meta ' + f.metaPct + '%' : ''}</div>
+        </div>
+        <div class="hist-var" style="color:${colorVar(f.varPct)}">${signoPct(f.varPct)}</div>
+      </div>`;
+    }
+    return `<div class="hist-row">
+      <div>
+        <div class="hist-nombre">${escHtml(f.nombre)}</div>
+        <div class="hist-sub">En ${f.recetasQueLoUsan} receta(s) · ${f.mesesConCompra} mes(es) con compra · ${fmtCRC(f.totalComprado)} comprado</div>
+      </div>
+      ${sparkline(f.serie)}
+      <div class="hist-num">
+        <div>${fmtCRC(f.precioActual)}</div>
+        <div class="hist-sub">antes ${fmtCRC(f.precioInicial)}</div>
+      </div>
+      <div class="hist-var" style="color:${colorVar(f.varPct)}">${signoPct(f.varPct)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecomendaciones() {
+  const cont = document.getElementById('reco-contenido');
+  if (!HISTORICO || !HISTORICO.recomendaciones) {
+    cont.innerHTML = '<div class="empty-state">Se llena al recalcular el histórico.</div>';
+    return;
+  }
+  const r = HISTORICO.recomendaciones;
+
+  function tarjeta(p, clase) {
+    return `<div class="reco-card ${clase}">
+      <div class="reco-nombre">${escHtml(p.nombre)} <span style="font-weight:400;color:var(--muted);font-size:12px">· ${escHtml(p.presentacion)}</span></div>
+      <div class="reco-motivo">${escHtml(p.motivo || '')}</div>
+      <div class="reco-cifras">
+        <span>Precio <b>${fmtCRC(p.precio)}</b></span>
+        <span>Costo <b>${fmtCRC(p.costoActual)}</b></span>
+        <span>Margen <b>${fmtCRC(p.margen)}</b></span>
+        <span>% costo <b style="color:${colorPct(p.pctCostoActual, p.metaPct)}">${fmtPct(p.pctCostoActual)}</b></span>
+        ${p.precioSugerido ? `<span>Precio para llegar a la meta <b>${fmtCRC(p.precioSugerido)}</b></span>` : ''}
+        ${p.driver ? `<span>Ingrediente que lo mueve <b>${escHtml(p.driver.nombre)} ${signoPct(p.driver.varPct)}</b></span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  const chips = (lista, color) => lista.length
+    ? lista.map(x => `<span class="chip-prod"><b style="color:${color}">${signoPct(x.varPct)}</b> ${escHtml(x.nombre)}</span>`).join('')
+    : '<span style="color:var(--subtle);font-size:12px">Ninguno relevante en la ventana.</span>';
+
+  cont.innerHTML = `
+    <div class="reco-cols">
+      <div>
+        <div class="section-label" style="color:var(--green)">📈 Impulsar — ${r.impulsar.length}</div>
+        ${r.impulsar.length ? r.impulsar.map(p => tarjeta(p, 'up')).join('') : '<div class="empty-state">Ningún plato califica hoy.</div>'}
+      </div>
+      <div>
+        <div class="section-label" style="color:var(--red)">⚠ Revisar precio o receta — ${r.revisar.length}</div>
+        ${r.revisar.length ? r.revisar.map(p => tarjeta(p, 'down')).join('') : '<div class="empty-state">Ningún plato califica hoy.</div>'}
+      </div>
+    </div>
+    <div style="margin-top:1.5rem">
+      <div class="section-label">Productos que bajaron de precio</div>
+      <div>${chips(r.productosQueBajaron, 'var(--green)')}</div>
+      <div class="section-label" style="margin-top:1rem">Productos que subieron de precio</div>
+      <div>${chips(r.productosQueSubieron, 'var(--red)')}</div>
+    </div>`;
+}
+
+// ═══════════════════ PRODUCTOS COMPRADOS SIN RECETA ═══════════════════
+
+async function cargarSinReceta(forzar) {
+  if (SINRECETA && !forzar) { renderSinReceta(); return; }
+  const est = document.getElementById('sr-estado');
+  est.style.display = '';
+  est.textContent = 'Cruzando compras contra recetas…';
+  document.getElementById('sr-lista').innerHTML = '';
+  try {
+    const meses = document.getElementById('sr-ventana').value;
+    SINRECETA = await getAP('productos_sin_receta', { meses });
+    est.style.display = 'none';
+    renderSinReceta();
+  } catch (e) {
+    est.style.display = '';
+    est.innerHTML = '⚠ No se pudo calcular — ' + escHtml(e.message) +
+      '<br/><span style="font-size:12px">Si el error dice que la acción no se reconoce, falta volver a desplegar Code-recetas-kioskos-backend.gs.</span>';
+  }
+}
+
+function renderSinReceta() {
+  if (!SINRECETA) return;
+  document.getElementById('sr-count').textContent = SINRECETA.sinReceta.length;
+  document.getElementById('sr-monto').textContent = fmtCRC(SINRECETA.totalSinReceta);
+  document.getElementById('sr-count-noaplica').textContent = SINRECETA.noAplican.length;
+
+  function fila(x, conAccion) {
+    return `<div class="sr-row">
+      <div>
+        <div class="sr-nombre">${escHtml(x.nombre)}</div>
+        <div class="sr-sub">${x.lineas} línea(s) de factura · ${x.mesesConCompra} mes(es) · última compra ${escHtml(x.ultimaCompra || '—')}${x.estado ? ' · ' + escHtml(x.estado) : ''}</div>
+      </div>
+      <div class="hist-num">${fmtCRC(x.totalComprado)}</div>
+      <div class="hist-num">${x.costoReceta ? fmtCRC(x.costoReceta) : '<span style="color:var(--subtle)">sin costo</span>'}</div>
+      <div style="text-align:right">${conAccion ? '<span class="plt-badge plt-badge-warn">Sin receta</span>' : '<span class="plt-badge">No aplica</span>'}</div>
+    </div>`;
+  }
+
+  const lista = document.getElementById('sr-lista');
+  lista.innerHTML = SINRECETA.sinReceta.length
+    ? `<p style="font-size:11.5px;color:var(--subtle);margin:.75rem 0">Ordenados por monto comprado en la ventana ${escHtml(SINRECETA.desde)} → ${escHtml(SINRECETA.hasta)}. Columnas: monto comprado · costo unitario de receta según el Maestro.</p>`
+      + SINRECETA.sinReceta.map(x => fila(x, true)).join('')
+    : '<div class="empty-state">✓ Todo lo que se compró en la ventana está usado en alguna receta.</div>';
+
+  const wrap = document.getElementById('sr-noaplica-wrap');
+  if (SINRECETA.noAplican.length) {
+    wrap.style.display = '';
+    document.getElementById('sr-noaplica-lista').innerHTML = SINRECETA.noAplican.map(x => fila(x, false)).join('');
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ═══════════════════ HOJA IMPRIMIBLE PARA COCINA ═══════════════════
+// Se arma en HTML y se imprime con window.print(): el CSS @media print oculta
+// todo lo demás de la página. No se genera un PDF del lado del servidor a
+// propósito — así funciona sin backend, sin librerías y sin conexión, que es
+// justo lo que se necesita para imprimir un lote de hojas en el kiosko.
+
+function hojaImpresionHTML(opciones) {
+  const n1 = opciones.nivel1 || '';
+  const cats = (n1 && CONFIG.nivel2PorNivel1[n1]) ? CONFIG.nivel2PorNivel1[n1] : [];
+  const renglones = Math.max(4, Math.min(30, Number(opciones.renglones) || 14));
+
+  const filasIng = Array.from({ length: renglones }).map(() =>
+    '<tr><td></td><td></td><td></td><td></td></tr>').join('');
+
+  const bloqueCategorias = (opciones.conCategorias && cats.length)
+    ? `<div class="campo"><label>Categoría (marcá una)</label>
+         <div class="opciones">${cats.map(c => '<span>☐ ' + escHtml(c) + '</span>').join('')}</div>
+       </div>`
+    : `<div class="campo"><label>Categoría</label><div class="linea"></div></div>`;
+
+  const bloquePresentaciones = opciones.conPresentaciones ? `
+    <div class="campo" style="margin-top:14px">
+      <label>Presentaciones de venta</label>
+      <table>
+        <thead><tr><th style="width:34%">Nombre (ej. Regular, Vaso 16 oz)</th><th style="width:22%">Cantidad</th><th style="width:22%">Precio de venta</th><th style="width:22%">Nombre en Square</th></tr></thead>
+        <tbody><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr></tbody>
+      </table>
+    </div>` : '';
+
+  return `
+  <div class="hoja">
+    <h2>Registro de receta — Ecosistema Kioskos</h2>
+    <div class="hoja-sub">Llenar a mano y entregar a administración para digitar. Un plato por hoja.${n1 ? ' · Área: <b>' + escHtml(n1) + '</b>' : ''}</div>
+
+    <div class="fila2">
+      <div class="campo"><label>Nombre del plato o bebida</label><div class="linea"></div></div>
+      <div class="campo"><label>Área (Alimentos / Bebidas)</label><div class="linea">${n1 ? '&nbsp;' + escHtml(n1) : ''}</div></div>
+    </div>
+    ${bloqueCategorias}
+    <div class="fila3">
+      <div class="campo"><label>Rendimiento total</label><div class="linea"></div></div>
+      <div class="campo"><label>Unidad (porciones, ml, oz, g)</label><div class="linea"></div></div>
+      <div class="campo"><label>Kioskos donde se vende</label><div class="linea"></div></div>
+    </div>
+
+    <div class="campo" style="margin-top:14px">
+      <label>Ingredientes</label>
+      <table>
+        <thead><tr>
+          <th style="width:44%">Producto o subreceta (como aparece en compras)</th>
+          <th style="width:16%">Cantidad</th>
+          <th style="width:16%">Unidad</th>
+          <th style="width:24%">Observaciones</th>
+        </tr></thead>
+        <tbody>${filasIng}</tbody>
+      </table>
+    </div>
+
+    ${bloquePresentaciones}
+
+    <div class="campo" style="margin-top:14px">
+      <label>Indicaciones de preparación (pasos)</label>
+      <div class="linea"></div><div class="linea"></div><div class="linea"></div>
+      <div class="linea"></div><div class="linea"></div><div class="linea"></div>
+    </div>
+
+    <div class="nota">
+      Para que la receta se pueda costear, el nombre del producto tiene que ser el mismo que aparece en las
+      facturas de compra. Si no está seguro, escriba el nombre tal cual viene en la factura y marque aquí: ☐
+      revisar nombre con administración.
+    </div>
+
+    <div class="firmas">
+      <div class="campo"><label>Elaborado por</label><div class="linea"></div></div>
+      <div class="campo"><label>Fecha</label><div class="linea"></div></div>
+    </div>
+  </div>`;
+}
+
+function leerOpcionesImpresion() {
+  return {
+    cantidad: Math.max(1, Math.min(40, Number(document.getElementById('imp-cantidad').value) || 1)),
+    renglones: Number(document.getElementById('imp-renglones').value) || 14,
+    nivel1: document.getElementById('imp-nivel1').value,
+    conCategorias: document.getElementById('imp-con-categorias').checked,
+    conPresentaciones: document.getElementById('imp-con-presentaciones').checked
+  };
+}
+
+function previsualizarHojas() {
+  const o = leerOpcionesImpresion();
+  document.getElementById('imp-preview').innerHTML =
+    '<p style="font-size:11.5px;color:var(--subtle);margin-bottom:.75rem">Así se ve una hoja. Al imprimir salen ' + o.cantidad + '.</p>'
+    + hojaImpresionHTML(o);
+}
+
+function imprimirHojas() {
+  const o = leerOpcionesImpresion();
+  const cont = document.getElementById('hojas-impresion');
+  cont.innerHTML = Array.from({ length: o.cantidad }).map(() => hojaImpresionHTML(o)).join('');
+  // El navegador necesita un tick para pintar las hojas recién insertadas
+  // antes de que window.print() capture la página.
+  setTimeout(() => window.print(), 60);
+}
+
 
 // ── INIT ──────────────────────────────────────────────────────────
 cargarTodo();
