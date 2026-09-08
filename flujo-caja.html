@@ -935,6 +935,7 @@ function construirDetallePagosProgramados() {
     if (f.fechaProyectada < desde || f.fechaProyectada > hasta) return;
     filas.push({ fecha: f.fechaProyectada, kiosko: f.kiosko, categoria: ETIQUETAS_TIPO_PAGO.ap,
       concepto: (f.proveedor || '(sin proveedor)') + ' — factura ' + f.numero, monto: f.saldo,
+      proveedor: f.proveedor || '(sin proveedor)',
       nota: f.moneda !== 'CRC' ? ('Convertido de ' + f.moneda) : '' });
   });
 
@@ -1026,9 +1027,12 @@ function enviarResumenContabilidad() {
   filas.forEach(fila => {
     const k = porKiosko[fila.kiosko] || (porKiosko[fila.kiosko] = { total: 0, porFecha: {} });
     k.total += fila.monto;
-    const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {} });
+    const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {}, porProveedorAP: {} });
     d.total += fila.monto;
     d.porTipo[fila.categoria] = (d.porTipo[fila.categoria] || 0) + fila.monto;
+    if (fila.categoria === ETIQUETAS_TIPO_PAGO.ap) {
+      d.porProveedorAP[fila.proveedor] = (d.porProveedorAP[fila.proveedor] || 0) + fila.monto;
+    }
   });
   const kioskosOrdenados = Object.entries(porKiosko).sort((a, b) => b[1].total - a[1].total);
 
@@ -1047,7 +1051,13 @@ function enviarResumenContabilidad() {
       const etiqueta = fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '');
       lineasCuerpo.push('   ' + etiqueta + ': ' + fmt(d.total));
       Object.entries(d.porTipo).sort((a, b) => b[1] - a[1])
-        .forEach(([tipo, monto]) => lineasCuerpo.push('      - ' + tipo + ': ' + fmt(monto)));
+        .forEach(([tipo, monto]) => {
+          lineasCuerpo.push('      - ' + tipo + ': ' + fmt(monto));
+          if (tipo === ETIQUETAS_TIPO_PAGO.ap) {
+            Object.entries(d.porProveedorAP).sort((a, b) => b[1] - a[1])
+              .forEach(([proveedor, montoProv]) => lineasCuerpo.push('         · ' + proveedor + ': ' + fmt(montoProv)));
+          }
+        });
     });
     lineasCuerpo.push('');
   });
