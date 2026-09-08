@@ -627,10 +627,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <datalist id="fm-ingrediente-list"></datalist>
       <div id="fm-ingredientes"></div>
-      <button type="button" class="btn-add" onclick="agregarIngrediente()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
-        Agregar ingrediente
-      </button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
+        <button type="button" class="btn-add" style="margin-top:0" onclick="agregarIngrediente()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+          Agregar ingrediente
+        </button>
+        <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
+      </div>
       <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1rem;margin-bottom:1rem">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
@@ -735,10 +738,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="section-label">Ingredientes</div>
       <datalist id="rm-ingrediente-list"></datalist>
       <div id="rm-ingredientes"></div>
-      <button type="button" class="btn-add" onclick="agregarIngrediente()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
-        Agregar ingrediente
-      </button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
+        <button type="button" class="btn-add" style="margin-top:0" onclick="agregarIngrediente()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+          Agregar ingrediente
+        </button>
+        <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
+      </div>
 
       <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1.25rem;margin-bottom:0">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -777,6 +783,40 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+
+<!-- ═══════════════════ MODAL COPIAR INGREDIENTES ═══════════════════ -->
+<!-- z-index mayor que .modal-overlay porque se abre ENCIMA del modal de ficha
+     o del de subreceta, que ya están abiertos. -->
+<div class="modal-overlay" id="modal-copiar-ing" style="z-index:300">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <h3>Copiar ingredientes de otra receta</h3>
+      <button class="modal-close" onclick="cerrarCopiarIngredientes()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Receta de origen</label>
+        <select id="ci-origen"></select>
+        <div class="field-hint" id="ci-hint"></div>
+      </div>
+      <div class="field" style="margin-top:.85rem">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:500;cursor:pointer">
+          <input type="checkbox" id="ci-reemplazar" checked/> Reemplazar los ingredientes actuales
+        </label>
+        <div class="field-hint">Si lo desmarcás, los ingredientes copiados se agregan a los que ya tenés.</div>
+      </div>
+      <div class="field" style="margin-top:.85rem">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:500;cursor:pointer">
+          <input type="checkbox" id="ci-rendimiento" checked/> Copiar también el rendimiento
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <button class="btn-sm" onclick="cerrarCopiarIngredientes()">Cancelar</button>
+      <button class="btn-primary" onclick="aplicarCopiarIngredientes()">Copiar ingredientes</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════ MODAL COMBO ═══════════════════ -->
 <div class="modal-overlay" id="modal-combo">
@@ -1512,6 +1552,7 @@ function tarjetaPlato({p, estado}) {
       <div class="plt-actions">
         <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Abrir ficha</button>
         ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Cargar receta</button>` : ''}
+        <button class="btn-sm" onclick="duplicarPlato('${escapeAttr(p.id)}')" title="Crear una ficha nueva con la misma receta">&#10697; Duplicar</button>
         <button class="btn-sm" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
       </div>
     </div>`;
@@ -1890,6 +1931,147 @@ async function eliminarPlatoDuro() {
   }
 }
 
+// ═════════════════════ COPIAR / DUPLICAR ═════════════════════
+
+// "Ceviche" → "Ceviche (copia)"; si ya existe, "(copia 2)", "(copia 3)"…
+function nombreCopia_(nombre, existentes) {
+  const usados = (existentes || []).map(n => (n || '').trim().toLowerCase());
+  const base = (nombre || '').trim();
+  let candidato = base + ' (copia)';
+  let n = 2;
+  while (usados.includes(candidato.toLowerCase())) { candidato = base + ' (copia ' + n + ')'; n++; }
+  return candidato;
+}
+
+// Duplica la ficha completa (plato + receta) como una ficha NUEVA sin guardar:
+// abre el modal para que la persona ajuste nombre/precios y guarde.
+// No se copian: el id, la foto y los nombres de venta en Square (el backend
+// exige que esos nombres sean únicos en todo el menú).
+function duplicarPlato(id) {
+  const p = PLATOS.find(x => x.id === id);
+  if (!p) return;
+  const receta = recetaDePlato(id);
+
+  EDITANDO_PLATO = JSON.parse(JSON.stringify(p));
+  EDITANDO_PLATO.id = '';
+  EDITANDO_PLATO.nombre = nombreCopia_(p.nombre, PLATOS.map(x => x.nombre));
+  EDITANDO_PLATO.fotoUrl = '';
+  EDITANDO_PLATO.presentaciones = (EDITANDO_PLATO.presentaciones || []).map(pr => ({
+    id: nuevoIdLocal(),
+    nombre: pr.nombre,
+    cantidad: pr.cantidad,
+    precioVenta: pr.precioVenta,
+    nombreVentaSquare: '',
+    activo: pr.activo !== false
+  }));
+
+  abrirModalPlatoConEstado('Duplicar ficha — copia de ' + p.nombre, false);
+
+  // abrirModalPlatoConEstado(…, false) deja una receta vacía en memoria: le
+  // metemos la del plato original, como receta NUEVA (id vacío).
+  if (receta) {
+    RECETA_ORIGINAL_ID = '';
+    EDITANDO_RECETA = {
+      id: '', tipo: 'receta', nombre: '', platoId: '',
+      rendimiento: receta.rendimiento,
+      unidadRendimiento: receta.unidadRendimiento,
+      ingredientes: JSON.parse(JSON.stringify(receta.ingredientes || []))
+    };
+    document.getElementById('fm-rendimiento').value = EDITANDO_RECETA.rendimiento;
+    document.getElementById('fm-unidad').value = EDITANDO_RECETA.unidadRendimiento;
+    renderIngredientesModal();
+    recalcularCostoRecetaPreview();
+    document.getElementById('pm-receta-info').textContent =
+      'Receta copiada de "' + p.nombre + '". Se guarda como receta nueva al guardar la ficha.';
+  }
+  showToast('Copia lista — revisá nombre y precios antes de guardar.');
+}
+
+// Duplica una subreceta (o una receta de plato) como nueva, sin guardar.
+function duplicarReceta(id) {
+  const r = RECETAS.find(x => x.id === id);
+  if (!r) return;
+  RECETA_ORIGINAL_ID = '';
+  EDITANDO_RECETA = {
+    id: '', tipo: r.tipo, platoId: '',
+    nombre: r.tipo === 'subreceta'
+      ? nombreCopia_(r.nombre, RECETAS.filter(x => x.tipo === 'subreceta').map(x => x.nombre))
+      : nombreCopia_(nombreVisibleReceta(r), []),
+    rendimiento: r.rendimiento,
+    unidadRendimiento: r.unidadRendimiento,
+    ingredientes: JSON.parse(JSON.stringify(r.ingredientes || []))
+  };
+  if (r.tipo !== 'subreceta') EDITANDO_RECETA.nombre = '';
+  abrirModalRecetaConEstado('Duplicar ' + (r.tipo === 'subreceta' ? 'subreceta' : 'receta'), false);
+  showToast('Copia lista — ponéle nombre y guardá.');
+}
+
+// ── Copiar ingredientes de otra receta dentro del editor abierto ────
+// Sirve en los dos modales (ficha `fm-` y subreceta `rm-`): el editor de
+// ingredientes ya es compartido vía PFX_RECETA.
+function origenesCopiables_() {
+  const lista = [];
+  RECETAS.forEach(r => {
+    if (!r.ingredientes || !r.ingredientes.length) return;
+    if (RECETA_ORIGINAL_ID && r.id === RECETA_ORIGINAL_ID) return; // no copiarse a sí misma
+    lista.push({
+      id: r.id,
+      etiqueta: nombreVisibleReceta(r) + (r.tipo === 'subreceta' ? ' · subreceta' : '') +
+                ' — ' + r.ingredientes.length + ' ingrediente' + (r.ingredientes.length === 1 ? '' : 's')
+    });
+  });
+  lista.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+  return lista;
+}
+
+function abrirCopiarIngredientes() {
+  const opciones = origenesCopiables_();
+  const sel = document.getElementById('ci-origen');
+  const hint = document.getElementById('ci-hint');
+  if (!opciones.length) {
+    showToast('Todavía no hay otra receta con ingredientes para copiar.', 'error');
+    return;
+  }
+  sel.innerHTML = opciones.map(o => `<option value="${escapeAttr(o.id)}">${escHtml(o.etiqueta)}</option>`).join('');
+  hint.textContent = 'Se copian los ingredientes con sus cantidades; los costos se recalculan solos.';
+  document.getElementById('ci-reemplazar').checked = true;
+  document.getElementById('ci-rendimiento').checked = true;
+  document.getElementById('modal-copiar-ing').classList.add('open');
+}
+
+function cerrarCopiarIngredientes() {
+  document.getElementById('modal-copiar-ing').classList.remove('open');
+}
+
+function aplicarCopiarIngredientes() {
+  const id = document.getElementById('ci-origen').value;
+  const origen = RECETAS.find(r => r.id === id);
+  if (!origen || !EDITANDO_RECETA) { cerrarCopiarIngredientes(); return; }
+
+  const copiados = JSON.parse(JSON.stringify(origen.ingredientes || []));
+  const reemplazar = document.getElementById('ci-reemplazar').checked;
+  // Las filas en blanco no cuentan como ingredientes propios.
+  const actuales = (EDITANDO_RECETA.ingredientes || []).filter(i => i.ref || (i.nombre || '').trim());
+
+  EDITANDO_RECETA.ingredientes = reemplazar ? copiados : actuales.concat(copiados);
+  if (!EDITANDO_RECETA.ingredientes.length) {
+    EDITANDO_RECETA.ingredientes = [{ tipoFuente: 'producto', ref: '', nombre: '', unidad: '', cantidad: '' }];
+  }
+
+  if (document.getElementById('ci-rendimiento').checked) {
+    EDITANDO_RECETA.rendimiento = origen.rendimiento;
+    EDITANDO_RECETA.unidadRendimiento = origen.unidadRendimiento;
+    const inpR = $r('rendimiento'), inpU = $r('unidad');
+    if (inpR) inpR.value = origen.rendimiento;
+    if (inpU) inpU.value = origen.unidadRendimiento;
+  }
+
+  renderIngredientesModal();
+  recalcularCostoRecetaPreview();
+  cerrarCopiarIngredientes();
+  showToast('Ingredientes copiados de "' + nombreVisibleReceta(origen) + '" ✓');
+}
+
 // ═══════════════════ TAB RECETAS ═══════════════════
 
 function renderRecetas() {
@@ -1949,6 +2131,7 @@ function renderRecetas() {
           </table>
           <div style="display:flex;gap:6px;margin-top:10px">
             <button class="btn-sm" onclick="abrirReceta('${escapeAttr(r.id)}')">Editar</button>
+            <button class="btn-sm" onclick="duplicarReceta('${escapeAttr(r.id)}')" title="Crear una copia con los mismos ingredientes">&#10697; Duplicar</button>
           </div>
         </div>
       </div>`;
