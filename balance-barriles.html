@@ -804,8 +804,9 @@ function esCervezaBarril(categoria, nombre) {
   if (nom.includes('BOTELLA')) return false;
   return cat === 'DRAFT' || cat.includes('CERVEZA');
 }
-function extraerOnzas(nombre) {
-  const m = (nombre||'').match(/(\d+(?:[.,]\d+)?)\s*(?:onz|oz)\b/i);
+function extraerOnzas(nombre, variante) {
+  const texto = (nombre||'') + ' ' + (variante||'');
+  const m = texto.match(/(\d+(?:[.,]\d+)?)\s*(?:onz|oz)\b/i);
   return m ? parseFloat(m[1].replace(',','.')) : null;
 }
 let _ventasCache = {}; // { kiosko: filas crudas de Ventas_Por_Producto }
@@ -824,7 +825,7 @@ async function cargarVentasKiosko(kiosko) {
       return {
         fecha: fecha ? String(fecha).slice(0,10) : '',
         producto: (c[4]&&c[4].v)||'', categoria: (c[5]&&c[5].v)||'',
-        cantidad: Number((c[6]&&c[6].v)||0)
+        cantidad: Number((c[6]&&c[6].v)||0), variante: (c[10]&&c[10].v)||''
       };
     }).filter(f => f.fecha);
     _ventasCache[kiosko] = filas;
@@ -844,7 +845,7 @@ async function ventasEnRango(kiosko, estilo, desde, hasta) {
   filas.forEach(f => {
     if (f.fecha < desde || f.fecha > hasta) return;
     if (!esCervezaBarril(f.categoria, f.producto)) return;
-    const oz = extraerOnzas(f.producto);
+    const oz = extraerOnzas(f.producto, f.variante);
     if (oz == null) return;
     const total = oz * f.cantidad;
     onzasTotal += total;
