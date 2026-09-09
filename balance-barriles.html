@@ -244,16 +244,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Peso (gramos)</p>
     <div class="field">
       <label for="pp-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
-      <input type="number" id="pp-peso-bruto" placeholder="Ej. 32000" step="1" min="0" oninput="actualizarNeto('pp')"/>
+      <input type="number" id="pp-peso-bruto" placeholder="Ej. 32000" step="1" min="0" oninput="actualizarNetoTotal('pp')"/>
+      <div class="hint">El barril que se pesa físicamente (normalmente el que está conectado en uso).</div>
     </div>
     <div class="field">
       <label for="pp-tara">Tara / peso vacío (g)</label>
-      <input type="number" id="pp-tara" step="1" min="0" oninput="actualizarNeto('pp')"/>
+      <input type="number" id="pp-tara" step="1" min="0" oninput="actualizarNetoTotal('pp')"/>
       <div class="hint">Prellenada con la tara nominal del estilo — editable si este barril en particular pesa distinto.</div>
     </div>
     <div class="neto-box">
-      <span class="neto-label">Peso neto</span>
+      <span class="neto-label">Peso neto (barril pesado)</span>
       <span class="neto-val" id="pp-neto-val">0 g</span>
+    </div>
+    <div class="field" style="margin-top:1rem">
+      <label for="pp-bodega">Barriles llenos en bodega (cantidad)</label>
+      <input type="number" id="pp-bodega" placeholder="0" step="1" min="0" value="0" oninput="actualizarNetoTotal('pp')"/>
+      <div class="hint">Barriles sellados sin pesar que ya están en el kiosko — se suman con el peso neto nominal del estilo (<span id="pp-bodega-unit">—</span> c/u).</div>
+    </div>
+    <div class="neto-box" style="background:var(--blue-bg);border-color:var(--blue-lt)">
+      <span class="neto-label" style="color:var(--blue)">Peso neto total (pesado + bodega)</span>
+      <span class="neto-val" id="pp-neto-total-val" style="color:var(--blue)">0 g</span>
     </div>
   </div>
 
@@ -316,16 +326,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Peso (gramos)</p>
     <div class="field">
       <label for="aq-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
-      <input type="number" id="aq-peso-bruto" placeholder="Ej. 28500" step="1" min="0" oninput="actualizarNeto('aq');actualizarDiferenciaArqueo()"/>
+      <input type="number" id="aq-peso-bruto" placeholder="Ej. 28500" step="1" min="0" oninput="actualizarDiferenciaArqueo()"/>
+      <div class="hint">El barril que se pesa físicamente (normalmente el que está conectado en uso).</div>
     </div>
     <div class="field">
       <label for="aq-tara">Tara / peso vacío (g)</label>
-      <input type="number" id="aq-tara" step="1" min="0" oninput="actualizarNeto('aq');actualizarDiferenciaArqueo()"/>
+      <input type="number" id="aq-tara" step="1" min="0" oninput="actualizarDiferenciaArqueo()"/>
       <div class="hint">Prellenada con la tara nominal del estilo — editable.</div>
     </div>
     <div class="neto-box">
       <span class="neto-label">Peso neto pesado</span>
       <span class="neto-val" id="aq-neto-val">0 g</span>
+    </div>
+    <div class="field" style="margin-top:1rem">
+      <label for="aq-bodega">Barriles llenos en bodega (cantidad)</label>
+      <input type="number" id="aq-bodega" placeholder="0" step="1" min="0" value="0" oninput="actualizarDiferenciaArqueo()"/>
+      <div class="hint">Barriles sellados sin pesar que hay ahora en el kiosko — se suman con el peso neto nominal del estilo (<span id="aq-bodega-unit">—</span> c/u).</div>
+    </div>
+    <div class="neto-box" style="background:var(--blue-bg);border-color:var(--blue-lt)">
+      <span class="neto-label" style="color:var(--blue)">Peso neto total (pesado + bodega)</span>
+      <span class="neto-val" id="aq-neto-total-val" style="color:var(--blue)">0 g</span>
     </div>
     <div id="aq-diff-box"></div>
   </div>
@@ -359,8 +379,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div id="hist-arqueos-count" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
     <div class="hist-table-wrap">
       <table class="hist-table">
-        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Neto pesado</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr></thead>
-        <tbody id="hist-arqueos-body"><tr><td colspan="8"><div class="empty-state">Cargando…</div></td></tr></tbody>
+        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Neto (total)</th><th>Bodega</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr></thead>
+        <tbody id="hist-arqueos-body"><tr><td colspan="9"><div class="empty-state">Cargando…</div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -369,8 +389,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Puntos de partida (peso inicial y resets)</p>
     <div class="hist-table-wrap">
       <table class="hist-table">
-        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Tipo</th><th>Peso neto</th><th>Registró</th><th>Notas</th><th>Foto</th></tr></thead>
-        <tbody id="hist-puntos-body"><tr><td colspan="8"><div class="empty-state">Cargando…</div></td></tr></tbody>
+        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Tipo</th><th>Peso neto (total)</th><th>Bodega</th><th>Registró</th><th>Notas</th><th>Foto</th></tr></thead>
+        <tbody id="hist-puntos-body"><tr><td colspan="9"><div class="empty-state">Cargando…</div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -595,6 +615,24 @@ function actualizarNeto(pref) {
   document.getElementById(pref+'-neto-val').textContent = neto.toLocaleString('es-CR') + ' g';
   return neto;
 }
+// Barriles llenos en bodega: no se pesan uno por uno, se cuentan y se suman
+// con el peso neto nominal del estilo elegido.
+function pesoBodegaActual(pref) {
+  const estiloId = document.getElementById(pref+'-estilo').value;
+  const estilo = ESTILOS.find(e => e.id===estiloId);
+  const cantidad = Math.max(0, Number(document.getElementById(pref+'-bodega').value) || 0);
+  const nominal = estilo ? (estilo.pesoNetoNominal||0) : 0;
+  const unitEl = document.getElementById(pref+'-bodega-unit');
+  if (unitEl) unitEl.textContent = estilo ? nominal.toLocaleString('es-CR') + ' g' : '—';
+  return cantidad * nominal;
+}
+function actualizarNetoTotal(pref) {
+  const netoPesado = actualizarNeto(pref);
+  const bodega = pesoBodegaActual(pref);
+  const total = netoPesado + bodega;
+  document.getElementById(pref+'-neto-total-val').textContent = total.toLocaleString('es-CR') + ' g';
+  return total;
+}
 
 // ── gviz: Desglose_IA / Maestro_Productos (JSONP, evita CORS — mismo
 // patrón que analisis-compras.html contra este mismo Sheet) ──
@@ -680,7 +718,8 @@ async function cargarTodosLosDatos() {
     estiloId: String(r['EstiloID']||''), estilo: r['Estilo']||'', tipo: r['Tipo']||'Inicial',
     pesoBruto: Number(r['Peso Bruto (g)'])||0, tara: Number(r['Tara Usada (g)'])||0,
     pesoNeto: Number(r['Peso Neto (g)'])||0, fotoUrl: r['Foto URL']||'',
-    registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+    registradoPor: r['Registrado por']||'', notas: r['Notas']||'',
+    barrilesBodega: Number(r['Barriles Llenos en Bodega'])||0
   }));
   ARQUEOS = arqueosRaw.map(r => ({
     id: String(r['ID']||''), fecha: String(r['Fecha']||'').slice(0,10), kiosko: r['Kiosko']||'',
@@ -689,7 +728,8 @@ async function cargarTodosLosDatos() {
     pesoNeto: Number(r['Peso Neto (g)'])||0, saldoEsperado: Number(r['Saldo Esperado (g)'])||0,
     diferenciaG: Number(r['Diferencia (g)'])||0,
     diferenciaPct: r['Diferencia (%)']===''||r['Diferencia (%)']==null ? null : Number(r['Diferencia (%)']),
-    fotoUrl: r['Foto URL']||'', registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+    fotoUrl: r['Foto URL']||'', registradoPor: r['Registrado por']||'', notas: r['Notas']||'',
+    barrilesBodega: Number(r['Barriles Llenos en Bodega'])||0
   }));
 }
 
@@ -961,7 +1001,8 @@ async function abrirDetalleLinea(kiosko, estiloId) {
     document.getElementById('detalle-body').innerHTML = '<div class="empty-state">Registrá primero un punto de partida para esta combinación.</div>';
     return;
   }
-  document.getElementById('detalle-sub').textContent = `Desde ${r.desde} hasta ${r.hasta}`;
+  const bodegaNotaDetalle = r.punto.barrilesBodega > 0 ? ` · punto de partida incluyó ${r.punto.barrilesBodega} barril${r.punto.barrilesBodega===1?'':'es'} lleno${r.punto.barrilesBodega===1?'':'s'} en bodega` : '';
+  document.getElementById('detalle-sub').textContent = `Desde ${r.desde} hasta ${r.hasta}${bodegaNotaDetalle}`;
   const pctEstilo = r.mermaTotal > 0 ? (r.mermaProrrateada / r.mermaTotal * 100) : 0;
 
   document.getElementById('detalle-body').innerHTML = `
@@ -1032,14 +1073,15 @@ function alCambiarSelectorPartida() {
   const estiloId = selEstilo.value;
   const estilo = ESTILOS.find(e => e.id===estiloId);
   document.getElementById('pp-tara').value = estilo ? estilo.taraNominal : '';
-  actualizarNeto('pp');
+  actualizarNetoTotal('pp');
   const actualDiv = document.getElementById('pp-actual');
   if (!kiosko || !estiloId) { actualDiv.innerHTML = '<p class="card-note">Elegí kiosko y estilo para ver el punto de partida vigente.</p>'; return; }
   const punto = puntoPartidaVigente(kiosko, estiloId, hoy());
   if (!punto) {
     actualDiv.innerHTML = '<p class="card-note">Sin punto de partida registrado todavía para esta combinación — el botón "Registrar peso inicial" es el que corresponde.</p>';
   } else {
-    actualDiv.innerHTML = `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'peso inicial'}): <b>${fmtG(punto.pesoNeto)}</b>.</p>`;
+    const bodegaNota = punto.barrilesBodega > 0 ? ` (incluye ${punto.barrilesBodega} barril${punto.barrilesBodega===1?'':'es'} lleno${punto.barrilesBodega===1?'':'s'} en bodega)` : '';
+    actualDiv.innerHTML = `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'peso inicial'}): <b>${fmtG(punto.pesoNeto)}</b>${bodegaNota}.</p>`;
   }
 }
 async function guardarPuntoPartidaUI(tipo) {
@@ -1049,6 +1091,7 @@ async function guardarPuntoPartidaUI(tipo) {
   const fecha = document.getElementById('pp-fecha').value || hoy();
   const pesoBruto = document.getElementById('pp-peso-bruto').value;
   const tara = Number(document.getElementById('pp-tara').value) || 0;
+  const barrilesBodega = Math.max(0, Math.round(Number(document.getElementById('pp-bodega').value) || 0));
   if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
   if (!estilo) { showToast('Seleccioná el estilo', 'error'); return; }
   if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
@@ -1062,6 +1105,7 @@ async function guardarPuntoPartidaUI(tipo) {
     accion: 'punto_partida_guardar', id: Date.now(), fecha, kiosko,
     estiloId, estilo: estilo.nombre, tipo,
     pesoBruto: Number(pesoBruto), tara,
+    barrilesBodega, pesoNetoNominalBarril: estilo.pesoNetoNominal || 0,
     foto: fotoBase64.pp || null,
     registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
     notas: document.getElementById('pp-notas').value || ''
@@ -1070,8 +1114,9 @@ async function guardarPuntoPartidaUI(tipo) {
     const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error al guardar');
-    showToast((tipo==='Reset'?'Cuenta reseteada ✓ ':'Peso inicial guardado ✓ ') + '(' + out.pesoNeto.toLocaleString('es-CR') + ' g neto)');
+    showToast((tipo==='Reset'?'Cuenta reseteada ✓ ':'Peso inicial guardado ✓ ') + '(' + out.pesoNeto.toLocaleString('es-CR') + ' g neto total' + (barrilesBodega>0?', incluye '+barrilesBodega+' en bodega':'') + ')');
     document.getElementById('pp-peso-bruto').value = '';
+    document.getElementById('pp-bodega').value = '0';
     document.getElementById('pp-notas').value = '';
     quitarFoto({preventDefault:()=>{},stopPropagation:()=>{}}, 'pp');
     await cargarTodosLosDatos();
@@ -1095,7 +1140,7 @@ function alCambiarSelectorArqueo() {
   const estiloId = selEstilo.value;
   const estilo = ESTILOS.find(e => e.id===estiloId);
   document.getElementById('aq-tara').value = estilo ? estilo.taraNominal : '';
-  actualizarNeto('aq');
+  actualizarNetoTotal('aq');
   actualizarSaldoArqueo();
 }
 async function actualizarSaldoArqueo() {
@@ -1120,14 +1165,14 @@ async function actualizarSaldoArqueo() {
 }
 function actualizarDiferenciaArqueo() {
   const box = document.getElementById('aq-diff-box');
-  const neto = actualizarNeto('aq');
+  const total = actualizarNetoTotal('aq');
   if (_saldoArqueoActual == null) { box.innerHTML = ''; return; }
-  const diffG = neto - _saldoArqueoActual;
+  const diffG = total - _saldoArqueoActual;
   const diffPct = _saldoArqueoActual > 0 ? (diffG/_saldoArqueoActual)*100 : null;
   const abs = diffPct==null ? 0 : Math.abs(diffPct);
   const clase = abs>15 ? 'diff-bad' : (abs>5 ? 'diff-warn' : 'diff-ok');
   box.innerHTML = `<div class="diff-box ${clase}">
-    <span>Diferencia vs. esperado</span>
+    <span>Diferencia vs. esperado (pesado + bodega)</span>
     <span class="diff-val">${diffG>=0?'+':''}${Math.round(diffG).toLocaleString('es-CR')} g${diffPct!=null?' ('+(diffPct>=0?'+':'')+diffPct.toFixed(1)+'%)':''}</span>
   </div>`;
 }
@@ -1138,6 +1183,7 @@ async function guardarArqueoUI() {
   const fecha = document.getElementById('aq-fecha').value || hoy();
   const pesoBruto = document.getElementById('aq-peso-bruto').value;
   const tara = Number(document.getElementById('aq-tara').value) || 0;
+  const barrilesBodega = Math.max(0, Math.round(Number(document.getElementById('aq-bodega').value) || 0));
   if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
   if (!estilo) { showToast('Seleccioná el estilo', 'error'); return; }
   if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
@@ -1147,6 +1193,7 @@ async function guardarArqueoUI() {
   const payload = {
     accion: 'arqueo_guardar', id: Date.now(), fecha, kiosko, estiloId, estilo: estilo.nombre,
     pesoBruto: Number(pesoBruto), tara, saldoEsperado: _saldoArqueoActual,
+    barrilesBodega, pesoNetoNominalBarril: estilo.pesoNetoNominal || 0,
     foto: fotoBase64.aq || null,
     registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
     notas: document.getElementById('aq-notas').value || ''
@@ -1166,8 +1213,9 @@ async function guardarArqueoUI() {
 }
 function limpiarArqueo() {
   document.getElementById('aq-peso-bruto').value = '';
+  document.getElementById('aq-bodega').value = '0';
   document.getElementById('aq-notas').value = '';
-  actualizarNeto('aq');
+  actualizarNetoTotal('aq');
   document.getElementById('aq-diff-box').innerHTML = '';
   quitarFoto({preventDefault:()=>{},stopPropagation:()=>{}}, 'aq');
 }
@@ -1197,12 +1245,14 @@ function renderHistorialArqueos() {
     const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
     return `<tr>
       <td>${a.fecha}</td><td>${a.kiosko}</td><td>${a.estilo}</td>
-      <td>${a.pesoNeto.toLocaleString('es-CR')} g</td><td>${Math.round(a.saldoEsperado).toLocaleString('es-CR')} g</td>
+      <td>${a.pesoNeto.toLocaleString('es-CR')} g</td>
+      <td>${a.barrilesBodega?('+'+a.barrilesBodega):'—'}</td>
+      <td>${Math.round(a.saldoEsperado).toLocaleString('es-CR')} g</td>
       <td><span class="badge ${badge}">${a.diferenciaG>=0?'+':''}${Math.round(a.diferenciaG).toLocaleString('es-CR')} g${pct!=null?' / '+(pct>=0?'+':'')+pct.toFixed(1)+'%':''}</span></td>
       <td>${a.registradoPor||'—'}</td>
       <td>${a.fotoUrl?`<a href="${a.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>`:'—'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8"><div class="empty-state">Sin arqueos registrados todavía.</div></td></tr>';
+  }).join('') : '<tr><td colspan="9"><div class="empty-state">Sin arqueos registrados todavía.</div></td></tr>';
 }
 function renderHistorialPuntos() {
   const k = document.getElementById('hist-kiosko').value, e = document.getElementById('hist-estilo').value;
@@ -1212,16 +1262,18 @@ function renderHistorialPuntos() {
     <tr>
       <td>${p.fecha}</td><td>${p.kiosko}</td><td>${p.estilo}</td>
       <td><span class="badge ${p.tipo==='Reset'?'badge-amber':'badge-green'}">${p.tipo}</span></td>
-      <td>${p.pesoNeto.toLocaleString('es-CR')} g</td><td>${p.registradoPor||'—'}</td>
+      <td>${p.pesoNeto.toLocaleString('es-CR')} g</td>
+      <td>${p.barrilesBodega?('+'+p.barrilesBodega):'—'}</td>
+      <td>${p.registradoPor||'—'}</td>
       <td>${p.notas||'—'}</td>
       <td>${p.fotoUrl?`<a href="${p.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>`:'—'}</td>
-    </tr>`).join('') : '<tr><td colspan="8"><div class="empty-state">Sin puntos de partida registrados todavía.</div></td></tr>';
+    </tr>`).join('') : '<tr><td colspan="9"><div class="empty-state">Sin puntos de partida registrados todavía.</div></td></tr>';
 }
 function exportarArqueosCSV() {
   const k = document.getElementById('hist-kiosko').value, e = document.getElementById('hist-estilo').value;
   let lista = ARQUEOS.filter(a => (!k||a.kiosko===k) && (!e||a.estiloId===e));
-  const filas = [['Fecha','Kiosko','Estilo','Peso Neto (g)','Saldo Esperado (g)','Diferencia (g)','Diferencia (%)','Registrado por','Notas']]
-    .concat(lista.map(a => [a.fecha,a.kiosko,a.estilo,a.pesoNeto,Math.round(a.saldoEsperado),a.diferenciaG,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
+  const filas = [['Fecha','Kiosko','Estilo','Peso Neto (g)','Barriles en Bodega','Saldo Esperado (g)','Diferencia (g)','Diferencia (%)','Registrado por','Notas']]
+    .concat(lista.map(a => [a.fecha,a.kiosko,a.estilo,a.pesoNeto,a.barrilesBodega,Math.round(a.saldoEsperado),a.diferenciaG,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
   const csv = filas.map(f => f.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
