@@ -774,6 +774,12 @@ function mapaNombreEstandar() {
   return mapa;
 }
 
+// Comparación insensible a mayúsculas/espacios: el campo Kiosko de
+// Desglose_IA viene tipeado a mano (CATALINAS vs Catalinas, etc. — mismo
+// bug ya documentado y corregido en analisis-compras.html contra este
+// mismo Sheet) — normalizar ambos lados antes de comparar.
+const normKiosko = v => String(v || '').trim().toLowerCase();
+
 // Líneas de compra (detalle) de un estilo en un kiosko, en [desde,hasta] —
 // desde facturas ya homologadas en el Maestro. Ver limitación en el diseño.
 function comprasDetalleEnRango(kiosko, estilo, desde, hasta) {
@@ -781,9 +787,10 @@ function comprasDetalleEnRango(kiosko, estilo, desde, hasta) {
   const mapa = mapaNombreEstandar();
   const claveObjetivo = claveAgrupacion(estilo.nombreEstandarCompra);
   const filas = [];
+  const kioskoObjetivo = normKiosko(kiosko);
   DESGLOSE_ROWS.forEach(row => {
-    const k = (row['Kiosko']||'').toString();
-    if (k !== kiosko) return;
+    const k = normKiosko(row['Kiosko']);
+    if (k !== kioskoObjetivo) return;
     const fecha = String(row['Fecha de factura']||'').slice(0,10);
     if (!fecha || fecha < desde || fecha > hasta) return;
     const estandar = mapa[claveAgrupacion(row['Producto'])];
