@@ -399,8 +399,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <!-- ── TAB CONFIGURACIÓN ── -->
 <div class="page" id="tab-config">
   <div class="card">
+    <p class="card-title">Peso neto y tara (aplica a todos los estilos)</p>
+    <p class="card-note">Un solo valor para todos los estilos y kioskos — se configura una vez acá. Al guardar se actualiza automáticamente en todos los estilos ya creados.</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="cfg-general-peso-neto">Peso neto nominal por barril (g) <span class="req">*</span></label>
+        <input type="number" id="cfg-general-peso-neto" placeholder="Ej. 18000" step="1" min="0"/>
+      </div>
+      <div class="field">
+        <label for="cfg-general-tara">Tara nominal / peso vacío (g)</label>
+        <input type="number" id="cfg-general-tara" placeholder="Ej. 4500" step="1" min="0"/>
+      </div>
+    </div>
+    <div class="submit-area">
+      <button class="btn-primary" id="btn-cfg-general-submit" onclick="guardarConfiguracionGeneralUI()">Guardar</button>
+    </div>
+  </div>
+
+  <div class="card">
     <p class="card-title">Estilos de cerveza en barril</p>
-    <p class="card-note">Catálogo global. El "Nombre" se elige directamente del Maestro de Productos, para que las compras entren solas al saldo. "Palabra clave en ventas" identifica sus líneas dentro de las ventas de Square (ej. "IPA", "Lager") — dejala vacía si no hay Square en ningún kiosko donde se vende.</p>
+    <p class="card-note">Catálogo global. El "Nombre" se elige directamente del Maestro de Productos, para que las compras entren solas al saldo. "Palabra clave en ventas" identifica sus líneas dentro de las ventas de Square (ej. "IPA", "Lager") — dejala vacía si no hay Square en ningún kiosko donde se vende. Un estilo nuevo queda disponible en todos los kioskos por default — desmarcá abajo el que no corresponda.</p>
     <div id="cfg-estilos-lista"><div class="empty-state">Cargando…</div></div>
   </div>
 
@@ -418,23 +436,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <input type="text" id="cfg-palabra-clave" placeholder="Ej. IPA"/>
       </div>
     </div>
-    <div class="field-row-3">
-      <div class="field">
-        <label for="cfg-peso-neto">Peso neto nominal por barril (g) <span class="req">*</span></label>
-        <input type="number" id="cfg-peso-neto" placeholder="Ej. 18000" step="1" min="0"/>
-      </div>
-      <div class="field">
-        <label for="cfg-tara">Tara nominal / peso vacío (g)</label>
-        <input type="number" id="cfg-tara" placeholder="Ej. 4500" step="1" min="0"/>
-      </div>
+    <div class="field-row">
       <div class="field">
         <label for="cfg-barriles-factura">Barriles por unidad de factura</label>
         <input type="number" id="cfg-barriles-factura" value="1" step="1" min="1"/>
       </div>
-    </div>
-    <div class="field">
-      <label for="cfg-densidad">Densidad (g/ml)</label>
-      <input type="number" id="cfg-densidad" value="1.005" step="0.001" min="0"/>
+      <div class="field">
+        <label for="cfg-densidad">Densidad (g/ml)</label>
+        <input type="number" id="cfg-densidad" value="1.005" step="0.001" min="0"/>
+      </div>
     </div>
     <input type="hidden" id="cfg-estilo-id"/>
     <div class="submit-area">
@@ -679,6 +689,7 @@ let ARQUEOS = [];        // [{...}]
 let DESGLOSE_ROWS = [];
 let MAESTRO_ROWS = [];
 let MERMAS_DATA = [];
+let CONFIG_GENERAL = { pesoNetoNominal: 0, taraNominal: 0 }; // peso/tara únicos para todos los estilos
 
 async function cargarKioskos() {
   const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
@@ -1287,9 +1298,44 @@ function exportarArqueosCSV() {
 async function cargarConfig() {
   await cargarTodosLosDatos();
   if (!MAESTRO_ROWS.length) await cargarCompras();
+  await cargarConfiguracionGeneral();
   renderEstilosLista();
   renderDatalistNombreEstandar();
   renderMatrizDisponibilidad();
+}
+async function cargarConfiguracionGeneral() {
+  const registros = await cargarBackend('configuracion_general');
+  if (registros.length) {
+    CONFIG_GENERAL = {
+      pesoNetoNominal: Number(registros[0]['Peso Neto Nominal por Barril (g)'])||0,
+      taraNominal: Number(registros[0]['Tara Nominal (g)'])||0
+    };
+  } else if (ESTILOS.length) {
+    // Todavía no se guardó la configuración general — se pre-llena con los
+    // valores del primer estilo existente (antes ya eran iguales en todos).
+    CONFIG_GENERAL = { pesoNetoNominal: ESTILOS[0].pesoNetoNominal||0, taraNominal: ESTILOS[0].taraNominal||0 };
+  }
+  document.getElementById('cfg-general-peso-neto').value = CONFIG_GENERAL.pesoNetoNominal || '';
+  document.getElementById('cfg-general-tara').value = CONFIG_GENERAL.taraNominal || '';
+}
+async function guardarConfiguracionGeneralUI() {
+  const pesoNeto = document.getElementById('cfg-general-peso-neto').value;
+  if (pesoNeto === '' || Number(pesoNeto) <= 0) { showToast('Ingresá el peso neto nominal por barril', 'error'); return; }
+  const taraNominal = Number(document.getElementById('cfg-general-tara').value)||0;
+  const btn = document.getElementById('btn-cfg-general-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ accion:'configuracion_general_guardar', pesoNetoNominal: Number(pesoNeto), taraNominal }) }, 30000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Configuración guardada — aplicada a todos los estilos ✓');
+    await cargarConfig();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
 }
 function renderEstilosLista() {
   const cont = document.getElementById('cfg-estilos-lista');
@@ -1304,7 +1350,6 @@ function renderEstilosLista() {
         </div>
       </div>
       <div style="font-size:12px;color:var(--muted)">
-        Peso neto: ${e.pesoNetoNominal.toLocaleString('es-CR')} g · Tara: ${e.taraNominal.toLocaleString('es-CR')} g ·
         Palabra clave: ${e.palabraClave || '—'} ·
         ${e.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}
       </div>
@@ -1316,30 +1361,30 @@ function editarEstilo(id) {
   document.getElementById('cfg-estilo-id').value = e.id;
   document.getElementById('cfg-nombre').value = e.nombre;
   document.getElementById('cfg-palabra-clave').value = e.palabraClave;
-  document.getElementById('cfg-peso-neto').value = e.pesoNetoNominal;
-  document.getElementById('cfg-tara').value = e.taraNominal;
   document.getElementById('cfg-barriles-factura').value = e.barrilesPorUnidadFactura;
   document.getElementById('cfg-densidad').value = e.densidad;
   window.scrollTo({top: document.getElementById('cfg-nombre').closest('.card').offsetTop - 80, behavior:'smooth'});
 }
 function limpiarFormEstilo() {
   document.getElementById('cfg-estilo-id').value = '';
-  ['cfg-nombre','cfg-palabra-clave','cfg-peso-neto','cfg-tara'].forEach(id => document.getElementById(id).value='');
+  ['cfg-nombre','cfg-palabra-clave'].forEach(id => document.getElementById(id).value='');
   document.getElementById('cfg-barriles-factura').value = 1;
   document.getElementById('cfg-densidad').value = DENSIDAD_DEFAULT;
 }
 async function guardarEstiloUI() {
   const nombre = document.getElementById('cfg-nombre').value.trim();
-  const pesoNeto = document.getElementById('cfg-peso-neto').value;
   if (!nombre) { showToast('Ingresá el nombre del estilo', 'error'); return; }
-  if (pesoNeto === '' || Number(pesoNeto) <= 0) { showToast('Ingresá el peso neto nominal por barril', 'error'); return; }
+  if (!CONFIG_GENERAL.pesoNetoNominal) { showToast('Configurá primero el peso neto y tara general, arriba', 'error'); return; }
+  const idPrevio = document.getElementById('cfg-estilo-id').value;
+  const esNuevo = !idPrevio;
   const btn = document.getElementById('btn-cfg-submit');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const payload = {
     accion: 'estilo_guardar',
-    id: document.getElementById('cfg-estilo-id').value || undefined,
-    nombre, pesoNetoNominal: Number(pesoNeto),
-    taraNominal: Number(document.getElementById('cfg-tara').value)||0,
+    id: idPrevio || undefined,
+    nombre,
+    pesoNetoNominal: CONFIG_GENERAL.pesoNetoNominal,
+    taraNominal: CONFIG_GENERAL.taraNominal,
     nombreEstandarCompra: nombre,
     barrilesPorUnidadFactura: Number(document.getElementById('cfg-barriles-factura').value)||1,
     palabraClave: document.getElementById('cfg-palabra-clave').value.trim(),
@@ -1349,6 +1394,16 @@ async function guardarEstiloUI() {
     const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    if (esNuevo && out.id) {
+      // Por default, un estilo nuevo queda disponible en todos los kioskos
+      // (se puede desmarcar después en la matriz de abajo).
+      for (const k of KIOSKOS) {
+        try {
+          await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'},
+            body: JSON.stringify({ accion:'disponibilidad_guardar', kiosko:k, estiloId:out.id, estilo:nombre, disponible:true }) }, 30000);
+        } catch(errDisp) { /* seguir con los demás kioskos aunque uno falle */ }
+      }
+    }
     showToast('Estilo guardado ✓');
     limpiarFormEstilo();
     await cargarConfig();
