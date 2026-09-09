@@ -129,6 +129,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .kpi-sub{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
 .kpi-breakdown{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:11px;color:var(--muted)}
 .kpi-breakdown b{color:var(--text)}
+.kpi-disponible{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--green-bg);color:var(--text);font-size:12.5px;line-height:1.5}
+.kpi-disponible b{font-family:var(--font-m)}
+.kpi-disponible.kpi-disponible-neg{background:var(--red-bg);color:var(--red)}
 .kpi-arqueo{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px}
 .kpi-cta{display:inline-block;margin-top:8px;font-size:12px;color:var(--blue);text-decoration:none;font-weight:600}
 
@@ -911,6 +914,16 @@ async function calcularSaldo(kiosko, estilo, hastaFecha) {
 }
 
 // ── DASHBOARD ───────────────────────────────────────────────────────
+// Descompone el saldo esperado (gramos de cerveza neta) en barriles llenos
+// que deberían seguir cerrados en bodega + el resto en gramos que debería
+// pesar el barril actualmente abierto. Usa el peso neto nominal del estilo.
+function desgloseDisponible(saldoG, pesoNetoNominal) {
+  if (!pesoNetoNominal || saldoG == null) return null;
+  if (saldoG <= 0) return { barriles: 0, resto: 0, negativo: true };
+  const barriles = Math.floor(saldoG / pesoNetoNominal);
+  const resto = saldoG - barriles * pesoNetoNominal;
+  return { barriles, resto, negativo: false };
+}
 function renderKpiCard(kiosko, estilo, r) {
   if (r.sinPunto) {
     return `<div class="kpi-card">
@@ -926,9 +939,17 @@ function renderKpiCard(kiosko, estilo, r) {
     const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
     arqueoHtml = `<div class="kpi-arqueo">Último arqueo (${ultimoArqueo.fecha}): <span class="badge ${badge}">${pct==null?'—':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>`;
   }
+  const desglose = desgloseDisponible(r.saldoEsperado, estilo.pesoNetoNominal||0);
+  let disponibleHtml = '';
+  if (desglose) {
+    disponibleHtml = desglose.negativo
+      ? `<div class="kpi-disponible kpi-disponible-neg">Sin barriles disponibles — saldo esperado en déficit.</div>`
+      : `<div class="kpi-disponible">Disponible: <b>${desglose.barriles}</b> barril${desglose.barriles!==1?'es':''} cerrado${desglose.barriles!==1?'s':''} + <b>${fmtG(desglose.resto)}</b> en el abierto</div>`;
+  }
   return `<div class="kpi-card">
     <div class="kpi-estilo">${estilo.nombre}</div>
     <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${fmtG(r.saldoEsperado)}</div>
+    ${disponibleHtml}
     <div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>
     <div class="kpi-breakdown">
       <span>+ Compras: <b>${fmtG(r.compras)}</b></span>
