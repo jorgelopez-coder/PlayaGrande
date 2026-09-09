@@ -115,6 +115,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 /* Dashboard */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.kiosko-group{margin-bottom:20px}
+.kiosko-group:last-child{margin-bottom:0}
+.kiosko-group-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px 8px;border-bottom:2px solid var(--border-h);margin-bottom:12px;flex-wrap:wrap}
+.kiosko-group-name{font-family:var(--font-d);font-size:15.5px;font-weight:700}
+.kiosko-group-sub{font-size:11.5px;color:var(--muted);white-space:nowrap}
 .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem}
 .kpi-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
 .kpi-kiosko{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
@@ -187,7 +192,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="hist-filtros">
     <button class="btn-sm" onclick="cargarDashboard()" style="margin-left:auto">↻ Actualizar</button>
   </div>
-  <div class="kpi-grid" id="dash-grid">
+  <div id="dash-grid">
     <div class="empty-state">Cargando…</div>
   </div>
 </div><!-- /tab-dashboard -->
@@ -799,7 +804,8 @@ async function ventasEnRango(kiosko, estilo, desde, hasta) {
   let onzasEstilo = 0, onzasTotal = 0;
   const palabra = (estilo.palabraClave||'').toUpperCase();
   const densidad = estilo.densidad || DENSIDAD_DEFAULT;
-  const detalleEstilo = [];
+  // Agrupado por fecha + producto (tipo de cerveza) en vez de una fila por línea de Square.
+  const detalleMap = new Map();
   filas.forEach(f => {
     if (f.fecha < desde || f.fecha > hasta) return;
     if (!esCervezaBarril(f.categoria, f.producto)) return;
@@ -809,13 +815,23 @@ async function ventasEnRango(kiosko, estilo, desde, hasta) {
     onzasTotal += total;
     if (palabra && f.producto.toUpperCase().includes(palabra)) {
       onzasEstilo += total;
-      detalleEstilo.push({ fecha: f.fecha, producto: f.producto, cantidad: f.cantidad, oz, pesoG: total * ML_POR_ONZA * densidad });
+      const key = f.fecha + '\u0001' + f.producto;
+      const acc = detalleMap.get(key);
+      const pesoLinea = total * ML_POR_ONZA * densidad;
+      if (acc) {
+        acc.cantidad += f.cantidad;
+        acc.pesoG += pesoLinea;
+      } else {
+        detalleMap.set(key, { fecha: f.fecha, producto: f.producto, cantidad: f.cantidad, oz, pesoG: pesoLinea });
+      }
     }
   });
+  const detalleEstilo = Array.from(detalleMap.values())
+    .sort((a,b) => a.fecha.localeCompare(b.fecha) || a.producto.localeCompare(b.producto));
   return {
     gramosEstilo: onzasEstilo * ML_POR_ONZA * densidad,
     gramosTotalKiosko: onzasTotal * ML_POR_ONZA * DENSIDAD_DEFAULT,
-    detalleEstilo: detalleEstilo.sort((a,b) => a.fecha.localeCompare(b.fecha))
+    detalleEstilo
   };
 }
 
@@ -859,6 +875,34 @@ async function calcularSaldo(kiosko, estilo, hastaFecha) {
 }
 
 // ── DASHBOARD ───────────────────────────────────────────────────────
+function renderKpiCard(kiosko, estilo, r) {
+  if (r.sinPunto) {
+    return `<div class="kpi-card">
+      <div class="kpi-estilo">${estilo.nombre}</div>
+      <div class="kpi-sub">Sin punto de partida registrado todavía.</div>
+      <a class="kpi-cta" href="javascript:void(0)" onclick="irATab('partida')">Registrar peso inicial →</a>
+    </div>`;
+  }
+  const ultimoArqueo = ARQUEOS.filter(a => a.kiosko===kiosko && a.estiloId===estilo.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||Number(b.id)-Number(a.id))[0];
+  let arqueoHtml = '';
+  if (ultimoArqueo) {
+    const pct = ultimoArqueo.diferenciaPct;
+    const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
+    arqueoHtml = `<div class="kpi-arqueo">Último arqueo (${ultimoArqueo.fecha}): <span class="badge ${badge}">${pct==null?'—':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>`;
+  }
+  return `<div class="kpi-card">
+    <div class="kpi-estilo">${estilo.nombre}</div>
+    <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${fmtG(r.saldoEsperado)}</div>
+    <div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>
+    <div class="kpi-breakdown">
+      <span>+ Compras: <b>${fmtG(r.compras)}</b></span>
+      <span>− Ventas: <b>${fmtG(r.ventasEstilo)}</b></span>
+      <span>− Merma prorr.: <b>${fmtG(r.mermaProrrateada)}</b>${r.sinVentasReferencia?' <span class="badge badge-amber">sin ventas de ref.</span>':''}</span>
+    </div>
+    <a class="kpi-cta" href="javascript:void(0)" onclick="abrirDetalleLinea('${escapeAttr(kiosko)}','${estilo.id}')">Ver detalle de compras y ventas →</a>
+    ${arqueoHtml}
+  </div>`;
+}
 async function cargarDashboard() {
   document.getElementById('dash-grid').innerHTML = '<div class="empty-state">Cargando…</div>';
   document.getElementById('dash-banner').innerHTML = BALANCE_URL.includes('TODO_PEGAR')
@@ -877,34 +921,22 @@ async function cargarDashboard() {
   }
   const hastaHoy = hoy();
   const resultados = await Promise.all(combos.map(async ([k,e]) => ({ kiosko:k, estilo:e, r: await calcularSaldo(k, e, hastaHoy) })));
-  document.getElementById('dash-grid').innerHTML = resultados.map(({kiosko, estilo, r}) => {
-    if (r.sinPunto) {
-      return `<div class="kpi-card">
-        <div class="kpi-head"><span class="kpi-kiosko">${kiosko}</span></div>
-        <div class="kpi-estilo">${estilo.nombre}</div>
-        <div class="kpi-sub">Sin punto de partida registrado todavía.</div>
-        <a class="kpi-cta" href="javascript:void(0)" onclick="irATab('partida')">Registrar peso inicial →</a>
-      </div>`;
-    }
-    const ultimoArqueo = ARQUEOS.filter(a => a.kiosko===kiosko && a.estiloId===estilo.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||Number(b.id)-Number(a.id))[0];
-    let arqueoHtml = '';
-    if (ultimoArqueo) {
-      const pct = ultimoArqueo.diferenciaPct;
-      const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
-      arqueoHtml = `<div class="kpi-arqueo">Último arqueo (${ultimoArqueo.fecha}): <span class="badge ${badge}">${pct==null?'—':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>`;
-    }
-    return `<div class="kpi-card">
-      <div class="kpi-head"><span class="kpi-kiosko">${kiosko}</span></div>
-      <div class="kpi-estilo">${estilo.nombre}</div>
-      <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${fmtG(r.saldoEsperado)}</div>
-      <div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>
-      <div class="kpi-breakdown">
-        <span>+ Compras: <b>${fmtG(r.compras)}</b></span>
-        <span>− Ventas: <b>${fmtG(r.ventasEstilo)}</b></span>
-        <span>− Merma prorr.: <b>${fmtG(r.mermaProrrateada)}</b>${r.sinVentasReferencia?' <span class="badge badge-amber">sin ventas de ref.</span>':''}</span>
+  // Agrupado por kiosko: una sección con encabezado por kiosko, tarjetas de estilo adentro.
+  const porKiosko = new Map();
+  resultados.forEach(item => {
+    if (!porKiosko.has(item.kiosko)) porKiosko.set(item.kiosko, []);
+    porKiosko.get(item.kiosko).push(item);
+  });
+  document.getElementById('dash-grid').innerHTML = KIOSKOS.filter(k => porKiosko.has(k)).map(k => {
+    const items = porKiosko.get(k);
+    return `<div class="kiosko-group">
+      <div class="kiosko-group-head">
+        <span class="kiosko-group-name">${k}</span>
+        <span class="kiosko-group-sub">${items.length} estilo${items.length!==1?'s':''}</span>
       </div>
-      <a class="kpi-cta" href="javascript:void(0)" onclick="abrirDetalleLinea('${escapeAttr(kiosko)}','${estilo.id}')">Ver detalle de compras y ventas →</a>
-      ${arqueoHtml}
+      <div class="kpi-grid">
+        ${items.map(({kiosko, estilo, r}) => renderKpiCard(kiosko, estilo, r)).join('')}
+      </div>
     </div>`;
   }).join('');
 }
