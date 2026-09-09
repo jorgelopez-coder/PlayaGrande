@@ -362,7 +362,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="page" id="tab-config">
   <div class="card">
     <p class="card-title">Estilos de cerveza en barril</p>
-    <p class="card-note">Catálogo global. "Nombre Estándar Compra" enlaza este estilo con el producto homologado en el Maestro de Productos, para que las compras entren solas al saldo. "Palabra clave en ventas" identifica sus líneas dentro de las ventas de Square (ej. "IPA", "Lager") — dejala vacía si no hay Square en ningún kiosko donde se vende.</p>
+    <p class="card-note">Catálogo global. El "Nombre" se elige directamente del Maestro de Productos, para que las compras entren solas al saldo. "Palabra clave en ventas" identifica sus líneas dentro de las ventas de Square (ej. "IPA", "Lager") — dejala vacía si no hay Square en ningún kiosko donde se vende.</p>
     <div id="cfg-estilos-lista"><div class="empty-state">Cargando…</div></div>
   </div>
 
@@ -370,8 +370,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Agregar / editar estilo</p>
     <div class="field-row">
       <div class="field">
-        <label for="cfg-nombre">Nombre <span class="req">*</span></label>
-        <input type="text" id="cfg-nombre" placeholder="Ej. IPA, Lager, Stout"/>
+        <label for="cfg-nombre">Nombre (del Maestro de Productos) <span class="req">*</span></label>
+        <input type="text" id="cfg-nombre" list="cfg-nombre-estandar-list" placeholder="Elegí del Maestro…"/>
+        <datalist id="cfg-nombre-estandar-list"></datalist>
+        <div class="hint"><a href="maestro-productos.html" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600;text-decoration:none">Abrir Maestro de Productos ↗</a> — si el producto no aparece en la lista, agregalo ahí primero.</div>
       </div>
       <div class="field">
         <label for="cfg-palabra-clave">Palabra clave en ventas Square</label>
@@ -392,16 +394,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <input type="number" id="cfg-barriles-factura" value="1" step="1" min="1"/>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label for="cfg-nombre-estandar">Nombre Estándar Compra (del Maestro de Productos)</label>
-        <input type="text" id="cfg-nombre-estandar" list="cfg-nombre-estandar-list" placeholder="Elegí del Maestro…"/>
-        <datalist id="cfg-nombre-estandar-list"></datalist>
-      </div>
-      <div class="field">
-        <label for="cfg-densidad">Densidad (g/ml)</label>
-        <input type="number" id="cfg-densidad" value="1.005" step="0.001" min="0"/>
-      </div>
+    <div class="field">
+      <label for="cfg-densidad">Densidad (g/ml)</label>
+      <input type="number" id="cfg-densidad" value="1.005" step="0.001" min="0"/>
     </div>
     <input type="hidden" id="cfg-estilo-id"/>
     <div class="submit-area">
@@ -511,6 +506,9 @@ function showTab(tab, el) {
   el.classList.add('active');
   if (tab === 'dashboard') cargarDashboard();
   if (tab === 'historial') cargarHistorial();
+  if (tab === 'config') cargarConfig();
+  if (tab === 'partida') alCambiarSelectorPartida();
+  if (tab === 'arqueo') alCambiarSelectorArqueo();
 }
 
 // ── FOTO: compresión en el navegador antes de subir (mismo patrón que
@@ -1110,7 +1108,7 @@ function renderEstilosLista() {
       </div>
       <div style="font-size:12px;color:var(--muted)">
         Peso neto: ${e.pesoNetoNominal.toLocaleString('es-CR')} g · Tara: ${e.taraNominal.toLocaleString('es-CR')} g ·
-        Compra: ${e.nombreEstandarCompra || '—'} · Palabra clave: ${e.palabraClave || '—'} ·
+        Palabra clave: ${e.palabraClave || '—'} ·
         ${e.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}
       </div>
     </div>`).join('');
@@ -1124,13 +1122,12 @@ function editarEstilo(id) {
   document.getElementById('cfg-peso-neto').value = e.pesoNetoNominal;
   document.getElementById('cfg-tara').value = e.taraNominal;
   document.getElementById('cfg-barriles-factura').value = e.barrilesPorUnidadFactura;
-  document.getElementById('cfg-nombre-estandar').value = e.nombreEstandarCompra;
   document.getElementById('cfg-densidad').value = e.densidad;
   window.scrollTo({top: document.getElementById('cfg-nombre').closest('.card').offsetTop - 80, behavior:'smooth'});
 }
 function limpiarFormEstilo() {
   document.getElementById('cfg-estilo-id').value = '';
-  ['cfg-nombre','cfg-palabra-clave','cfg-peso-neto','cfg-tara','cfg-nombre-estandar'].forEach(id => document.getElementById(id).value='');
+  ['cfg-nombre','cfg-palabra-clave','cfg-peso-neto','cfg-tara'].forEach(id => document.getElementById(id).value='');
   document.getElementById('cfg-barriles-factura').value = 1;
   document.getElementById('cfg-densidad').value = DENSIDAD_DEFAULT;
 }
@@ -1146,7 +1143,7 @@ async function guardarEstiloUI() {
     id: document.getElementById('cfg-estilo-id').value || undefined,
     nombre, pesoNetoNominal: Number(pesoNeto),
     taraNominal: Number(document.getElementById('cfg-tara').value)||0,
-    nombreEstandarCompra: document.getElementById('cfg-nombre-estandar').value.trim(),
+    nombreEstandarCompra: nombre,
     barrilesPorUnidadFactura: Number(document.getElementById('cfg-barriles-factura').value)||1,
     palabraClave: document.getElementById('cfg-palabra-clave').value.trim(),
     densidad: Number(document.getElementById('cfg-densidad').value)||DENSIDAD_DEFAULT
