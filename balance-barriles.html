@@ -551,7 +551,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div data-grupo-panel="botella" data-tab-grupo="config">
   <div class="card">
     <p class="card-title">Cerveza en botella — catálogo</p>
-    <p class="card-note">Se cuenta por unidad, no se pesa. El "Nombre" se elige del Maestro de Productos — la cantidad comprada se convierte sola a botellas usando "Conversión Receta" / "Unidad Receta" de esa ficha en el Maestro (la misma que usa Recetas), así que conviene que esa ficha tenga "Unidad Receta" = Unidad. "Palabra clave en ventas" identifica sus líneas en Square (ej. "BOTELLA IPA") — sin merma prorrateada (Mermas hoy solo mide pérdida de barril).</p>
+    <p class="card-note">Se cuenta por unidad, no se pesa. El "Nombre" se elige del Maestro de Productos — por defecto la cantidad comprada se convierte sola a botellas usando "Conversión Receta" / "Unidad Receta" de esa ficha en el Maestro (la misma que usa Recetas). Si para este estilo preferís definir vos directamente cuántas botellas trae una unidad de factura (ej. 24 en un six-pack de cajas), llená "Unidades por unidad de factura" abajo — con eso puesto, ese número manda y ya no hace falta tocar el Maestro para este estilo. "Palabra clave en ventas" identifica sus líneas en Square (ej. "BOTELLA IPA") — sin merma prorrateada (Mermas hoy solo mide pérdida de barril).</p>
     <div id="cfg-botella-lista"><div class="empty-state">Cargando…</div></div>
   </div>
   <div class="card">
@@ -560,6 +560,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field">
         <label for="cfg-botella-nombre">Nombre (del Maestro de Productos) <span class="req">*</span></label>
         <input type="text" id="cfg-botella-nombre" list="cfg-nombre-estandar-list" placeholder="Elegí del Maestro…"/>
+      </div>
+      <div class="field">
+        <label for="cfg-botella-unidades-factura">Unidades por unidad de factura</label>
+        <input type="number" id="cfg-botella-unidades-factura" min="0" step="1" placeholder="Opcional — ej. 24"/>
       </div>
       <div class="field">
         <label for="cfg-botella-palabra-clave">Palabra clave en ventas Square</label>
@@ -855,7 +859,7 @@ let MERMAS_DATA = [];
 let CONFIG_GENERAL = { pesoNetoNominal: 0, taraNominal: 0, barrilesPorUnidadFactura: 1, densidad: DENSIDAD_DEFAULT }; // valores únicos para todos los estilos
 // ── Cerveza Botella / Proteínas — mismo rol que ESTILOS/PUNTOS/ARQUEOS de
 // arriba, pero para los otros 2 grupos de "Controles" (agregado 2026-09-10).
-let ESTILOS_BOTELLA = []; // [{id,nombre,nombreEstandarCompra,palabraClave,activo}]
+let ESTILOS_BOTELLA = []; // [{id,nombre,nombreEstandarCompra,unidadesPorFactura,palabraClave,activo}]
 let PUNTOS_BOTELLA = [];  // [{id,fecha,kiosko,estiloId,estilo,tipo,cantidad,fotoUrl,registradoPor,notas}]
 let ARQUEOS_BOTELLA = [];
 let PROTEINAS = [];       // [{id,nombre,nombreEstandarCompra,activo}]
@@ -888,6 +892,7 @@ async function cargarTodosLosDatos() {
   ESTILOS_BOTELLA = estBotRaw.map(r => ({
     id: String(r['ID']||''), nombre: r['Nombre']||'',
     nombreEstandarCompra: r['Nombre Estándar Compra']||'',
+    unidadesPorFactura: Number(r['Unidades por Unidad de Factura'])||0, // 0 = sin definir, usa el Maestro
     palabraClave: r['Palabra Clave en Ventas Square']||'',
     activo: String(r['Activo']||'Sí').toLowerCase() !== 'no'
   })).filter(e => e.id);
@@ -1172,13 +1177,22 @@ function comprasDetalleGenericoEnRango(kiosko, nombreEstandarCompra, desde, hast
   });
   return filas.sort((a,b) => a.fecha.localeCompare(b.fecha));
 }
-// Botella: si la ficha del Maestro no está configurada como "Unidad", se
-// asume 1 unidad de factura = 1 botella (mismo criterio "vacío/0 = 1" que
-// ya usa el Maestro para no romper una ficha sin ese dato).
+// Botella: si el estilo tiene su propio "Unidades por Unidad de Factura"
+// (campo agregado 2026-09-10 a pedido de Jorge, en Configuración ▸ Cerveza
+// en botella), ese valor manda y no se toca el Maestro para nada. Si está
+// en blanco/0, sigue el criterio anterior: se lee del Maestro, y si la
+// ficha no está configurada como "Unidad" se asume 1 unidad de factura = 1
+// botella (mismo criterio "vacío/0 = 1" que ya usa el Maestro para no
+// romper una ficha sin ese dato).
 function comprasBotellaEnRango(kiosko, estilo, desde, hasta) {
   return comprasDetalleGenericoEnRango(kiosko, estilo.nombreEstandarCompra, desde, hasta).map(f => {
-    const u = (f.unidadReceta||'').toLowerCase();
-    const unidades = u.startsWith('unidad') ? f.cantidadConvertida : f.cantidad;
+    let unidades;
+    if (estilo.unidadesPorFactura) {
+      unidades = f.cantidad * estilo.unidadesPorFactura;
+    } else {
+      const u = (f.unidadReceta||'').toLowerCase();
+      unidades = u.startsWith('unidad') ? f.cantidadConvertida : f.cantidad;
+    }
     return Object.assign({}, f, { unidades });
   });
 }
@@ -2413,6 +2427,7 @@ function renderEstilosListaBotella() {
       </div>
       <div style="font-size:12px;color:var(--muted)">
         Palabra clave: ${e.palabraClave || '—'} ·
+        Unidades por factura: ${e.unidadesPorFactura ? e.unidadesPorFactura : 'según Maestro'} ·
         ${e.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}
       </div>
     </div>`).join('');
@@ -2422,12 +2437,13 @@ function editarEstiloBotella(id) {
   if (!e) return;
   document.getElementById('cfg-botella-id').value = e.id;
   document.getElementById('cfg-botella-nombre').value = e.nombre;
+  document.getElementById('cfg-botella-unidades-factura').value = e.unidadesPorFactura || '';
   document.getElementById('cfg-botella-palabra-clave').value = e.palabraClave;
   window.scrollTo({top: document.getElementById('cfg-botella-nombre').closest('.card').offsetTop - 80, behavior:'smooth'});
 }
 function limpiarFormEstiloBotella() {
   document.getElementById('cfg-botella-id').value = '';
-  ['cfg-botella-nombre','cfg-botella-palabra-clave'].forEach(id => document.getElementById(id).value='');
+  ['cfg-botella-nombre','cfg-botella-unidades-factura','cfg-botella-palabra-clave'].forEach(id => document.getElementById(id).value='');
 }
 async function guardarEstiloBotellaUI() {
   const nombre = document.getElementById('cfg-botella-nombre').value.trim();
@@ -2438,6 +2454,7 @@ async function guardarEstiloBotellaUI() {
   const payload = {
     accion: 'estilo_botella_guardar', id: idPrevio || undefined, nombre,
     nombreEstandarCompra: nombre,
+    unidadesPorFactura: Number(document.getElementById('cfg-botella-unidades-factura').value)||0,
     palabraClave: document.getElementById('cfg-botella-palabra-clave').value.trim()
   };
   try {
@@ -2456,7 +2473,7 @@ async function guardarEstiloBotellaUI() {
 async function alternarActivoEstiloBotella(id) {
   const e = ESTILOS_BOTELLA.find(x => x.id===id);
   if (!e) return;
-  const payload = { accion:'estilo_botella_guardar', id:e.id, nombre:e.nombre, nombreEstandarCompra:e.nombreEstandarCompra, palabraClave:e.palabraClave, activo: !e.activo };
+  const payload = { accion:'estilo_botella_guardar', id:e.id, nombre:e.nombre, nombreEstandarCompra:e.nombreEstandarCompra, unidadesPorFactura:e.unidadesPorFactura, palabraClave:e.palabraClave, activo: !e.activo };
   try {
     const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
     const out = await resp.json();
