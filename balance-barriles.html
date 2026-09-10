@@ -1247,7 +1247,7 @@ async function cargarVentasKiosko(kiosko) {
 async function ventasEnRango(kiosko, estilo, desde, hasta) {
   const filas = await cargarVentasKiosko(kiosko);
   let onzasEstilo = 0, onzasTotal = 0;
-  const palabra = (estilo.palabraClave||'').toUpperCase();
+  const palabra = String(estilo.palabraClave||'').toUpperCase();
   const densidad = estilo.densidad || DENSIDAD_DEFAULT;
   // Agrupado por fecha + producto (tipo de cerveza) en vez de una fila por línea de Square.
   const detalleMap = new Map();
@@ -1292,7 +1292,7 @@ function esCervezaBotella(categoria, nombre) {
 async function ventasBotellaEnRango(kiosko, estilo, desde, hasta) {
   const filas = await cargarVentasKiosko(kiosko);
   let unidadesEstilo = 0;
-  const palabra = (estilo.palabraClave||'').toUpperCase();
+  const palabra = String(estilo.palabraClave||'').toUpperCase();
   const detalleMap = new Map();
   filas.forEach(f => {
     if (f.fecha < desde || f.fecha > hasta) return;
