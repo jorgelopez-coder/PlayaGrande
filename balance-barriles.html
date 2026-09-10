@@ -1131,7 +1131,14 @@ function mapaConversionReceta() {
     if (!estandar) return;
     mapa[claveAgrupacion(estandar)] = {
       unidadReceta: (r['Unidad Receta']||'').toString().trim(),
-      conversion: Number(r['Conversión Receta']) || 1 // vacío/0 = 1, mismo criterio que Recetas
+      conversion: Number(r['Conversión Receta']) || 1, // vacío/0 = 1, mismo criterio que Recetas
+      // "Cantidad presentación" (2026-09-10, fix de Jorge): cuántas unidades
+      // trae UNA presentación de compra (ej. Caja=24) — el mismo dato que
+      // ya usa el Maestro para "Costo por unidad". A diferencia de
+      // "Conversión Receta" (pensado solo para costeo de Recetas y casi
+      // nunca completado para cerveza en botella), este SÍ se completa de
+      // forma confiable — ver comprasBotellaEnRango.
+      cantidadPresentacion: Number(r['Cantidad presentación']) || 0
     };
   });
   _mapaConversionCache = mapa;
@@ -1172,7 +1179,8 @@ function comprasDetalleGenericoEnRango(kiosko, nombreEstandarCompra, desde, hast
       fecha, factura: row['Número de factura']||'', proveedor: row['Proveedor']||'',
       producto: row['Producto']||'', cantidad,
       cantidadConvertida: cantidad * factor,
-      unidadReceta: conv ? conv.unidadReceta : ''
+      unidadReceta: conv ? conv.unidadReceta : '',
+      cantidadPresentacion: conv ? conv.cantidadPresentacion : 0
     });
   });
   return filas.sort((a,b) => a.fecha.localeCompare(b.fecha));
@@ -1188,7 +1196,16 @@ function comprasBotellaEnRango(kiosko, estilo, desde, hasta) {
   return comprasDetalleGenericoEnRango(kiosko, estilo.nombreEstandarCompra, desde, hasta).map(f => {
     let unidades;
     if (estilo.unidadesPorFactura) {
+      // Override manual por estilo (Configuración ▸ Cerveza en botella) — manda siempre.
       unidades = f.cantidad * estilo.unidadesPorFactura;
+    } else if (f.cantidadPresentacion) {
+      // "Cantidad presentación" del Maestro (ej. Caja=24 botellas) — fix
+      // 2026-09-10: antes se usaba "Conversión Receta", que para cerveza
+      // en botella casi siempre queda vacía (asume 1) y subestimaba el
+      // total de unidades que ingresaron (ej. 1 caja de 24 contaba como 1
+      // botella). "Cantidad presentación" sí se completa de forma
+      // confiable porque de ahí sale "Costo por unidad" en el Maestro.
+      unidades = f.cantidad * f.cantidadPresentacion;
     } else {
       const u = (f.unidadReceta||'').toLowerCase();
       unidades = u.startsWith('unidad') ? f.cantidadConvertida : f.cantidad;
