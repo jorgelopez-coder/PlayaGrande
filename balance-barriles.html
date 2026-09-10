@@ -914,8 +914,13 @@ function puntoPartidaVigente(kiosko, estiloId, hastaFecha) {
 // ── SALDO ESPERADO (función central) ───────────────────────────────
 async function calcularSaldo(kiosko, estilo, hastaFecha) {
   const punto = puntoPartidaVigente(kiosko, estilo.id, hastaFecha);
-  if (!punto) return { sinPunto: true };
-  const desde = punto.fecha, hasta = hastaFecha;
+  const sinPunto = !punto;
+  // Sin peso inicial registrado: se asume 0 y el saldo se calcula igual,
+  // sumando compras/ventas/mermas desde el inicio de los datos disponibles
+  // (ya no se bloquea el cálculo por falta de punto de partida).
+  const pesoInicial = punto ? punto.pesoNeto : 0;
+  const desde = punto ? punto.fecha : '';
+  const hasta = hastaFecha;
   const comprasDetalle = comprasDetalleEnRango(kiosko, estilo, desde, hasta);
   const compras = comprasDetalle.reduce((s,f) => s + f.pesoG, 0);
   const ventasInfo = await ventasEnRango(kiosko, estilo, desde, hasta);
@@ -930,8 +935,8 @@ async function calcularSaldo(kiosko, estilo, hastaFecha) {
     sinVentasReferencia = true;
     mermaProrrateada = mermaTotal / Math.max(1, estilosDisponiblesKiosko.length);
   }
-  const saldoEsperado = punto.pesoNeto + compras - ventasEstilo - mermaProrrateada;
-  return { sinPunto:false, punto, desde, hasta, compras, comprasDetalle, ventasEstilo, ventasTotal, ventasDetalle: ventasInfo.detalleEstilo, mermaTotal, mermaDetalle, mermaProrrateada, sinVentasReferencia, saldoEsperado };
+  const saldoEsperado = pesoInicial + compras - ventasEstilo - mermaProrrateada;
+  return { sinPunto, punto, desde, hasta, compras, comprasDetalle, ventasEstilo, ventasTotal, ventasDetalle: ventasInfo.detalleEstilo, mermaTotal, mermaDetalle, mermaProrrateada, sinVentasReferencia, saldoEsperado };
 }
 
 // ── DASHBOARD ───────────────────────────────────────────────────────
@@ -946,13 +951,6 @@ function desgloseDisponible(saldoG, pesoNetoNominal) {
   return { barriles, resto, negativo: false };
 }
 function renderKpiCard(kiosko, estilo, r) {
-  if (r.sinPunto) {
-    return `<div class="kpi-card">
-      <div class="kpi-estilo">${estilo.nombre}</div>
-      <div class="kpi-sub">Sin punto de partida registrado todavía.</div>
-      <a class="kpi-cta" href="javascript:void(0)" onclick="irATab('partida')">Registrar peso inicial →</a>
-    </div>`;
-  }
   const ultimoArqueo = ARQUEOS.filter(a => a.kiosko===kiosko && a.estiloId===estilo.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||Number(b.id)-Number(a.id))[0];
   let arqueoHtml = '';
   if (ultimoArqueo) {
@@ -967,11 +965,14 @@ function renderKpiCard(kiosko, estilo, r) {
       ? `<div class="kpi-disponible kpi-disponible-neg">Sin barriles disponibles — saldo esperado en déficit.</div>`
       : `<div class="kpi-disponible">Disponible: <b>${desglose.barriles}</b> barril${desglose.barriles!==1?'es':''} cerrado${desglose.barriles!==1?'s':''} + <b>${fmtG(desglose.resto)}</b> en el abierto</div>`;
   }
+  const desdeHtml = r.sinPunto
+    ? `<div class="kpi-sub">Sin peso inicial registrado — asumiendo 0 <span class="badge badge-amber">estimado</span> <a class="kpi-cta" href="javascript:void(0)" onclick="irATab('partida')">Registrar peso inicial →</a></div>`
+    : `<div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>`;
   return `<div class="kpi-card">
     <div class="kpi-estilo">${estilo.nombre}</div>
     <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${fmtG(r.saldoEsperado)}</div>
     ${disponibleHtml}
-    <div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>
+    ${desdeHtml}
     <div class="kpi-breakdown">
       <span>+ Compras: <b>${fmtG(r.compras)}</b></span>
       <span>− Ventas: <b>${fmtG(r.ventasEstilo)}</b></span>
@@ -1031,13 +1032,9 @@ async function abrirDetalleLinea(kiosko, estiloId) {
   document.getElementById('modal-detalle').classList.add('open');
 
   const r = await calcularSaldo(kiosko, estilo, hoy());
-  if (r.sinPunto) {
-    document.getElementById('detalle-sub').textContent = 'Sin punto de partida registrado.';
-    document.getElementById('detalle-body').innerHTML = '<div class="empty-state">Registrá primero un punto de partida para esta combinación.</div>';
-    return;
-  }
-  const bodegaNotaDetalle = r.punto.barrilesBodega > 0 ? ` · punto de partida incluyó ${r.punto.barrilesBodega} barril${r.punto.barrilesBodega===1?'':'es'} lleno${r.punto.barrilesBodega===1?'':'s'} en bodega` : '';
-  document.getElementById('detalle-sub').textContent = `Desde ${r.desde} hasta ${r.hasta}${bodegaNotaDetalle}`;
+  const bodegaNotaDetalle = (!r.sinPunto && r.punto.barrilesBodega > 0) ? ` · punto de partida incluyó ${r.punto.barrilesBodega} barril${r.punto.barrilesBodega===1?'':'es'} lleno${r.punto.barrilesBodega===1?'':'s'} en bodega` : '';
+  const sinPuntoNotaDetalle = r.sinPunto ? ' · sin peso inicial registrado, asumiendo 0' : '';
+  document.getElementById('detalle-sub').textContent = `Desde ${r.desde || '(inicio de los datos disponibles)'} hasta ${r.hasta}${bodegaNotaDetalle}${sinPuntoNotaDetalle}`;
   const pctEstilo = r.mermaTotal > 0 ? (r.mermaProrrateada / r.mermaTotal * 100) : 0;
 
   document.getElementById('detalle-body').innerHTML = `
