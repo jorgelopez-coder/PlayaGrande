@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Balance de Barriles · Ecosistema Kioskos</title>
+<title>Controles · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -140,6 +140,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .estilo-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
 .estilo-row-head b{font-family:var(--font-d);font-size:14px}
 
+/* Grupo (Cerveza Barril / Cerveza Botella / Proteínas) — selector de
+   pestañas secundarias dentro de Punto de partida, Arqueo, Historial y
+   Configuración. El Dashboard NO usa esto — ahí las 3 secciones van
+   siempre visibles, una debajo de la otra (ver cargarDashboard()). */
+.grupo-tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.grupo-btn{font-family:var(--font-b);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
+.grupo-btn:hover:not(.active){border-color:var(--border-h);color:var(--text)}
+.grupo-btn.active{background:var(--green);border-color:var(--green);color:#fff}
+[data-grupo-panel]{display:none}
+[data-grupo-panel].active{display:block}
+.section-head{font-family:var(--font-d);font-size:16px;font-weight:700;margin:1.75rem 0 .75rem;display:flex;align-items:center;gap:8px}
+.section-head:first-child{margin-top:0}
+.section-note{font-size:12px;color:var(--muted);margin:-.5rem 0 1rem}
+
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
@@ -168,7 +182,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Inicio
     </a>
-    <span class="page-title">🛢️ Balance de Barriles</span>
+    <span class="page-title">🎛️ Controles</span>
   </div>
   <span class="date-chip" id="date-chip"></span>
 </header>
@@ -196,6 +210,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ── TAB PUNTO DE PARTIDA ── -->
 <div class="page" id="tab-partida">
+  <div class="grupo-tabs">
+    <button class="grupo-btn active" data-grupo="barril" onclick="cambiarGrupo('partida','barril',this)">🛢️ Cerveza en barril</button>
+    <button class="grupo-btn" data-grupo="botella" onclick="cambiarGrupo('partida','botella',this)">🍾 Cerveza en botella</button>
+    <button class="grupo-btn" data-grupo="proteina" onclick="cambiarGrupo('partida','proteina',this)">🥩 Proteínas</button>
+  </div>
+
   <div class="card">
     <p class="card-title">Identificación</p>
     <div class="field-row">
@@ -204,7 +224,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <select id="pp-kiosko" onchange="alCambiarSelectorPartida()"><option value="" disabled selected>Cargando…</option></select>
       </div>
       <div class="field">
-        <label for="pp-estilo">Estilo de cerveza <span class="req">*</span></label>
+        <label for="pp-estilo" id="pp-estilo-label">Estilo de cerveza <span class="req">*</span></label>
         <select id="pp-estilo" onchange="alCambiarSelectorPartida()"><option value="" disabled selected>Elegí un kiosko primero</option></select>
       </div>
     </div>
@@ -220,13 +240,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 
   <div class="card">
-    <p class="card-title">Foto de la báscula</p>
+    <p class="card-title">Foto</p>
     <div class="field">
       <div class="foto-upload" id="pp-foto-upload-area">
         <input type="file" id="pp-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event,'pp')"/>
         <div id="pp-foto-placeholder">
           <div style="font-size:28px;margin-bottom:6px">📷</div>
-          <div>Tocá para tomar foto de la báscula o seleccionar de galería</div>
+          <div id="pp-foto-texto">Tocá para tomar foto de la báscula o seleccionar de galería</div>
           <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB</div>
         </div>
       </div>
@@ -237,7 +257,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-grupo-panel="barril" data-tab-grupo="partida">
     <p class="card-title">Peso (gramos)</p>
     <div class="field">
       <label for="pp-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
@@ -264,19 +284,50 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
 
+  <div class="card" data-grupo-panel="botella" data-tab-grupo="partida">
+    <p class="card-title">Cantidad de botellas</p>
+    <div class="field">
+      <label for="pp-cantidad">Botellas contadas en existencia <span class="req">*</span></label>
+      <input type="number" id="pp-cantidad" placeholder="Ej. 48" step="1" min="0"/>
+      <div class="hint">Conteo directo — no se pesa, se cuentan las botellas en el kiosko.</div>
+    </div>
+  </div>
+
+  <div class="card" data-grupo-panel="proteina" data-tab-grupo="partida">
+    <p class="card-title">Peso (gramos)</p>
+    <div class="field">
+      <label for="pp-prot-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
+      <input type="number" id="pp-prot-peso-bruto" placeholder="Ej. 5000" step="1" min="0" oninput="actualizarNetoProteina('pp')"/>
+    </div>
+    <div class="field">
+      <label for="pp-prot-tara">Tara / peso del recipiente (g)</label>
+      <input type="number" id="pp-prot-tara" step="1" min="0" value="0" oninput="actualizarNetoProteina('pp')"/>
+    </div>
+    <div class="neto-box">
+      <span class="neto-label">Peso neto</span>
+      <span class="neto-val" id="pp-prot-neto-val">0 g</span>
+    </div>
+  </div>
+
   <div class="card">
     <p class="card-title">Notas (opcional)</p>
     <textarea id="pp-notas" rows="2" placeholder="Ej. motivo del reset, observaciones…"></textarea>
   </div>
 
   <div class="submit-area">
-    <button class="btn-primary" id="btn-pp-inicial" onclick="guardarPuntoPartidaUI('Inicial')">Registrar peso inicial</button>
-    <button class="btn-reset" id="btn-pp-reset" onclick="guardarPuntoPartidaUI('Reset')">Resetear cuenta con este peso</button>
+    <button class="btn-primary" id="btn-pp-inicial" onclick="guardarPuntoPartidaUI('Inicial')">Registrar peso/cantidad inicial</button>
+    <button class="btn-reset" id="btn-pp-reset" onclick="guardarPuntoPartidaUI('Reset')">Resetear cuenta con este valor</button>
   </div>
 </div><!-- /tab-partida -->
 
 <!-- ── TAB ARQUEO ── -->
 <div class="page" id="tab-arqueo">
+  <div class="grupo-tabs">
+    <button class="grupo-btn active" data-grupo="barril" onclick="cambiarGrupo('arqueo','barril',this)">🛢️ Cerveza en barril</button>
+    <button class="grupo-btn" data-grupo="botella" onclick="cambiarGrupo('arqueo','botella',this)">🍾 Cerveza en botella</button>
+    <button class="grupo-btn" data-grupo="proteina" onclick="cambiarGrupo('arqueo','proteina',this)">🥩 Proteínas</button>
+  </div>
+
   <div class="card">
     <p class="card-title">Identificación</p>
     <div class="field-row">
@@ -285,7 +336,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <select id="aq-kiosko" onchange="alCambiarSelectorArqueo()"><option value="" disabled selected>Cargando…</option></select>
       </div>
       <div class="field">
-        <label for="aq-estilo">Estilo de cerveza <span class="req">*</span></label>
+        <label for="aq-estilo" id="aq-estilo-label">Estilo de cerveza <span class="req">*</span></label>
         <select id="aq-estilo" onchange="alCambiarSelectorArqueo()"><option value="" disabled selected>Elegí un kiosko primero</option></select>
       </div>
     </div>
@@ -302,13 +353,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 
   <div class="card">
-    <p class="card-title">Foto de la báscula</p>
+    <p class="card-title">Foto</p>
     <div class="field">
       <div class="foto-upload" id="aq-foto-upload-area">
         <input type="file" id="aq-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event,'aq')"/>
         <div id="aq-foto-placeholder">
           <div style="font-size:28px;margin-bottom:6px">📷</div>
-          <div>Tocá para tomar foto de la báscula o seleccionar de galería</div>
+          <div id="aq-foto-texto">Tocá para tomar foto de la báscula o seleccionar de galería</div>
           <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB</div>
         </div>
       </div>
@@ -319,7 +370,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-grupo-panel="barril" data-tab-grupo="arqueo">
     <p class="card-title">Peso (gramos)</p>
     <div class="field">
       <label for="aq-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
@@ -344,8 +395,33 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <span class="neto-label" style="color:var(--blue)">Peso neto total (pesado + bodega)</span>
       <span class="neto-val" id="aq-neto-total-val" style="color:var(--blue)">0 g</span>
     </div>
-    <div id="aq-diff-box"></div>
   </div>
+
+  <div class="card" data-grupo-panel="botella" data-tab-grupo="arqueo">
+    <p class="card-title">Cantidad de botellas</p>
+    <div class="field">
+      <label for="aq-cantidad">Botellas contadas ahora <span class="req">*</span></label>
+      <input type="number" id="aq-cantidad" placeholder="Ej. 36" step="1" min="0" oninput="actualizarDiferenciaArqueoBotella()"/>
+    </div>
+  </div>
+
+  <div class="card" data-grupo-panel="proteina" data-tab-grupo="arqueo">
+    <p class="card-title">Peso (gramos)</p>
+    <div class="field">
+      <label for="aq-prot-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
+      <input type="number" id="aq-prot-peso-bruto" placeholder="Ej. 3200" step="1" min="0" oninput="actualizarDiferenciaArqueoProteina()"/>
+    </div>
+    <div class="field">
+      <label for="aq-prot-tara">Tara / peso del recipiente (g)</label>
+      <input type="number" id="aq-prot-tara" step="1" min="0" value="0" oninput="actualizarDiferenciaArqueoProteina()"/>
+    </div>
+    <div class="neto-box">
+      <span class="neto-label">Peso neto</span>
+      <span class="neto-val" id="aq-prot-neto-val">0 g</span>
+    </div>
+  </div>
+
+  <div id="aq-diff-box"></div>
 
   <div class="card">
     <p class="card-title">Notas (opcional)</p>
@@ -360,6 +436,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ── TAB HISTORIAL / LOG ── -->
 <div class="page" id="tab-historial">
+  <div class="grupo-tabs">
+    <button class="grupo-btn active" data-grupo="barril" onclick="cambiarGrupo('historial','barril',this)">🛢️ Cerveza en barril</button>
+    <button class="grupo-btn" data-grupo="botella" onclick="cambiarGrupo('historial','botella',this)">🍾 Cerveza en botella</button>
+    <button class="grupo-btn" data-grupo="proteina" onclick="cambiarGrupo('historial','proteina',this)">🥩 Proteínas</button>
+  </div>
+
   <div class="hist-filtros">
     <select id="hist-kiosko" onchange="renderHistorialArqueos();renderHistorialPuntos()" style="width:170px">
       <option value="">Todos los kioskos</option>
@@ -376,17 +458,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div id="hist-arqueos-count" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
     <div class="hist-table-wrap">
       <table class="hist-table">
-        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Neto (total)</th><th>Bodega</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr></thead>
+        <thead id="hist-arqueos-head"><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Neto (total)</th><th>Bodega</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr></thead>
         <tbody id="hist-arqueos-body"><tr><td colspan="9"><div class="empty-state">Cargando…</div></td></tr></tbody>
       </table>
     </div>
   </div>
 
   <div class="card">
-    <p class="card-title">Puntos de partida (peso inicial y resets)</p>
+    <p class="card-title">Puntos de partida (peso/cantidad inicial y resets)</p>
     <div class="hist-table-wrap">
       <table class="hist-table">
-        <thead><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Tipo</th><th>Peso neto (total)</th><th>Bodega</th><th>Registró</th><th>Notas</th><th>Foto</th></tr></thead>
+        <thead id="hist-puntos-head"><tr><th>Fecha</th><th>Kiosko</th><th>Estilo</th><th>Tipo</th><th>Peso neto (total)</th><th>Bodega</th><th>Registró</th><th>Notas</th><th>Foto</th></tr></thead>
         <tbody id="hist-puntos-body"><tr><td colspan="9"><div class="empty-state">Cargando…</div></td></tr></tbody>
       </table>
     </div>
@@ -395,8 +477,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <!-- ── TAB CONFIGURACIÓN ── -->
 <div class="page" id="tab-config">
+  <div class="grupo-tabs">
+    <button class="grupo-btn active" data-grupo="barril" onclick="cambiarGrupo('config','barril',this)">🛢️ Cerveza en barril</button>
+    <button class="grupo-btn" data-grupo="botella" onclick="cambiarGrupo('config','botella',this)">🍾 Cerveza en botella</button>
+    <button class="grupo-btn" data-grupo="proteina" onclick="cambiarGrupo('config','proteina',this)">🥩 Proteínas</button>
+  </div>
+
+  <div data-grupo-panel="barril" data-tab-grupo="config" class="active">
   <div class="card">
-    <p class="card-title">Configuración general (aplica a todos los estilos)</p>
+    <p class="card-title">Configuración general — Cerveza en barril (aplica a todos los estilos)</p>
     <p class="card-note">Un solo valor para todos los estilos y kioskos — se configura una vez acá. Al guardar se actualiza automáticamente en todos los estilos ya creados.</p>
     <div class="field-row">
       <div class="field">
@@ -449,6 +538,53 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="btn-primary" id="btn-cfg-submit" onclick="guardarEstiloUI()">Guardar estilo</button>
     </div>
   </div>
+  </div><!-- /panel barril -->
+
+  <div data-grupo-panel="botella" data-tab-grupo="config">
+  <div class="card">
+    <p class="card-title">Cerveza en botella — catálogo</p>
+    <p class="card-note">Se cuenta por unidad, no se pesa. El "Nombre" se elige del Maestro de Productos — la cantidad comprada se convierte sola a botellas usando "Conversión Receta" / "Unidad Receta" de esa ficha en el Maestro (la misma que usa Recetas), así que conviene que esa ficha tenga "Unidad Receta" = Unidad. "Palabra clave en ventas" identifica sus líneas en Square (ej. "BOTELLA IPA") — sin merma prorrateada (Mermas hoy solo mide pérdida de barril).</p>
+    <div id="cfg-botella-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+  <div class="card">
+    <p class="card-title">Agregar / editar estilo de botella</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="cfg-botella-nombre">Nombre (del Maestro de Productos) <span class="req">*</span></label>
+        <input type="text" id="cfg-botella-nombre" list="cfg-nombre-estandar-list" placeholder="Elegí del Maestro…"/>
+      </div>
+      <div class="field">
+        <label for="cfg-botella-palabra-clave">Palabra clave en ventas Square</label>
+        <input type="text" id="cfg-botella-palabra-clave" placeholder="Ej. BOTELLA IPA"/>
+      </div>
+    </div>
+    <input type="hidden" id="cfg-botella-id"/>
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="limpiarFormEstiloBotella()">Limpiar</button>
+      <button class="btn-primary" id="btn-cfg-botella-submit" onclick="guardarEstiloBotellaUI()">Guardar estilo</button>
+    </div>
+  </div>
+  </div><!-- /panel botella -->
+
+  <div data-grupo-panel="proteina" data-tab-grupo="config">
+  <div class="card">
+    <p class="card-title">Proteínas — catálogo</p>
+    <p class="card-note">Definí acá cuáles proteínas se les da seguimiento (ej. Carne Angus, Carne Wagyu, Pollo, Camarones). Compras: automáticas desde el Maestro de Productos, igual que botella (usa "Conversión Receta" / "Unidad Receta" = Gramo o Kilo). Ventas: se calculan solas a partir de Recetas — cuánta proteína lleva la receta de cada plato vendido en Square — no hace falta palabra clave. Para que una proteína aparezca en el saldo, el plato que la usa debe tener su receta completa con esta proteína como ingrediente y su presentación debe tener el "Nombre en venta Square" configurado en Recetas.</p>
+    <div id="cfg-proteina-lista"><div class="empty-state">Cargando…</div></div>
+  </div>
+  <div class="card">
+    <p class="card-title">Agregar / editar proteína</p>
+    <div class="field">
+      <label for="cfg-proteina-nombre">Nombre (del Maestro de Productos) <span class="req">*</span></label>
+      <input type="text" id="cfg-proteina-nombre" list="cfg-nombre-estandar-list" placeholder="Ej. Carne Angus, Carne Wagyu, Pollo, Camarones…"/>
+    </div>
+    <input type="hidden" id="cfg-proteina-id"/>
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="limpiarFormProteina()">Limpiar</button>
+      <button class="btn-primary" id="btn-cfg-proteina-submit" onclick="guardarProteinaUI()">Guardar proteína</button>
+    </div>
+  </div>
+  </div><!-- /panel proteina -->
 
 </div><!-- /tab-config -->
 
@@ -517,6 +653,34 @@ const SQUARE_KIOSKOS = {
 };
 const DENSIDAD_DEFAULT = 1.005;
 const ML_POR_ONZA = 29.5735;
+// Sheet propio de Menú y Recetas (mismo ID que usa recetas.html) — de acá
+// se leen Menu_Platos/Menu_Recetas para calcular cuánta proteína lleva cada
+// plato vendido en Square (ver "PROTEÍNAS: VENTAS POR RECETA" más abajo).
+const RECETAS_SHEET_ID = '1U9nITZdHgdOmoPpHfXHC_6Cfb8tjQXH36s6QJLVJ90w';
+
+// ── GRUPOS: Cerveza Barril / Cerveza Botella / Proteínas ────────────
+// El Dashboard muestra los 3 siempre juntos (una sección debajo de la
+// otra). Las demás pestañas (Punto de partida, Arqueo, Historial,
+// Configuración) muestran uno a la vez, elegido con esta pestañita
+// secundaria — ver cambiarGrupo() e inicializarGruposUI().
+const GRUPOS = ['barril', 'botella', 'proteina'];
+let GRUPO_ACTIVO = { partida: 'barril', arqueo: 'barril', historial: 'barril', config: 'barril' };
+function cambiarGrupo(tab, grupo, btn) {
+  GRUPO_ACTIVO[tab] = grupo;
+  const contenedor = btn.closest('.page') || document;
+  contenedor.querySelectorAll('.grupo-tabs .grupo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  contenedor.querySelectorAll(`[data-tab-grupo="${tab}"]`).forEach(p => p.classList.toggle('active', p.getAttribute('data-grupo-panel') === grupo));
+  if (tab === 'partida') { alCambiarSelectorPartida(); }
+  if (tab === 'arqueo') { alCambiarSelectorArqueo(); }
+  if (tab === 'historial') { cargarHistorial(); }
+}
+// Al cargar la página, todas las pestañitas ya muestran "barril" como
+// activa en el HTML — esto solo agrega la clase .active a los paneles
+// correspondientes (que arrancan ocultos por CSS hasta que se les agrega).
+function inicializarGruposUI() {
+  document.querySelectorAll('[data-grupo-panel="barril"]').forEach(p => p.classList.add('active'));
+}
 
 let KIOSKOS = []; // siempre se llena desde Configuración; sin nombres hardcodeados
 async function cargarKioskosDesdeBackend(url) {
@@ -681,6 +845,16 @@ let DESGLOSE_ROWS = [];
 let MAESTRO_ROWS = [];
 let MERMAS_DATA = [];
 let CONFIG_GENERAL = { pesoNetoNominal: 0, taraNominal: 0, barrilesPorUnidadFactura: 1, densidad: DENSIDAD_DEFAULT }; // valores únicos para todos los estilos
+// ── Cerveza Botella / Proteínas — mismo rol que ESTILOS/PUNTOS/ARQUEOS de
+// arriba, pero para los otros 2 grupos de "Controles" (agregado 2026-09-10).
+let ESTILOS_BOTELLA = []; // [{id,nombre,nombreEstandarCompra,palabraClave,activo}]
+let PUNTOS_BOTELLA = [];  // [{id,fecha,kiosko,estiloId,estilo,tipo,cantidad,fotoUrl,registradoPor,notas}]
+let ARQUEOS_BOTELLA = [];
+let PROTEINAS = [];       // [{id,nombre,nombreEstandarCompra,activo}]
+let PUNTOS_PROTEINA = []; // [{id,fecha,kiosko,proteinaId,proteina,tipo,pesoBruto,tara,pesoNeto,fotoUrl,registradoPor,notas}]
+let ARQUEOS_PROTEINA = [];
+let PLATOS = [];  // Menu_Platos (RECETAS_SHEET_ID) — para ventas de proteína por receta
+let RECETAS = []; // Menu_Recetas (RECETAS_SHEET_ID)
 
 async function cargarKioskos() {
   const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
@@ -697,10 +871,53 @@ async function cargarBackend(modulo) {
 }
 
 async function cargarTodosLosDatos() {
-  const [estilosRaw, puntosRaw, arqueosRaw] = await Promise.all([
+  const [estilosRaw, puntosRaw, arqueosRaw, estBotRaw, ppBotRaw, aqBotRaw, protRaw, ppProtRaw, aqProtRaw] = await Promise.all([
     cargarBackend('estilos'),
-    cargarBackend('puntos_partida'), cargarBackend('arqueos')
+    cargarBackend('puntos_partida'), cargarBackend('arqueos'),
+    cargarBackend('estilos_botella'), cargarBackend('puntos_partida_botella'), cargarBackend('arqueos_botella'),
+    cargarBackend('proteinas'), cargarBackend('puntos_partida_proteina'), cargarBackend('arqueos_proteina')
   ]);
+  ESTILOS_BOTELLA = estBotRaw.map(r => ({
+    id: String(r['ID']||''), nombre: r['Nombre']||'',
+    nombreEstandarCompra: r['Nombre Estándar Compra']||'',
+    palabraClave: r['Palabra Clave en Ventas Square']||'',
+    activo: String(r['Activo']||'Sí').toLowerCase() !== 'no'
+  })).filter(e => e.id);
+  PUNTOS_BOTELLA = ppBotRaw.map(r => ({
+    id: String(r['ID']||''), fecha: String(r['Fecha']||'').slice(0,10), kiosko: r['Kiosko']||'',
+    estiloId: String(r['EstiloID']||''), estilo: r['Estilo']||'', tipo: r['Tipo']||'Inicial',
+    cantidad: Number(r['Cantidad (unidades)'])||0, fotoUrl: r['Foto URL']||'',
+    registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+  }));
+  ARQUEOS_BOTELLA = aqBotRaw.map(r => ({
+    id: String(r['ID']||''), fecha: String(r['Fecha']||'').slice(0,10), kiosko: r['Kiosko']||'',
+    estiloId: String(r['EstiloID']||''), estilo: r['Estilo']||'',
+    cantidad: Number(r['Cantidad (unidades)'])||0, saldoEsperado: Number(r['Saldo Esperado (unidades)'])||0,
+    diferencia: Number(r['Diferencia (unidades)'])||0,
+    diferenciaPct: r['Diferencia (%)']===''||r['Diferencia (%)']==null ? null : Number(r['Diferencia (%)']),
+    fotoUrl: r['Foto URL']||'', registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+  }));
+  PROTEINAS = protRaw.map(r => ({
+    id: String(r['ID']||''), nombre: r['Nombre']||'',
+    nombreEstandarCompra: r['Nombre Estándar Compra']||'',
+    activo: String(r['Activo']||'Sí').toLowerCase() !== 'no'
+  })).filter(e => e.id);
+  PUNTOS_PROTEINA = ppProtRaw.map(r => ({
+    id: String(r['ID']||''), fecha: String(r['Fecha']||'').slice(0,10), kiosko: r['Kiosko']||'',
+    proteinaId: String(r['ProteinaID']||''), proteina: r['Proteina']||'', tipo: r['Tipo']||'Inicial',
+    pesoBruto: Number(r['Peso Bruto (g)'])||0, tara: Number(r['Tara Usada (g)'])||0,
+    pesoNeto: Number(r['Peso Neto (g)'])||0, fotoUrl: r['Foto URL']||'',
+    registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+  }));
+  ARQUEOS_PROTEINA = aqProtRaw.map(r => ({
+    id: String(r['ID']||''), fecha: String(r['Fecha']||'').slice(0,10), kiosko: r['Kiosko']||'',
+    proteinaId: String(r['ProteinaID']||''), proteina: r['Proteina']||'',
+    pesoBruto: Number(r['Peso Bruto (g)'])||0, tara: Number(r['Tara Usada (g)'])||0,
+    pesoNeto: Number(r['Peso Neto (g)'])||0, saldoEsperado: Number(r['Saldo Esperado (g)'])||0,
+    diferenciaG: Number(r['Diferencia (g)'])||0,
+    diferenciaPct: r['Diferencia (%)']===''||r['Diferencia (%)']==null ? null : Number(r['Diferencia (%)']),
+    fotoUrl: r['Foto URL']||'', registradoPor: r['Registrado por']||'', notas: r['Notas']||''
+  }));
   ESTILOS = estilosRaw.map(r => ({
     id: String(r['ID']||''), nombre: r['Nombre']||'',
     pesoNetoNominal: Number(r['Peso Neto Nominal por Barril (g)'])||0,
@@ -738,6 +955,67 @@ async function cargarCompras() {
   ]);
   DESGLOSE_ROWS = desglose;
   MAESTRO_ROWS = maestro;
+}
+
+// ── RECETAS (gviz, mismo Sheet propio de recetas.html) — solo lectura,
+// para calcular cuánta proteína lleva cada plato vendido en Square. Usa
+// gvizLoad() genérico (a diferencia de las líneas de arriba, que van contra
+// COMPRAS_SHEET_ID) porque Menu_Platos/Menu_Recetas viven en OTRO Sheet. ──
+function gvizLoadDe(sheetId, hoja, expectedCol) {
+  return new Promise(function(resolve) {
+    const cb = '_bb2_' + Math.random().toString(36).slice(2,10);
+    const url = 'https://docs.google.com/spreadsheets/d/' + sheetId
+              + '/gviz/tq?tqx=responseHandler:' + cb
+              + '&sheet=' + encodeURIComponent(hoja);
+    const timer = setTimeout(() => { cleanup(); resolve([]); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cb]; } catch(e) {}
+      try { if (s && s.parentNode) document.body.removeChild(s); } catch(e) {}
+    }
+    window[cb] = function(data) {
+      cleanup();
+      try {
+        const cols = (data.table.cols||[]).map(c => String(c.label||c.id||'').trim());
+        if (expectedCol && cols.indexOf(expectedCol) === -1) { resolve([]); return; }
+        const rows = (data.table.rows||[]).filter(r => r && r.c).map(row => {
+          const obj = {};
+          cols.forEach((col,i) => {
+            const cell = row.c[i];
+            obj[col] = cell ? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : '';
+          });
+          return obj;
+        });
+        resolve(rows);
+      } catch(e2) { resolve([]); }
+    };
+    const s = document.createElement('script');
+    s.onerror = () => { cleanup(); resolve([]); };
+    s.src = url;
+    document.body.appendChild(s);
+  });
+}
+async function cargarRecetas() {
+  const [platosRaw, recetasRaw] = await Promise.all([
+    gvizLoadDe(RECETAS_SHEET_ID, 'Menu_Platos', 'Nombre'),
+    gvizLoadDe(RECETAS_SHEET_ID, 'Menu_Recetas', 'Tipo')
+  ]);
+  PLATOS = platosRaw.map(r => {
+    let presentaciones = [];
+    try { presentaciones = JSON.parse(r['Presentaciones']||'[]'); if (!Array.isArray(presentaciones)) presentaciones = []; }
+    catch(e) { presentaciones = []; }
+    return { id: r['ID']||'', nombre: r['Nombre']||'', activo: r['Activo']===false?false:true, presentaciones };
+  }).filter(p => p.id);
+  RECETAS = recetasRaw.map(r => {
+    let ingredientes = [];
+    try { ingredientes = JSON.parse(r['Ingredientes']||'[]'); if (!Array.isArray(ingredientes)) ingredientes = []; }
+    catch(e) { ingredientes = []; }
+    return {
+      id: r['ID']||'', tipo: r['Tipo']==='subreceta'?'subreceta':'receta',
+      platoId: r['PlatoId']||'', rendimiento: Number(r['Rendimiento'])||0,
+      unidadRendimiento: r['UnidadRendimiento']||'', ingredientes
+    };
+  }).filter(r => r.id);
 }
 
 async function cargarMermas() {
@@ -822,6 +1100,91 @@ function comprasEnRango(kiosko, estilo, desde, hasta) {
   return comprasDetalleEnRango(kiosko, estilo, desde, hasta).reduce((s,f) => s + f.pesoG, 0);
 }
 
+// ── COMPRAS GENÉRICO (Botella y Proteína) — a diferencia de Barril (que
+// tiene su propio "Barriles por Unidad de Factura" + "Peso Neto Nominal"
+// en Configuración), Botella y Proteína reusan la conversión compra→receta
+// que YA existe en el Maestro de Productos para Recetas: "Conversión
+// Receta" = cuántas 'Unidad Receta' trae UNA unidad de factura comprada
+// (ej. Unidad Receta=Kilo, Conversión=5 → 1 caja factura = 5 kilos; Unidad
+// Receta=Unidad, Conversión=24 → 1 caja factura = 24 botellas). Nada nuevo
+// que Jorge tenga que mantener dos veces — si el Maestro ya tiene esa ficha
+// completa para Recetas, Controles la reutiliza tal cual. ──
+let _mapaConversionCache = null;
+function mapaConversionReceta() {
+  if (_mapaConversionCache) return _mapaConversionCache;
+  const mapa = {};
+  MAESTRO_ROWS.forEach(r => {
+    const estandar = (r['Nombre Estándar']||'').toString().trim();
+    if (!estandar) return;
+    mapa[claveAgrupacion(estandar)] = {
+      unidadReceta: (r['Unidad Receta']||'').toString().trim(),
+      conversion: Number(r['Conversión Receta']) || 1 // vacío/0 = 1, mismo criterio que Recetas
+    };
+  });
+  _mapaConversionCache = mapa;
+  return mapa;
+}
+// Normaliza una cantidad ya expresada en "Unidad Receta" del Maestro a
+// gramos. Devuelve null si la unidad no es de peso (ej. viene como
+// "Unidad" — eso lo interpreta comprasBotellaEnRango, no esta función).
+function aGramos(cantidad, unidadReceta) {
+  const u = (unidadReceta||'').toString().trim().toLowerCase();
+  if (u.startsWith('kilo')) return cantidad * 1000;
+  if (u.startsWith('gramo')) return cantidad;
+  return null;
+}
+// Líneas de compra (detalle) de un "Nombre Estándar Compra" cualquiera
+// (botella o proteína) en un kiosko, en [desde,hasta] — mismo criterio de
+// matching que comprasDetalleEnRango (Kiosko normalizado + isoDate), pero
+// la cantidad queda en la Unidad Receta nativa del Maestro (el llamador
+// decide cómo interpretarla — ver comprasBotellaEnRango/comprasProteinaEnRango).
+function comprasDetalleGenericoEnRango(kiosko, nombreEstandarCompra, desde, hasta) {
+  if (!nombreEstandarCompra) return [];
+  const mapa = mapaNombreEstandar();
+  const conversiones = mapaConversionReceta();
+  const claveObjetivo = claveAgrupacion(nombreEstandarCompra);
+  const conv = conversiones[claveObjetivo];
+  const filas = [];
+  const kioskoObjetivo = normKiosko(kiosko);
+  DESGLOSE_ROWS.forEach(row => {
+    const k = normKiosko(row['Kiosko']);
+    if (k !== kioskoObjetivo) return;
+    const fecha = isoDate(row['Fecha de factura']);
+    if (!fecha || fecha < desde || fecha > hasta) return;
+    const estandar = mapa[claveAgrupacion(row['Producto'])];
+    if (!estandar || claveAgrupacion(estandar) !== claveObjetivo) return;
+    const cantidad = Number(row['Cantidad']) || 0;
+    const factor = conv ? conv.conversion : 1;
+    filas.push({
+      fecha, factura: row['Número de factura']||'', proveedor: row['Proveedor']||'',
+      producto: row['Producto']||'', cantidad,
+      cantidadConvertida: cantidad * factor,
+      unidadReceta: conv ? conv.unidadReceta : ''
+    });
+  });
+  return filas.sort((a,b) => a.fecha.localeCompare(b.fecha));
+}
+// Botella: si la ficha del Maestro no está configurada como "Unidad", se
+// asume 1 unidad de factura = 1 botella (mismo criterio "vacío/0 = 1" que
+// ya usa el Maestro para no romper una ficha sin ese dato).
+function comprasBotellaEnRango(kiosko, estilo, desde, hasta) {
+  return comprasDetalleGenericoEnRango(kiosko, estilo.nombreEstandarCompra, desde, hasta).map(f => {
+    const u = (f.unidadReceta||'').toLowerCase();
+    const unidades = u.startsWith('unidad') ? f.cantidadConvertida : f.cantidad;
+    return Object.assign({}, f, { unidades });
+  });
+}
+// Proteína: se espera Unidad Receta = Gramo o Kilo. Si la ficha no está
+// homologada así, la línea entra con 0 g (mismo comportamiento "silencioso"
+// que ya tiene el resto del módulo con facturas sin homologar) — no rompe
+// el cálculo, pero el saldo no la va a reflejar hasta corregir la ficha.
+function comprasProteinaEnRango(kiosko, proteina, desde, hasta) {
+  return comprasDetalleGenericoEnRango(kiosko, proteina.nombreEstandarCompra, desde, hasta).map(f => {
+    const gramos = aGramos(f.cantidadConvertida, f.unidadReceta);
+    return Object.assign({}, f, { pesoG: gramos == null ? 0 : gramos, sinConvertir: gramos == null });
+  });
+}
+
 // ── CÁLCULO: VENTAS SQUARE (gramos) ────────────────────────────────
 function esCervezaBarril(categoria, nombre) {
   const cat = (categoria||'').toUpperCase(), nom = (nombre||'').toUpperCase();
@@ -895,6 +1258,120 @@ async function ventasEnRango(kiosko, estilo, desde, hasta) {
   };
 }
 
+// ── CÁLCULO: VENTAS SQUARE — BOTELLA (unidades, sin oz/densidad) ───
+function normNombreSquare(v) { return String(v||'').trim().toLowerCase(); }
+function esCervezaBotella(categoria, nombre) {
+  const cat = (categoria||'').toUpperCase(), nom = (nombre||'').toUpperCase();
+  if (!nom.includes('BOTELLA')) return false;
+  return cat === 'BOTELLA' || cat.includes('CERVEZA');
+}
+// A diferencia de barril (que extrae onzas y convierte a gramos), una
+// botella vendida es 1 unidad — se suma la "Cantidad" de Square tal cual.
+async function ventasBotellaEnRango(kiosko, estilo, desde, hasta) {
+  const filas = await cargarVentasKiosko(kiosko);
+  let unidadesEstilo = 0;
+  const palabra = (estilo.palabraClave||'').toUpperCase();
+  const detalleMap = new Map();
+  filas.forEach(f => {
+    if (f.fecha < desde || f.fecha > hasta) return;
+    if (!esCervezaBotella(f.categoria, f.producto)) return;
+    if (palabra && !f.producto.toUpperCase().includes(palabra)) return;
+    unidadesEstilo += f.cantidad;
+    const key = f.fecha + '' + f.producto;
+    const acc = detalleMap.get(key);
+    if (acc) acc.cantidad += f.cantidad;
+    else detalleMap.set(key, { fecha: f.fecha, producto: f.producto, cantidad: f.cantidad });
+  });
+  return {
+    unidadesEstilo,
+    detalleEstilo: Array.from(detalleMap.values()).sort((a,b) => a.fecha.localeCompare(b.fecha) || a.producto.localeCompare(b.producto))
+  };
+}
+
+// ── CÁLCULO: VENTAS POR RECETA — PROTEÍNA ──────────────────────────
+// Cuánta proteína (en gramos) lleva UNA unidad vendida de cada
+// presentación de plato, resuelto recursivamente por si la receta usa
+// subrecetas (ej. "hamburguesa" → subreceta "carne preparada" → producto
+// "Carne Angus"). El ingrediente ref YA viene como claveAgrupacion() del
+// Nombre Estándar (ver comentario de 'Ingredientes' en Code-recetas-
+// kioskos-backend.gs), así que se compara directo contra la clave de la
+// proteína, sin re-normalizar nombres.
+function gramosIngredientePorRendimiento(recetaId, claveObjetivo, _visitados) {
+  _visitados = _visitados || new Set();
+  if (_visitados.has(recetaId)) return 0; // corte defensivo de ciclos
+  _visitados.add(recetaId);
+  const receta = RECETAS.find(r => r.id === recetaId);
+  if (!receta || !receta.rendimiento) return 0;
+  let total = 0;
+  (receta.ingredientes||[]).forEach(ing => {
+    if (ing.tipoFuente === 'producto') {
+      if (ing.ref === claveObjetivo) {
+        const g = aGramos(Number(ing.cantidad)||0, ing.unidad);
+        if (g != null) total += g;
+      }
+    } else if (ing.tipoFuente === 'subreceta') {
+      const sub = RECETAS.find(r => r.id === ing.ref);
+      if (sub && sub.rendimiento) {
+        const gramosSub = gramosIngredientePorRendimiento(ing.ref, claveObjetivo, _visitados);
+        total += (gramosSub / sub.rendimiento) * (Number(ing.cantidad)||0);
+      }
+    }
+  });
+  return total;
+}
+// Mapa { nombreVentaSquare normalizado → gramos de esta proteína por 1
+// unidad vendida de esa presentación }, construido una vez por proteína a
+// partir de TODOS los platos activos y cacheado en memoria de la sesión
+// (se invalida solo al recargar la página — PLATOS/RECETAS no cambian
+// seguido y el cálculo recorre todas las recetas, conviene no repetirlo
+// por cada combinación kiosko×fecha).
+let _mapaVentaProteinaCache = {};
+function mapaVentaProteina(claveProteina) {
+  if (_mapaVentaProteinaCache[claveProteina]) return _mapaVentaProteinaCache[claveProteina];
+  const mapa = new Map();
+  PLATOS.forEach(plato => {
+    if (!plato.activo) return;
+    const receta = RECETAS.find(r => r.tipo === 'receta' && r.platoId === plato.id);
+    if (!receta || !receta.rendimiento) return;
+    const gramosPorRendimiento = gramosIngredientePorRendimiento(receta.id, claveProteina);
+    if (!gramosPorRendimiento) return;
+    (plato.presentaciones||[]).forEach(pres => {
+      if (!pres.nombreVentaSquare || pres.activo === false) return;
+      const gramosPorUnidad = (gramosPorRendimiento / receta.rendimiento) * (Number(pres.cantidad)||0);
+      if (!gramosPorUnidad) return;
+      const key = normNombreSquare(pres.nombreVentaSquare);
+      mapa.set(key, (mapa.get(key)||0) + gramosPorUnidad);
+    });
+  });
+  _mapaVentaProteinaCache[claveProteina] = mapa;
+  return mapa;
+}
+// Kioskos sin Square propio (ver SQUARE_KIOSKOS) quedan fuera de las
+// ventas por receta, igual que ya pasa con barril/botella — misma
+// limitación conocida, no es nueva de proteína.
+async function ventasProteinaEnRango(kiosko, proteina, desde, hasta) {
+  const filas = await cargarVentasKiosko(kiosko);
+  const claveProteina = claveAgrupacion(proteina.nombreEstandarCompra);
+  const mapa = mapaVentaProteina(claveProteina);
+  let gramos = 0;
+  const detalleMap = new Map();
+  filas.forEach(f => {
+    if (f.fecha < desde || f.fecha > hasta) return;
+    const gramosPorUnidad = mapa.get(normNombreSquare(f.producto));
+    if (!gramosPorUnidad) return;
+    const totalLinea = gramosPorUnidad * f.cantidad;
+    gramos += totalLinea;
+    const key = f.fecha + '' + f.producto;
+    const acc = detalleMap.get(key);
+    if (acc) { acc.cantidad += f.cantidad; acc.pesoG += totalLinea; }
+    else detalleMap.set(key, { fecha: f.fecha, producto: f.producto, cantidad: f.cantidad, pesoG: totalLinea });
+  });
+  return {
+    gramos,
+    detalle: Array.from(detalleMap.values()).sort((a,b) => a.fecha.localeCompare(b.fecha) || a.producto.localeCompare(b.producto))
+  };
+}
+
 // ── CÁLCULO: MERMA PRORRATEADA ─────────────────────────────────────
 function mermaDetalleEnRango(kiosko, desde, hasta) {
   return MERMAS_DATA.filter(m => m.kiosko === kiosko && m.fecha >= desde && m.fecha <= hasta)
@@ -907,6 +1384,14 @@ function mermaTotalEnRango(kiosko, desde, hasta) {
 // ── PUNTO DE PARTIDA VIGENTE ────────────────────────────────────────
 function puntoPartidaVigente(kiosko, estiloId, hastaFecha) {
   const candidatos = PUNTOS.filter(p => p.kiosko === kiosko && p.estiloId === estiloId && p.fecha <= hastaFecha);
+  if (!candidatos.length) return null;
+  return candidatos.sort((a,b) => b.fecha.localeCompare(a.fecha) || Number(b.id)-Number(a.id))[0];
+}
+// Misma lógica, generalizada para Botella (array PUNTOS_BOTELLA, campo
+// 'estiloId') y Proteína (array PUNTOS_PROTEINA, campo 'proteinaId') — se
+// pasa el nombre del campo id porque difiere entre los dos.
+function puntoPartidaVigenteGenerico(lista, campoId, kiosko, id, hastaFecha) {
+  const candidatos = lista.filter(p => p.kiosko === kiosko && p[campoId] === id && p.fecha <= hastaFecha);
   if (!candidatos.length) return null;
   return candidatos.sort((a,b) => b.fecha.localeCompare(a.fecha) || Number(b.id)-Number(a.id))[0];
 }
@@ -937,6 +1422,35 @@ async function calcularSaldo(kiosko, estilo, hastaFecha) {
   }
   const saldoEsperado = pesoInicial + compras - ventasEstilo - mermaProrrateada;
   return { sinPunto, punto, desde, hasta, compras, comprasDetalle, ventasEstilo, ventasTotal, ventasDetalle: ventasInfo.detalleEstilo, mermaTotal, mermaDetalle, mermaProrrateada, sinVentasReferencia, saldoEsperado };
+}
+
+// ── SALDO ESPERADO — BOTELLA (unidades; sin merma, ver nota en el
+// catálogo de Configuración: Mermas hoy solo mide pérdida de barril) ──
+async function calcularSaldoBotella(kiosko, estilo, hastaFecha) {
+  const punto = puntoPartidaVigenteGenerico(PUNTOS_BOTELLA, 'estiloId', kiosko, estilo.id, hastaFecha);
+  const sinPunto = !punto;
+  const cantidadInicial = punto ? punto.cantidad : 0;
+  const desde = punto ? punto.fecha : '';
+  const hasta = hastaFecha;
+  const comprasDetalle = comprasBotellaEnRango(kiosko, estilo, desde, hasta);
+  const compras = comprasDetalle.reduce((s,f) => s + f.unidades, 0);
+  const ventasInfo = await ventasBotellaEnRango(kiosko, estilo, desde, hasta);
+  const saldoEsperado = cantidadInicial + compras - ventasInfo.unidadesEstilo;
+  return { sinPunto, punto, desde, hasta, compras, comprasDetalle, ventasEstilo: ventasInfo.unidadesEstilo, ventasDetalle: ventasInfo.detalleEstilo, saldoEsperado };
+}
+
+// ── SALDO ESPERADO — PROTEÍNA (gramos; ventas vía Recetas, sin merma) ──
+async function calcularSaldoProteina(kiosko, proteina, hastaFecha) {
+  const punto = puntoPartidaVigenteGenerico(PUNTOS_PROTEINA, 'proteinaId', kiosko, proteina.id, hastaFecha);
+  const sinPunto = !punto;
+  const pesoInicial = punto ? punto.pesoNeto : 0;
+  const desde = punto ? punto.fecha : '';
+  const hasta = hastaFecha;
+  const comprasDetalle = comprasProteinaEnRango(kiosko, proteina, desde, hasta);
+  const compras = comprasDetalle.reduce((s,f) => s + f.pesoG, 0);
+  const ventasInfo = await ventasProteinaEnRango(kiosko, proteina, desde, hasta);
+  const saldoEsperado = pesoInicial + compras - ventasInfo.gramos;
+  return { sinPunto, punto, desde, hasta, compras, comprasDetalle, ventasEstilo: ventasInfo.gramos, ventasDetalle: ventasInfo.detalle, saldoEsperado };
 }
 
 // ── DASHBOARD ───────────────────────────────────────────────────────
@@ -982,39 +1496,115 @@ function renderKpiCard(kiosko, estilo, r) {
     ${arqueoHtml}
   </div>`;
 }
-async function cargarDashboard() {
-  document.getElementById('dash-grid').innerHTML = '<div class="empty-state">Cargando…</div>';
-  document.getElementById('dash-banner').innerHTML = BALANCE_URL.includes('TODO_PEGAR')
-    ? '<div class="banner">⚠️ Este módulo todavía no está conectado a un backend — desplegá Code-balance-barriles-backend.gs y pegá la URL en BALANCE_URL dentro de balance-barriles.html.</div>' : '';
-  await Promise.all([cargarTodosLosDatos(), cargarCompras(), cargarMermas()]);
-  const combos = [];
-  KIOSKOS.forEach(k => {
-    ESTILOS.filter(e => e.activo).forEach(e => combos.push([k, e]));
-  });
-  if (!combos.length) {
-    document.getElementById('dash-grid').innerHTML = '<div class="empty-state">Todavía no hay estilos configurados. Andá a Configuración para dar de alta el catálogo.</div>';
-    return;
+// ── DASHBOARD — Botella (unidades) ──────────────────────────────────
+function renderKpiCardBotella(kiosko, estilo, r) {
+  const ultimoArqueo = ARQUEOS_BOTELLA.filter(a => a.kiosko===kiosko && a.estiloId===estilo.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||Number(b.id)-Number(a.id))[0];
+  let arqueoHtml = '';
+  if (ultimoArqueo) {
+    const pct = ultimoArqueo.diferenciaPct;
+    const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
+    arqueoHtml = `<div class="kpi-arqueo">Último arqueo (${ultimoArqueo.fecha}): <span class="badge ${badge}">${pct==null?'—':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>`;
   }
-  const hastaHoy = hoy();
-  const resultados = await Promise.all(combos.map(async ([k,e]) => ({ kiosko:k, estilo:e, r: await calcularSaldo(k, e, hastaHoy) })));
-  // Agrupado por kiosko: una sección con encabezado por kiosko, tarjetas de estilo adentro.
+  const desdeHtml = r.sinPunto
+    ? `<div class="kpi-sub">Sin cantidad inicial registrada — asumiendo 0 <span class="badge badge-amber">estimado</span> <a class="kpi-cta" href="javascript:void(0)" onclick="irATabGrupo('partida','botella')">Registrar cantidad inicial →</a></div>`
+    : `<div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'cantidad inicial'} del ${r.desde}</div>`;
+  return `<div class="kpi-card">
+    <div class="kpi-estilo">${estilo.nombre}</div>
+    <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${Math.round(r.saldoEsperado).toLocaleString('es-CR')} u.</div>
+    ${desdeHtml}
+    <div class="kpi-breakdown">
+      <span>+ Compras: <b>${Math.round(r.compras).toLocaleString('es-CR')} u.</b></span>
+      <span>− Ventas: <b>${Math.round(r.ventasEstilo).toLocaleString('es-CR')} u.</b></span>
+    </div>
+    <a class="kpi-cta" href="javascript:void(0)" onclick="abrirDetalleLineaBotella('${escapeAttr(kiosko)}','${estilo.id}')">Ver detalle de compras y ventas →</a>
+    ${arqueoHtml}
+  </div>`;
+}
+// ── DASHBOARD — Proteína (gramos, sin merma) ────────────────────────
+function renderKpiCardProteina(kiosko, proteina, r) {
+  const ultimoArqueo = ARQUEOS_PROTEINA.filter(a => a.kiosko===kiosko && a.proteinaId===proteina.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||Number(b.id)-Number(a.id))[0];
+  let arqueoHtml = '';
+  if (ultimoArqueo) {
+    const pct = ultimoArqueo.diferenciaPct;
+    const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
+    arqueoHtml = `<div class="kpi-arqueo">Último arqueo (${ultimoArqueo.fecha}): <span class="badge ${badge}">${pct==null?'—':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>`;
+  }
+  const desdeHtml = r.sinPunto
+    ? `<div class="kpi-sub">Sin peso inicial registrado — asumiendo 0 <span class="badge badge-amber">estimado</span> <a class="kpi-cta" href="javascript:void(0)" onclick="irATabGrupo('partida','proteina')">Registrar peso inicial →</a></div>`
+    : `<div class="kpi-sub">Desde ${r.punto.tipo==='Reset'?'reset':'peso inicial'} del ${r.desde}</div>`;
+  return `<div class="kpi-card">
+    <div class="kpi-estilo">${proteina.nombre}</div>
+    <div class="kpi-val ${r.saldoEsperado<0?'kpi-val-neg':''}">${fmtG(r.saldoEsperado)}</div>
+    ${desdeHtml}
+    <div class="kpi-breakdown">
+      <span>+ Compras: <b>${fmtG(r.compras)}</b></span>
+      <span>− Ventas (por receta): <b>${fmtG(r.ventasEstilo)}</b></span>
+    </div>
+    <a class="kpi-cta" href="javascript:void(0)" onclick="abrirDetalleLineaProteina('${escapeAttr(kiosko)}','${proteina.id}')">Ver detalle de compras y ventas →</a>
+    ${arqueoHtml}
+  </div>`;
+}
+function irATabGrupo(tab, grupo) {
+  irATab(tab);
+  setTimeout(() => {
+    const btn = document.querySelector(`.tab-btn.active + .tabs, #tab-${tab} .grupo-btn[data-grupo="${grupo}"]`) || document.querySelector(`#tab-${tab} .grupo-btn[data-grupo="${grupo}"]`);
+    if (btn) btn.click();
+  }, 0);
+}
+// Construye el bloque "kiosko-group" (encabezado + grid de tarjetas) para
+// una sección del Dashboard — compartido entre Barril/Botella/Proteína
+// para no triplicar el armado del HTML.
+function construirSeccionDashboard(resultados, renderCardFn) {
   const porKiosko = new Map();
   resultados.forEach(item => {
     if (!porKiosko.has(item.kiosko)) porKiosko.set(item.kiosko, []);
     porKiosko.get(item.kiosko).push(item);
   });
-  document.getElementById('dash-grid').innerHTML = KIOSKOS.filter(k => porKiosko.has(k)).map(k => {
+  return KIOSKOS.filter(k => porKiosko.has(k)).map(k => {
     const items = porKiosko.get(k);
     return `<div class="kiosko-group">
       <div class="kiosko-group-head">
         <span class="kiosko-group-name">${k}</span>
-        <span class="kiosko-group-sub">${items.length} estilo${items.length!==1?'s':''}</span>
+        <span class="kiosko-group-sub">${items.length} ${items.length!==1?'ítems':'ítem'}</span>
       </div>
       <div class="kpi-grid">
-        ${items.map(({kiosko, estilo, r}) => renderKpiCard(kiosko, estilo, r)).join('')}
+        ${items.map(item => renderCardFn(item.kiosko, item.estilo, item.r)).join('')}
       </div>
     </div>`;
   }).join('');
+}
+async function cargarDashboard() {
+  document.getElementById('dash-grid').innerHTML = '<div class="empty-state">Cargando…</div>';
+  document.getElementById('dash-banner').innerHTML = BALANCE_URL.includes('TODO_PEGAR')
+    ? '<div class="banner">⚠️ Este módulo todavía no está conectado a un backend — desplegá Code-balance-barriles-backend.gs y pegá la URL en BALANCE_URL dentro de balance-barriles.html.</div>' : '';
+  await Promise.all([cargarTodosLosDatos(), cargarCompras(), cargarMermas(), cargarRecetas()]);
+  const hastaHoy = hoy();
+
+  const combosBarril = [];
+  KIOSKOS.forEach(k => ESTILOS.filter(e => e.activo).forEach(e => combosBarril.push([k, e])));
+  const resBarril = await Promise.all(combosBarril.map(async ([k,e]) => ({ kiosko:k, estilo:e, r: await calcularSaldo(k, e, hastaHoy) })));
+
+  const combosBotella = [];
+  KIOSKOS.forEach(k => ESTILOS_BOTELLA.filter(e => e.activo).forEach(e => combosBotella.push([k, e])));
+  const resBotella = await Promise.all(combosBotella.map(async ([k,e]) => ({ kiosko:k, estilo:e, r: await calcularSaldoBotella(k, e, hastaHoy) })));
+
+  const combosProteina = [];
+  KIOSKOS.forEach(k => PROTEINAS.filter(e => e.activo).forEach(e => combosProteina.push([k, e])));
+  const resProteina = await Promise.all(combosProteina.map(async ([k,e]) => ({ kiosko:k, estilo:e, r: await calcularSaldoProteina(k, e, hastaHoy) })));
+
+  if (!resBarril.length && !resBotella.length && !resProteina.length) {
+    document.getElementById('dash-grid').innerHTML = '<div class="empty-state">Todavía no hay estilos ni proteínas configurados. Andá a Configuración para dar de alta el catálogo de cada grupo.</div>';
+    return;
+  }
+  const secciones = [
+    { titulo: '🛢️ Cerveza en barril', datos: resBarril, fn: renderKpiCard, vacio: 'Sin estilos de barril configurados todavía.' },
+    { titulo: '🍾 Cerveza en botella', datos: resBotella, fn: renderKpiCardBotella, vacio: 'Sin estilos de botella configurados todavía.' },
+    { titulo: '🥩 Proteínas', datos: resProteina, fn: renderKpiCardProteina, vacio: 'Sin proteínas configuradas todavía.' }
+  ];
+  document.getElementById('dash-grid').innerHTML = secciones.map(s => `
+    <div class="section-head">${s.titulo}</div>
+    ${s.datos.length ? construirSeccionDashboard(s.datos, s.fn) : `<div class="empty-state">${s.vacio}</div>`}
+  `).join('');
 }
 function irATab(tab) {
   document.querySelector(`.tab-btn[onclick*="'${tab}'"]`)?.click();
@@ -1075,6 +1665,63 @@ async function abrirDetalleLinea(kiosko, estiloId) {
     </div>
   `;
 }
+// ── MODAL: DETALLE — BOTELLA (unidades, sin mermas) ────────────────
+async function abrirDetalleLineaBotella(kiosko, estiloId) {
+  const estilo = ESTILOS_BOTELLA.find(e => e.id === estiloId);
+  if (!estilo) return;
+  document.getElementById('detalle-titulo').textContent = `${kiosko} · ${estilo.nombre}`;
+  document.getElementById('detalle-sub').textContent = 'Cargando…';
+  document.getElementById('detalle-body').innerHTML = '<div class="empty-state">Cargando…</div>';
+  document.getElementById('modal-detalle').classList.add('open');
+  const r = await calcularSaldoBotella(kiosko, estilo, hoy());
+  const sinPuntoNota = r.sinPunto ? ' · sin cantidad inicial registrada, asumiendo 0' : '';
+  document.getElementById('detalle-sub').textContent = `Desde ${r.desde || '(inicio de los datos disponibles)'} hasta ${r.hasta}${sinPuntoNota}`;
+  document.getElementById('detalle-body').innerHTML = `
+    <div class="detalle-sec">
+      <div class="detalle-sec-head"><span class="detalle-sec-titulo">Compras (${r.comprasDetalle.length})</span><span class="detalle-sec-total">+ ${Math.round(r.compras).toLocaleString('es-CR')} u.</span></div>
+      ${r.comprasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
+        <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Producto</th><th>Cant. factura</th><th>Unidades</th></tr></thead>
+        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, escapeAttr(c.factura)||'—', escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), Math.round(c.unidades).toLocaleString('es-CR')])).join('')}</tbody>
+      </table></div>` : '<div class="empty-state">Sin compras homologadas en el período.</div>'}
+    </div>
+    <div class="detalle-sec">
+      <div class="detalle-sec-head"><span class="detalle-sec-titulo">Ventas Square (${r.ventasDetalle.length})</span><span class="detalle-sec-total">− ${Math.round(r.ventasEstilo).toLocaleString('es-CR')} u.</span></div>
+      ${r.ventasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cant.</th></tr></thead>
+        <tbody>${r.ventasDetalle.map(v => filaDetalleHtml([v.fecha, escapeAttr(v.producto), v.cantidad.toLocaleString('es-CR')])).join('')}</tbody>
+      </table></div>` : '<div class="empty-state">Sin ventas de este estilo en el período.</div>'}
+    </div>
+  `;
+}
+// ── MODAL: DETALLE — PROTEÍNA (gramos, ventas por receta) ──────────
+async function abrirDetalleLineaProteina(kiosko, proteinaId) {
+  const proteina = PROTEINAS.find(e => e.id === proteinaId);
+  if (!proteina) return;
+  document.getElementById('detalle-titulo').textContent = `${kiosko} · ${proteina.nombre}`;
+  document.getElementById('detalle-sub').textContent = 'Cargando…';
+  document.getElementById('detalle-body').innerHTML = '<div class="empty-state">Cargando…</div>';
+  document.getElementById('modal-detalle').classList.add('open');
+  const r = await calcularSaldoProteina(kiosko, proteina, hoy());
+  const sinPuntoNota = r.sinPunto ? ' · sin peso inicial registrado, asumiendo 0' : '';
+  document.getElementById('detalle-sub').textContent = `Desde ${r.desde || '(inicio de los datos disponibles)'} hasta ${r.hasta}${sinPuntoNota}`;
+  document.getElementById('detalle-body').innerHTML = `
+    <div class="detalle-sec">
+      <div class="detalle-sec-head"><span class="detalle-sec-titulo">Compras (${r.comprasDetalle.length})</span><span class="detalle-sec-total">+ ${fmtG(r.compras)}</span></div>
+      ${r.comprasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
+        <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Producto</th><th>Cant. factura</th><th>Peso</th></tr></thead>
+        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, escapeAttr(c.factura)||'—', escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), c.sinConvertir ? '<span class="badge badge-amber">sin Unidad Receta en el Maestro</span>' : fmtG(c.pesoG)])).join('')}</tbody>
+      </table></div>` : '<div class="empty-state">Sin compras homologadas en el período.</div>'}
+    </div>
+    <div class="detalle-sec">
+      <div class="detalle-sec-head"><span class="detalle-sec-titulo">Ventas por receta (${r.ventasDetalle.length})</span><span class="detalle-sec-total">− ${fmtG(r.ventasEstilo)}</span></div>
+      <p class="card-note" style="margin-bottom:.6rem">Calculado desde Recetas: cuánta ${escapeAttr(proteina.nombre)} lleva la receta de cada plato, multiplicado por lo vendido en Square.</p>
+      ${r.ventasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
+        <thead><tr><th>Fecha</th><th>Plato / presentación</th><th>Cant. vendida</th><th>Peso</th></tr></thead>
+        <tbody>${r.ventasDetalle.map(v => filaDetalleHtml([v.fecha, escapeAttr(v.producto), v.cantidad.toLocaleString('es-CR'), fmtG(v.pesoG)])).join('')}</tbody>
+      </table></div>` : '<div class="empty-state">Sin ventas de platos con esta proteína en el período (revisá que la receta y el "Nombre en venta Square" estén configurados en Recetas).</div>'}
+    </div>
+  `;
+}
 document.querySelectorAll('.modal-bg').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
 });
@@ -1086,36 +1733,82 @@ function poblarSelectKiosko(sel) {
 function estilosDisponiblesEnKiosko(kiosko) {
   return ESTILOS.filter(e => e.activo);
 }
-function poblarSelectEstilo(sel, kiosko) {
-  const disp = estilosDisponiblesEnKiosko(kiosko);
+// Catálogo (Estilos/EstilosBotella/Proteinas) según el grupo activo —
+// todo estilo/proteína "Activo" aplica a todos los kioskos, igual que ya
+// pasa con Barril (sin matriz de disponibilidad por kiosko).
+function catalogoPorGrupo(grupo) {
+  if (grupo === 'botella') return ESTILOS_BOTELLA.filter(e => e.activo);
+  if (grupo === 'proteina') return PROTEINAS.filter(e => e.activo);
+  return ESTILOS.filter(e => e.activo);
+}
+function etiquetaGrupo(grupo, plural) {
+  if (grupo === 'botella') return plural ? 'estilos de botella' : 'Estilo de cerveza (botella)';
+  if (grupo === 'proteina') return plural ? 'proteínas' : 'Proteína';
+  return plural ? 'estilos' : 'Estilo de cerveza';
+}
+function poblarSelectEstilo(sel, kiosko, grupo) {
+  grupo = grupo || 'barril';
+  const disp = catalogoPorGrupo(grupo);
   sel.innerHTML = disp.length
     ? disp.map(e => `<option value="${e.id}">${escapeAttr(e.nombre)}</option>`).join('')
-    : '<option value="" disabled selected>Sin estilos disponibles en este kiosko</option>';
+    : `<option value="" disabled selected>Sin ${etiquetaGrupo(grupo, true)} configurados</option>`;
 }
 
 // ── PUNTO DE PARTIDA (tab) ──────────────────────────────────────────
+function actualizarNetoProteina(pref) {
+  const bruto = Number(document.getElementById(pref+'-prot-peso-bruto').value) || 0;
+  const tara = Number(document.getElementById(pref+'-prot-tara').value) || 0;
+  const neto = Math.max(0, bruto - tara);
+  document.getElementById(pref+'-prot-neto-val').textContent = neto.toLocaleString('es-CR') + ' g';
+  return neto;
+}
 function alCambiarSelectorPartida() {
+  const grupo = GRUPO_ACTIVO.partida;
   const kiosko = document.getElementById('pp-kiosko').value;
   const selEstilo = document.getElementById('pp-estilo');
-  if (selEstilo.options.length===0 || selEstilo.dataset.kiosko !== kiosko) {
-    poblarSelectEstilo(selEstilo, kiosko);
+  if (selEstilo.options.length===0 || selEstilo.dataset.kiosko !== kiosko || selEstilo.dataset.grupo !== grupo) {
+    poblarSelectEstilo(selEstilo, kiosko, grupo);
     selEstilo.dataset.kiosko = kiosko;
+    selEstilo.dataset.grupo = grupo;
   }
-  const estiloId = selEstilo.value;
-  const estilo = ESTILOS.find(e => e.id===estiloId);
-  document.getElementById('pp-tara').value = estilo ? estilo.taraNominal : '';
-  actualizarNetoTotal('pp');
+  document.getElementById('pp-estilo-label').innerHTML = etiquetaGrupo(grupo, false) + ' <span class="req">*</span>';
+  const id = selEstilo.value;
   const actualDiv = document.getElementById('pp-actual');
-  if (!kiosko || !estiloId) { actualDiv.innerHTML = '<p class="card-note">Elegí kiosko y estilo para ver el punto de partida vigente.</p>'; return; }
-  const punto = puntoPartidaVigente(kiosko, estiloId, hoy());
-  if (!punto) {
-    actualDiv.innerHTML = '<p class="card-note">Sin punto de partida registrado todavía para esta combinación — el botón "Registrar peso inicial" es el que corresponde.</p>';
-  } else {
-    const bodegaNota = punto.barrilesBodega > 0 ? ` (incluye ${punto.barrilesBodega} barril${punto.barrilesBodega===1?'':'es'} lleno${punto.barrilesBodega===1?'':'s'} en bodega)` : '';
-    actualDiv.innerHTML = `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'peso inicial'}): <b>${fmtG(punto.pesoNeto)}</b>${bodegaNota}.</p>`;
+
+  if (grupo === 'barril') {
+    const estilo = ESTILOS.find(e => e.id===id);
+    document.getElementById('pp-tara').value = estilo ? estilo.taraNominal : '';
+    actualizarNetoTotal('pp');
+    if (!kiosko || !id) { actualDiv.innerHTML = '<p class="card-note">Elegí kiosko y estilo para ver el punto de partida vigente.</p>'; return; }
+    const punto = puntoPartidaVigente(kiosko, id, hoy());
+    if (!punto) {
+      actualDiv.innerHTML = '<p class="card-note">Sin punto de partida registrado todavía para esta combinación — el botón "Registrar peso inicial" es el que corresponde.</p>';
+    } else {
+      const bodegaNota = punto.barrilesBodega > 0 ? ` (incluye ${punto.barrilesBodega} barril${punto.barrilesBodega===1?'':'es'} lleno${punto.barrilesBodega===1?'':'s'} en bodega)` : '';
+      actualDiv.innerHTML = `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'peso inicial'}): <b>${fmtG(punto.pesoNeto)}</b>${bodegaNota}.</p>`;
+    }
+  } else if (grupo === 'botella') {
+    if (!kiosko || !id) { actualDiv.innerHTML = '<p class="card-note">Elegí kiosko y estilo para ver el punto de partida vigente.</p>'; return; }
+    const punto = puntoPartidaVigenteGenerico(PUNTOS_BOTELLA, 'estiloId', kiosko, id, hoy());
+    actualDiv.innerHTML = !punto
+      ? '<p class="card-note">Sin cantidad inicial registrada todavía para esta combinación — el botón "Registrar cantidad inicial" es el que corresponde.</p>'
+      : `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'cantidad inicial'}): <b>${punto.cantidad.toLocaleString('es-CR')} u.</b></p>`;
+  } else { // proteina
+    actualizarNetoProteina('pp');
+    if (!kiosko || !id) { actualDiv.innerHTML = '<p class="card-note">Elegí kiosko y proteína para ver el punto de partida vigente.</p>'; return; }
+    const punto = puntoPartidaVigenteGenerico(PUNTOS_PROTEINA, 'proteinaId', kiosko, id, hoy());
+    actualDiv.innerHTML = !punto
+      ? '<p class="card-note">Sin peso inicial registrado todavía para esta combinación — el botón "Registrar peso inicial" es el que corresponde.</p>'
+      : `<p class="card-note">Vigente desde <b>${punto.fecha}</b> (${punto.tipo==='Reset'?'reset':'peso inicial'}): <b>${fmtG(punto.pesoNeto)}</b>.</p>`;
   }
 }
-async function guardarPuntoPartidaUI(tipo) {
+function guardarPuntoPartidaUI(tipo) {
+  const grupo = GRUPO_ACTIVO.partida;
+  if (grupo === 'botella') return guardarPuntoPartidaBotellaUI(tipo);
+  if (grupo === 'proteina') return guardarPuntoPartidaProteinaUI(tipo);
+  return guardarPuntoPartidaBarrilUI(tipo);
+}
+async function guardarPuntoPartidaBarrilUI(tipo) {
   const kiosko = document.getElementById('pp-kiosko').value;
   const estiloId = document.getElementById('pp-estilo').value;
   const estilo = ESTILOS.find(e => e.id===estiloId);
@@ -1158,43 +1851,136 @@ async function guardarPuntoPartidaUI(tipo) {
     btn.disabled = false; btn.textContent = tipo==='Reset' ? 'Resetear cuenta con este peso' : 'Registrar peso inicial';
   }
 }
+async function guardarPuntoPartidaBotellaUI(tipo) {
+  const kiosko = document.getElementById('pp-kiosko').value;
+  const estiloId = document.getElementById('pp-estilo').value;
+  const estilo = ESTILOS_BOTELLA.find(e => e.id===estiloId);
+  const fecha = document.getElementById('pp-fecha').value || hoy();
+  const cantidad = document.getElementById('pp-cantidad').value;
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!estilo) { showToast('Seleccioná el estilo', 'error'); return; }
+  if (cantidad === '' || Number(cantidad) < 0) { showToast('Ingresá la cantidad de botellas', 'error'); return; }
+  if (tipo === 'Reset') {
+    const ok = confirm('Vas a resetear la cuenta de "' + estilo.nombre + '" en ' + kiosko + '. ¿Continuar?');
+    if (!ok) return;
+  }
+  const btn = document.getElementById(tipo==='Reset' ? 'btn-pp-reset' : 'btn-pp-inicial');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'punto_partida_botella_guardar', id: Date.now(), fecha, kiosko,
+    estiloId, estilo: estilo.nombre, tipo, cantidad: Number(cantidad),
+    foto: fotoBase64.pp || null,
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
+    notas: document.getElementById('pp-notas').value || ''
+  };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast((tipo==='Reset'?'Cuenta reseteada ✓ ':'Cantidad inicial guardada ✓ ') + '(' + out.cantidad.toLocaleString('es-CR') + ' u.)');
+    document.getElementById('pp-cantidad').value = '';
+    document.getElementById('pp-notas').value = '';
+    quitarFoto({preventDefault:()=>{},stopPropagation:()=>{}}, 'pp');
+    await cargarTodosLosDatos();
+    alCambiarSelectorPartida();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = tipo==='Reset' ? 'Resetear cuenta con este valor' : 'Registrar peso/cantidad inicial';
+  }
+}
+async function guardarPuntoPartidaProteinaUI(tipo) {
+  const kiosko = document.getElementById('pp-kiosko').value;
+  const proteinaId = document.getElementById('pp-estilo').value;
+  const proteina = PROTEINAS.find(e => e.id===proteinaId);
+  const fecha = document.getElementById('pp-fecha').value || hoy();
+  const pesoBruto = document.getElementById('pp-prot-peso-bruto').value;
+  const tara = Number(document.getElementById('pp-prot-tara').value) || 0;
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!proteina) { showToast('Seleccioná la proteína', 'error'); return; }
+  if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
+  if (tipo === 'Reset') {
+    const ok = confirm('Vas a resetear la cuenta de "' + proteina.nombre + '" en ' + kiosko + '. ¿Continuar?');
+    if (!ok) return;
+  }
+  const btn = document.getElementById(tipo==='Reset' ? 'btn-pp-reset' : 'btn-pp-inicial');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'punto_partida_proteina_guardar', id: Date.now(), fecha, kiosko,
+    proteinaId, proteina: proteina.nombre, tipo,
+    pesoBruto: Number(pesoBruto), tara,
+    foto: fotoBase64.pp || null,
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
+    notas: document.getElementById('pp-notas').value || ''
+  };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast((tipo==='Reset'?'Cuenta reseteada ✓ ':'Peso inicial guardado ✓ ') + '(' + out.pesoNeto.toLocaleString('es-CR') + ' g neto)');
+    document.getElementById('pp-prot-peso-bruto').value = '';
+    document.getElementById('pp-prot-tara').value = '0';
+    document.getElementById('pp-notas').value = '';
+    quitarFoto({preventDefault:()=>{},stopPropagation:()=>{}}, 'pp');
+    await cargarTodosLosDatos();
+    alCambiarSelectorPartida();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = tipo==='Reset' ? 'Resetear cuenta con este valor' : 'Registrar peso/cantidad inicial';
+  }
+}
 
 // ── ARQUEO (tab) ─────────────────────────────────────────────────
 let _saldoArqueoActual = null;
 function alCambiarSelectorArqueo() {
+  const grupo = GRUPO_ACTIVO.arqueo;
   const kiosko = document.getElementById('aq-kiosko').value;
   const selEstilo = document.getElementById('aq-estilo');
-  if (selEstilo.options.length===0 || selEstilo.dataset.kiosko !== kiosko) {
-    poblarSelectEstilo(selEstilo, kiosko);
+  if (selEstilo.options.length===0 || selEstilo.dataset.kiosko !== kiosko || selEstilo.dataset.grupo !== grupo) {
+    poblarSelectEstilo(selEstilo, kiosko, grupo);
     selEstilo.dataset.kiosko = kiosko;
+    selEstilo.dataset.grupo = grupo;
   }
-  const estiloId = selEstilo.value;
-  const estilo = ESTILOS.find(e => e.id===estiloId);
-  document.getElementById('aq-tara').value = estilo ? estilo.taraNominal : '';
-  actualizarNetoTotal('aq');
+  document.getElementById('aq-estilo-label').innerHTML = etiquetaGrupo(grupo, false) + ' <span class="req">*</span>';
+  if (grupo === 'barril') {
+    const estilo = ESTILOS.find(e => e.id===selEstilo.value);
+    document.getElementById('aq-tara').value = estilo ? estilo.taraNominal : '';
+    actualizarNetoTotal('aq');
+  }
   actualizarSaldoArqueo();
 }
 async function actualizarSaldoArqueo() {
+  const grupo = GRUPO_ACTIVO.arqueo;
   const kiosko = document.getElementById('aq-kiosko').value;
-  const estiloId = document.getElementById('aq-estilo').value;
+  const id = document.getElementById('aq-estilo').value;
   const fecha = document.getElementById('aq-fecha').value || hoy();
-  const estilo = ESTILOS.find(e => e.id===estiloId);
   const valEl = document.getElementById('aq-saldo-val'), subEl = document.getElementById('aq-saldo-sub');
-  if (!kiosko || !estilo) { valEl.textContent = '—'; subEl.textContent = ''; _saldoArqueoActual = null; return; }
+  const item = grupo === 'botella' ? ESTILOS_BOTELLA.find(e => e.id===id)
+             : grupo === 'proteina' ? PROTEINAS.find(e => e.id===id)
+             : ESTILOS.find(e => e.id===id);
+  if (!kiosko || !item) { valEl.textContent = '—'; subEl.textContent = ''; _saldoArqueoActual = null; actualizarDiferenciaArqueo(); return; }
   valEl.textContent = 'Calculando…'; subEl.textContent = '';
-  const r = await calcularSaldo(kiosko, estilo, fecha);
-  if (r.sinPunto) {
-    valEl.textContent = 'Sin punto de partida';
-    subEl.textContent = 'Registrá el peso inicial de este kiosko+estilo antes de arquear.';
-    _saldoArqueoActual = null;
+  let r;
+  if (grupo === 'botella') {
+    r = await calcularSaldoBotella(kiosko, item, fecha);
+    if (r.sinPunto) { valEl.textContent = 'Sin cantidad inicial'; subEl.textContent = 'Registrá la cantidad inicial de este kiosko+estilo antes de arquear.'; _saldoArqueoActual = null; }
+    else { valEl.textContent = Math.round(r.saldoEsperado).toLocaleString('es-CR') + ' u.'; subEl.textContent = `Desde ${r.desde} · compras ${Math.round(r.compras).toLocaleString('es-CR')} u. · ventas ${Math.round(r.ventasEstilo).toLocaleString('es-CR')} u.`; _saldoArqueoActual = r.saldoEsperado; }
+  } else if (grupo === 'proteina') {
+    r = await calcularSaldoProteina(kiosko, item, fecha);
+    if (r.sinPunto) { valEl.textContent = 'Sin peso inicial'; subEl.textContent = 'Registrá el peso inicial de este kiosko+proteína antes de arquear.'; _saldoArqueoActual = null; }
+    else { valEl.textContent = fmtG(r.saldoEsperado); subEl.textContent = `Desde ${r.desde} · compras ${fmtG(r.compras)} · ventas (receta) ${fmtG(r.ventasEstilo)}`; _saldoArqueoActual = r.saldoEsperado; }
   } else {
-    valEl.textContent = fmtG(r.saldoEsperado);
-    subEl.textContent = `Desde ${r.desde} · compras ${fmtG(r.compras)} · ventas ${fmtG(r.ventasEstilo)} · merma prorr. ${fmtG(r.mermaProrrateada)}${r.sinVentasReferencia?' (sin ventas de referencia — repartida en partes iguales)':''}`;
-    _saldoArqueoActual = r.saldoEsperado;
+    r = await calcularSaldo(kiosko, item, fecha);
+    if (r.sinPunto) { valEl.textContent = 'Sin punto de partida'; subEl.textContent = 'Registrá el peso inicial de este kiosko+estilo antes de arquear.'; _saldoArqueoActual = null; }
+    else { valEl.textContent = fmtG(r.saldoEsperado); subEl.textContent = `Desde ${r.desde} · compras ${fmtG(r.compras)} · ventas ${fmtG(r.ventasEstilo)} · merma prorr. ${fmtG(r.mermaProrrateada)}${r.sinVentasReferencia?' (sin ventas de referencia — repartida en partes iguales)':''}`; _saldoArqueoActual = r.saldoEsperado; }
   }
   actualizarDiferenciaArqueo();
 }
 function actualizarDiferenciaArqueo() {
+  const grupo = GRUPO_ACTIVO.arqueo;
+  if (grupo === 'botella') return actualizarDiferenciaArqueoBotella();
+  if (grupo === 'proteina') return actualizarDiferenciaArqueoProteina();
   const box = document.getElementById('aq-diff-box');
   const total = actualizarNetoTotal('aq');
   if (_saldoArqueoActual == null) { box.innerHTML = ''; return; }
@@ -1207,7 +1993,39 @@ function actualizarDiferenciaArqueo() {
     <span class="diff-val">${diffG>=0?'+':''}${Math.round(diffG).toLocaleString('es-CR')} g${diffPct!=null?' ('+(diffPct>=0?'+':'')+diffPct.toFixed(1)+'%)':''}</span>
   </div>`;
 }
-async function guardarArqueoUI() {
+function actualizarDiferenciaArqueoBotella() {
+  const box = document.getElementById('aq-diff-box');
+  const cantidad = Number(document.getElementById('aq-cantidad').value) || 0;
+  if (_saldoArqueoActual == null) { box.innerHTML = ''; return; }
+  const diff = cantidad - _saldoArqueoActual;
+  const diffPct = _saldoArqueoActual > 0 ? (diff/_saldoArqueoActual)*100 : null;
+  const abs = diffPct==null ? 0 : Math.abs(diffPct);
+  const clase = abs>15 ? 'diff-bad' : (abs>5 ? 'diff-warn' : 'diff-ok');
+  box.innerHTML = `<div class="diff-box ${clase}">
+    <span>Diferencia vs. esperado</span>
+    <span class="diff-val">${diff>=0?'+':''}${Math.round(diff).toLocaleString('es-CR')} u.${diffPct!=null?' ('+(diffPct>=0?'+':'')+diffPct.toFixed(1)+'%)':''}</span>
+  </div>`;
+}
+function actualizarDiferenciaArqueoProteina() {
+  const box = document.getElementById('aq-diff-box');
+  const neto = actualizarNetoProteina('aq');
+  if (_saldoArqueoActual == null) { box.innerHTML = ''; return; }
+  const diffG = neto - _saldoArqueoActual;
+  const diffPct = _saldoArqueoActual > 0 ? (diffG/_saldoArqueoActual)*100 : null;
+  const abs = diffPct==null ? 0 : Math.abs(diffPct);
+  const clase = abs>15 ? 'diff-bad' : (abs>5 ? 'diff-warn' : 'diff-ok');
+  box.innerHTML = `<div class="diff-box ${clase}">
+    <span>Diferencia vs. esperado</span>
+    <span class="diff-val">${diffG>=0?'+':''}${Math.round(diffG).toLocaleString('es-CR')} g${diffPct!=null?' ('+(diffPct>=0?'+':'')+diffPct.toFixed(1)+'%)':''}</span>
+  </div>`;
+}
+function guardarArqueoUI() {
+  const grupo = GRUPO_ACTIVO.arqueo;
+  if (grupo === 'botella') return guardarArqueoBotellaUI();
+  if (grupo === 'proteina') return guardarArqueoProteinaUI();
+  return guardarArqueoBarrilUI();
+}
+async function guardarArqueoBarrilUI() {
   const kiosko = document.getElementById('aq-kiosko').value;
   const estiloId = document.getElementById('aq-estilo').value;
   const estilo = ESTILOS.find(e => e.id===estiloId);
@@ -1242,74 +2060,196 @@ async function guardarArqueoUI() {
     btn.disabled = false; btn.textContent = 'Guardar arqueo';
   }
 }
+async function guardarArqueoBotellaUI() {
+  const kiosko = document.getElementById('aq-kiosko').value;
+  const estiloId = document.getElementById('aq-estilo').value;
+  const estilo = ESTILOS_BOTELLA.find(e => e.id===estiloId);
+  const fecha = document.getElementById('aq-fecha').value || hoy();
+  const cantidad = document.getElementById('aq-cantidad').value;
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!estilo) { showToast('Seleccioná el estilo', 'error'); return; }
+  if (cantidad === '' || Number(cantidad) < 0) { showToast('Ingresá la cantidad de botellas', 'error'); return; }
+  if (_saldoArqueoActual == null) { showToast('No se pudo calcular el saldo esperado — registrá primero la cantidad inicial', 'error'); return; }
+  const btn = document.getElementById('btn-aq-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'arqueo_botella_guardar', id: Date.now(), fecha, kiosko, estiloId, estilo: estilo.nombre,
+    cantidad: Number(cantidad), saldoEsperado: _saldoArqueoActual,
+    foto: fotoBase64.aq || null,
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
+    notas: document.getElementById('aq-notas').value || ''
+  };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Arqueo guardado ✓ diferencia ' + (out.diferencia>=0?'+':'') + Math.round(out.diferencia).toLocaleString('es-CR') + ' u.');
+    limpiarArqueo();
+    await cargarTodosLosDatos();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar arqueo';
+  }
+}
+async function guardarArqueoProteinaUI() {
+  const kiosko = document.getElementById('aq-kiosko').value;
+  const proteinaId = document.getElementById('aq-estilo').value;
+  const proteina = PROTEINAS.find(e => e.id===proteinaId);
+  const fecha = document.getElementById('aq-fecha').value || hoy();
+  const pesoBruto = document.getElementById('aq-prot-peso-bruto').value;
+  const tara = Number(document.getElementById('aq-prot-tara').value) || 0;
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (!proteina) { showToast('Seleccioná la proteína', 'error'); return; }
+  if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
+  if (_saldoArqueoActual == null) { showToast('No se pudo calcular el saldo esperado — registrá primero el peso inicial', 'error'); return; }
+  const btn = document.getElementById('btn-aq-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'arqueo_proteina_guardar', id: Date.now(), fecha, kiosko, proteinaId, proteina: proteina.nombre,
+    pesoBruto: Number(pesoBruto), tara, saldoEsperado: _saldoArqueoActual,
+    foto: fotoBase64.aq || null,
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
+    notas: document.getElementById('aq-notas').value || ''
+  };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Arqueo guardado ✓ diferencia ' + (out.diferenciaG>=0?'+':'') + Math.round(out.diferenciaG).toLocaleString('es-CR') + ' g');
+    limpiarArqueo();
+    await cargarTodosLosDatos();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar arqueo';
+  }
+}
 function limpiarArqueo() {
   document.getElementById('aq-peso-bruto').value = '';
   document.getElementById('aq-bodega').value = '0';
+  document.getElementById('aq-cantidad').value = '';
+  document.getElementById('aq-prot-peso-bruto').value = '';
+  document.getElementById('aq-prot-tara').value = '0';
   document.getElementById('aq-notas').value = '';
   actualizarNetoTotal('aq');
+  actualizarNetoProteina('aq');
   document.getElementById('aq-diff-box').innerHTML = '';
   quitarFoto({preventDefault:()=>{},stopPropagation:()=>{}}, 'aq');
 }
 
 // ── HISTORIAL / LOG (tab) ────────────────────────────────────────
+// idField: 'estiloId' (barril/botella) o 'proteinaId' (proteína) — así el
+// mismo filtro hist-estilo sirve para los 3 catálogos sin duplicar selects.
+function historialArrays(grupo) {
+  if (grupo === 'botella') return { catalogo: ESTILOS_BOTELLA, puntos: PUNTOS_BOTELLA, arqueos: ARQUEOS_BOTELLA, idField: 'estiloId' };
+  if (grupo === 'proteina') return { catalogo: PROTEINAS, puntos: PUNTOS_PROTEINA, arqueos: ARQUEOS_PROTEINA, idField: 'proteinaId' };
+  return { catalogo: ESTILOS, puntos: PUNTOS, arqueos: ARQUEOS, idField: 'estiloId' };
+}
 async function cargarHistorial() {
   await cargarTodosLosDatos();
+  const grupo = GRUPO_ACTIVO.historial;
   const selK = document.getElementById('hist-kiosko'), selE = document.getElementById('hist-estilo');
   if (!selK.dataset.poblado) {
     selK.innerHTML += KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${k}</option>`).join('');
     selK.dataset.poblado = '1';
   }
-  if (!selE.dataset.poblado) {
-    selE.innerHTML += ESTILOS.map(e => `<option value="${e.id}">${escapeAttr(e.nombre)}</option>`).join('');
-    selE.dataset.poblado = '1';
+  if (selE.dataset.grupo !== grupo) {
+    const { catalogo } = historialArrays(grupo);
+    selE.innerHTML = `<option value="">Todos${grupo==='proteina'?' las proteínas':' los estilos'}</option>` + catalogo.map(e => `<option value="${e.id}">${escapeAttr(e.nombre)}</option>`).join('');
+    selE.dataset.grupo = grupo;
   }
   renderHistorialArqueos();
   renderHistorialPuntos();
 }
 function renderHistorialArqueos() {
+  const grupo = GRUPO_ACTIVO.historial;
+  const { arqueos, idField } = historialArrays(grupo);
   const k = document.getElementById('hist-kiosko').value, e = document.getElementById('hist-estilo').value;
-  let lista = ARQUEOS.filter(a => (!k||a.kiosko===k) && (!e||a.estiloId===e));
+  let lista = arqueos.filter(a => (!k||a.kiosko===k) && (!e||a[idField]===e));
   lista = [...lista].sort((a,b) => b.fecha.localeCompare(a.fecha) || Number(b.id)-Number(a.id));
   document.getElementById('hist-arqueos-count').textContent = lista.length + ' arqueo' + (lista.length===1?'':'s') + ' registrado' + (lista.length===1?'':'s');
+  const nombreCol = grupo === 'proteina' ? 'Proteína' : 'Estilo';
+  const netoCol = grupo === 'botella' ? 'Cantidad' : 'Neto (total)';
+  document.getElementById('hist-arqueos-head').innerHTML = grupo === 'botella'
+    ? `<tr><th>Fecha</th><th>Kiosko</th><th>${nombreCol}</th><th>${netoCol}</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr>`
+    : `<tr><th>Fecha</th><th>Kiosko</th><th>${nombreCol}</th><th>${netoCol}</th><th>Bodega</th><th>Esperado</th><th>Diferencia</th><th>Registró</th><th>Foto</th></tr>`;
+  const colspan = grupo === 'botella' ? 8 : 9;
   document.getElementById('hist-arqueos-body').innerHTML = lista.length ? lista.map(a => {
     const pct = a.diferenciaPct;
     const badge = pct==null ? 'badge-blue' : (Math.abs(pct)>15?'badge-red':(Math.abs(pct)>5?'badge-amber':'badge-green'));
+    const nombre = grupo === 'proteina' ? a.proteina : a.estilo;
+    if (grupo === 'botella') {
+      return `<tr>
+        <td>${a.fecha}</td><td>${a.kiosko}</td><td>${nombre}</td>
+        <td>${a.cantidad.toLocaleString('es-CR')} u.</td>
+        <td>${Math.round(a.saldoEsperado).toLocaleString('es-CR')} u.</td>
+        <td><span class="badge ${badge}">${a.diferencia>=0?'+':''}${Math.round(a.diferencia).toLocaleString('es-CR')} u.${pct!=null?' / '+(pct>=0?'+':'')+pct.toFixed(1)+'%':''}</span></td>
+        <td>${a.registradoPor||'—'}</td>
+        <td>${a.fotoUrl?`<a href="${a.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>`:'—'}</td>
+      </tr>`;
+    }
+    const bodegaCol = grupo === 'proteina' ? '—' : (a.barrilesBodega?('+'+a.barrilesBodega):'—');
+    const diffG = grupo === 'proteina' ? a.diferenciaG : a.diferenciaG;
     return `<tr>
-      <td>${a.fecha}</td><td>${a.kiosko}</td><td>${a.estilo}</td>
+      <td>${a.fecha}</td><td>${a.kiosko}</td><td>${nombre}</td>
       <td>${a.pesoNeto.toLocaleString('es-CR')} g</td>
-      <td>${a.barrilesBodega?('+'+a.barrilesBodega):'—'}</td>
+      <td>${bodegaCol}</td>
       <td>${Math.round(a.saldoEsperado).toLocaleString('es-CR')} g</td>
-      <td><span class="badge ${badge}">${a.diferenciaG>=0?'+':''}${Math.round(a.diferenciaG).toLocaleString('es-CR')} g${pct!=null?' / '+(pct>=0?'+':'')+pct.toFixed(1)+'%':''}</span></td>
+      <td><span class="badge ${badge}">${diffG>=0?'+':''}${Math.round(diffG).toLocaleString('es-CR')} g${pct!=null?' / '+(pct>=0?'+':'')+pct.toFixed(1)+'%':''}</span></td>
       <td>${a.registradoPor||'—'}</td>
       <td>${a.fotoUrl?`<a href="${a.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>`:'—'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="9"><div class="empty-state">Sin arqueos registrados todavía.</div></td></tr>';
+  }).join('') : `<tr><td colspan="${colspan}"><div class="empty-state">Sin arqueos registrados todavía.</div></td></tr>`;
 }
 function renderHistorialPuntos() {
+  const grupo = GRUPO_ACTIVO.historial;
+  const { puntos, idField } = historialArrays(grupo);
   const k = document.getElementById('hist-kiosko').value, e = document.getElementById('hist-estilo').value;
-  let lista = PUNTOS.filter(p => (!k||p.kiosko===k) && (!e||p.estiloId===e));
+  let lista = puntos.filter(p => (!k||p.kiosko===k) && (!e||p[idField]===e));
   lista = [...lista].sort((a,b) => b.fecha.localeCompare(a.fecha) || Number(b.id)-Number(a.id));
-  document.getElementById('hist-puntos-body').innerHTML = lista.length ? lista.map(p => `
-    <tr>
-      <td>${p.fecha}</td><td>${p.kiosko}</td><td>${p.estilo}</td>
+  const nombreCol = grupo === 'proteina' ? 'Proteína' : 'Estilo';
+  const netoCol = grupo === 'botella' ? 'Cantidad' : 'Peso neto (total)';
+  document.getElementById('hist-puntos-head').innerHTML = grupo === 'botella'
+    ? `<tr><th>Fecha</th><th>Kiosko</th><th>${nombreCol}</th><th>Tipo</th><th>${netoCol}</th><th>Registró</th><th>Notas</th><th>Foto</th></tr>`
+    : `<tr><th>Fecha</th><th>Kiosko</th><th>${nombreCol}</th><th>Tipo</th><th>${netoCol}</th><th>Bodega</th><th>Registró</th><th>Notas</th><th>Foto</th></tr>`;
+  const colspan = grupo === 'botella' ? 8 : 9;
+  document.getElementById('hist-puntos-body').innerHTML = lista.length ? lista.map(p => {
+    const nombre = grupo === 'proteina' ? p.proteina : p.estilo;
+    const valor = grupo === 'botella' ? (p.cantidad.toLocaleString('es-CR') + ' u.') : (p.pesoNeto.toLocaleString('es-CR') + ' g');
+    const bodegaCol = grupo === 'botella' ? '' : `<td>${grupo==='proteina'?'—':(p.barrilesBodega?('+'+p.barrilesBodega):'—')}</td>`;
+    return `<tr>
+      <td>${p.fecha}</td><td>${p.kiosko}</td><td>${nombre}</td>
       <td><span class="badge ${p.tipo==='Reset'?'badge-amber':'badge-green'}">${p.tipo}</span></td>
-      <td>${p.pesoNeto.toLocaleString('es-CR')} g</td>
-      <td>${p.barrilesBodega?('+'+p.barrilesBodega):'—'}</td>
+      <td>${valor}</td>
+      ${bodegaCol}
       <td>${p.registradoPor||'—'}</td>
       <td>${p.notas||'—'}</td>
       <td>${p.fotoUrl?`<a href="${p.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>`:'—'}</td>
-    </tr>`).join('') : '<tr><td colspan="9"><div class="empty-state">Sin puntos de partida registrados todavía.</div></td></tr>';
+    </tr>`;
+  }).join('') : `<tr><td colspan="${colspan}"><div class="empty-state">Sin puntos de partida registrados todavía.</div></td></tr>`;
 }
 function exportarArqueosCSV() {
+  const grupo = GRUPO_ACTIVO.historial;
+  const { arqueos, idField } = historialArrays(grupo);
   const k = document.getElementById('hist-kiosko').value, e = document.getElementById('hist-estilo').value;
-  let lista = ARQUEOS.filter(a => (!k||a.kiosko===k) && (!e||a.estiloId===e));
-  const filas = [['Fecha','Kiosko','Estilo','Peso Neto (g)','Barriles en Bodega','Saldo Esperado (g)','Diferencia (g)','Diferencia (%)','Registrado por','Notas']]
-    .concat(lista.map(a => [a.fecha,a.kiosko,a.estilo,a.pesoNeto,a.barrilesBodega,Math.round(a.saldoEsperado),a.diferenciaG,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
+  let lista = arqueos.filter(a => (!k||a.kiosko===k) && (!e||a[idField]===e));
+  let filas;
+  if (grupo === 'botella') {
+    filas = [['Fecha','Kiosko','Estilo','Cantidad (unidades)','Saldo Esperado (unidades)','Diferencia (unidades)','Diferencia (%)','Registrado por','Notas']]
+      .concat(lista.map(a => [a.fecha,a.kiosko,a.estilo,a.cantidad,Math.round(a.saldoEsperado),a.diferencia,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
+  } else if (grupo === 'proteina') {
+    filas = [['Fecha','Kiosko','Proteína','Peso Neto (g)','Saldo Esperado (g)','Diferencia (g)','Diferencia (%)','Registrado por','Notas']]
+      .concat(lista.map(a => [a.fecha,a.kiosko,a.proteina,a.pesoNeto,Math.round(a.saldoEsperado),a.diferenciaG,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
+  } else {
+    filas = [['Fecha','Kiosko','Estilo','Peso Neto (g)','Barriles en Bodega','Saldo Esperado (g)','Diferencia (g)','Diferencia (%)','Registrado por','Notas']]
+      .concat(lista.map(a => [a.fecha,a.kiosko,a.estilo,a.pesoNeto,a.barrilesBodega,Math.round(a.saldoEsperado),a.diferenciaG,a.diferenciaPct==null?'':a.diferenciaPct,a.registradoPor,a.notas]));
+  }
   const csv = filas.map(f => f.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'arqueos-balance-barriles_' + hoy() + '.csv';
+  a.href = url; a.download = 'arqueos-controles-' + grupo + '_' + hoy() + '.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
@@ -1320,6 +2260,8 @@ async function cargarConfig() {
   if (!MAESTRO_ROWS.length) await cargarCompras();
   await cargarConfiguracionGeneral();
   renderEstilosLista();
+  renderEstilosListaBotella();
+  renderProteinasLista();
   renderDatalistNombreEstandar();
 }
 async function cargarConfiguracionGeneral() {
@@ -1441,11 +2383,142 @@ async function alternarActivoEstilo(id) {
     await cargarConfig();
   } catch(err) { showToast('No se pudo actualizar — ' + err.message, 'error'); }
 }
+
+// ── CONFIGURACIÓN — Cerveza Botella (catálogo) ─────────────────────
+function renderEstilosListaBotella() {
+  const cont = document.getElementById('cfg-botella-lista');
+  if (!ESTILOS_BOTELLA.length) { cont.innerHTML = '<div class="empty-state">Sin estilos de botella configurados todavía — agregá el primero abajo.</div>'; return; }
+  cont.innerHTML = ESTILOS_BOTELLA.map(e => `
+    <div class="estilo-row">
+      <div class="estilo-row-head">
+        <b>${escapeAttr(e.nombre)}</b>
+        <div>
+          <button class="btn-sm" onclick="editarEstiloBotella('${e.id}')">Editar</button>
+          <button class="btn-sm" onclick="alternarActivoEstiloBotella('${e.id}')">${e.activo?'Desactivar':'Activar'}</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">
+        Palabra clave: ${e.palabraClave || '—'} ·
+        ${e.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}
+      </div>
+    </div>`).join('');
+}
+function editarEstiloBotella(id) {
+  const e = ESTILOS_BOTELLA.find(x => x.id===id);
+  if (!e) return;
+  document.getElementById('cfg-botella-id').value = e.id;
+  document.getElementById('cfg-botella-nombre').value = e.nombre;
+  document.getElementById('cfg-botella-palabra-clave').value = e.palabraClave;
+  window.scrollTo({top: document.getElementById('cfg-botella-nombre').closest('.card').offsetTop - 80, behavior:'smooth'});
+}
+function limpiarFormEstiloBotella() {
+  document.getElementById('cfg-botella-id').value = '';
+  ['cfg-botella-nombre','cfg-botella-palabra-clave'].forEach(id => document.getElementById(id).value='');
+}
+async function guardarEstiloBotellaUI() {
+  const nombre = document.getElementById('cfg-botella-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre del estilo', 'error'); return; }
+  const idPrevio = document.getElementById('cfg-botella-id').value;
+  const btn = document.getElementById('btn-cfg-botella-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'estilo_botella_guardar', id: idPrevio || undefined, nombre,
+    nombreEstandarCompra: nombre,
+    palabraClave: document.getElementById('cfg-botella-palabra-clave').value.trim()
+  };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Estilo guardado ✓');
+    limpiarFormEstiloBotella();
+    await cargarConfig();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar estilo';
+  }
+}
+async function alternarActivoEstiloBotella(id) {
+  const e = ESTILOS_BOTELLA.find(x => x.id===id);
+  if (!e) return;
+  const payload = { accion:'estilo_botella_guardar', id:e.id, nombre:e.nombre, nombreEstandarCompra:e.nombreEstandarCompra, palabraClave:e.palabraClave, activo: !e.activo };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error);
+    showToast(e.activo ? 'Estilo desactivado' : 'Estilo activado');
+    await cargarConfig();
+  } catch(err) { showToast('No se pudo actualizar — ' + err.message, 'error'); }
+}
+
+// ── CONFIGURACIÓN — Proteínas (catálogo) ────────────────────────────
+function renderProteinasLista() {
+  const cont = document.getElementById('cfg-proteina-lista');
+  if (!PROTEINAS.length) { cont.innerHTML = '<div class="empty-state">Sin proteínas configuradas todavía — agregá la primera abajo (ej. Carne Angus, Carne Wagyu, Pollo, Camarones).</div>'; return; }
+  cont.innerHTML = PROTEINAS.map(e => `
+    <div class="estilo-row">
+      <div class="estilo-row-head">
+        <b>${escapeAttr(e.nombre)}</b>
+        <div>
+          <button class="btn-sm" onclick="editarProteina('${e.id}')">Editar</button>
+          <button class="btn-sm" onclick="alternarActivoProteina('${e.id}')">${e.activo?'Desactivar':'Activar'}</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">
+        ${e.activo ? '<span class="badge badge-green">Activa</span>' : '<span class="badge badge-red">Inactiva</span>'}
+      </div>
+    </div>`).join('');
+}
+function editarProteina(id) {
+  const e = PROTEINAS.find(x => x.id===id);
+  if (!e) return;
+  document.getElementById('cfg-proteina-id').value = e.id;
+  document.getElementById('cfg-proteina-nombre').value = e.nombre;
+  window.scrollTo({top: document.getElementById('cfg-proteina-nombre').closest('.card').offsetTop - 80, behavior:'smooth'});
+}
+function limpiarFormProteina() {
+  document.getElementById('cfg-proteina-id').value = '';
+  document.getElementById('cfg-proteina-nombre').value = '';
+}
+async function guardarProteinaUI() {
+  const nombre = document.getElementById('cfg-proteina-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre de la proteína', 'error'); return; }
+  const idPrevio = document.getElementById('cfg-proteina-id').value;
+  const btn = document.getElementById('btn-cfg-proteina-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = { accion: 'proteina_guardar', id: idPrevio || undefined, nombre, nombreEstandarCompra: nombre };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Proteína guardada ✓');
+    limpiarFormProteina();
+    await cargarConfig();
+  } catch(e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar proteína';
+  }
+}
+async function alternarActivoProteina(id) {
+  const e = PROTEINAS.find(x => x.id===id);
+  if (!e) return;
+  const payload = { accion:'proteina_guardar', id:e.id, nombre:e.nombre, nombreEstandarCompra:e.nombreEstandarCompra, activo: !e.activo };
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 30000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error);
+    showToast(e.activo ? 'Proteína desactivada' : 'Proteína activada');
+    await cargarConfig();
+  } catch(err) { showToast('No se pudo actualizar — ' + err.message, 'error'); }
+}
 function renderDatalistNombreEstandar() {
   const nombres = [...new Set(MAESTRO_ROWS.map(r => (r['Nombre Estándar']||'').trim()).filter(Boolean))].sort();
   document.getElementById('cfg-nombre-estandar-list').innerHTML = nombres.map(n => `<option value="${escapeAttr(n)}">`).join('');
 }
 // ── INIT ────────────────────────────────────────────────────────
+inicializarGruposUI();
 document.getElementById('date-chip').textContent =
   new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('pp-fecha').value = hoy();
