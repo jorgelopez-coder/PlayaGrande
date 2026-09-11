@@ -622,6 +622,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<div class="modal-bg" id="modal-factura">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="factura-titulo">Factura</div>
+        <div class="modal-sub" id="factura-sub">—</div>
+      </div>
+      <button class="close-btn" onclick="cerrarModal('modal-factura')">×</button>
+    </div>
+    <div class="modal-body" id="factura-body">
+      <div class="empty-state">Cargando…</div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
@@ -728,6 +743,19 @@ function fmtG(g) {
   return v.toLocaleString('es-CR') + ' g (' + (v/1000).toLocaleString('es-CR',{maximumFractionDigits:2}) + ' kg)';
 }
 function escapeAttr(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Para valores (factura, proveedor) embebidos en un string JS de un solo
+// nivel dentro de un atributo onclick — escapea backslash y comilla simple
+// para no romper el string JS (escapeAttr solo cubre HTML). Agregado
+// 2026-09-11 para el link "ver factura completa" en Compras.
+function escapeJsAttr(str) { return escapeAttr(String(str||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+// Formato simple de montos de Desglose_IA — "Moneda" trae "USD" para
+// líneas en dólares, vacío/otro = colones (mismo criterio que
+// analisis-compras.html).
+function fmtMoneda(valor, moneda) {
+  const n = Number(valor) || 0;
+  const simbolo = String(moneda||'').toUpperCase().includes('USD') ? '$' : '₡';
+  return simbolo + n.toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 
 // ── TABS ──────────────────────────────────────────────────────────
 function showTab(tab, el) {
@@ -1658,6 +1686,47 @@ function irATab(tab) {
 // ── MODAL: DETALLE DE COMPRAS/VENTAS/MERMAS POR LÍNEA ──────────────
 function cerrarModal(id) { document.getElementById(id).classList.remove('open'); }
 function filaDetalleHtml(cols) { return `<tr>${cols.map(c => `<td>${c}</td>`).join('')}</tr>`; }
+// Todas las líneas de Desglose_IA que pertenecen a la misma factura (no
+// solo el producto de este estilo/proteína) — a pedido de Jorge 2026-09-11,
+// para ver qué más venía en esa factura sin abrir Análisis de Compras.
+function lineasFacturaCompleta(kiosko, factura, proveedor) {
+  if (!factura) return [];
+  const kioskoObjetivo = normKiosko(kiosko);
+  const facturaObjetivo = String(factura).trim();
+  const proveedorObjetivo = String(proveedor||'').trim().toLowerCase();
+  return DESGLOSE_ROWS.filter(row => {
+    if (normKiosko(row['Kiosko']) !== kioskoObjetivo) return false;
+    if (String(row['Número de factura']||'').trim() !== facturaObjetivo) return false;
+    if (proveedorObjetivo && String(row['Proveedor']||'').trim().toLowerCase() !== proveedorObjetivo) return false;
+    return true;
+  });
+}
+function abrirDetalleFactura(kiosko, factura, proveedor) {
+  const lineas = lineasFacturaCompleta(kiosko, factura, proveedor);
+  document.getElementById('factura-titulo').textContent = `Factura ${factura || '—'}${proveedor ? ' · ' + proveedor : ''}`;
+  if (!lineas.length) {
+    document.getElementById('factura-sub').textContent = kiosko;
+    document.getElementById('factura-body').innerHTML = '<div class="empty-state">No se encontraron más líneas de esta factura en Desglose_IA.</div>';
+  } else {
+    const moneda = lineas[0]['Moneda'] || '';
+    const totalRow = lineas.find(l => l['Total factura'] !== '' && l['Total factura'] != null);
+    document.getElementById('factura-sub').textContent = `${kiosko} · ${lineas[0]['Fecha de factura']||''} · ${lineas.length} línea${lineas.length===1?'':'s'}${moneda ? ' · ' + moneda : ''}`;
+    document.getElementById('factura-body').innerHTML = `<div class="hist-table-wrap"><table class="hist-table">
+      <thead><tr><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Unidad</th><th>Precio unitario</th><th>Descuento</th><th>Impuesto</th><th>Total línea</th></tr></thead>
+      <tbody>${lineas.map(l => filaDetalleHtml([
+        escapeAttr(l['Producto'])||'—',
+        escapeAttr(l['Categoría'])||'—',
+        (Number(l['Cantidad'])||0).toLocaleString('es-CR'),
+        escapeAttr(l['Unidad de medida'])||'—',
+        fmtMoneda(l['Precio unitario'], moneda),
+        fmtMoneda(l['Descuento'], moneda),
+        fmtMoneda(l['Impuesto'], moneda),
+        fmtMoneda(l['Total línea'], moneda)
+      ])).join('')}</tbody>
+    </table></div>${totalRow ? `<p class="card-note" style="margin:.8rem 0 0;text-align:right"><b>Total factura: ${fmtMoneda(totalRow['Total factura'], moneda)}</b></p>` : ''}`;
+  }
+  document.getElementById('modal-factura').classList.add('open');
+}
 async function abrirDetalleLinea(kiosko, estiloId) {
   const estilo = ESTILOS.find(e => e.id === estiloId);
   if (!estilo) return;
@@ -1700,7 +1769,7 @@ async function abrirDetalleLinea(kiosko, estiloId) {
       </div>
       ${r.comprasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
         <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Producto</th><th>Cant.</th><th>Barriles</th><th>Peso</th></tr></thead>
-        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, escapeAttr(c.factura)||'—', escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), c.barriles.toLocaleString('es-CR'), fmtG(c.pesoG)])).join('')}</tbody>
+        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, (c.factura ? `<a class="foto-link" href="javascript:void(0)" onclick="abrirDetalleFactura('${escapeAttr(kiosko)}','${escapeJsAttr(c.factura)}','${escapeJsAttr(c.proveedor)}')">${escapeAttr(c.factura)}</a>` : '—'), escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), c.barriles.toLocaleString('es-CR'), fmtG(c.pesoG)])).join('')}</tbody>
       </table></div>` : '<div class="empty-state">Sin compras homologadas en el período.</div>'}
     </div>
     <div class="detalle-sec">
@@ -1746,7 +1815,7 @@ async function abrirDetalleLineaBotella(kiosko, estiloId) {
       <div class="detalle-sec-head"><span class="detalle-sec-titulo">Compras (${r.comprasDetalle.length})</span><span class="detalle-sec-total">+ ${Math.round(r.compras).toLocaleString('es-CR')} u.</span></div>
       ${r.comprasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
         <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Producto</th><th>Cant. factura</th><th>Unidades</th></tr></thead>
-        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, escapeAttr(c.factura)||'—', escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), Math.round(c.unidades).toLocaleString('es-CR')])).join('')}</tbody>
+        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, (c.factura ? `<a class="foto-link" href="javascript:void(0)" onclick="abrirDetalleFactura('${escapeAttr(kiosko)}','${escapeJsAttr(c.factura)}','${escapeJsAttr(c.proveedor)}')">${escapeAttr(c.factura)}</a>` : '—'), escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), Math.round(c.unidades).toLocaleString('es-CR')])).join('')}</tbody>
       </table></div>` : '<div class="empty-state">Sin compras homologadas en el período.</div>'}
     </div>
     <div class="detalle-sec">
@@ -1774,7 +1843,7 @@ async function abrirDetalleLineaProteina(kiosko, proteinaId) {
       <div class="detalle-sec-head"><span class="detalle-sec-titulo">Compras (${r.comprasDetalle.length})</span><span class="detalle-sec-total">+ ${fmtG(r.compras)}</span></div>
       ${r.comprasDetalle.length ? `<div class="hist-table-wrap"><table class="hist-table">
         <thead><tr><th>Fecha</th><th>Factura</th><th>Proveedor</th><th>Producto</th><th>Cant. factura</th><th>Peso</th></tr></thead>
-        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, escapeAttr(c.factura)||'—', escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), c.sinConvertir ? '<span class="badge badge-amber">sin Unidad Receta en el Maestro</span>' : fmtG(c.pesoG)])).join('')}</tbody>
+        <tbody>${r.comprasDetalle.map(c => filaDetalleHtml([c.fecha, (c.factura ? `<a class="foto-link" href="javascript:void(0)" onclick="abrirDetalleFactura('${escapeAttr(kiosko)}','${escapeJsAttr(c.factura)}','${escapeJsAttr(c.proveedor)}')">${escapeAttr(c.factura)}</a>` : '—'), escapeAttr(c.proveedor)||'—', escapeAttr(c.producto), c.cantidad.toLocaleString('es-CR'), c.sinConvertir ? '<span class="badge badge-amber">sin Unidad Receta en el Maestro</span>' : fmtG(c.pesoG)])).join('')}</tbody>
       </table></div>` : '<div class="empty-state">Sin compras homologadas en el período.</div>'}
     </div>
     <div class="detalle-sec">
