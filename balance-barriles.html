@@ -1671,8 +1671,28 @@ async function abrirDetalleLinea(kiosko, estiloId) {
   const sinPuntoNotaDetalle = r.sinPunto ? ' · sin peso inicial registrado, asumiendo 0' : '';
   document.getElementById('detalle-sub').textContent = `Desde ${r.desde || '(inicio de los datos disponibles)'} hasta ${r.hasta}${bodegaNotaDetalle}${sinPuntoNotaDetalle}`;
   const pctEstilo = r.mermaTotal > 0 ? (r.mermaProrrateada / r.mermaTotal * 100) : 0;
+  const aperturaHtml = r.sinPunto
+    ? '<div class="empty-state">Sin peso inicial registrado — se está asumiendo 0.</div>'
+    : `<div class="hist-table-wrap"><table class="hist-table">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Peso bruto</th><th>Tara</th><th>Peso neto</th><th>Bodega</th><th>Registró</th><th>Notas</th><th>Foto</th></tr></thead>
+        <tbody>${filaDetalleHtml([
+          r.punto.fecha,
+          `<span class="badge ${r.punto.tipo==='Reset'?'badge-amber':'badge-green'}">${r.punto.tipo==='Reset'?'Reset':'Peso inicial'}</span>`,
+          fmtG(r.punto.pesoBruto), fmtG(r.punto.tara), `<b>${fmtG(r.punto.pesoNeto)}</b>`,
+          r.punto.barrilesBodega ? ('+'+r.punto.barrilesBodega) : '—',
+          escapeAttr(r.punto.registradoPor)||'—', escapeAttr(r.punto.notas)||'—',
+          r.punto.fotoUrl ? `<a href="${r.punto.fotoUrl}" target="_blank" rel="noopener" class="foto-link">Ver foto ↗</a>` : '—'
+        ])}</tbody>
+      </table></div>`;
 
   document.getElementById('detalle-body').innerHTML = `
+    <div class="detalle-sec">
+      <div class="detalle-sec-head">
+        <span class="detalle-sec-titulo">Apertura (punto de partida)</span>
+        ${!r.sinPunto ? `<span class="detalle-sec-total">${fmtG(r.punto.pesoNeto)}</span>` : ''}
+      </div>
+      ${aperturaHtml}
+    </div>
     <div class="detalle-sec">
       <div class="detalle-sec-head">
         <span class="detalle-sec-titulo">Compras (${r.comprasDetalle.length})</span>
