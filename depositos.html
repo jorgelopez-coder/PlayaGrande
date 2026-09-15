@@ -197,9 +197,10 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('resumen',this)">Resumen diario</button>
-  <button class="tab-btn" onclick="showTab('asignar',this)">Asignar depósito</button>
-  <button class="tab-btn" onclick="showTab('historial',this)">Historial de depósitos</button>
+  <button class="tab-btn active" id="tabbtn-resumen" onclick="showTab('resumen',this)">Resumen diario</button>
+  <button class="tab-btn" id="tabbtn-contar" onclick="showTab('contar',this)">Contar billetes</button>
+  <button class="tab-btn" id="tabbtn-asignar" onclick="showTab('asignar',this)">Asignar depósito</button>
+  <button class="tab-btn" id="tabbtn-historial" onclick="showTab('historial',this)">Historial de depósitos</button>
 </div>
 
 <main>
@@ -252,6 +253,42 @@ tr:last-child td{border-bottom:none}
       <div><div class="sel-lbl">Total $</div><div class="sel-val" id="resumen-sel-usd">$0.00</div></div>
     </div>
   </div>
+</div>
+
+<!-- ── TAB CONTAR BILLETES ── -->
+<div class="page" id="tab-contar">
+
+  <div class="card">
+    <p class="card-title">Contar efectivo de sobres — colones</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Anotá cuántos billetes y monedas de cada denominación hay en los sobres — el total se calcula solo.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Denominación</th><th style="text-align:right;width:100px">Cantidad</th><th style="text-align:right">Subtotal</th></tr></thead>
+        <tbody id="calc-crc-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Contar efectivo de sobres — dólares</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Denominación</th><th style="text-align:right;width:100px">Cantidad</th><th style="text-align:right">Subtotal</th></tr></thead>
+        <tbody id="calc-usd-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="cuadre-card">
+    <div class="cuadre-row"><label>Total contado (₡)</label><span class="val" id="calc-total-crc">₡0</span></div>
+    <div class="cuadre-row"><label>Total contado ($)</label><span class="val" id="calc-total-usd">$0.00</span></div>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-secondary" onclick="limpiarCalculadora()">Limpiar</button>
+    <button class="btn-primary" onclick="usarTotalEnComprobante()">Usar este total en el comprobante →</button>
+  </div>
+
 </div>
 
 <!-- ── TAB ASIGNAR DEPÓSITO ── -->
@@ -1133,10 +1170,66 @@ function showToast(msg, type='success') {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 
+// ── CALCULADORA DE BILLETES (contar efectivo de sobres) ─────────────
+let calcTotalCrc = 0, calcTotalUsd = 0;
+
+function filaCalc(id, etiqueta) {
+  return `<tr>
+    <td>${etiqueta}</td>
+    <td style="text-align:right"><input type="number" min="0" step="1" inputmode="numeric" value="0" id="${id}" style="text-align:right" oninput="actualizarCalculadora()" onfocus="this.select()"/></td>
+    <td class="num" id="${id}-sub">₡0</td>
+  </tr>`;
+}
+
+function renderCalculadora() {
+  document.getElementById('calc-crc-body').innerHTML =
+    DENOMS_BILLETES_CRC.map((v,i) => filaCalc('calc-crc-b'+i, 'Billete ' + fmtCRC(v))).join('') +
+    DENOMS_MONEDAS_CRC.map((v,i) => filaCalc('calc-crc-m'+i, 'Moneda ' + fmtCRC(v))).join('');
+  document.getElementById('calc-usd-body').innerHTML =
+    DENOMS_BILLETES_USD.map((v,i) => filaCalc('calc-usd-b'+i, 'Billete $' + v)).join('');
+  actualizarCalculadora();
+}
+
+function actualizarCalculadora() {
+  let totalCrc = 0, totalUsd = 0;
+  DENOMS_BILLETES_CRC.forEach((v,i) => {
+    const q = +document.getElementById('calc-crc-b'+i).value || 0;
+    const sub = q * v; totalCrc += sub;
+    document.getElementById('calc-crc-b'+i+'-sub').textContent = fmtCRC(sub);
+  });
+  DENOMS_MONEDAS_CRC.forEach((v,i) => {
+    const q = +document.getElementById('calc-crc-m'+i).value || 0;
+    const sub = q * v; totalCrc += sub;
+    document.getElementById('calc-crc-m'+i+'-sub').textContent = fmtCRC(sub);
+  });
+  DENOMS_BILLETES_USD.forEach((v,i) => {
+    const q = +document.getElementById('calc-usd-b'+i).value || 0;
+    const sub = q * v; totalUsd += sub;
+    document.getElementById('calc-usd-b'+i+'-sub').textContent = fmtUSD(sub);
+  });
+  calcTotalCrc = totalCrc; calcTotalUsd = totalUsd;
+  document.getElementById('calc-total-crc').textContent = fmtCRC(totalCrc);
+  document.getElementById('calc-total-usd').textContent = fmtUSD(totalUsd);
+}
+
+function limpiarCalculadora() {
+  document.querySelectorAll('#tab-contar input[type=number]').forEach(inp => inp.value = 0);
+  actualizarCalculadora();
+}
+
+function usarTotalEnComprobante() {
+  document.getElementById('dep-monto-crc').value = calcTotalCrc;
+  document.getElementById('dep-monto-usd').value = calcTotalUsd.toFixed(2);
+  actualizarComparacion();
+  showTab('asignar', document.getElementById('tabbtn-asignar'));
+  showToast('Total aplicado al comprobante ✓');
+}
+
 // ── INIT ──────────────────────────────────────────────────────────
 document.getElementById('input-foto-comprobante').addEventListener('change', e => handleFotoComprobante(e.target.files[0]));
 document.getElementById('dep-fecha').value = hoyISO;
 if (EXTRACTOR_URL) document.getElementById('ia-box-extractor').style.display = 'block';
+renderCalculadora();
 cargarKioskos().then(cargarDatos);
 </script>
 </body>
