@@ -542,15 +542,23 @@ let SERVICIO_DETALLE_CACHE = [];
 let HORARIOS_CACHE = []; // filas de la hoja "Horarios" (horarios.html) — para sugerir colaboradores no incluidos y la nota de horas registradas en el Paso 2.
 
 async function cargarDatosCompartidos() {
-  const r = await fetchLoteJSON(['personal', 'vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios']);
-  TODOS_PERSONAL = r.personal.ok ? r.personal.registros : [];
-  VACACIONES_CACHE = r.vacaciones.ok ? r.vacaciones.registros : [];
-  PERMISOS_CACHE = r.permisos_sin_goce.ok ? r.permisos_sin_goce.registros : [];
-  FERIADOS_CACHE = r.feriados.ok ? r.feriados.registros : [];
-  AMONESTACIONES_CACHE = r.amonestaciones.ok ? r.amonestaciones.registros : [];
-  HORAS_EXTRA_CACHE = r.horas_extra.ok ? r.horas_extra.registros : [];
-  SERVICIO_DETALLE_CACHE = r.servicio_detalle.ok ? r.servicio_detalle.registros : [];
-  HORARIOS_CACHE = r.horarios.ok ? r.horarios.registros : [];
+  // Partido en 2 llamadas de 4 modulos en paralelo en vez de 1 con los 8
+  // juntos (2026-09-15): la llamada combinada tardaba tanto en Apps
+  // Script que devolvia 503/404 intermitente y la pestana de Planilla no
+  // cargaba ("No se pudo conectar con Google Sheets"). Cada mitad sigue
+  // reintentando sola hasta 3 veces (fetchLoteJSON/fetchBackendJSON).
+  const [r1, r2] = await Promise.all([
+    fetchLoteJSON(['personal', 'vacaciones', 'permisos_sin_goce', 'feriados']),
+    fetchLoteJSON(['amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios'])
+  ]);
+  TODOS_PERSONAL = r1.personal.ok ? r1.personal.registros : [];
+  VACACIONES_CACHE = r1.vacaciones.ok ? r1.vacaciones.registros : [];
+  PERMISOS_CACHE = r1.permisos_sin_goce.ok ? r1.permisos_sin_goce.registros : [];
+  FERIADOS_CACHE = r1.feriados.ok ? r1.feriados.registros : [];
+  AMONESTACIONES_CACHE = r2.amonestaciones.ok ? r2.amonestaciones.registros : [];
+  HORAS_EXTRA_CACHE = r2.horas_extra.ok ? r2.horas_extra.registros : [];
+  SERVICIO_DETALLE_CACHE = r2.servicio_detalle.ok ? r2.servicio_detalle.registros : [];
+  HORARIOS_CACHE = r2.horarios.ok ? r2.horarios.registros : [];
 }
 
 // VACACIONES_CACHE (FERIADOS_CACHE y AMONESTACIONES_CACHE) se cargan una
@@ -567,8 +575,13 @@ async function refrescarVacaciones(btn) {
   const textoOriginal = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    const r = await fetchLoteJSON(['vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios']);
-    const dVac = r.vacaciones, dPerm = r.permisos_sin_goce, dFer = r.feriados, dAmo = r.amonestaciones, dHex = r.horas_extra, dServ = r.servicio_detalle, dHor = r.horarios;
+    // Mismo partido en 2 llamadas en paralelo que cargarDatosCompartidos()
+    // (2026-09-15).
+    const [r1, r2] = await Promise.all([
+      fetchLoteJSON(['vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones']),
+      fetchLoteJSON(['horas_extra', 'servicio_detalle', 'horarios'])
+    ]);
+    const dVac = r1.vacaciones, dPerm = r1.permisos_sin_goce, dFer = r1.feriados, dAmo = r1.amonestaciones, dHex = r2.horas_extra, dServ = r2.servicio_detalle, dHor = r2.horarios;
     if (dVac.ok) VACACIONES_CACHE = dVac.registros;
     if (dPerm.ok) PERMISOS_CACHE = dPerm.registros;
     if (dFer.ok) FERIADOS_CACHE = dFer.registros;
