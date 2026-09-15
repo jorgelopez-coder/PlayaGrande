@@ -376,6 +376,17 @@ async function fetchBackendJSON(url, intentos = 3) {
   }
   throw ultimoError;
 }
+// Trae varios módulos en UNA sola llamada al backend (?modulo=lote) en vez
+// de una llamada por módulo en paralelo — evita chocar contra el límite de
+// ejecuciones simultáneas de Apps Script cuando una pantalla necesita 7-10
+// módulos a la vez (ver cargarDatosCompartidos/refrescarVacaciones más
+// abajo). Devuelve un objeto { <modulo>: {ok, registros, ...} } — mismo
+// shape que cada llamada suelta habría devuelto por separado.
+async function fetchLoteJSON(modulos) {
+  const data = await fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=lote&modulos=' + modulos.join(','));
+  if (!data.ok) throw new Error(data.error || 'No se pudo cargar el lote de módulos.');
+  return data.resultados;
+}
 function postBackend(payload) {
   return fetchConTimeout(APPS_SCRIPT_URL, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) })
     .then(r => r.json());
@@ -531,24 +542,15 @@ let SERVICIO_DETALLE_CACHE = [];
 let HORARIOS_CACHE = []; // filas de la hoja "Horarios" (horarios.html) — para sugerir colaboradores no incluidos y la nota de horas registradas en el Paso 2.
 
 async function cargarDatosCompartidos() {
-  const [dPersonal, dVac, dPerm, dFer, dAmo, dHex, dServ, dHor] = await Promise.all([
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=personal'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=vacaciones'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=permisos_sin_goce'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=feriados'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=horas_extra'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=servicio_detalle'),
-    fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=horarios')
-  ]);
-  TODOS_PERSONAL = dPersonal.ok ? dPersonal.registros : [];
-  VACACIONES_CACHE = dVac.ok ? dVac.registros : [];
-  PERMISOS_CACHE = dPerm.ok ? dPerm.registros : [];
-  FERIADOS_CACHE = dFer.ok ? dFer.registros : [];
-  AMONESTACIONES_CACHE = dAmo.ok ? dAmo.registros : [];
-  HORAS_EXTRA_CACHE = dHex.ok ? dHex.registros : [];
-  SERVICIO_DETALLE_CACHE = dServ.ok ? dServ.registros : [];
-  HORARIOS_CACHE = dHor.ok ? dHor.registros : [];
+  const r = await fetchLoteJSON(['personal', 'vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios']);
+  TODOS_PERSONAL = r.personal.ok ? r.personal.registros : [];
+  VACACIONES_CACHE = r.vacaciones.ok ? r.vacaciones.registros : [];
+  PERMISOS_CACHE = r.permisos_sin_goce.ok ? r.permisos_sin_goce.registros : [];
+  FERIADOS_CACHE = r.feriados.ok ? r.feriados.registros : [];
+  AMONESTACIONES_CACHE = r.amonestaciones.ok ? r.amonestaciones.registros : [];
+  HORAS_EXTRA_CACHE = r.horas_extra.ok ? r.horas_extra.registros : [];
+  SERVICIO_DETALLE_CACHE = r.servicio_detalle.ok ? r.servicio_detalle.registros : [];
+  HORARIOS_CACHE = r.horarios.ok ? r.horarios.registros : [];
 }
 
 // VACACIONES_CACHE (FERIADOS_CACHE y AMONESTACIONES_CACHE) se cargan una
@@ -565,15 +567,8 @@ async function refrescarVacaciones(btn) {
   const textoOriginal = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
-    const [dVac, dPerm, dFer, dAmo, dHex, dServ, dHor] = await Promise.all([
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=vacaciones'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=permisos_sin_goce'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=feriados'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=amonestaciones'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=horas_extra'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=servicio_detalle'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=horarios')
-    ]);
+    const r = await fetchLoteJSON(['vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios']);
+    const dVac = r.vacaciones, dPerm = r.permisos_sin_goce, dFer = r.feriados, dAmo = r.amonestaciones, dHex = r.horas_extra, dServ = r.servicio_detalle, dHor = r.horarios;
     if (dVac.ok) VACACIONES_CACHE = dVac.registros;
     if (dPerm.ok) PERMISOS_CACHE = dPerm.registros;
     if (dFer.ok) FERIADOS_CACHE = dFer.registros;
@@ -922,10 +917,8 @@ async function cargarTabPlanilla() {
   try {
     if (!TODOS_PERSONAL.length) await cargarDatosCompartidos();
 
-    const [dPlanillas, dIncidencias] = await Promise.all([
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=planillas'),
-      fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=incidencias')
-    ]);
+    const lote = await fetchLoteJSON(['planillas', 'incidencias']);
+    const dPlanillas = lote.planillas, dIncidencias = lote.incidencias;
 
     const planillaFila = (dPlanillas.ok ? dPlanillas.registros : [])
       .find(row => String(row['Periodo']) === r.periodo && mismoKiosko(row['Kiosko'], kiosko));
