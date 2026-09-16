@@ -79,23 +79,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 .banner{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 16px;font-size:12.5px;margin-bottom:1rem}
 
-.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border)}
-.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
-.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
-.tab-btn:hover:not(.active){color:var(--text)}
-.page{display:none}.page.active{display:block}
-
-.hist-filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
-.hist-filtros select,.hist-filtros input[type=date]{width:auto;min-width:150px}
-.hist-count{font-size:12px;color:var(--muted);margin-bottom:10px}
-.hist-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
-.hist-table{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
-.hist-table th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
-.hist-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
-.hist-table tr:last-child td{border-bottom:none}
-.hist-thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--surface);display:block}
-.hist-foto-empty{color:var(--subtle)}
-
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row{grid-template-columns:1fr}
@@ -115,13 +98,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <span class="date-chip" id="date-chip"></span>
 </header>
 
-<div class="tabs">
-  <button class="tab-btn active" onclick="showTab('nueva',this)">Nueva toma</button>
-  <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
-</div>
-
 <main>
-<div class="page active" id="tab-nueva">
   <p class="subtitle">Captura de pesos y existencias por kiosko: todos los tipos de cerveza a la vez, con foto de evidencia. Solo captura datos — sin cálculos ni comparaciones, eso vive en Controles.</p>
 
   <div id="banner-holder"></div>
@@ -160,27 +137,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       Guardar y enviar por WhatsApp
     </button>
   </div>
-</div><!-- /tab-nueva -->
-
-<div class="page" id="tab-historial">
-  <p class="subtitle">Todos los pesajes guardados, con la hora exacta en que quedaron guardados y su foto de evidencia.</p>
-  <div class="hist-filtros">
-    <select id="hist-kiosko" onchange="renderHistorial()"><option value="">Todos los kioskos</option></select>
-    <input type="date" id="hist-desde" onchange="renderHistorial()"/>
-    <span style="color:var(--subtle);font-size:12px">a</span>
-    <input type="date" id="hist-hasta" onchange="renderHistorial()"/>
-    <button class="btn-sm" onclick="cargarHistorial()" style="margin-left:auto">↻ Actualizar</button>
-  </div>
-  <div class="hist-count" id="hist-count"></div>
-  <div class="hist-table-wrap">
-    <table class="hist-table">
-      <thead>
-        <tr><th>Fecha</th><th>Kiosko</th><th>Tipo de cerveza</th><th>Peso bruto (g)</th><th>Barriles llenos</th><th>Foto</th><th>Guardado</th><th>Registró</th><th>Notas</th></tr>
-      </thead>
-      <tbody id="hist-body"><tr><td colspan="9"><div class="hint">Cargando…</div></td></tr></tbody>
-    </table>
-  </div>
-</div><!-- /tab-historial -->
 </main>
 
 <div class="toast" id="toast">
@@ -225,7 +181,6 @@ const KIOSKOS_RESPALDO = ['Playa Grande','Liberia','Nosara','Playa Hermosa','Tam
 let KIOSKOS = [];
 let ESTILOS = []; // [{id,nombre}] activos, leídos de Controles
 let fotosPorEstilo = {}; // { [estiloId]: dataUrl|null }
-let REGISTROS_HISTORIAL = []; // registros crudos del backend, ya filtrados por kiosko permitido
 
 document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('ps-fecha').value = hoy();
@@ -248,9 +203,6 @@ async function cargarKioskosUI() {
     showToast('No se pudo confirmar la lista de kioskos — mostrando la última conocida', 'error');
   }
   sel.innerHTML = '<option value="" disabled selected>Elegí un kiosko</option>' +
-    KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('');
-  const histSel = document.getElementById('hist-kiosko');
-  if (histSel) histSel.innerHTML = '<option value="">Todos los kioskos</option>' +
     KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('');
 }
 async function cargarKioskosDesdeBackend(url) {
@@ -459,67 +411,6 @@ function enviarWhatsAppDesde(kiosko, fecha, items) {
     if (it.fotoUrl) msg += `\n   Foto: ${it.fotoUrl}`;
   });
   window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-}
-
-// ── TABS ──────────────────────────────────────────────────────────
-function showTab(tab, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  el.classList.add('active');
-  if (tab === 'historial') cargarHistorial();
-}
-
-// ── HISTORIAL: lee el mismo backend (?modulo=registros, ya listo del lado
-// del server) y lo muestra en tabla, con foto y hora exacta de guardado.
-// Se filtra en el cliente por kiosko permitido (mismo criterio que el
-// formulario) y por los filtros de kiosko/fecha que elija quien lo mira.
-async function cargarHistorial() {
-  const body = document.getElementById('hist-body');
-  body.innerHTML = '<tr><td colspan="9"><div class="hint">Cargando…</div></td></tr>';
-  try {
-    const resp = await fetchConTimeout(PESOS_SIFONES_URL + '?modulo=registros', {}, 20000);
-    const data = await resp.json();
-    if (!data.ok || !Array.isArray(data.registros)) throw new Error(data.error || 'Respuesta inválida del servidor');
-    REGISTROS_HISTORIAL = data.registros
-      .filter(r => kioskosPermitidos([r['Kiosko']]).length > 0)
-      .sort((a, b) => String(b['ID'] || '').localeCompare(String(a['ID'] || ''))); // ID trae fecha-hora al inicio → más reciente primero
-    renderHistorial();
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="9"><div class="hint" style="color:var(--red)">No se pudo cargar el historial (${e.message}). <button class="btn-sm" onclick="cargarHistorial()">Reintentar</button></div></td></tr>`;
-  }
-}
-function renderHistorial() {
-  const kioskoSel = document.getElementById('hist-kiosko').value;
-  const desde = document.getElementById('hist-desde').value;
-  const hasta = document.getElementById('hist-hasta').value;
-  const filtrados = REGISTROS_HISTORIAL.filter(r => {
-    if (kioskoSel && r['Kiosko'] !== kioskoSel) return false;
-    const f = r['Fecha'] || '';
-    if (desde && f < desde) return false;
-    if (hasta && f > hasta) return false;
-    return true;
-  });
-  document.getElementById('hist-count').textContent = `${filtrados.length} registro${filtrados.length === 1 ? '' : 's'}`;
-  const body = document.getElementById('hist-body');
-  if (!filtrados.length) { body.innerHTML = '<tr><td colspan="9"><div class="hint">Sin pesajes registrados para este filtro.</div></td></tr>'; return; }
-  body.innerHTML = filtrados.map(r => {
-    const foto = r['Foto URL']
-      ? `<a href="${r['Foto URL']}" target="_blank" rel="noopener"><img class="hist-thumb" src="${r['Foto URL']}" alt="Foto" onerror="this.outerHTML='<span class=&quot;hist-foto-empty&quot;>📷</span>'"/></a>`
-      : '<span class="hist-foto-empty">—</span>';
-    return `
-    <tr>
-      <td>${fmtFechaBonita(r['Fecha'])}</td>
-      <td>${escapeAttr(r['Kiosko'] || '')}</td>
-      <td>${escapeAttr(r['Estilo'] || '')}</td>
-      <td>${r['Peso Bruto (g)'] ? Number(r['Peso Bruto (g)']).toLocaleString('es-CR') : '—'}</td>
-      <td>${r['Barriles Llenos Bodega'] || '—'}</td>
-      <td>${foto}</td>
-      <td>${escapeAttr(r['Guardado'] || '—')}</td>
-      <td>${escapeAttr(r['Registrado por'] || '—')}</td>
-      <td>${escapeAttr(r['Notas'] || '')}</td>
-    </tr>`;
-  }).join('');
 }
 </script>
 </body>

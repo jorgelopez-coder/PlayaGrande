@@ -51,7 +51,7 @@
 const HOJA_REGISTROS = 'Registros';
 const ENCABEZADOS_REGISTROS = [
   'ID', 'Fecha', 'Kiosko', 'Estilo', 'Peso Bruto (g)', 'Barriles Llenos Bodega',
-  'Foto URL', 'Registrado por', 'Registrado', 'Notas', 'Guardado'
+  'Foto URL', 'Registrado por', 'Registrado', 'Notas'
 ];
 
 // ── CARPETA DE FOTOS ────────────────────────────────────────────────
@@ -62,7 +62,6 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Pesos Sifones')
     .addItem('Configurar hojas (correr una vez)', 'configurarHojas')
-    .addItem('Arreglar fotos existentes (correr una vez)', 'arreglarFotosExistentes')
     .addToUi();
 }
 
@@ -132,24 +131,6 @@ function hoyCR() {
   return Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
 }
 
-// Hora EXACTA en la que el servidor guardó el registro (no la del celular/
-// navegador de quien pesa, que puede estar mal puesta) — la que se muestra
-// en el Historial como "Guardado".
-function horaGuardadoCR_() {
-  return Utilities.formatDate(new Date(), 'America/Costa_Rica', "dd/MM/yyyy HH:mm");
-}
-
-// Si no se fuerza formato de texto ANTES de escribir el valor, Sheets
-// interpreta "dd/MM/yyyy HH:mm" como fecha/hora real y filasComoObjetos()
-// la vuelve a formatear como solo-fecha (pierde la hora). Con la celda en
-// texto plano ('@'), el valor queda guardado tal cual se mandó.
-function forzarColumnaTexto_(hoja, fila, encabezadosEsperados, nombreCol) {
-  const nCols = Math.max(hoja.getLastColumn(), encabezadosEsperados.length);
-  const encabezadosReales = hoja.getRange(1, 1, 1, nCols).getValues()[0];
-  const col = encabezadosReales.indexOf(nombreCol) + 1;
-  if (col > 0) hoja.getRange(fila, col).setNumberFormat('@');
-}
-
 // ── REGISTROS: guardar por lote ──────────────────────────────────────
 // Un item por cada tipo de cerveza que el formulario mandó con datos
 // (peso y/o barriles llenos > 0 — los vacíos ya se filtran del lado del
@@ -172,8 +153,6 @@ function registrosGuardarLote(p) {
     const id = generarId_('PS');
     const fotoUrl = guardarFotoEnDrive(item, id, p.kiosko, fecha);
     const fila = hoja.getLastRow() + 1;
-    const guardadoEn = horaGuardadoCR_();
-    forzarColumnaTexto_(hoja, fila, ENCABEZADOS_REGISTROS, 'Guardado');
     escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_REGISTROS, {
       'ID': id,
       'Fecha': fecha,
@@ -184,13 +163,11 @@ function registrosGuardarLote(p) {
       'Foto URL': fotoUrl,
       'Registrado por': p.registrado_por || '',
       'Registrado': p.registrado_en || new Date().toISOString(),
-      'Notas': p.notas || '',
-      'Guardado': guardadoEn
+      'Notas': p.notas || ''
     });
     resultado.push({
       id: id, identificacion: item.identificacion || '',
-      pesoBruto: pesoBruto, barrilesLlenos: barrilesLlenos, fotoUrl: fotoUrl,
-      guardadoEn: guardadoEn
+      pesoBruto: pesoBruto, barrilesLlenos: barrilesLlenos, fotoUrl: fotoUrl
     });
   });
 
@@ -210,40 +187,7 @@ function guardarFotoEnDrive(item, id, kiosko, fecha) {
   const bytes = Utilities.base64Decode(datos.base64);
   const blob = Utilities.newBlob(bytes, datos.mime, nombre);
   const file = carpeta.createFile(blob);
-  // file.getUrl() es la página visor de Drive (HTML), no sirve como <img
-  // src>. Se comparte por link y se devuelve la URL de thumbnail, que sí
-  // es una imagen directa (mismo fix aplicado en Activos, ver
-  // project_activos_foto_thumbnail_rota).
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
-}
-
-// Función de uso único: repara fotos ya guardadas con la URL vieja (visor
-// de Drive, no imagen) — correr una sola vez a mano desde este editor si
-// ya hay registros guardados antes de este fix. No toca nada más.
-function arreglarFotosExistentes() {
-  const hoja = prepararHoja(HOJA_REGISTROS, ENCABEZADOS_REGISTROS);
-  const nFilas = hoja.getLastRow() - 1;
-  if (nFilas <= 0) return 'Sin registros.';
-  const encabezados = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-  const colFoto = encabezados.indexOf('Foto URL') + 1;
-  if (colFoto <= 0) return 'No existe la columna Foto URL.';
-  const rango = hoja.getRange(2, colFoto, nFilas, 1);
-  const valores = rango.getValues();
-  let arregladas = 0;
-  for (let i = 0; i < valores.length; i++) {
-    const url = String(valores[i][0] || '');
-    const match = /\/file\/d\/([^/]+)\//.exec(url) || /[?&]id=([^&]+)/.exec(url);
-    if (!match || url.indexOf('thumbnail?id=') >= 0) continue; // ya está bien o no es de Drive
-    try {
-      const file = DriveApp.getFileById(match[1]);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      valores[i][0] = 'https://drive.google.com/thumbnail?id=' + match[1] + '&sz=w800';
-      arregladas++;
-    } catch (e) { /* archivo movido/borrado, se deja como está */ }
-  }
-  rango.setValues(valores);
-  return 'Fotos arregladas: ' + arregladas + ' de ' + valores.length;
+  return file.getUrl();
 }
 
 function getOrCreateCarpetaKiosko(kiosko) {
