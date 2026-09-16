@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Toma de Pesos · Sifones - Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+main{max-width:640px;margin:0 auto;padding:2rem 2rem 5rem}
+.subtitle{font-size:12.5px;color:var(--muted);margin:-.75rem 0 1.5rem}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=date],input[type=number],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
+
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color .15s;position:relative}
+.foto-upload:hover{border-color:var(--green);color:var(--green)}
+.foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.foto-preview-wrap{position:relative;margin-top:10px;width:100%}
+.foto-preview-wrap img{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+
+.neto-box{display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:10px;padding:12px 16px;margin-top:.5rem}
+.neto-label{font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.05em}
+.neto-val{font-family:var(--font-m);font-size:20px;font-weight:700;color:var(--green)}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+.banner{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 16px;font-size:12.5px;margin-bottom:1rem}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
+  .field-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">⚖️ Toma de Pesos · Sifones</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<main>
+  <p class="subtitle">Registro rápido por kiosko: peso del sifón (barril) de cerveza con foto como evidencia. Sin saldo esperado ni comparaciones — eso vive en Controles.</p>
+
+  <div id="banner-holder"></div>
+
+  <div class="card">
+    <p class="card-title">Identificación</p>
+    <div class="field">
+      <label for="ps-kiosko">Kiosko <span class="req">*</span></label>
+      <select id="ps-kiosko"><option value="" disabled selected>Cargando…</option></select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="ps-fecha">Fecha <span class="req">*</span></label>
+        <input type="date" id="ps-fecha"/>
+      </div>
+      <div class="field">
+        <label for="ps-identificacion">Sifón / estilo (opcional)</label>
+        <input type="text" id="ps-identificacion" placeholder="Ej. Pilsen, Sifón 2…"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Foto (evidencia)</p>
+    <div class="field">
+      <div class="foto-upload" id="ps-foto-upload-area">
+        <input type="file" id="ps-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event,'ps')"/>
+        <div id="ps-foto-placeholder">
+          <div style="font-size:28px;margin-bottom:6px">📷</div>
+          <div id="ps-foto-texto">Tocá para tomar foto de la báscula o seleccionar de galería</div>
+          <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB · obligatoria</div>
+        </div>
+      </div>
+      <div class="foto-preview-wrap" id="ps-foto-preview-wrap" style="display:none">
+        <img id="ps-foto-preview-img" src="" alt="Vista previa"/>
+        <button class="foto-remove" onclick="quitarFoto(event,'ps')">×</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Peso (gramos)</p>
+    <div class="field">
+      <label for="ps-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
+      <input type="number" id="ps-peso-bruto" placeholder="Ej. 28500" step="1" min="0" oninput="actualizarNetoSifon()"/>
+    </div>
+    <div class="field">
+      <label for="ps-tara">Tara / peso vacío (g)</label>
+      <input type="number" id="ps-tara" placeholder="0" step="1" min="0" value="0" oninput="actualizarNetoSifon()"/>
+      <div class="hint">Dejalo en 0 si no sabés el peso vacío del sifón.</div>
+    </div>
+    <div class="neto-box">
+      <span class="neto-label">Peso neto</span>
+      <span class="neto-val" id="ps-neto-val">0 g</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Notas (opcional)</p>
+    <textarea id="ps-notas" rows="2" placeholder="Observaciones sobre este registro…"></textarea>
+  </div>
+
+  <div class="submit-area">
+    <button class="btn-secondary" onclick="limpiarFormulario()">Limpiar</button>
+    <button class="btn-primary" id="btn-ps-submit" onclick="guardarRegistroUI()">Guardar registro</button>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" id="toast-icon"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('pesos-sifones')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+}
+function sesionNombre() {
+  try { const s = JSON.parse(localStorage.getItem('portal_sesion') || 'null'); return s && s.nombre || ''; } catch(e) { return ''; }
+}
+
+// ── CONFIG ──────────────────────────────────────────────────────────
+// Mismo backend compartido de RRHH usado en todo el ecosistema: lista de
+// kioskos activos (?modulo=kioskos).
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// TODO: pegar acá la URL /exec del Web App de Code-pesos-sifones-backend.gs
+// una vez desplegado (ver instrucciones al inicio de ese archivo).
+const PESOS_SIFONES_URL = 'TODO_PEGAR_URL_PESOS_SIFONES';
+// Respaldo si el backend compartido de kioskos no responde a tiempo (ver
+// gotcha conocido: cargarKioskosDesdeBackend puede colgarse) — mismo roster
+// vigente en el resto del ecosistema.
+const KIOSKOS_RESPALDO = ['Playa Grande','Liberia','Nosara','Playa Hermosa','Tamarindo','Playa Pelada','Catalinas','Lorito'];
+
+let KIOSKOS = [];
+
+document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+document.getElementById('ps-fecha').value = hoy();
+
+if (PESOS_SIFONES_URL.includes('TODO_PEGAR')) {
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este formulario todavía no está conectado a su backend (Code-pesos-sifones-backend.gs sin desplegar). Los registros no se pueden guardar todavía.</div>';
+  document.getElementById('btn-ps-submit').disabled = true;
+}
+
+cargarKioskosUI();
+async function cargarKioskosUI() {
+  const sel = document.getElementById('ps-kiosko');
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+  if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+    KIOSKOS = kioskosPermitidos(data.kioskos);
+  } else {
+    KIOSKOS = kioskosPermitidos(KIOSKOS_RESPALDO);
+    showToast('No se pudo confirmar la lista de kioskos — mostrando la última conocida', 'error');
+  }
+  sel.innerHTML = '<option value="" disabled selected>Elegí un kiosko</option>' +
+    KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('');
+}
+async function cargarKioskosDesdeBackend(url) {
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try { const resp = await fetchConTimeout(url); return await resp.json(); }
+    catch (e) { ultimoError = e; if (intento < 3) await new Promise(r => setTimeout(r, intento * 800)); }
+  }
+  console.error('No se pudo cargar la lista de kioskos.', ultimoError);
+  return { ok: false };
+}
+async function fetchConTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+function hoy() { return new Date().toISOString().slice(0,10); }
+function escapeAttr(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── FOTO: compresión en el navegador antes de subir (mismo patrón que
+// mermas.html / balance-barriles.html) ──
+let fotoBase64 = { ps: null };
+function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function onFotoSelected(event, pref) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('La foto supera 5 MB', 'error'); return; }
+  comprimirFoto(file).then(dataUrl => {
+    fotoBase64[pref] = dataUrl;
+    document.getElementById(pref+'-foto-placeholder').style.display = 'none';
+    document.getElementById(pref+'-foto-preview-wrap').style.display = 'block';
+    document.getElementById(pref+'-foto-preview-img').src = dataUrl;
+  }).catch(() => showToast('No se pudo procesar la foto', 'error'));
+}
+function quitarFoto(event, pref) {
+  event.preventDefault(); event.stopPropagation();
+  fotoBase64[pref] = null;
+  document.getElementById(pref+'-foto').value = '';
+  document.getElementById(pref+'-foto-placeholder').style.display = 'block';
+  document.getElementById(pref+'-foto-preview-wrap').style.display = 'none';
+}
+
+function actualizarNetoSifon() {
+  const bruto = Number(document.getElementById('ps-peso-bruto').value) || 0;
+  const tara = Number(document.getElementById('ps-tara').value) || 0;
+  const neto = Math.max(0, bruto - tara);
+  document.getElementById('ps-neto-val').textContent = neto.toLocaleString('es-CR') + ' g';
+}
+
+function limpiarFormulario() {
+  document.getElementById('ps-identificacion').value = '';
+  document.getElementById('ps-peso-bruto').value = '';
+  document.getElementById('ps-tara').value = '0';
+  document.getElementById('ps-notas').value = '';
+  actualizarNetoSifon();
+  quitarFoto({preventDefault(){},stopPropagation(){}}, 'ps');
+}
+
+async function guardarRegistroUI() {
+  const kiosko = document.getElementById('ps-kiosko').value;
+  const fecha = document.getElementById('ps-fecha').value || hoy();
+  const identificacion = document.getElementById('ps-identificacion').value.trim();
+  const pesoBruto = document.getElementById('ps-peso-bruto').value;
+  const tara = Number(document.getElementById('ps-tara').value) || 0;
+  const notas = document.getElementById('ps-notas').value;
+
+  if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
+  if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
+  if (!fotoBase64.ps) { showToast('Tomá una foto como evidencia antes de guardar', 'error'); return; }
+
+  const btn = document.getElementById('btn-ps-submit');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'registro_guardar', id: Date.now(), fecha, kiosko,
+    identificacion, pesoBruto: Number(pesoBruto), tara,
+    foto: fotoBase64.ps,
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
+    notas
+  };
+  try {
+    const resp = await fetchConTimeout(PESOS_SIFONES_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast('Registro guardado ✓ ' + (out.pesoNeto||0).toLocaleString('es-CR') + ' g neto');
+    limpiarFormulario(); // mantiene kiosko y fecha para el siguiente sifón
+  } catch(e) {
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally {
+    btn.disabled = PESOS_SIFONES_URL.includes('TODO_PEGAR');
+    btn.textContent = 'Guardar registro';
+  }
+}
+</script>
+</body>
+</html>
