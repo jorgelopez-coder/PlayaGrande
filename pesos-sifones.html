@@ -48,16 +48,16 @@ input::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 .hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
 
-.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:border-color .15s;position:relative}
+.estilo-row{border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:.85rem}
+.estilo-row:last-child{margin-bottom:0}
+.estilo-row-head{font-family:var(--font-d);font-size:14.5px;font-weight:700;margin-bottom:.75rem}
+
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:.85rem;text-align:center;cursor:pointer;color:var(--muted);font-size:12.5px;transition:border-color .15s;position:relative}
 .foto-upload:hover{border-color:var(--green);color:var(--green)}
 .foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.foto-preview-wrap{position:relative;margin-top:10px;width:100%}
-.foto-preview-wrap img{width:100%;max-height:320px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
-.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
-
-.neto-box{display:flex;align-items:center;justify-content:space-between;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:10px;padding:12px 16px;margin-top:.5rem}
-.neto-label{font-size:12px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.05em}
-.neto-val{font-family:var(--font-m);font-size:20px;font-weight:700;color:var(--green)}
+.foto-preview-wrap{position:relative;margin-top:0;width:100%}
+.foto-preview-wrap img{width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 .btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
@@ -65,6 +65,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
 .btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
 .btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-whatsapp{flex:1;min-width:220px;background:#25D366;color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:14px 24px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;justify-content:center}
+.btn-whatsapp:hover{opacity:.9}
+.btn-whatsapp:disabled{opacity:.4;cursor:not-allowed}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -94,71 +99,43 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </header>
 
 <main>
-  <p class="subtitle">Registro rápido por kiosko: peso del sifón (barril) de cerveza con foto como evidencia. Sin saldo esperado ni comparaciones — eso vive en Controles.</p>
+  <p class="subtitle">Captura de pesos y existencias por kiosko: todos los tipos de cerveza a la vez, con foto de evidencia. Solo captura datos — sin cálculos ni comparaciones, eso vive en Controles.</p>
 
   <div id="banner-holder"></div>
 
   <div class="card">
     <p class="card-title">Identificación</p>
-    <div class="field">
-      <label for="ps-kiosko">Kiosko <span class="req">*</span></label>
-      <select id="ps-kiosko"><option value="" disabled selected>Cargando…</option></select>
-    </div>
     <div class="field-row">
+      <div class="field">
+        <label for="ps-kiosko">Kiosko <span class="req">*</span></label>
+        <select id="ps-kiosko"><option value="" disabled selected>Cargando…</option></select>
+      </div>
       <div class="field">
         <label for="ps-fecha">Fecha <span class="req">*</span></label>
         <input type="date" id="ps-fecha"/>
       </div>
-      <div class="field">
-        <label for="ps-identificacion">Sifón / estilo (opcional)</label>
-        <input type="text" id="ps-identificacion" placeholder="Ej. Pilsen, Sifón 2…"/>
-      </div>
     </div>
   </div>
 
   <div class="card">
-    <p class="card-title">Foto (evidencia)</p>
-    <div class="field">
-      <div class="foto-upload" id="ps-foto-upload-area">
-        <input type="file" id="ps-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event,'ps')"/>
-        <div id="ps-foto-placeholder">
-          <div style="font-size:28px;margin-bottom:6px">📷</div>
-          <div id="ps-foto-texto">Tocá para tomar foto de la báscula o seleccionar de galería</div>
-          <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB · obligatoria</div>
-        </div>
-      </div>
-      <div class="foto-preview-wrap" id="ps-foto-preview-wrap" style="display:none">
-        <img id="ps-foto-preview-img" src="" alt="Vista previa"/>
-        <button class="foto-remove" onclick="quitarFoto(event,'ps')">×</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <p class="card-title">Peso (gramos)</p>
-    <div class="field">
-      <label for="ps-peso-bruto">Peso bruto en báscula (g) <span class="req">*</span></label>
-      <input type="number" id="ps-peso-bruto" placeholder="Ej. 28500" step="1" min="0" oninput="actualizarNetoSifon()"/>
-    </div>
-    <div class="field">
-      <label for="ps-tara">Tara / peso vacío (g)</label>
-      <input type="number" id="ps-tara" placeholder="0" step="1" min="0" value="0" oninput="actualizarNetoSifon()"/>
-      <div class="hint">Dejalo en 0 si no sabés el peso vacío del sifón.</div>
-    </div>
-    <div class="neto-box">
-      <span class="neto-label">Peso neto</span>
-      <span class="neto-val" id="ps-neto-val">0 g</span>
-    </div>
+    <p class="card-title">Tipos de cerveza</p>
+    <p class="hint" style="margin-bottom:1rem">Llená solo los que correspondan hoy — dejá el resto en blanco. Si ponés un peso, la foto es obligatoria para ese tipo.</p>
+    <div id="ps-estilos-list"><div class="hint">Cargando tipos de cerveza…</div></div>
   </div>
 
   <div class="card">
     <p class="card-title">Notas (opcional)</p>
-    <textarea id="ps-notas" rows="2" placeholder="Observaciones sobre este registro…"></textarea>
+    <textarea id="ps-notas" rows="2" placeholder="Observaciones sobre esta ronda…"></textarea>
   </div>
 
   <div class="submit-area">
-    <button class="btn-secondary" onclick="limpiarFormulario()">Limpiar</button>
-    <button class="btn-primary" id="btn-ps-submit" onclick="guardarRegistroUI()">Guardar registro</button>
+    <button class="btn-secondary" onclick="limpiarTodoElFormulario()">Limpiar</button>
+  </div>
+  <div class="submit-area">
+    <button class="btn-whatsapp" id="btn-ps-guardar" onclick="guardarYEnviarUI()" disabled>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="margin-right:7px;flex-shrink:0"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.4 5L2 22l5.1-1.3c1.5.8 3.1 1.3 4.9 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.3c-1.6 0-3.2-.4-4.5-1.3l-.3-.2-3 .8.8-2.9-.2-.3C4 15 3.5 13.5 3.5 12 3.5 7.3 7.3 3.5 12 3.5S20.5 7.3 20.5 12 16.7 20.3 12 20.3z"/><path d="M17.5 14.4c-.3-.1-1.7-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.5-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.5.1-.2 0-.4 0-.5C10.1 9 9.6 7.8 9.4 7.3c-.2-.5-.4-.4-.5-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.1s.9 2.5 1.1 2.7c.1.2 1.8 2.8 4.5 3.8.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.3-.2-.6-.3z"/></svg>
+      Guardar y enviar por WhatsApp
+    </button>
   </div>
 </main>
 
@@ -190,6 +167,11 @@ function sesionNombre() {
 // Mismo backend compartido de RRHH usado en todo el ecosistema: lista de
 // kioskos activos (?modulo=kioskos).
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// Backend YA desplegado de Controles (balance-barriles.html) — se usa acá
+// SOLO en modo lectura (?modulo=estilos) para traer "todos los tipos de
+// cerveza" sin mantener un catálogo duplicado. Esta pantalla nunca escribe
+// en ese backend ni en su Sheet de Arqueos/saldo esperado.
+const BALANCE_URL = 'https://script.google.com/macros/s/AKfycbySCH143LmQWVEqN0Kpc_pTVyPEShcOUbMotvnndPqy9GUn6RjkKRBKQgNFyVuq_V_hUw/exec';
 // TODO: pegar acá la URL /exec del Web App de Code-pesos-sifones-backend.gs
 // una vez desplegado (ver instrucciones al inicio de ese archivo).
 const PESOS_SIFONES_URL = 'TODO_PEGAR_URL_PESOS_SIFONES';
@@ -199,16 +181,20 @@ const PESOS_SIFONES_URL = 'TODO_PEGAR_URL_PESOS_SIFONES';
 const KIOSKOS_RESPALDO = ['Playa Grande','Liberia','Nosara','Playa Hermosa','Tamarindo','Playa Pelada','Catalinas','Lorito'];
 
 let KIOSKOS = [];
+let ESTILOS = []; // [{id,nombre}] activos, leídos de Controles
+let fotosPorEstilo = {}; // { [estiloId]: dataUrl|null }
 
 document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('ps-fecha').value = hoy();
 
 if (PESOS_SIFONES_URL.includes('TODO_PEGAR')) {
-  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este formulario todavía no está conectado a su backend (Code-pesos-sifones-backend.gs sin desplegar). Los registros no se pueden guardar todavía.</div>';
-  document.getElementById('btn-ps-submit').disabled = true;
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este formulario todavía no está conectado a su backend (Code-pesos-sifones-backend.gs sin desplegar). Los datos no se pueden guardar todavía.</div>';
 }
 
 cargarKioskosUI();
+cargarEstilosUI();
+actualizarBotonGuardar();
+
 async function cargarKioskosUI() {
   const sel = document.getElementById('ps-kiosko');
   const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
@@ -230,6 +216,58 @@ async function cargarKioskosDesdeBackend(url) {
   console.error('No se pudo cargar la lista de kioskos.', ultimoError);
   return { ok: false };
 }
+
+// ── TIPOS DE CERVEZA: leídos en vivo (solo lectura) del catálogo Estilos
+// de Controles, para no mantener un catálogo duplicado acá ──────────
+async function cargarEstilosUI() {
+  const cont = document.getElementById('ps-estilos-list');
+  try {
+    const resp = await fetchConTimeout(BALANCE_URL + '?modulo=estilos', {}, 15000);
+    const data = await resp.json();
+    if (!data.ok || !Array.isArray(data.registros)) throw new Error(data.error || 'Respuesta inválida del servidor');
+    ESTILOS = data.registros
+      .filter(e => String(e['Activo']||'Sí').toLowerCase() !== 'no')
+      .map(e => ({ id: String(e['ID']||''), nombre: e['Nombre'] || '(sin nombre)' }))
+      .filter(e => e.id)
+      .sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+    if (!ESTILOS.length) {
+      cont.innerHTML = '<div class="hint">No hay tipos de cerveza activos configurados en Controles todavía.</div>';
+    } else {
+      renderEstilos();
+    }
+  } catch (e) {
+    cont.innerHTML = '<div class="hint" style="color:var(--red)">No se pudo cargar la lista de tipos de cerveza (' + e.message + '). <button class="btn-sm" onclick="cargarEstilosUI()">Reintentar</button></div>';
+  }
+  actualizarBotonGuardar();
+}
+function renderEstilos() {
+  document.getElementById('ps-estilos-list').innerHTML = ESTILOS.map(est => `
+    <div class="estilo-row">
+      <div class="estilo-row-head">${escapeAttr(est.nombre)}</div>
+      <div class="foto-upload" id="est-${est.id}-foto-upload-area">
+        <input type="file" id="est-${est.id}-foto" accept="image/*" capture="environment" onchange="onFotoSelected(event,'${est.id}')"/>
+        <div id="est-${est.id}-foto-placeholder">
+          <div style="font-size:22px;margin-bottom:2px">📷</div>
+          <div>Foto de la báscula (obligatoria si hay peso)</div>
+        </div>
+      </div>
+      <div class="foto-preview-wrap" id="est-${est.id}-foto-preview-wrap" style="display:none;margin-bottom:.75rem">
+        <img id="est-${est.id}-foto-preview-img" src="" alt="Vista previa"/>
+        <button class="foto-remove" onclick="quitarFoto(event,'${est.id}')">×</button>
+      </div>
+      <div class="field-row" style="margin-top:.75rem">
+        <div class="field">
+          <label for="est-${est.id}-peso">Peso bruto en báscula (g)</label>
+          <input type="number" id="est-${est.id}-peso" placeholder="Ej. 28500" step="1" min="0"/>
+        </div>
+        <div class="field">
+          <label for="est-${est.id}-barriles">Barriles llenos en bodega</label>
+          <input type="number" id="est-${est.id}-barriles" placeholder="0" step="1" min="0"/>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
 async function fetchConTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -250,11 +288,22 @@ function showToast(msg, type='success') {
 }
 function hoy() { return new Date().toISOString().slice(0,10); }
 function escapeAttr(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtFechaBonita(iso) {
+  const partes = String(iso||'').split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : iso;
+}
+function actualizarBotonGuardar() {
+  document.getElementById('btn-ps-guardar').disabled = PESOS_SIFONES_URL.includes('TODO_PEGAR') || !ESTILOS.length;
+}
 
-// ── FOTO: compresión en el navegador antes de subir (mismo patrón que
-// mermas.html / balance-barriles.html) ──
-let fotoBase64 = { ps: null };
-function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
+// ── FOTO: compresión en el navegador antes de subir, lo más eficiente
+// posible ya que ahora puede haber una foto por cada tipo de cerveza.
+// Se intenta WebP primero (~30-35% más liviano que JPEG a igual calidad
+// visual); si el navegador no lo soporta, toDataURL cae en PNG sin avisar
+// (mucho más pesado), así que se verifica el resultado real y si no vino
+// en WebP se rehace en JPEG como respaldo. 1280px alcanza de sobra para
+// que el número de la báscula quede legible. ──────────────────────
+function comprimirFoto(file, maxDim = 1280, calidad = 0.7) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -268,7 +317,9 @@ function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', calidad));
+        let out = canvas.toDataURL('image/webp', calidad);
+        if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', calidad);
+        resolve(out);
       };
       img.onerror = () => resolve(e.target.result);
       img.src = e.target.result;
@@ -277,74 +328,91 @@ function comprimirFoto(file, maxDim = 1600, calidad = 0.75) {
     reader.readAsDataURL(file);
   });
 }
-function onFotoSelected(event, pref) {
+function onFotoSelected(event, estiloId) {
   const file = event.target.files[0];
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { showToast('La foto supera 5 MB', 'error'); return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('La foto supera 8 MB', 'error'); return; }
   comprimirFoto(file).then(dataUrl => {
-    fotoBase64[pref] = dataUrl;
-    document.getElementById(pref+'-foto-placeholder').style.display = 'none';
-    document.getElementById(pref+'-foto-preview-wrap').style.display = 'block';
-    document.getElementById(pref+'-foto-preview-img').src = dataUrl;
+    fotosPorEstilo[estiloId] = dataUrl;
+    document.getElementById('est-'+estiloId+'-foto-placeholder').style.display = 'none';
+    document.getElementById('est-'+estiloId+'-foto-preview-wrap').style.display = 'block';
+    document.getElementById('est-'+estiloId+'-foto-preview-img').src = dataUrl;
   }).catch(() => showToast('No se pudo procesar la foto', 'error'));
 }
-function quitarFoto(event, pref) {
+function quitarFoto(event, estiloId) {
   event.preventDefault(); event.stopPropagation();
-  fotoBase64[pref] = null;
-  document.getElementById(pref+'-foto').value = '';
-  document.getElementById(pref+'-foto-placeholder').style.display = 'block';
-  document.getElementById(pref+'-foto-preview-wrap').style.display = 'none';
+  fotosPorEstilo[estiloId] = null;
+  const input = document.getElementById(estiloId ? 'est-'+estiloId+'-foto' : '');
+  if (input) input.value = '';
+  document.getElementById('est-'+estiloId+'-foto-placeholder').style.display = 'block';
+  document.getElementById('est-'+estiloId+'-foto-preview-wrap').style.display = 'none';
 }
 
-function actualizarNetoSifon() {
-  const bruto = Number(document.getElementById('ps-peso-bruto').value) || 0;
-  const tara = Number(document.getElementById('ps-tara').value) || 0;
-  const neto = Math.max(0, bruto - tara);
-  document.getElementById('ps-neto-val').textContent = neto.toLocaleString('es-CR') + ' g';
-}
-
-function limpiarFormulario() {
-  document.getElementById('ps-identificacion').value = '';
-  document.getElementById('ps-peso-bruto').value = '';
-  document.getElementById('ps-tara').value = '0';
+function limpiarTodoElFormulario() {
+  ESTILOS.forEach(est => {
+    const pesoEl = document.getElementById('est-'+est.id+'-peso');
+    const barrilesEl = document.getElementById('est-'+est.id+'-barriles');
+    if (pesoEl) pesoEl.value = '';
+    if (barrilesEl) barrilesEl.value = '';
+    quitarFoto({preventDefault(){},stopPropagation(){}}, est.id);
+  });
   document.getElementById('ps-notas').value = '';
-  actualizarNetoSifon();
-  quitarFoto({preventDefault(){},stopPropagation(){}}, 'ps');
 }
 
-async function guardarRegistroUI() {
+// ── GUARDAR (lote, todos los tipos con datos) + ENVIAR POR WHATSAPP ──
+async function guardarYEnviarUI() {
   const kiosko = document.getElementById('ps-kiosko').value;
   const fecha = document.getElementById('ps-fecha').value || hoy();
-  const identificacion = document.getElementById('ps-identificacion').value.trim();
-  const pesoBruto = document.getElementById('ps-peso-bruto').value;
-  const tara = Number(document.getElementById('ps-tara').value) || 0;
-  const notas = document.getElementById('ps-notas').value;
-
   if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
-  if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
-  if (!fotoBase64.ps) { showToast('Tomá una foto como evidencia antes de guardar', 'error'); return; }
+  if (!ESTILOS.length) { showToast('Todavía no cargaron los tipos de cerveza', 'error'); return; }
 
-  const btn = document.getElementById('btn-ps-submit');
+  const items = [];
+  for (const est of ESTILOS) {
+    const pesoRaw = document.getElementById('est-'+est.id+'-peso').value;
+    const barrilesRaw = document.getElementById('est-'+est.id+'-barriles').value;
+    const peso = pesoRaw === '' ? 0 : Number(pesoRaw);
+    const barriles = barrilesRaw === '' ? 0 : Number(barrilesRaw);
+    if (!peso && !barriles) continue; // fila vacía, se omite
+    if (peso > 0 && !fotosPorEstilo[est.id]) {
+      showToast(`Falta la foto de "${est.nombre}" — tiene peso pero no foto`, 'error');
+      return;
+    }
+    items.push({ identificacion: est.nombre, pesoBruto: peso, barrilesLlenos: barriles, foto: fotosPorEstilo[est.id] || null });
+  }
+  if (!items.length) { showToast('No ingresaste ningún dato todavía', 'error'); return; }
+
+  const btn = document.getElementById('btn-ps-guardar');
+  const textoOriginal = btn.innerHTML;
   btn.disabled = true; btn.textContent = 'Guardando…';
   const payload = {
-    accion: 'registro_guardar', id: Date.now(), fecha, kiosko,
-    identificacion, pesoBruto: Number(pesoBruto), tara,
-    foto: fotoBase64.ps,
+    accion: 'registros_guardar_lote', kiosko, fecha, items,
     registrado_por: sesionNombre(), registrado_en: new Date().toISOString(),
-    notas
+    notas: document.getElementById('ps-notas').value || ''
   };
   try {
-    const resp = await fetchConTimeout(PESOS_SIFONES_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 45000);
+    const resp = await fetchConTimeout(PESOS_SIFONES_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 90000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error al guardar');
-    showToast('Registro guardado ✓ ' + (out.pesoNeto||0).toLocaleString('es-CR') + ' g neto');
-    limpiarFormulario(); // mantiene kiosko y fecha para el siguiente sifón
+    showToast(`Guardado ✓ ${out.items.length} tipo${out.items.length===1?'':'s'} de cerveza`);
+    enviarWhatsAppDesde(kiosko, fecha, out.items);
+    limpiarTodoElFormulario();
   } catch(e) {
     showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
   } finally {
-    btn.disabled = PESOS_SIFONES_URL.includes('TODO_PEGAR');
-    btn.textContent = 'Guardar registro';
+    btn.innerHTML = textoOriginal;
+    actualizarBotonGuardar();
   }
+}
+
+function enviarWhatsAppDesde(kiosko, fecha, items) {
+  let msg = `*Toma de Pesos - Sifones*\nFecha: ${fmtFechaBonita(fecha)}\nKiosko: ${kiosko}\n`;
+  items.forEach((it, i) => {
+    msg += `\n${i+1}. ${it.identificacion}`;
+    if (it.pesoBruto) msg += `: ${Math.round(it.pesoBruto).toLocaleString('es-CR')} g`;
+    if (it.barrilesLlenos) msg += ` · ${it.barrilesLlenos} barril${it.barrilesLlenos===1?'':'es'} lleno${it.barrilesLlenos===1?'':'s'} en bodega`;
+    if (it.fotoUrl) msg += `\n   Foto: ${it.fotoUrl}`;
+  });
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 </script>
 </body>

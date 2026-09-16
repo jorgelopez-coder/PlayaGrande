@@ -1,13 +1,23 @@
 /**
  * Backend de Toma de Pesos - Sifones (pesos-sifones.html, Ecosistema Kioskos)
  * — formulario simple y standalone pensado para que el personal de piso
- * registre el peso de un sifón (barril) de cerveza por kiosko, con foto
- * obligatoria como evidencia. A propósito NO calcula saldo esperado ni
- * compara contra compras/ventas/mermas — es solo una bitácora de pesajes
- * con foto. Eso otro (saldo esperado, punto de partida, arqueos con
- * diferencia, historial, catálogo de estilos) ya lo hace la pestaña
- * "Arqueo" de Controles (balance-barriles.html) — este módulo es aparte,
- * pensado para captura rápida sin ver el resto de ese módulo.
+ * registre, por kiosko, el peso y la existencia (barriles llenos en
+ * bodega) de TODOS los tipos de cerveza a la vez, con foto obligatoria
+ * (si hay peso) como evidencia. A propósito NO calcula saldo esperado ni
+ * compara contra compras/ventas/mermas, y tampoco pide tara — es solo una
+ * bitácora de datos crudos (el cálculo se hace después, aparte). Eso otro
+ * (saldo esperado, punto de partida, arqueos con diferencia, historial,
+ * catálogo de estilos) ya lo hace la pestaña "Arqueo" de Controles
+ * (balance-barriles.html) — este módulo es aparte, pensado para captura
+ * rápida sin ver el resto de ese módulo. pesos-sifones.html SÍ lee (solo
+ * lectura, ?modulo=estilos) el catálogo de tipos de cerveza de Controles
+ * para no duplicarlo, pero nunca escribe ahí.
+ *
+ * Guarda todo en UN solo request por lote (acción registros_guardar_lote):
+ * el formulario manda un item por cada tipo de cerveza que sí tenga datos
+ * (peso y/o barriles llenos), y este backend crea una fila por item y sube
+ * su foto (si vino) a Drive, todo en una sola ejecución — así se evita
+ * mandar muchos POST seguidos desde el navegador para una sola ronda.
  *
  * Mismo patrón que Flujo de Caja / Recetas / Cuentas Square: vive en su
  * PROPIO Sheet y proyecto de Apps Script.
@@ -36,11 +46,12 @@
  */
 
 // ── REGISTROS ───────────────────────────────────────────────────────
-// Una fila = un pesaje de un sifón en un kiosko, en un momento dado.
+// Una fila = un pesaje/conteo de un tipo de cerveza en un kiosko, en una
+// ronda dada. Sin tara ni peso neto — eso se calcula después, aparte.
 const HOJA_REGISTROS = 'Registros';
 const ENCABEZADOS_REGISTROS = [
-  'ID', 'Fecha', 'Kiosko', 'Sifón / Estilo', 'Peso Bruto (g)', 'Tara (g)',
-  'Peso Neto (g)', 'Foto URL', 'Registrado por', 'Registrado', 'Notas'
+  'ID', 'Fecha', 'Kiosko', 'Estilo', 'Peso Bruto (g)', 'Barriles Llenos Bodega',
+  'Foto URL', 'Registrado por', 'Registrado', 'Notas'
 ];
 
 // ── CARPETA DE FOTOS ────────────────────────────────────────────────
@@ -120,46 +131,59 @@ function hoyCR() {
   return Utilities.formatDate(new Date(), 'America/Costa_Rica', 'yyyy-MM-dd');
 }
 
-// ── REGISTRO: guardar ───────────────────────────────────────────────
-// Siempre crea una fila nueva (esto es una bitácora de pesajes, no un
-// registro editable) — p.id solo se usa como semilla del ID legible.
-function registroGuardar(p) {
+// ── REGISTROS: guardar por lote ──────────────────────────────────────
+// Un item por cada tipo de cerveza que el formulario mandó con datos
+// (peso y/o barriles llenos > 0 — los vacíos ya se filtran del lado del
+// cliente, pero se vuelven a filtrar acá por si acaso). Cada item genera
+// su propia fila y su propia foto en Drive; todo en una sola ejecución
+// para no depender de varios POST seguidos desde el navegador.
+function registrosGuardarLote(p) {
   if (!p.kiosko) throw new Error('Falta el kiosko.');
-  const pesoBruto = Number(p.pesoBruto);
-  if (!pesoBruto || pesoBruto <= 0) throw new Error('Falta el peso bruto o no es válido.');
-  if (!p.foto) throw new Error('Falta la foto de evidencia.');
+  if (!Array.isArray(p.items) || !p.items.length) throw new Error('No hay datos para guardar.');
 
   const hoja = prepararHoja(HOJA_REGISTROS, ENCABEZADOS_REGISTROS);
-  const id = generarId_('PS');
-  const tara = Number(p.tara) || 0;
-  const pesoNeto = Math.max(0, pesoBruto - tara);
-  const fotoUrl = guardarFotoEnDrive(p, id);
+  const fecha = p.fecha || hoyCR();
+  const resultado = [];
 
-  const fila = hoja.getLastRow() + 1;
-  escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_REGISTROS, {
-    'ID': id,
-    'Fecha': p.fecha || hoyCR(),
-    'Kiosko': p.kiosko,
-    'Sifón / Estilo': p.identificacion || '',
-    'Peso Bruto (g)': pesoBruto,
-    'Tara (g)': tara,
-    'Peso Neto (g)': pesoNeto,
-    'Foto URL': fotoUrl,
-    'Registrado por': p.registrado_por || '',
-    'Registrado': p.registrado_en || new Date().toISOString(),
-    'Notas': p.notas || ''
+  p.items.forEach(function (item) {
+    const pesoBruto = Number(item.pesoBruto) || 0;
+    const barrilesLlenos = Number(item.barrilesLlenos) || 0;
+    if (!pesoBruto && !barrilesLlenos) return; // fila vacía, se ignora
+
+    const id = generarId_('PS');
+    const fotoUrl = guardarFotoEnDrive(item, id, p.kiosko, fecha);
+    const fila = hoja.getLastRow() + 1;
+    escribirFilaPorEncabezado(hoja, fila, ENCABEZADOS_REGISTROS, {
+      'ID': id,
+      'Fecha': fecha,
+      'Kiosko': p.kiosko,
+      'Estilo': item.identificacion || '',
+      'Peso Bruto (g)': pesoBruto,
+      'Barriles Llenos Bodega': barrilesLlenos,
+      'Foto URL': fotoUrl,
+      'Registrado por': p.registrado_por || '',
+      'Registrado': p.registrado_en || new Date().toISOString(),
+      'Notas': p.notas || ''
+    });
+    resultado.push({
+      id: id, identificacion: item.identificacion || '',
+      pesoBruto: pesoBruto, barrilesLlenos: barrilesLlenos, fotoUrl: fotoUrl
+    });
   });
-  return { ok: true, id: id, pesoNeto: pesoNeto, fotoUrl: fotoUrl };
+
+  if (!resultado.length) throw new Error('No hay datos para guardar.');
+  return { ok: true, items: resultado };
 }
 
 // ── FOTO → GOOGLE DRIVE (mismo patrón que Controles/Mermas: una
 // subcarpeta por kiosko dentro de la carpeta raíz del módulo) ──────
-function guardarFotoEnDrive(p, id) {
-  if (!p.foto) return '';
-  const datos = extraerBase64(p.foto);
+function guardarFotoEnDrive(item, id, kiosko, fecha) {
+  if (!item.foto) return '';
+  const datos = extraerBase64(item.foto);
   if (!datos) return '';
-  const carpeta = getOrCreateCarpetaKiosko(p.kiosko);
-  const nombre = `${p.fecha || hoyCR()}_sifon_${id}.jpg`;
+  const carpeta = getOrCreateCarpetaKiosko(kiosko);
+  const slug = String(item.identificacion || 'sifon').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'sifon';
+  const nombre = `${fecha}_${slug}_${id}.${extensionParaMime_(datos.mime)}`;
   const bytes = Utilities.base64Decode(datos.base64);
   const blob = Utilities.newBlob(bytes, datos.mime, nombre);
   const file = carpeta.createFile(blob);
@@ -177,6 +201,15 @@ function extraerBase64(dataUrl) {
   const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!match) return null;
   return { mime: match[1], base64: match[2] };
+}
+
+// El frontend comprime a WebP cuando el navegador lo soporta (más liviano
+// que JPEG a igual calidad) y cae a JPEG si no — esto solo decide la
+// extensión del archivo en Drive según el mime real que llegó.
+function extensionParaMime_(mime) {
+  if (mime === 'image/webp') return 'webp';
+  if (mime === 'image/png') return 'png';
+  return 'jpg';
 }
 
 // ── doGet / doPost ───────────────────────────────────────────────────
@@ -206,7 +239,7 @@ function doPost(e) {
     }
     if (!payload) throw new Error('No se recibieron datos.');
     switch (payload.accion) {
-      case 'registro_guardar': return jsonOut(registroGuardar(payload));
+      case 'registros_guardar_lote': return jsonOut(registrosGuardarLote(payload));
       default: throw new Error('Acción desconocida: ' + payload.accion);
     }
   } catch (err) {
