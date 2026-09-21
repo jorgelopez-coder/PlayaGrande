@@ -254,6 +254,17 @@ tr:last-child td{border-bottom:none}
     </div>
   </div>
   <div id="wa-buttons-resumen" style="margin-top:10px"></div>
+
+  <div class="card" id="card-enviados-resumen" style="display:none;margin-top:16px">
+    <p class="card-title">Enviados a depósito — pendientes de asignar</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Ya se mandaron por WhatsApp con su código interno y no aparecen en la tabla de arriba. Siguen sumando en "Efectivo sin depósito asignado" hasta que se les asigne un depósito con referencia bancaria en "Asignar depósito".</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Código</th><th>Fechas</th><th style="text-align:right">Total ₡</th><th style="text-align:right">Total $</th><th></th></tr></thead>
+        <tbody id="tabla-enviados-body"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- ── TAB CONTAR BILLETES ── -->
@@ -340,19 +351,28 @@ tr:last-child td{border-bottom:none}
 
   <div class="card">
     <p class="card-title">Fechas pendientes de depósito — <span id="asignar-kiosko-lbl"></span></p>
-    <div class="toolbar">
-      <button class="btn-mini" onclick="seleccionarTodo('asignar')">Seleccionar todo</button>
-      <button class="btn-mini" onclick="limpiarSeleccion('asignar')">Limpiar selección</button>
+    <div class="field" style="margin-bottom:14px">
+      <label for="dep-codigo-interno">Código interno enviado por WhatsApp (opcional)</label>
+      <select id="dep-codigo-interno" onchange="alCambiarCodigoInterno()">
+        <option value="">— Elegir fechas manualmente —</option>
+      </select>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th class="th-chk"></th><th>Fecha</th>
-          <th style="text-align:right">Total ₡</th>
-          <th style="text-align:right">Total $</th>
-        </tr></thead>
-        <tbody id="tabla-pendientes-body"><tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr></tbody>
-      </table>
+    <div id="codigo-detalle-asignar" style="display:none"></div>
+    <div id="asignar-manual-wrap">
+      <div class="toolbar">
+        <button class="btn-mini" onclick="seleccionarTodo('asignar')">Seleccionar todo</button>
+        <button class="btn-mini" onclick="limpiarSeleccion('asignar')">Limpiar selección</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="th-chk"></th><th>Fecha</th>
+            <th style="text-align:right">Total ₡</th>
+            <th style="text-align:right">Total $</th>
+          </tr></thead>
+          <tbody id="tabla-pendientes-body"><tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -511,6 +531,9 @@ let porFecha = {};         // { 'YYYY-MM-DD': {...} } — ya filtrado por kiosko
 let fechasOrdenadas = [];  // más reciente primero
 let depositosData = [];    // depósitos del kioskoActual, parseados
 let fechasAsignadas = {};  // { 'YYYY-MM-DD': depositoRecord }
+let enviosDepositoRaw = [];  // registros crudos de la hoja EnviosDeposito (todos los kioskos)
+let enviosDepositoData = []; // envíos a depósito del kioskoActual, parseados
+let fechasEnviadas = {};     // { 'YYYY-MM-DD': envioRecord } — solo envíos en estado 'Enviado' (sin depósito real asignado todavía)
 const seleccion = { resumen: new Set(), asignar: new Set() };
 const fotoComprobante = { base64: null, mime: null };
 
@@ -548,14 +571,16 @@ function alCambiarKioskoDep() {
 // ── CARGA DE DATOS ────────────────────────────────────────────────
 async function cargarDatos() {
   try {
-    const [rCierres, rDepositos, rSalidasFondo] = await Promise.all([
+    const [rCierres, rDepositos, rSalidasFondo, rEnviosDeposito] = await Promise.all([
       fetch(SHEETS_URL + '?action=read').then(r => r.json()),
       fetch(SHEETS_URL + '?action=depositos').then(r => r.json()),
-      fetch(SHEETS_URL + '?action=salidasfondo').then(r => r.json())
+      fetch(SHEETS_URL + '?action=salidasfondo').then(r => r.json()),
+      fetch(SHEETS_URL + '?action=enviosdeposito').then(r => r.json())
     ]);
     cierresRaw = rCierres.records || [];
     depositosRaw = rDepositos.records || [];
     salidasFondoRaw = rSalidasFondo.records || [];
+    enviosDepositoRaw = rEnviosDeposito.records || [];
     recalcularYRenderizar();
   } catch(e) {
     document.getElementById('tabla-resumen-body').innerHTML = '<tr><td colspan="4" class="empty">No se pudo cargar. Revisá la conexión.</td></tr>';
@@ -600,12 +625,40 @@ function recalcularYRenderizar() {
   fechasAsignadas = {};
   depositosData.forEach(dep => dep.fechasCubiertas.forEach(f => { fechasAsignadas[f] = dep; }));
 
+  enviosDepositoData = enviosDepositoRaw.filter(r => r[0] && normKiosko(r[3]) === normKiosko(kioskoActual)).map(r => {
+    let fechas = [];
+    try { fechas = JSON.parse(r[4] || '[]'); } catch(e) { fechas = []; }
+    if (!Array.isArray(fechas)) fechas = [];
+    fechas = fechas.filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f));
+    return {
+      id: r[0], fechaRegistro: r[1], codigoInterno: r[2] || '', kiosko: r[3] || '',
+      fechasCubiertas: fechas,
+      montoCrcCalculado: +r[5]||0, montoUsdCalculado: +r[6]||0,
+      estado: r[7] || 'Enviado',
+      depositoAsignadoId: r[8] || '', fechaAsignacion: r[9] || ''
+    };
+  }).sort((a,b) => (b.fechaRegistro||'').localeCompare(a.fechaRegistro||''));
+
+  fechasEnviadas = {};
+  enviosDepositoData.forEach(env => {
+    if (env.estado !== 'Enviado') return;
+    env.fechasCubiertas.forEach(f => { fechasEnviadas[f] = env; });
+  });
+
   seleccion.resumen.clear();
   seleccion.asignar.clear();
+
+  const selCodigo = document.getElementById('dep-codigo-interno');
+  if (selCodigo) selCodigo.value = '';
+  document.getElementById('asignar-manual-wrap').style.display = '';
+  document.getElementById('codigo-detalle-asignar').style.display = 'none';
+  document.getElementById('codigo-detalle-asignar').innerHTML = '';
 
   renderKpiPendiente();
   renderResumen();
   renderPendientes();
+  renderEnviadosResumen();
+  poblarSelectCodigoInterno();
   renderHistorial();
   actualizarComparacion();
   actualizarBotonAsignar();
@@ -710,10 +763,16 @@ function renderResumen() {
     actualizarSeleccion('resumen');
     return;
   }
-  // Solo se listan fechas sin depósito asignado — las ya asignadas se ven en "Historial de depósitos".
-  const pendientes = fechasOrdenadas.filter(f => !fechasAsignadas[f]);
+  // Solo se listan fechas sin depósito asignado y que todavía no se mandaron
+  // por WhatsApp con un código interno — las ya asignadas se ven en
+  // "Historial de depósitos", y las ya enviadas en el cuadro de abajo
+  // ("Enviados a depósito — pendientes de asignar").
+  const pendientes = fechasOrdenadas.filter(f => !fechasAsignadas[f] && !fechasEnviadas[f]);
   if (!pendientes.length) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">Todo el efectivo registrado de este kiosko ya tiene depósito asignado ✓</td></tr>';
+    const msg = fechasOrdenadas.some(f => fechasEnviadas[f])
+      ? 'Todo el efectivo registrado de este kiosko ya fue asignado o enviado a depósito ✓'
+      : 'Todo el efectivo registrado de este kiosko ya tiene depósito asignado ✓';
+    body.innerHTML = `<tr><td colspan="4" class="empty">${msg}</td></tr>`;
     actualizarSeleccion('resumen');
     return;
   }
@@ -750,9 +809,9 @@ function toggleDetalleFecha(fecha) {
 // ── TAB 2: FECHAS PENDIENTES ──────────────────────────────────────
 function renderPendientes() {
   const body = document.getElementById('tabla-pendientes-body');
-  const pendientes = fechasOrdenadas.filter(f => !fechasAsignadas[f]);
+  const pendientes = fechasOrdenadas.filter(f => !fechasAsignadas[f] && !fechasEnviadas[f]);
   if (!pendientes.length) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">No hay fechas pendientes para este kiosko — todo el efectivo registrado ya tiene depósito asignado.</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="empty">No hay fechas pendientes para este kiosko — usá un código interno enviado por WhatsApp arriba, o ya todo el efectivo registrado tiene depósito asignado.</td></tr>';
     actualizarSeleccion('asignar');
     return;
   }
@@ -801,12 +860,17 @@ function limpiarSeleccion(grupo) {
 }
 
 // ── WHATSAPP: RESUMEN DE FECHAS PENDIENTES SELECCIONADAS ─────────────────
-function buildWAMessageResumenPendiente() {
-  const fechas = Array.from(seleccion.resumen).sort();
+// Al mandar el resumen, las fechas seleccionadas quedan marcadas como
+// "enviadas a depósito" bajo un código interno nuevo (ver generarCodigoInterno
+// más abajo) — dejan de listarse en Resumen diario / Asignar depósito
+// (fechasEnviadas, ver recalcularYRenderizar) hasta que se les asigne un
+// depósito real con ese código desde "Asignar depósito", o se cancele el
+// envío desde la lista "Enviados a depósito — pendientes de asignar".
+function buildWAMessageResumenPendiente(codigo, fechas, tot) {
   const fechasFmt = fechas.map(f => '   • ' + fechaLbl(f)).join('\n');
-  const tot = totalesSeleccion('resumen');
   return `💰 *Resumen de efectivo pendiente de depósito*
 🏖️ Kiosko: ${kioskoActual || '—'}
+🔖 Código interno: ${codigo}
 
 📆 *Fechas incluidas (${fechas.length}):*
 ${fechasFmt || '—'}
@@ -823,13 +887,156 @@ function actualizarBotonWAResumen() {
   document.getElementById('btn-wa-resumen').addEventListener('click', enviarResumenWhatsAppPendiente);
 }
 
+// Abreviatura del kiosko para el código interno (ej. "Playa Grande" → "PG",
+// "Liberia" → "LIB") — no hay tabla de abreviaturas fija en el sistema (los
+// kioskos se cargan dinámicamente desde Configuración, ver KIOSKOS arriba),
+// así que se deriva del nombre: iniciales de cada palabra si tiene más de
+// una, o las primeras 3 letras si es una sola palabra.
+function abreviarKiosko(nombre) {
+  const limpio = String(nombre || '').trim();
+  const palabras = limpio.split(/\s+/).filter(Boolean);
+  if (palabras.length >= 2) return palabras.slice(0, 4).map(p => p[0].toUpperCase()).join('');
+  return (limpio.slice(0, 3).toUpperCase()) || 'DEP';
+}
+
+// Código interno siguiente para este kiosko — ej. "PG-007". Se busca el
+// número más alto ya usado con ese mismo prefijo en TODO enviosDepositoRaw
+// (todos los kioskos, no solo el actual) para que el código nunca se repita
+// aunque dos kioskos compartan abreviatura. Se genera en el cliente (no en
+// el backend) porque el POST de guardado usa mode:'no-cors' — igual que el
+// resto de depositos.html, esa respuesta queda opaca y no se puede leer — así
+// que el código tiene que quedar listo ANTES de mandarlo, para poder incluirlo
+// en el mensaje de WhatsApp de una vez.
+function generarCodigoInterno(kiosko) {
+  const prefijo = abreviarKiosko(kiosko);
+  let max = 0;
+  enviosDepositoRaw.forEach(r => {
+    const cod = String(r[2] || '');
+    if (cod.indexOf(prefijo + '-') !== 0) return;
+    const n = parseInt(cod.slice(prefijo.length + 1), 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  return prefijo + '-' + String(max + 1).padStart(3, '0');
+}
+
+// Abre WhatsApp primero (de forma síncrona, en el mismo click — si se espera
+// a un fetch antes de window.open() algunos navegadores bloquean el popup) y
+// recién después registra el envío en el backend en segundo plano.
 function enviarResumenWhatsAppPendiente() {
-  const msg = buildWAMessageResumenPendiente();
+  const fechas = Array.from(seleccion.resumen).sort();
+  if (!fechas.length) return;
+  const tot = totalesSeleccion('resumen');
+  const codigo = generarCodigoInterno(kioskoActual);
+
+  const msg = buildWAMessageResumenPendiente(codigo, fechas, tot);
   const numero = WA_NUMERO_DEFAULT || '';
   const waUrl = numero
     ? `https://wa.me/${numero}?text=`
     : `https://api.whatsapp.com/send?text=`;
   window.open(waUrl + encodeURIComponent(msg), '_blank');
+
+  registrarEnvioDeposito(codigo, fechas, tot);
+}
+
+async function registrarEnvioDeposito(codigo, fechas, tot) {
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        type: 'envioDeposito', id: Date.now(), kiosko: kioskoActual,
+        codigoInterno: codigo, fechasCubiertas: fechas,
+        montoCrcCalculado: tot.crc, montoUsdCalculado: tot.usd
+      })
+    });
+    showToast('Marcado como enviado a depósito · código ' + codigo, 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo registrar el envío: ' + e.message, 'error');
+  }
+}
+
+// ── LISTA: ENVIADOS A DEPÓSITO, PENDIENTES DE ASIGNAR (tab Resumen) ──────
+function renderEnviadosResumen() {
+  const card = document.getElementById('card-enviados-resumen');
+  const body = document.getElementById('tabla-enviados-body');
+  if (!card || !body) return;
+  const enviados = enviosDepositoData.filter(e => e.estado === 'Enviado');
+  if (!enviados.length) { card.style.display = 'none'; body.innerHTML = ''; return; }
+  card.style.display = '';
+  body.innerHTML = enviados.map(env => `<tr>
+      <td>${env.codigoInterno}</td>
+      <td style="font-size:12px">${env.fechasCubiertas.slice().sort().map(fechaLbl).join(' · ')}</td>
+      <td class="num">${fmtCRC(env.montoCrcCalculado)}</td>
+      <td class="num">${env.montoUsdCalculado ? fmtUSD(env.montoUsdCalculado) : '—'}</td>
+      <td><button type="button" class="btn-mini" onclick="cancelarEnvioDeposito('${env.id}')">Cancelar</button></td>
+    </tr>`).join('');
+}
+
+async function cancelarEnvioDeposito(envioId) {
+  if (!confirm('¿Cancelar este envío? Las fechas vuelven a aparecer como pendientes.')) return;
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'cancelarEnvioDeposito', envioDepositoId: envioId })
+    });
+    showToast('Envío cancelado', 'success');
+    await cargarDatos();
+  } catch(e) {
+    showToast('No se pudo cancelar: ' + e.message, 'error');
+  }
+}
+
+// ── SELECTOR DE CÓDIGO INTERNO (tab Asignar depósito) ─────────────────────
+function poblarSelectCodigoInterno() {
+  const sel = document.getElementById('dep-codigo-interno');
+  if (!sel) return;
+  const disponibles = enviosDepositoData.filter(e => e.estado === 'Enviado');
+  const valorActual = sel.value;
+  sel.innerHTML = '<option value="">— Elegir fechas manualmente —</option>' +
+    disponibles.map(e => `<option value="${e.id}">${e.codigoInterno} · ${e.fechasCubiertas.length} fecha${e.fechasCubiertas.length===1?'':'s'} · ${fmtCRC(e.montoCrcCalculado)}</option>`).join('');
+  sel.value = disponibles.some(e => String(e.id) === valorActual) ? valorActual : '';
+}
+
+// Al elegir un código, sus fechas quedan fijas (no se pueden agregar ni
+// quitar fechas sueltas mientras esté elegido — para eso hay que cancelar el
+// envío en "Resumen diario" y volver a mandarlo) y se precarga el campo
+// Referencia con el código, para usarlo como referencia del depósito en el
+// banco (Jorge puede editarlo o completarlo con el número real que dé el
+// banco).
+function alCambiarCodigoInterno() {
+  const sel = document.getElementById('dep-codigo-interno');
+  const envioId = sel.value;
+  const manualWrap = document.getElementById('asignar-manual-wrap');
+  const detalle = document.getElementById('codigo-detalle-asignar');
+
+  seleccion.asignar.clear();
+  document.querySelectorAll('.chk-asignar').forEach(chk => chk.checked = false);
+
+  if (envioId) {
+    const envio = enviosDepositoData.find(e => String(e.id) === envioId);
+    if (envio) {
+      envio.fechasCubiertas.forEach(f => seleccion.asignar.add(f));
+      document.getElementById('dep-referencia').value = envio.codigoInterno;
+      manualWrap.style.display = 'none';
+      detalle.style.display = '';
+      const filas = envio.fechasCubiertas.slice().sort().map(f => {
+        const d = porFecha[f];
+        return `<tr><td>${fechaLbl(f)}</td><td class="num">${d?fmtCRC(d.crc):'—'}</td><td class="num">${d&&d.usd?fmtUSD(d.usd):'—'}</td></tr>`;
+      }).join('');
+      detalle.innerHTML = `
+        <p style="font-size:12px;color:var(--muted);margin-bottom:.5rem">Fechas fijadas por el código <strong>${envio.codigoInterno}</strong> — para cambiarlas, cancelá el envío en "Resumen diario" y volvé a mandarlo por WhatsApp.</p>
+        <div class="table-wrap"><table><tbody>${filas}</tbody></table></div>`;
+    }
+  } else {
+    manualWrap.style.display = '';
+    detalle.style.display = 'none';
+    detalle.innerHTML = '';
+  }
+
+  actualizarComparacion();
+  actualizarBotonAsignar();
 }
 
 // ── DETALLE POR DENOMINACIÓN (compartido: fila desplegable, modal y KPI) ──
@@ -1046,6 +1253,7 @@ async function asignarDeposito() {
   if (!kioskoActual || !fecha || !referencia || !fechasCubiertas.length) { showToast('Completá kiosko, fecha, referencia y al menos una fecha cubierta', 'error'); return; }
 
   const sel = totalesSeleccion('asignar');
+  const envioDepositoId = document.getElementById('dep-codigo-interno').value || '';
   const payload = {
     type: 'deposito', id: Date.now(),
     kiosko: kioskoActual,
@@ -1055,7 +1263,8 @@ async function asignarDeposito() {
     montoCrcCalculado: sel.crc, montoUsdCalculado: sel.usd,
     diferenciaCrc: montoCrc - sel.crc, diferenciaUsd: montoUsd - sel.usd,
     notas,
-    fotoComprobante: fotoComprobante.base64 || '', fotoComprobanteMime: fotoComprobante.mime || ''
+    fotoComprobante: fotoComprobante.base64 || '', fotoComprobanteMime: fotoComprobante.mime || '',
+    envioDepositoId
   };
 
   const btn = document.getElementById('btn-asignar');
@@ -1091,6 +1300,8 @@ function limpiarFormDeposito() {
   document.getElementById('dep-notas').value = '';
   quitarFotoComprobante();
   document.getElementById('ia-resultado').style.display = 'none';
+  document.getElementById('dep-codigo-interno').value = '';
+  alCambiarCodigoInterno();
   limpiarSeleccion('asignar');
   actualizarComparacion();
   actualizarBotonAsignar();
