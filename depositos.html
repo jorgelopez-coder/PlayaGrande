@@ -253,6 +253,7 @@ tr:last-child td{border-bottom:none}
       <div><div class="sel-lbl">Total $</div><div class="sel-val" id="resumen-sel-usd">$0.00</div></div>
     </div>
   </div>
+  <div id="wa-buttons-resumen" style="margin-top:10px"></div>
 </div>
 
 <!-- ── TAB CONTAR BILLETES ── -->
@@ -781,6 +782,7 @@ function actualizarSeleccion(grupo) {
     document.getElementById('resumen-sel-count').textContent = set.size + ' fecha' + (set.size===1?'':'s') + ' seleccionada' + (set.size===1?'':'s');
     document.getElementById('resumen-sel-crc').textContent = fmtCRC(totalCrc);
     document.getElementById('resumen-sel-usd').textContent = fmtUSD(totalUsd);
+    actualizarBotonWAResumen();
   } else {
     actualizarComparacion();
     actualizarBotonAsignar();
@@ -796,6 +798,38 @@ function limpiarSeleccion(grupo) {
   const clase = grupo === 'resumen' ? 'chk-resumen' : 'chk-asignar';
   document.querySelectorAll('.' + clase).forEach(chk => chk.checked = false);
   actualizarSeleccion(grupo);
+}
+
+// ── WHATSAPP: RESUMEN DE FECHAS PENDIENTES SELECCIONADAS ─────────────────
+function buildWAMessageResumenPendiente() {
+  const fechas = Array.from(seleccion.resumen).sort();
+  const fechasFmt = fechas.map(f => '   • ' + fechaLbl(f)).join('\n');
+  const tot = totalesSeleccion('resumen');
+  return `💰 *Resumen de efectivo pendiente de depósito*
+🏖️ Kiosko: ${kioskoActual || '—'}
+
+📆 *Fechas incluidas (${fechas.length}):*
+${fechasFmt || '—'}
+
+💵 Total ₡: ${fmtCRC(tot.crc)}
+💵 Total $: ${fmtUSD(tot.usd)}`;
+}
+
+function actualizarBotonWAResumen() {
+  const cont = document.getElementById('wa-buttons-resumen');
+  if (!cont) return;
+  if (!seleccion.resumen.size) { cont.innerHTML = ''; return; }
+  cont.innerHTML = `<button type="button" class="btn-wa" id="btn-wa-resumen">${WA_SVG} Enviar resumen por WhatsApp</button>`;
+  document.getElementById('btn-wa-resumen').addEventListener('click', enviarResumenWhatsAppPendiente);
+}
+
+function enviarResumenWhatsAppPendiente() {
+  const msg = buildWAMessageResumenPendiente();
+  const numero = WA_NUMERO_DEFAULT || '';
+  const waUrl = numero
+    ? `https://wa.me/${numero}?text=`
+    : `https://api.whatsapp.com/send?text=`;
+  window.open(waUrl + encodeURIComponent(msg), '_blank');
 }
 
 // ── DETALLE POR DENOMINACIÓN (compartido: fila desplegable, modal y KPI) ──
