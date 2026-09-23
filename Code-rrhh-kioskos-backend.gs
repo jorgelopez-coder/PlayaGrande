@@ -308,7 +308,20 @@ const ENCABEZADOS_PLANILLAS_DETALLE = [
   // dentro de este periodo con permiso sin goce aprobado — sin monto
   // propio (ya restados de "Horas regulares" vía "Días no trabajados
   // monto"), se guarda solo para trazabilidad del detalle.
-  'Permiso sin goce días'
+  'Permiso sin goce días',
+  // Agregadas al final (2026-09-23): snapshot de fechas y comentarios por
+  // línea — antes solo vivían en Incidencias/Vacaciones/PermisosSinGoce/
+  // SolicitudesHorasExtra/Amonestaciones (caches en memoria mientras el
+  // wizard estaba abierto, ej. WIZARD_PARTICIPANTES) y se perdían apenas se
+  // cerraba la planilla, así que el Historial (planillas ya Aprobadas) no
+  // podía mostrar el detalle de cálculo, solo los montos. Arreglos
+  // guardados como JSON (mismo patrón que 'Feriados trabajados' en
+  // Incidencias) — ver calcularPlanilla()/guardarPlanilla() y
+  // verDetalleHistorial()/renderTablaCalculo() en planilla.html.
+  'Horas regulares', 'Comentario horas regulares',
+  'Horas extra fechas', 'Horas extra justificaciones',
+  'Feriados detalle', 'Vacaciones detalle', 'Permiso sin goce detalle',
+  'Días no trabajados detalle', 'Tardanza detalle'
 ];
 
 // Cuota obrera de CCSS (SEM + IVM + Banco Popular) sobre el salario bruto —
@@ -1067,17 +1080,33 @@ function escribirFilaPorEncabezado(hoja, fila, encabezadosEsperados, valores) {
 
 // Busca la fila (1-indexada) de un colaborador en Personal por "Nombre completo"
 // (case-insensitive, sin espacios extra). Devuelve -1 si no existe.
+//
+// FIX 2026-09-07: un colaborador puede tener más de una fila en Personal si
+// fue recontratado (ej. LIQUIDACIÓN en un kiosko y luego ACTIVO en otro con
+// el mismo nombre). Antes esto devolvía siempre la PRIMERA fila que
+// coincidiera por nombre — normalmente la más vieja/ya cerrada — así que
+// acciones nuevas (terminación, cambio de salario, etc.) editaban el
+// registro histórico equivocado en vez del ingreso vigente. Ahora, si hay
+// varias filas con el mismo nombre, se prefiere la que esté ACTIVO; si
+// ninguna lo está, se mantiene el comportamiento anterior (primera fila).
 function filaColaborador(hoja, nombre) {
   if (!nombre) return -1;
   const nFilas = hoja.getLastRow() - 1;
   if (nFilas <= 0) return -1;
   const colNombre = colPorEncabezado(hoja, 'Nombre completo');
+  const colEstado = colPorEncabezado(hoja, 'Estado');
   const nombres = hoja.getRange(2, colNombre, nFilas, 1).getValues();
+  const estados = colEstado ? hoja.getRange(2, colEstado, nFilas, 1).getValues() : null;
   const buscado = String(nombre).trim().toLowerCase();
+  let primeraCoincidencia = -1;
   for (let i = 0; i < nombres.length; i++) {
-    if (String(nombres[i][0]).trim().toLowerCase() === buscado) return i + 2;
+    if (String(nombres[i][0]).trim().toLowerCase() !== buscado) continue;
+    const fila = i + 2;
+    if (primeraCoincidencia === -1) primeraCoincidencia = fila;
+    const estado = estados ? String(estados[i][0] || '').trim().toUpperCase() : '';
+    if (estado === 'ACTIVO') return fila; // ingreso vigente: usar este
   }
-  return -1;
+  return primeraCoincidencia;
 }
 
 // Acepta tanto un "nombre" ya completo (patrón simple, usado por rrhh-nuevo-
@@ -1415,7 +1444,7 @@ function registrarAmonestacion(p) {
 // Devuelve { horas, fechas } — fechas es la lista de fechas que aportaron,
 // para armar el comentario de la incidencia.
 function sumarHorasTardanza(colaborador, fechaInicio, fechaFin) {
-  const resultado = { horas: 0, fechas: [] };
+  const resultado = { horas: 0, fechas: [], detalle: [] };
   if (!colaborador || !fechaInicio || !fechaFin) return resultado;
   const hoja = prepararHoja(HOJA_AMONESTACIONES, ENCABEZADOS_AMONESTACIONES);
   const buscado = String(colaborador).trim().toLowerCase();
@@ -1428,6 +1457,10 @@ function sumarHorasTardanza(colaborador, fechaInicio, fechaFin) {
     if (horas <= 0) return;
     resultado.horas += horas;
     resultado.fechas.push(fecha);
+    // Agregado (2026-09-23): detalle por fecha con horas y observaciones de
+    // Amonestaciones, para mostrar la justificación de la tardanza en el
+    // detalle de cálculo (wizard y Historial) — ver calcularPlanilla().
+    resultado.detalle.push({ fecha: fecha, horas: horas, observaciones: row['Observaciones'] || '' });
   });
   return resultado;
 }
@@ -2491,7 +2524,9 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const salarioDiario = salario / 30;
     const salarioHora = salarioDiario / 8;
 
-    const horasRegularesMonto = (Number(inc['Horas regulares']) || 0) * salarioHora;
+    const horasRegulares = Number(inc['Horas regulares']) || 0;
+    const comentarioHorasRegulares = inc['Comentario horas regulares'] || '';
+    const horasRegularesMonto = horasRegulares * salarioHora;
 
     // Colaborador extra (agregado con "+ Agregar colaborador extra" en el
     // wizard, Paso 1, por búsqueda o con datos nuevos): sus vacaciones/horas
@@ -2530,11 +2565,14 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // (Art. 148 CT).
     let feriadosTrabajados = [];
     try { feriadosTrabajados = JSON.parse(inc['Feriados trabajados'] || '[]'); } catch (err) { feriadosTrabajados = []; }
-    const feriadosMonto = feriadosEnPeriodo.reduce(function (acc, f) {
-      const fechaFeriado = valorComoTexto(f['Fecha']);
-      const trabajado = feriadosTrabajados.indexOf(fechaFeriado) !== -1;
-      return acc + (trabajado ? salarioDiario : 0);
-    }, 0);
+    // feriadosPagados: detalle de CUÁL feriado se está pagando (fecha +
+    // nombre), no solo el monto — mismo criterio de "trabajado" que antes,
+    // solo que ahora también se guarda la lista (ver 'Feriados detalle' en
+    // ENCABEZADOS_PLANILLAS_DETALLE).
+    const feriadosPagados = feriadosEnPeriodo.filter(function (f) {
+      return feriadosTrabajados.indexOf(valorComoTexto(f['Fecha'])) !== -1;
+    }).map(function (f) { return { fecha: valorComoTexto(f['Fecha']), nombre: f['Nombre'] }; });
+    const feriadosMonto = feriadosPagados.length * salarioDiario;
 
     // Incapacidad CCSS: 50% a cargo del patrono solo en los primeros 3 días
     // calendario desde la fecha de inicio REAL de la incapacidad (aunque
@@ -2584,25 +2622,36 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     // cuenta como día de vacación pagado — mismo criterio que permisoDias
     // (ver más abajo) y rrhh-vacaciones.html/horarios.html: se resta un día
     // antes de intersecar con el periodo.
-    const vacacionesDias = esExtra ? 0 : vacacionesAprobadas
+    // vacacionesFechas: detalle de QUÉ solicitudes de vacaciones (rango +
+    // observaciones) caen en este periodo, no solo el total de días —
+    // vacacionesDias/vacacionesMonto quedan idénticos a antes (misma suma).
+    const vacacionesFechas = esExtra ? [] : vacacionesAprobadas
       .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
-      .reduce(function (acc, v) {
-        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
-      }, 0);
+      .map(function (v) {
+        const dias = diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
+        return { fechaInicio: valorComoTexto(v['Fecha inicio']), fechaFin: valorComoTexto(v['Fecha fin']), dias: dias, observaciones: v['Observaciones'] || '' };
+      })
+      .filter(function (x) { return x.dias > 0; });
+    const vacacionesDias = vacacionesFechas.reduce(function (acc, v) { return acc + v.dias; }, 0);
     const vacacionesMonto = vacacionesDias * salarioDiario;
 
     // Permiso sin goce de salario: automático desde "PermisosSinGoce"
     // (Estado=Aprobado) — igual que vacaciones, no se ingresa a mano en
     // Incidencias. Sin monto propio (sin goce = ₡0 esos días): solo cuenta
     // para "días no trabajados" más abajo.
-    const permisoDias = esExtra ? 0 : permisosAprobados
+    // permisoFechas: detalle de QUÉ permisos sin goce (rango + motivo) caen
+    // en este periodo — permisoDias queda idéntico a antes (misma suma).
+    const permisoFechas = esExtra ? [] : permisosAprobados
       .filter(function (v) { return (v['Colaborador'] || '') === nombre; })
-      .reduce(function (acc, v) {
+      .map(function (v) {
         // "Fecha fin" es el día de regreso, no cuenta como día sin goce —
         // mismo criterio que vacaciones (rrhh-vacaciones.html) y horarios.html
         // (aplicarPermisos): se resta un día antes de intersecar con el periodo.
-        return acc + diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
-      }, 0);
+        const dias = diasInterseccion(parseFechaISO(v['Fecha inicio']), diaAnterior(parseFechaISO(v['Fecha fin'])), fechaInicio, fechaFin);
+        return { fechaInicio: valorComoTexto(v['Fecha inicio']), fechaFin: valorComoTexto(v['Fecha fin']), dias: dias, motivo: v['Motivo'] || '' };
+      })
+      .filter(function (x) { return x.dias > 0; });
+    const permisoDias = permisoFechas.reduce(function (acc, v) { return acc + v.dias; }, 0);
 
     // Subsidio de alimentación/transporte — no forma parte de la base de
     // cotización de CCSS (se resta antes de calcular la cuota obrera).
@@ -2636,6 +2685,18 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     const diasNoTrabajadosManual = Number(inc['Días no trabajados']) || 0;
     const diasNoTrabajadosTotal = diasNoTrabajadosAuto + diasNoTrabajadosManual;
     const diasNoTrabajadosMonto = diasNoTrabajadosTotal * salarioDiario;
+    // diasNoTrabajadosDetalle: por qué motivo se restó cada grupo de días
+    // (no cambia diasNoTrabajadosTotal/Monto, solo lo justifica) — las
+    // fechas de vacaciones/permiso ya están en vacacionesFechas/
+    // permisoFechas, acá solo se listan para que el desglose quede completo
+    // en un solo lugar.
+    const diasNoTrabajadosDetalle = [];
+    if (diasCCSSEnPeriodo > 0) diasNoTrabajadosDetalle.push({ motivo: 'Incapacidad CCSS', dias: diasCCSSEnPeriodo, fechaInicio: valorComoTexto(inc['Incapacidad CCSS fecha inicio']), fechaFin: valorComoTexto(inc['Incapacidad CCSS fecha fin']), comentario: inc['Comentario incapacidad CCSS'] || '' });
+    if (diasINSEnPeriodo > 0) diasNoTrabajadosDetalle.push({ motivo: 'Incapacidad INS', dias: diasINSEnPeriodo, fechaInicio: valorComoTexto(inc['Incapacidad INS fecha inicio']), fechaFin: valorComoTexto(inc['Incapacidad INS fecha fin']), comentario: inc['Comentario incapacidad INS'] || '' });
+    if (diasInternaEnPeriodo > 0) diasNoTrabajadosDetalle.push({ motivo: 'Incapacidad interna', dias: diasInternaEnPeriodo, fechaInicio: valorComoTexto(inc['Incapacidad interna fecha inicio']), fechaFin: valorComoTexto(inc['Incapacidad interna fecha fin']), comentario: inc['Comentario incapacidad interna'] || '' });
+    if (vacacionesDias > 0) diasNoTrabajadosDetalle.push({ motivo: 'Vacaciones', dias: vacacionesDias, comentario: '' });
+    if (permisoDias > 0) diasNoTrabajadosDetalle.push({ motivo: 'Permiso sin goce', dias: permisoDias, comentario: '' });
+    if (diasNoTrabajadosManual > 0) diasNoTrabajadosDetalle.push({ motivo: 'Otras ausencias (manual)', dias: diasNoTrabajadosManual, comentario: inc['Comentario días no trabajados'] || '' });
 
     const totalIngresos = horasRegularesMonto + extra50Monto + extra100Monto + feriadosMonto
       + incapCCSSMonto + incapINSMonto + incapInternaMonto + vacacionesMonto + subsidioMonto
@@ -2665,18 +2726,23 @@ function calcularPlanilla(periodo, fechaInicioStr, fechaFinStr, kiosko) {
     return {
       colaborador: nombre, puesto: puesto, esManual: esManual, esExtra: esExtra,
       salario: salario, salarioDiario: salarioDiario, salarioHora: salarioHora,
+      horasRegulares: horasRegulares, comentarioHorasRegulares: comentarioHorasRegulares,
       horasRegularesMonto: horasRegularesMonto,
       extra50Horas: extra50Horas, extra50Monto: extra50Monto,
       extra100Horas: extra100Horas, extra100Monto: extra100Monto,
       extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones,
-      feriadosMonto: feriadosMonto, incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
+      feriadosMonto: feriadosMonto, feriadosPagados: feriadosPagados,
+      incapCCSSMonto: incapCCSSMonto, incapINSMonto: incapINSMonto,
       incapInternaMonto: incapInternaMonto, vacacionesMonto: vacacionesMonto, vacacionesDias: vacacionesDias,
-      permisoDias: permisoDias,
+      vacacionesFechas: vacacionesFechas,
+      permisoDias: permisoDias, permisoFechas: permisoFechas,
       subsidioMonto: subsidioMonto, servicio10Monto: servicio10Monto, tipsMonto: tipsMonto,
       servicio10Ids: servicio10Pendiente.ids,
       diasNoTrabajadosAuto: diasNoTrabajadosAuto, diasNoTrabajadosManual: diasNoTrabajadosManual,
       diasNoTrabajadosTotal: diasNoTrabajadosTotal, diasNoTrabajadosMonto: diasNoTrabajadosMonto,
+      diasNoTrabajadosDetalle: diasNoTrabajadosDetalle,
       tardanzaHoras: tardanzaHoras, tardanzaMonto: tardanzaMonto, tardanzaFechas: tardanza.fechas,
+      tardanzaDetalle: tardanza.detalle,
       totalIngresos: totalIngresos,
       baseCCSSAuto: baseCCSSAuto, baseCCSSFinal: baseCCSSFinal, usaCCSSAjustada: usaCCSSAjustada,
       ccssRegistrado: ccssRegistrado,
@@ -2803,7 +2869,16 @@ function guardarPlanilla(p) {
       'Es extra': c.esExtra ? 'Sí' : 'No',
       'Servicio 10% monto': c.servicio10Monto,
       'Tips monto': c.tipsMonto,
-      'Permiso sin goce días': c.permisoDias
+      'Permiso sin goce días': c.permisoDias,
+      'Horas regulares': c.horasRegulares,
+      'Comentario horas regulares': c.comentarioHorasRegulares,
+      'Horas extra fechas': JSON.stringify(c.extraFechas || []),
+      'Horas extra justificaciones': JSON.stringify(c.extraJustificaciones || []),
+      'Feriados detalle': JSON.stringify(c.feriadosPagados || []),
+      'Vacaciones detalle': JSON.stringify(c.vacacionesFechas || []),
+      'Permiso sin goce detalle': JSON.stringify(c.permisoFechas || []),
+      'Días no trabajados detalle': JSON.stringify(c.diasNoTrabajadosDetalle || []),
+      'Tardanza detalle': JSON.stringify(c.tardanzaDetalle || [])
     });
   });
 

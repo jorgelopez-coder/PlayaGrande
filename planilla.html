@@ -1673,6 +1673,80 @@ async function renderPaso4() {
     document.getElementById('wizard-paso').innerHTML = `<div class="card"><div class="empty-state">Error: ${err.message}</div></div>`;
   }
 }
+// ── Helpers de detalle/justificación por línea (pedido de Jorge, 2026-09-23):
+// fechas y comentarios debajo de cada línea del desglose por colaborador —
+// cuántas horas regulares, cuál feriado, de qué fecha son las horas extra,
+// qué fechas de vacaciones, detalle de días no trabajados, fechas de
+// tardanza. Un solo renderer (renderDetalleCalculoLineas) sirve tanto para
+// el cálculo en vivo (Paso 4 del wizard, objeto que devuelve
+// calcularPlanilla() en el backend) como para el Historial (snapshot
+// guardado en PlanillasDetalle, normalizado antes por
+// normalizarDetalleHistPersona) — mismos nombres de campo en los dos casos,
+// así los dos desgloses no se desalinean con el tiempo.
+function parseJSONSafe(str, fallback) {
+  if (!str) return fallback;
+  try { const v = JSON.parse(str); return (v === undefined || v === null) ? fallback : v; } catch (e) { return fallback; }
+}
+function fmtFechaRango(ini, fin) {
+  if (!ini) return '';
+  return (fin && fin !== ini) ? `${fechaBonita(ini)}–${fechaBonita(fin)}` : fechaBonita(ini);
+}
+function buscarDetalleDia(o, motivo) {
+  return (o.diasNoTrabajadosDetalle || []).find(x => x.motivo === motivo);
+}
+function renderDetalleCalculoLineas(o) {
+  const subInline = txt => txt ? `<span class="subtit" style="display:block">${txt}</span>` : '';
+  const lineaBloque = txt => txt ? `<div class="subtit" style="display:block;padding:0 0 6px">${txt}</div>` : '';
+  const dCcss = buscarDetalleDia(o, 'Incapacidad CCSS');
+  const dIns = buscarDetalleDia(o, 'Incapacidad INS');
+  const dInterna = buscarDetalleDia(o, 'Incapacidad interna');
+  const extraFechas = o.extraFechas || [];
+  const extraJustif = o.extraJustificaciones || [];
+  const extraTxt = extraFechas.length
+    ? 'Fechas: ' + extraFechas.map(fechaBonita).join(', ') + (extraJustif.length ? ' — ' + extraJustif.join('; ') : '')
+    : '';
+  const feriadosTxt = (o.feriadosPagados || []).map(f => `${fechaBonita(f.fecha)} (${f.nombre})`).join(', ');
+  const vacacionesTxt = (o.vacacionesFechas || []).map(v => `${fmtFechaRango(v.fechaInicio, v.fechaFin)} (${v.dias}d)${v.observaciones ? ' · ' + v.observaciones : ''}`).join(' · ');
+  const permisoTxt = (o.permisoFechas || []).map(v => `${fmtFechaRango(v.fechaInicio, v.fechaFin)} (${v.dias}d)${v.motivo ? ' · ' + v.motivo : ''}`).join(' · ');
+  const diasNoTrabTxt = (o.diasNoTrabajadosDetalle || []).map(x => `${x.motivo}: ${x.dias}d${x.comentario ? ' (' + x.comentario + ')' : ''}`).join(' · ');
+  const tardanzaDetalle = (o.tardanzaDetalle && o.tardanzaDetalle.length) ? o.tardanzaDetalle : (o.tardanzaFechas || []).map(f => ({ fecha: f, horas: null, observaciones: '' }));
+  const tardanzaTxt = tardanzaDetalle.map(t => `${fechaBonita(t.fecha)}${t.horas ? ` (${t.horas}h)` : ''}${t.observaciones ? ' · ' + t.observaciones : ''}`).join(' · ');
+  return `
+    <div><b>Ingresos</b>
+      <div><span>Horas regulares${o.horasRegulares?` (${o.horasRegulares}h)`:''}${subInline(o.comentarioHorasRegulares)}</span><span>${fmt(o.horasRegularesMonto)}</span></div>
+      <div><span>Horas extra 50%${o.extra50Horas>0?` (${o.extra50Horas}h)`:''}</span><span>${fmt(o.extra50Monto)}</span></div>
+      <div><span>Horas extra 100%${o.extra100Horas>0?` (${o.extra100Horas}h)`:''}</span><span>${fmt(o.extra100Monto)}</span></div>
+      ${lineaBloque(extraTxt)}
+      <div><span>Feriados</span><span>${fmt(o.feriadosMonto)}</span></div>
+      ${lineaBloque(feriadosTxt)}
+      <div><span>Incapacidad CCSS</span><span>${fmt(o.incapCCSSMonto)}</span></div>
+      ${lineaBloque(dCcss ? `${fmtFechaRango(dCcss.fechaInicio, dCcss.fechaFin)}${dCcss.comentario?' · '+dCcss.comentario:''}` : '')}
+      <div><span>Incapacidad INS</span><span>${fmt(o.incapINSMonto)}</span></div>
+      ${lineaBloque(dIns ? `${fmtFechaRango(dIns.fechaInicio, dIns.fechaFin)}${dIns.comentario?' · '+dIns.comentario:''}` : '')}
+      <div><span>Incapacidad interna</span><span>${fmt(o.incapInternaMonto)}</span></div>
+      ${lineaBloque(dInterna ? `${fmtFechaRango(dInterna.fechaInicio, dInterna.fechaFin)}${dInterna.comentario?' · '+dInterna.comentario:''}` : '')}
+      <div><span>Vacaciones${o.vacacionesDias?` (${o.vacacionesDias} días)`:''}</span><span>${fmt(o.vacacionesMonto)}</span></div>
+      ${lineaBloque(vacacionesTxt)}
+      ${o.permisoDias>0?`<div><span>Permiso sin goce (${o.permisoDias} días)</span><span>₡0 — sin goce</span></div>${lineaBloque(permisoTxt)}`:''}
+      <div><span>Subsidio</span><span>${fmt(o.subsidioMonto)}</span></div>
+      <div><span>Servicio 10%</span><span>${fmt(o.servicio10Monto)}</span></div>
+      <div><span>Tips</span><span>${fmt(o.tipsMonto)}</span></div>
+      <div><span>Días no trabajados${o.diasNoTrabajadosTotal?` (${o.diasNoTrabajadosTotal})`:''}</span><span>−${fmt(o.diasNoTrabajadosMonto)}</span></div>
+      ${lineaBloque(diasNoTrabTxt)}
+      <div style="${o.tardanzaHoras>0?'color:var(--red)':''}"><span>Tardanza${o.tardanzaHoras>0?` (${o.tardanzaHoras}h)`:''}</span><span>−${fmt(o.tardanzaMonto)}</span></div>
+      ${lineaBloque(tardanzaTxt)}
+    </div>
+    <div><b>Deducciones</b>
+      <div><span>Base CCSS${o.usaCCSSAjustada?' (ajustada)':''}</span><span>${fmt(o.baseCCSSFinal)}</span></div>
+      <div><span>CCSS obrera (10.83%)${o.ccssRegistrado===false?' — sin CCSS en expediente':''}</span><span>${fmt(o.ccssObreraMonto)}</span></div>
+      <div><span>Adelanto salario</span><span>${fmt(o.adelanto)}</span></div>
+      <div><span>Compras aprobadas</span><span>${fmt(o.compras)}</span></div>
+      <div><span>Otras</span><span>${fmt(o.otras)}</span></div>
+      <div><span>Embargo salarial</span><span>${fmt(o.embargo)}</span></div>
+      <div><span>Pensión alimenticia</span><span>${fmt(o.pension)}</span></div>
+    </div>
+  `;
+}
 function renderTablaCalculo(resultado) {
   if (!resultado.colaboradores.length) return '<div class="card"><div class="empty-state">No hay colaboradores en esta planilla.</div></div>';
   const filasFeriados = resultado.feriados_en_periodo.length
@@ -1686,33 +1760,7 @@ function renderTablaCalculo(resultado) {
       <td class="monto" style="font-weight:700;color:var(--green)">${fmt(c.neto)}</td>
     </tr>
     <tr class="calc-detalle" id="det-calc-${i}" style="display:none">
-      <td colspan="4"><div class="detalle-grid">
-        <div><b>Ingresos</b>
-          <div><span>Horas regulares</span><span>${fmt(c.horasRegularesMonto)}</span></div>
-          <div><span>Horas extra 50%${c.extra50Horas>0?` (${c.extra50Horas}h)`:''}</span><span>${fmt(c.extra50Monto)}</span></div>
-          <div><span>Horas extra 100%${c.extra100Horas>0?` (${c.extra100Horas}h)`:''}</span><span>${fmt(c.extra100Monto)}</span></div>
-          <div><span>Feriados</span><span>${fmt(c.feriadosMonto)}</span></div>
-          <div><span>Incapacidad CCSS</span><span>${fmt(c.incapCCSSMonto)}</span></div>
-          <div><span>Incapacidad INS</span><span>${fmt(c.incapINSMonto)}</span></div>
-          <div><span>Incapacidad interna</span><span>${fmt(c.incapInternaMonto)}</span></div>
-          <div><span>Vacaciones (${c.vacacionesDias} días)</span><span>${fmt(c.vacacionesMonto)}</span></div>
-          ${c.permisoDias>0?`<div><span>Permiso sin goce (${c.permisoDias} días)</span><span>₡0 — sin goce</span></div>`:''}
-          <div><span>Subsidio</span><span>${fmt(c.subsidioMonto)}</span></div>
-          <div><span>Servicio 10%</span><span>${fmt(c.servicio10Monto)}</span></div>
-          <div><span>Tips</span><span>${fmt(c.tipsMonto)}</span></div>
-          <div><span>Días no trabajados (${c.diasNoTrabajadosTotal})</span><span>−${fmt(c.diasNoTrabajadosMonto)}</span></div>
-          <div style="${c.tardanzaHoras>0?'color:var(--red)':''}"><span>Tardanza (${c.tardanzaHoras}h)</span><span>−${fmt(c.tardanzaMonto)}</span></div>
-        </div>
-        <div><b>Deducciones</b>
-          <div><span>Base CCSS${c.usaCCSSAjustada?' (ajustada)':''}</span><span>${fmt(c.baseCCSSFinal)}</span></div>
-          <div><span>CCSS obrera (10.83%)${c.ccssRegistrado===false?' — sin CCSS en expediente':''}</span><span>${fmt(c.ccssObreraMonto)}</span></div>
-          <div><span>Adelanto salario</span><span>${fmt(c.adelanto)}</span></div>
-          <div><span>Compras aprobadas</span><span>${fmt(c.compras)}</span></div>
-          <div><span>Otras</span><span>${fmt(c.otras)}</span></div>
-          <div><span>Embargo salarial</span><span>${fmt(c.embargo)}</span></div>
-          <div><span>Pensión alimenticia</span><span>${fmt(c.pension)}</span></div>
-        </div>
-      </div></td>
+      <td colspan="4"><div class="detalle-grid">${renderDetalleCalculoLineas(c)}</div></td>
     </tr>
   `).join('');
   return `
@@ -2427,44 +2475,47 @@ function toggleDetalleHistPersona(i, j) {
   const fila = document.getElementById(`hist-det-calc-${i}-${j}`);
   fila.style.display = fila.style.display === 'none' ? '' : 'none';
 }
+// Normaliza una fila de PlanillasDetalle (snapshot guardado por
+// guardarPlanilla(), ver calcularPlanilla() en el backend) al mismo formato
+// de objeto que ya usa renderTablaCalculo() (Paso 4 del wizard, en vivo) —
+// para planillas guardadas ANTES de este cambio (2026-09-23), las columnas
+// nuevas no existen todavía y parseJSONSafe/num devuelven vacío, así que
+// esas líneas de detalle simplemente no aparecen (solo los montos, como
+// antes) hasta que se vuelva a calcular/guardar la planilla.
+function normalizarDetalleHistPersona(d) {
+  const num = v => Number(v) || 0;
+  const vacacionesFechas = parseJSONSafe(d['Vacaciones detalle'], []);
+  const diasNoTrabajadosDetalle = parseJSONSafe(d['Días no trabajados detalle'], []);
+  return {
+    horasRegulares: num(d['Horas regulares']), comentarioHorasRegulares: d['Comentario horas regulares'] || '',
+    horasRegularesMonto: d['Horas regulares monto'],
+    extra50Horas: num(d['Horas extra 50%']), extra50Monto: d['Horas extra 50% monto'],
+    extra100Horas: num(d['Horas extra 100%']), extra100Monto: d['Horas extra 100% monto'],
+    extraFechas: parseJSONSafe(d['Horas extra fechas'], []), extraJustificaciones: parseJSONSafe(d['Horas extra justificaciones'], []),
+    feriadosMonto: d['Feriados monto'], feriadosPagados: parseJSONSafe(d['Feriados detalle'], []),
+    incapCCSSMonto: d['Incapacidad CCSS monto'], incapINSMonto: d['Incapacidad INS monto'], incapInternaMonto: d['Incapacidad interna monto'],
+    vacacionesMonto: d['Vacaciones monto'],
+    vacacionesDias: vacacionesFechas.reduce((a, v) => a + (Number(v.dias) || 0), 0),
+    vacacionesFechas: vacacionesFechas,
+    permisoDias: num(d['Permiso sin goce días']), permisoFechas: parseJSONSafe(d['Permiso sin goce detalle'], []),
+    subsidioMonto: d['Subsidio monto'], servicio10Monto: d['Servicio 10% monto'], tipsMonto: d['Tips monto'],
+    diasNoTrabajadosTotal: diasNoTrabajadosDetalle.reduce((a, x) => a + (Number(x.dias) || 0), 0),
+    diasNoTrabajadosMonto: d['Días no trabajados monto'], diasNoTrabajadosDetalle: diasNoTrabajadosDetalle,
+    tardanzaHoras: num(d['Tardanza horas']), tardanzaMonto: d['Tardanza monto'],
+    tardanzaDetalle: parseJSONSafe(d['Tardanza detalle'], []), tardanzaFechas: [],
+    baseCCSSFinal: d['Base CCSS utilizada'], usaCCSSAjustada: false,
+    ccssRegistrado: !(String(d['CCSS registrado'] || '').trim().toLowerCase() === 'no'),
+    ccssObreraMonto: d['CCSS obrera monto'], adelanto: d['Adelanto salario'], compras: d['Compras aprobadas'],
+    otras: d['Otras deducciones'], embargo: d['Embargo salarial'], pension: d['Pensión alimenticia']
+  };
+}
 // Mismo desglose que renderTablaCalculo() (Paso 4 del wizard) y
 // generarPDFBoleta(), pero leyendo una fila ya guardada de PlanillasDetalle
 // en vez del preview en memoria — así el historial de planillas aprobadas
-// queda con el mismo nivel de detalle que el cálculo en vivo.
+// queda con el mismo nivel de detalle que el cálculo en vivo (fechas y
+// justificaciones incluidas, ver renderDetalleCalculoLineas()).
 function renderDetalleCalculoHistPersona(d) {
-  const num = v => Number(v) || 0;
-  const extra50h = num(d['Horas extra 50%']);
-  const extra100h = num(d['Horas extra 100%']);
-  const tardanzaH = num(d['Tardanza horas']);
-  const permisoDias = num(d['Permiso sin goce días']);
-  const sinCCSS = String(d['CCSS registrado'] || '').trim().toLowerCase() === 'no';
-  return `<div class="detalle-grid">
-    <div><b>Ingresos</b>
-      <div><span>Horas regulares</span><span>${fmt(d['Horas regulares monto'])}</span></div>
-      <div><span>Horas extra 50%${extra50h>0?` (${extra50h}h)`:''}</span><span>${fmt(d['Horas extra 50% monto'])}</span></div>
-      <div><span>Horas extra 100%${extra100h>0?` (${extra100h}h)`:''}</span><span>${fmt(d['Horas extra 100% monto'])}</span></div>
-      <div><span>Feriados</span><span>${fmt(d['Feriados monto'])}</span></div>
-      <div><span>Incapacidad CCSS</span><span>${fmt(d['Incapacidad CCSS monto'])}</span></div>
-      <div><span>Incapacidad INS</span><span>${fmt(d['Incapacidad INS monto'])}</span></div>
-      <div><span>Incapacidad interna</span><span>${fmt(d['Incapacidad interna monto'])}</span></div>
-      <div><span>Vacaciones</span><span>${fmt(d['Vacaciones monto'])}</span></div>
-      ${permisoDias>0?`<div><span>Permiso sin goce (${permisoDias} días)</span><span>₡0 — sin goce</span></div>`:''}
-      <div><span>Subsidio</span><span>${fmt(d['Subsidio monto'])}</span></div>
-      <div><span>Servicio 10%</span><span>${fmt(d['Servicio 10% monto'])}</span></div>
-      <div><span>Tips</span><span>${fmt(d['Tips monto'])}</span></div>
-      <div><span>Días no trabajados</span><span>−${fmt(d['Días no trabajados monto'])}</span></div>
-      <div style="${tardanzaH>0?'color:var(--red)':''}"><span>Tardanza${tardanzaH>0?` (${tardanzaH}h)`:''}</span><span>−${fmt(d['Tardanza monto'])}</span></div>
-    </div>
-    <div><b>Deducciones</b>
-      <div><span>Base CCSS</span><span>${fmt(d['Base CCSS utilizada'])}</span></div>
-      <div><span>CCSS obrera (10.83%)${sinCCSS?' — sin CCSS en expediente':''}</span><span>${fmt(d['CCSS obrera monto'])}</span></div>
-      <div><span>Adelanto salario</span><span>${fmt(d['Adelanto salario'])}</span></div>
-      <div><span>Compras aprobadas</span><span>${fmt(d['Compras aprobadas'])}</span></div>
-      <div><span>Otras</span><span>${fmt(d['Otras deducciones'])}</span></div>
-      <div><span>Embargo salarial</span><span>${fmt(d['Embargo salarial'])}</span></div>
-      <div><span>Pensión alimenticia</span><span>${fmt(d['Pensión alimenticia'])}</span></div>
-    </div>
-  </div>${esSiTexto(d['Es extra'])?'<p class="hint" style="display:block;margin-top:8px">Colaborador extra — no incluye vacaciones, horas extra ni incapacidades en este cálculo.</p>':''}`;
+  return `<div class="detalle-grid">${renderDetalleCalculoLineas(normalizarDetalleHistPersona(d))}</div>${esSiTexto(d['Es extra'])?'<p class="hint" style="display:block;margin-top:8px">Colaborador extra — no incluye vacaciones, horas extra ni incapacidades en este cálculo.</p>':''}`;
 }
 
 // ══════════════════════════ FERIADOS ══════════════════════════
