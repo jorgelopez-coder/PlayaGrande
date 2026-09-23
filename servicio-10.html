@@ -470,12 +470,26 @@ function listaFechas(fi, ff) {
   while (d <= fin) { out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
   return out;
 }
-async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+// 90s por defecto: el Web App de RRHH (Personal/Horarios) tarda 20–40s en
+// frío — medido 2026-09-23: Personal 38s, Horarios 17–29s — y 30s cortaba
+// "Calcular reparto" con "Tiempo de espera agotado".
+async function fetchConTimeout(url, options = {}, timeoutMs = 90000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(url, { ...options, signal: controller.signal }); }
   catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
   finally { clearTimeout(timer); }
+}
+// GET JSON con 1 reintento automático si se agota el tiempo o falla la red
+// (el 2do intento suele entrar rápido porque el Web App ya quedó "caliente"
+// y/o la respuesta quedó en caché del backend).
+async function getJSONConReintento(url, timeoutMs = 90000, intentos = 2) {
+  let ultimo;
+  for (let n = 1; n <= intentos; n++) {
+    try { return await fetchConTimeout(url, {}, timeoutMs).then(r => r.json()); }
+    catch (e) { ultimo = e; if (n < intentos) await new Promise(r => setTimeout(r, 1500)); }
+  }
+  throw ultimo;
 }
 function postRRHH(payload, timeoutMs) {
   return fetchConTimeout(APPS_SCRIPT_RRHH, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) }, timeoutMs || 30000)
@@ -598,14 +612,14 @@ async function calcularReparto() {
   const incluirTips = document.getElementById('sv-incluir-tips').checked;
 
   const btn = document.getElementById('btn-calcular');
-  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando…';
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando… (puede tardar hasta 1 min)';
   try {
     const [rCierres, idsCubiertos, rHorarios, rPersonal, rDetalle] = await Promise.all([
-      fetchConTimeout(SHEETS_URL + '?action=read', {}, 60000).then(r => r.json()),
+      getJSONConReintento(SHEETS_URL + '?action=read'),
       incluirTips ? obtenerIdsTipsCubiertos() : Promise.resolve(new Set()),
-      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=horarios').then(r => r.json()),
-      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=personal').then(r => r.json()),
-      fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
+      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=horarios'),
+      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=personal'),
+      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle')
     ]);
     const cierres = rCierres.records || [];
     const ventasPorFecha = calcularVentasPorFechaSync(cierres, kioskoActual, fi, ff);
@@ -1393,7 +1407,7 @@ async function calcularControlFechas() {
     // que calcularReparto() para no repetir la descarga completa y agotar el
     // tiempo de espera, ver comentario en calcularVentasPorFechaSync().
     const [rCierres, rDetalle] = await Promise.all([
-      fetchConTimeout(SHEETS_URL + '?action=read', {}, 60000).then(r => r.json()),
+      fetchConTimeout(SHEETS_URL + '?action=read').then(r => r.json()),
       fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json())
     ]);
     const cierres = rCierres.records || [];
