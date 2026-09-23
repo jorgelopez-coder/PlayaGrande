@@ -542,11 +542,12 @@ let SERVICIO_DETALLE_CACHE = [];
 let HORARIOS_CACHE = []; // filas de la hoja "Horarios" (horarios.html) — para sugerir colaboradores no incluidos y la nota de horas registradas en el Paso 2.
 
 async function cargarDatosCompartidos() {
-  // Partido en 2 llamadas de 4 modulos en paralelo en vez de 1 con los 8
-  // juntos (2026-09-15): la llamada combinada tardaba tanto en Apps
-  // Script que devolvia 503/404 intermitente y la pestana de Planilla no
-  // cargaba ("No se pudo conectar con Google Sheets"). Cada mitad sigue
-  // reintentando sola hasta 3 veces (fetchLoteJSON/fetchBackendJSON).
+  // Partido en 2 llamadas de 4 módulos en paralelo en vez de 1 sola con
+  // los 8 juntos (2026-09-15) — la llamada combinada tardaba tanto en
+  // Apps Script que devolvía 503/404 de forma intermitente y dejaba la
+  // pestaña de Planilla sin cargar ("No se pudo conectar con Google
+  // Sheets"). Cada mitad sigue reintentando sola hasta 3 veces
+  // (fetchLoteJSON/fetchBackendJSON).
   const [r1, r2] = await Promise.all([
     fetchLoteJSON(['personal', 'vacaciones', 'permisos_sin_goce', 'feriados']),
     fetchLoteJSON(['amonestaciones', 'horas_extra', 'servicio_detalle', 'horarios'])
@@ -576,7 +577,7 @@ async function refrescarVacaciones(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
   try {
     // Mismo partido en 2 llamadas en paralelo que cargarDatosCompartidos()
-    // (2026-09-15).
+    // (2026-09-15) — ver comentario ahí.
     const [r1, r2] = await Promise.all([
       fetchLoteJSON(['vacaciones', 'permisos_sin_goce', 'feriados', 'amonestaciones']),
       fetchLoteJSON(['horas_extra', 'servicio_detalle', 'horarios'])
@@ -2396,18 +2397,74 @@ async function verDetalleHistorial(i) {
     const data = await fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
     const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(r['ID']));
     if (!detalle.length) { cont.innerHTML = '<div class="empty-state">Sin detalle guardado.</div>'; return; }
+    window._histDetalle = window._histDetalle || {};
+    window._histDetalle[i] = detalle;
     cont.innerHTML = `
       <table class="calc-tabla">
         <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
-        <tbody>${detalle.map(d => `<tr><td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}</div></td>
-          <td class="monto">${fmt(d['Total ingresos'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td>
-          <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td></tr>`).join('')}</tbody>
+        <tbody>${detalle.map((d, j) => `
+          <tr class="calc-row" onclick="toggleDetalleHistPersona(${i},${j})">
+            <td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}${esSiTexto(d['Es extra'])?' · <span style="color:var(--red)">Extra</span>':''}</div></td>
+            <td class="monto">${fmt(d['Total ingresos'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td>
+            <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td>
+          </tr>
+          <tr class="calc-detalle" id="hist-det-calc-${i}-${j}" style="display:none">
+            <td colspan="4">${renderDetalleCalculoHistPersona(d)}</td>
+          </tr>
+        `).join('')}</tbody>
       </table>
+      <p class="hint" style="display:block;margin-top:6px">Click en un colaborador para ver el detalle de cálculo.</p>
       ${r['PDF URL'] ? `<p class="hint" style="display:block;margin-top:10px"><a href="${r['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
     `;
   } catch (err) {
     cont.innerHTML = '<div class="empty-state">Error al cargar el detalle.</div>';
   }
+}
+function esSiTexto(v) {
+  return String(v || '').trim().toLowerCase() === 'sí' || v === true;
+}
+function toggleDetalleHistPersona(i, j) {
+  const fila = document.getElementById(`hist-det-calc-${i}-${j}`);
+  fila.style.display = fila.style.display === 'none' ? '' : 'none';
+}
+// Mismo desglose que renderTablaCalculo() (Paso 4 del wizard) y
+// generarPDFBoleta(), pero leyendo una fila ya guardada de PlanillasDetalle
+// en vez del preview en memoria — así el historial de planillas aprobadas
+// queda con el mismo nivel de detalle que el cálculo en vivo.
+function renderDetalleCalculoHistPersona(d) {
+  const num = v => Number(v) || 0;
+  const extra50h = num(d['Horas extra 50%']);
+  const extra100h = num(d['Horas extra 100%']);
+  const tardanzaH = num(d['Tardanza horas']);
+  const permisoDias = num(d['Permiso sin goce días']);
+  const sinCCSS = String(d['CCSS registrado'] || '').trim().toLowerCase() === 'no';
+  return `<div class="detalle-grid">
+    <div><b>Ingresos</b>
+      <div><span>Horas regulares</span><span>${fmt(d['Horas regulares monto'])}</span></div>
+      <div><span>Horas extra 50%${extra50h>0?` (${extra50h}h)`:''}</span><span>${fmt(d['Horas extra 50% monto'])}</span></div>
+      <div><span>Horas extra 100%${extra100h>0?` (${extra100h}h)`:''}</span><span>${fmt(d['Horas extra 100% monto'])}</span></div>
+      <div><span>Feriados</span><span>${fmt(d['Feriados monto'])}</span></div>
+      <div><span>Incapacidad CCSS</span><span>${fmt(d['Incapacidad CCSS monto'])}</span></div>
+      <div><span>Incapacidad INS</span><span>${fmt(d['Incapacidad INS monto'])}</span></div>
+      <div><span>Incapacidad interna</span><span>${fmt(d['Incapacidad interna monto'])}</span></div>
+      <div><span>Vacaciones</span><span>${fmt(d['Vacaciones monto'])}</span></div>
+      ${permisoDias>0?`<div><span>Permiso sin goce (${permisoDias} días)</span><span>₡0 — sin goce</span></div>`:''}
+      <div><span>Subsidio</span><span>${fmt(d['Subsidio monto'])}</span></div>
+      <div><span>Servicio 10%</span><span>${fmt(d['Servicio 10% monto'])}</span></div>
+      <div><span>Tips</span><span>${fmt(d['Tips monto'])}</span></div>
+      <div><span>Días no trabajados</span><span>−${fmt(d['Días no trabajados monto'])}</span></div>
+      <div style="${tardanzaH>0?'color:var(--red)':''}"><span>Tardanza${tardanzaH>0?` (${tardanzaH}h)`:''}</span><span>−${fmt(d['Tardanza monto'])}</span></div>
+    </div>
+    <div><b>Deducciones</b>
+      <div><span>Base CCSS</span><span>${fmt(d['Base CCSS utilizada'])}</span></div>
+      <div><span>CCSS obrera (10.83%)${sinCCSS?' — sin CCSS en expediente':''}</span><span>${fmt(d['CCSS obrera monto'])}</span></div>
+      <div><span>Adelanto salario</span><span>${fmt(d['Adelanto salario'])}</span></div>
+      <div><span>Compras aprobadas</span><span>${fmt(d['Compras aprobadas'])}</span></div>
+      <div><span>Otras</span><span>${fmt(d['Otras deducciones'])}</span></div>
+      <div><span>Embargo salarial</span><span>${fmt(d['Embargo salarial'])}</span></div>
+      <div><span>Pensión alimenticia</span><span>${fmt(d['Pensión alimenticia'])}</span></div>
+    </div>
+  </div>${esSiTexto(d['Es extra'])?'<p class="hint" style="display:block;margin-top:8px">Colaborador extra — no incluye vacaciones, horas extra ni incapacidades en este cálculo.</p>':''}`;
 }
 
 // ══════════════════════════ FERIADOS ══════════════════════════
