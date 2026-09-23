@@ -617,7 +617,10 @@ async function calcularReparto() {
     const [rCierres, idsCubiertos, rHorarios, rPersonal, rDetalle] = await Promise.all([
       getJSONConReintento(SHEETS_URL + '?action=read'),
       incluirTips ? obtenerIdsTipsCubiertos() : Promise.resolve(new Set()),
-      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=horarios'),
+      // Filtro del lado del servidor (kiosko + rango): mucho más liviano que
+      // bajar todo el histórico. Si el backend aún no tiene el filtro, igual
+      // devuelve todo y el filtro de abajo (mismoKiosko/fechas) lo resuelve.
+      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=horarios&kiosko=' + encodeURIComponent(kioskoActual) + '&desde=' + fi + '&hasta=' + ff),
       getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=personal'),
       getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle')
     ]);
