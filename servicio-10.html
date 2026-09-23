@@ -38,7 +38,7 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
 .tab-btn:hover:not(.active){color:var(--text)}
 
-main{max-width:960px;margin:0 auto;padding:2rem 2rem 5rem}
+main{max-width:1200px;margin:0 auto;padding:2rem 2rem 5rem}
 .page{display:none}.page.active{display:block}
 
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
@@ -129,11 +129,47 @@ tr:last-child td{border-bottom:none}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+.matriz-wrap{overflow:auto;max-height:72vh;border:1px solid var(--border);border-radius:10px}
+table.matriz{width:auto;min-width:100%;font-size:12.5px;border-collapse:separate;border-spacing:0}
+table.matriz th,table.matriz td{padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:middle}
+table.matriz thead th{position:sticky;top:0;z-index:2;text-transform:none;letter-spacing:0;text-align:center;background:var(--surface)}
+table.matriz .sticky-col{position:sticky;left:0;background:var(--card);z-index:1;min-width:190px;max-width:240px;text-align:left}
+table.matriz thead th.sticky-col{z-index:3;background:var(--surface)}
+.col-dia{cursor:pointer;min-width:88px}
+.col-dia:hover{background:var(--green-bg)!important}
+.d-fecha{font-weight:600;color:var(--text);font-size:11.5px;text-transform:capitalize}
+.d-monto{font-family:var(--font-m);color:var(--amber);font-size:11.5px;font-weight:600}
+.d-sub{font-size:10px;color:var(--muted);font-weight:500}
+.d-alerta{color:var(--red)}
+td.celda{text-align:center;cursor:pointer;min-width:88px;user-select:none}
+td.celda:hover{background:var(--surface)}
+td.celda.on{background:var(--green-bg)}
+td.celda.sug{outline:1px dashed var(--border-h);outline-offset:-4px}
+td.celda input{width:15px;height:15px;accent-color:var(--green);pointer-events:none}
+table.matriz .m{font-family:var(--font-m);font-size:11px;color:var(--green);min-height:14px}
+td.celda-grupo,td.celda-pie{text-align:center;font-size:11.5px}
+tr.grupo-cocina td{background:var(--amber-bg)!important;font-weight:600}
+tr.fila-cocina td.sticky-col{padding-left:22px}
+table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px}
+.td-total{font-family:var(--font-m);text-align:right;font-weight:600;white-space:nowrap}
+.colab-cell{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.colab-nom{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.colab-puesto{font-size:10.5px;color:var(--muted);font-weight:400}
+.tag-cocina{border:1px solid var(--border);background:transparent;border-radius:6px;font-size:12px;padding:1px 5px;cursor:pointer;opacity:.35;flex-shrink:0}
+.tag-cocina.on{opacity:1;background:var(--amber-bg);border-color:var(--amber-lt)}
+.tag-cocina:hover{opacity:1}
+.agregar-colab{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.agregar-colab input[type=text]{max-width:320px}
+.chk-cocina{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.chk-cocina input{width:16px;height:16px;accent-color:var(--green)}
+.mono{font-family:var(--font-m)}
+
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .kiosko-bar{padding:.65rem 1rem}
   .field-row,.field-row3{grid-template-columns:1fr}
   .sel-bar{flex-direction:column;align-items:flex-start}
+  table.matriz .sticky-col{min-width:140px}
 }
 </style>
 </head>
@@ -195,13 +231,20 @@ tr:last-child td{border-bottom:none}
   <div id="sv-resultado" style="display:none">
 
     <div class="card">
-      <p class="card-title">Detalle por fecha — <span id="sv-kiosko-lbl"></span></p>
-      <p class="card-note">Cada fecha está contraída — hacé clic para abrirla y marcar quién recibe el servicio ese día. Por defecto vienen tildados los colaboradores con turno "Trabajo" ese día según Horarios; el listado incluye a todos los activos del kiosko para poder ajustar a mano.</p>
+      <p class="card-title">Matriz de reparto — <span id="sv-kiosko-lbl"></span></p>
+      <p class="card-note">Filas = colaboradores · Columnas = fechas, con el monto a repartir ese día (Servicio + Tips). Viene precargada con quienes tuvieron turno "Trabajo" según Horarios (celdas con borde punteado) — hacé clic en una celda para marcar/desmarcar, o en la fecha para marcar/desmarcar a todos ese día. El personal de <b>Cocina</b> (Departamento = Cocina en Personal) se agrupa: entre todos los de cocina marcados ese día se reparten <b>una sola parte del 10%</b>, lo mismo que le toca a una persona. Los <b>tips</b> se reparten parejo entre todos los marcados del día (cocina incluida, uno por persona). El botón 🍳 de cada fila pasa a alguien al grupo Cocina o lo saca.</p>
       <div class="toolbar">
-        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(true)">Seleccionar todos en todas las fechas (reparto equitativo)</button>
-        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(false)">Ninguno en todas las fechas</button>
+        <button type="button" class="btn-mini" onclick="restaurarSegunHorarios()">Restaurar según Horarios</button>
+        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(true)">Marcar todos en todas las fechas</button>
+        <button type="button" class="btn-mini" onclick="marcarTodosGlobal(false)">Limpiar todo</button>
       </div>
-      <div id="sv-dias-lista"><div class="empty-state"><span class="spinner"></span></div></div>
+      <div class="matriz-wrap" id="sv-matriz"><div class="empty-state"><span class="spinner"></span></div></div>
+      <div class="agregar-colab">
+        <input type="text" id="sv-nuevo-colab" list="sv-personal-list" placeholder="Agregar colaborador (buscar o escribir nombre)…" oninput="alEscribirNuevoColab()" onkeydown="if(event.key==='Enter')agregarColaboradorMatriz()"/>
+        <datalist id="sv-personal-list"></datalist>
+        <label class="chk-cocina"><input type="checkbox" id="sv-nuevo-cocina"/> Cocina</label>
+        <button type="button" class="btn-mini" onclick="agregarColaboradorMatriz()">+ Agregar</button>
+      </div>
     </div>
 
     <div class="card">
@@ -501,7 +544,8 @@ function calcularTipsPendientesPorFecha(cierres, idsCubiertos, kiosko, fi, ff) {
 // ── ESTADO ────────────────────────────────────────────────────────
 let kioskoActual = localStorage.getItem('kiosko_actual_servicio') ?? '';
 let diasCalculados = [];   // [{fecha, ventaTotal, ventaNeta, montoServicio, colaboradores:[{colaborador,puesto}]}]
-let personalActivo = [];   // [{nombre, puesto}] del kiosko elegido, para "+ colaborador…" por día
+let personalActivo = [];   // [{nombre, puesto, kiosko, cocina}] activos del kiosko elegido
+let personalTodos = [];    // [{nombre, puesto, kiosko, cocina}] activos de todos los kioskos (buscador "Agregar")
 let detalleTodos = [];     // registros de ServicioRepartoDetalle (todos los kioskos/fechas)
 let gruposPendientes = []; // detalleTodos agrupado por (ID Reparto, Colaborador), sin pagar
 let repartosTodos = [];    // registros de ServicioRepartos (maestro)
@@ -596,19 +640,31 @@ async function calcularReparto() {
       const fecha = soloFecha(h['Fecha']);
       if (!fecha || fecha < fi || fecha > ff) return;
       if (!colaboradoresPorFecha.has(fecha)) colaboradoresPorFecha.set(fecha, new Map());
-      colaboradoresPorFecha.get(fecha).set(nombre.toLowerCase(), { colaborador: nombre, puesto: h['Puesto'] || '' });
+      colaboradoresPorFecha.get(fecha).set(nombre.toLowerCase(), { colaborador: nombre, puesto: h['Puesto'] || '', cocina: esDeptoCocina(h['Departamento']) });
     });
 
     // Roster completo de activos del kiosko seleccionado — se despliega
     // TODOS los días, no solo quienes trabajaron, para poder marcar a mano.
     // Solo entra quien tiene ese kiosko asignado en Personal (no se incluyen
     // colaboradores sin kiosko asignado ni de otros kioskos).
-    personalActivo = (rPersonal.registros || [])
+    // Todos los activos (cualquier kiosko) — para el buscador de "Agregar
+    // colaborador" de la matriz.
+    personalTodos = (rPersonal.registros || [])
       .filter(p => String(p['Estado'] || '').toUpperCase() === 'ACTIVO')
-      .filter(p => mismoKiosko(p['Kiosko'], kioskoActual))
-      .map(p => ({ nombre: p['Nombre completo'] || '', puesto: p['Puesto'] || '' }))
+      .map(p => ({ nombre: String(p['Nombre completo'] || '').trim(), puesto: p['Puesto'] || '', kiosko: p['Kiosko'] || '', cocina: esDeptoCocina(p['Departamento']) }))
       .filter(p => p.nombre)
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    personalActivo = personalTodos.filter(p => mismoKiosko(p.kiosko, kioskoActual));
+    poblarDatalistPersonal();
+
+    // Filas de la matriz: activos del kiosko + quien tuvo turno en el
+    // periodo sin estar en ese roster (ej. cubriendo desde otro kiosko).
+    const roster = personalActivo.map(p => ({ colaborador: p.nombre, puesto: p.puesto, cocina: p.cocina }));
+    colaboradoresPorFecha.forEach(m => m.forEach((info, key) => {
+      if (roster.some(r => r.colaborador.toLowerCase() === key)) return;
+      const pt = personalTodos.find(x => x.nombre.toLowerCase() === key);
+      roster.push({ colaborador: info.colaborador, puesto: info.puesto || (pt ? pt.puesto : ''), cocina: info.cocina || !!(pt && pt.cocina) });
+    }));
 
     let fechasOmitidas = 0;
     diasCalculados = listaFechas(fi, ff)
@@ -624,19 +680,15 @@ async function calcularReparto() {
         const montoServicio = servicioCubierto ? 0 : (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
         const tipsInfo = tipsPorFecha.get(f) || { monto: 0, ids: [] };
         const trabajaron = colaboradoresPorFecha.get(f) || new Map();
-        const colaboradores = personalActivo.map(p => ({
-          colaborador: p.nombre, puesto: p.puesto, recibe: trabajaron.has(p.nombre.toLowerCase())
-        }));
-        // Si alguien trabajó ese día pero no está en el roster de activos
-        // del kiosko (ej. cubriendo desde otro kiosko), se agrega igual.
-        trabajaron.forEach((info, key) => {
-          if (!colaboradores.some(c => c.colaborador.toLowerCase() === key)) {
-            colaboradores.push({ colaborador: info.colaborador, puesto: info.puesto, recibe: true });
-          }
+        // Misma lista (y mismo orden) todos los días = filas de la matriz.
+        // Precarga: marcado si tuvo turno "Trabajo" ese día según Horarios.
+        const colaboradores = roster.map(r => {
+          const sug = trabajaron.has(r.colaborador.toLowerCase());
+          return { colaborador: r.colaborador, puesto: r.puesto, cocina: r.cocina, recibe: sug, sugerido: sug };
         });
         // Tips pendientes de ese día (control-tips.html) se distribuyen con
         // la misma lógica equitativa que el 10% de servicio, entre los
-        // mismos colaboradores tildados ese día — ver diaResumenTexto().
+        // mismos colaboradores tildados ese día — ver repartoDia().
         // Independientes del servicio: si el servicio ya se repartió pero
         // quedan tips sin cubrir, el día se sigue mostrando (solo para tips).
         return { fecha: f, ventaNeta, montoServicio, tipsMonto: tipsInfo.monto, tipsIds: tipsInfo.ids, colaboradores, servicioCubierto };
@@ -660,7 +712,7 @@ async function calcularReparto() {
     } else if (fechasSoloTips > 0) {
       showToast(`${fechasSoloTips} fecha(s) con servicio ya repartido traen solo tips pendientes — revisalas`, 'success');
     } else {
-      showToast('Cálculo listo — abrí cada fecha para marcar quién recibe', 'success');
+      showToast('Cálculo listo — revisá la matriz y ajustá quién recibe cada día', 'success');
     }
   } catch (e) {
     showToast('Error al calcular: ' + e.message, 'error');
@@ -669,135 +721,184 @@ async function calcularReparto() {
   }
 }
 
-// Cantidad de colaboradores tildados ese día y el monto que le toca a cada
-// uno — Servicio 10% + Tips pendientes de ese día (misma repartición
-// equitativa entre los mismos tildados) ÷ cantidad de tildados.
-function diaResumenTexto(i) {
-  const d = diasCalculados[i];
-  const seleccionados = d.colaboradores.filter(c => c.recibe).length;
-  const total = d.colaboradores.length;
-  const totalDia = d.montoServicio + (d.tipsMonto || 0);
-  const montoCU = seleccionados ? Math.round(totalDia / seleccionados) : 0;
-  return { seleccionados, total, montoCU, totalDia };
+// ── MATRIZ DE REPARTO (colaboradores × fechas) ─────────────────────
+// Todos los días comparten el MISMO listado de colaboradores en el mismo
+// orden (diasCalculados[i].colaboradores[ri] es siempre la misma persona),
+// así "ri" identifica una fila de la matriz y "i" una columna (fecha).
+//
+// Regla de Cocina: los colaboradores con Departamento = "Cocina" en
+// Personal se agrupan. Cada día, el grupo completo cuenta como UNA sola
+// parte (lo que le toca a una persona de salón/barra) y esa parte se
+// divide en partes iguales entre los de cocina marcados ese día.
+// Esa regla aplica SOLO al Servicio 10%. Los tips se reparten parejo
+// entre TODOS los marcados ese día (cocina incluida, uno por persona).
+function esDeptoCocina(v) { return String(v || '').trim().toLowerCase() === 'cocina'; }
+
+function repartoDia(d) {
+  const sel = d.colaboradores.filter(c => c.recibe);
+  const nCocina = sel.filter(c => c.cocina).length;
+  const nSalon = sel.length - nCocina;
+  const partes = nSalon + (nCocina ? 1 : 0);
+  const servicioParte = partes ? Math.round(d.montoServicio / partes) : 0;
+  const servicioCocina = nCocina ? Math.round(servicioParte / nCocina) : 0;
+  const tipsCU = (sel.length && d.tipsMonto) ? Math.round(d.tipsMonto / sel.length) : 0;
+  const montos = new Map(); // ri -> { servicio, tips }
+  d.colaboradores.forEach((c, ri) => {
+    if (!c.recibe) return;
+    montos.set(ri, { servicio: c.cocina ? servicioCocina : servicioParte, tips: tipsCU });
+  });
+  return { partes, nSalon, nCocina, nSel: sel.length, parte: servicioParte, servicioCocina, tipsCU, montos, totalDia: d.montoServicio + (d.tipsMonto || 0) };
 }
 
-function checklistHtml(i) {
-  const d = diasCalculados[i];
-  if (!d.colaboradores.length) return '<div class="empty" style="padding:1rem 0">Sin personal activo en este kiosko.</div>';
-  return d.colaboradores.map((c, ci) => `<label class="check-row">
-    <input type="checkbox" ${c.recibe ? 'checked' : ''} onchange="toggleRecibeDia(${i},${ci},this.checked)"/>
-    <span>${escHtml(c.colaborador)}</span>
-    <span class="check-puesto">${escHtml(c.puesto) || ''}</span>
-  </label>`).join('');
-}
-
-function renderChecklistDia(i) {
-  const cont = document.getElementById('dia-checklist-' + i);
-  if (cont) cont.innerHTML = checklistHtml(i);
+function fechaCorta(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: '2-digit', month: 'short' });
 }
 
 function renderDiasReparto() {
-  const cont = document.getElementById('sv-dias-lista');
+  const cont = document.getElementById('sv-matriz');
   if (!diasCalculados.length) {
     cont.innerHTML = '<div class="empty-state">No hay fechas nuevas para repartir en este periodo (o ya estaban todas incluidas en otro reparto cerrado).</div>';
     actualizarResumenReparto();
     return;
   }
-  cont.innerHTML = diasCalculados.map((d, i) => {
-    const { seleccionados, total, montoCU, totalDia } = diaResumenTexto(i);
-    const aviso = (!seleccionados && totalDia > 0.5) ? '<span class="badge b-pend">⚠ sin asignar</span>' : '';
-    const tipsTxt = d.tipsMonto > 0 ? ` · Tips pendientes: ${fmtCRC(d.tipsMonto)}` : '';
-    const servicioTxt = d.servicioCubierto ? 'Servicio ya repartido en otro cálculo' : `Servicio: ${fmtCRC(d.montoServicio)}`;
-    const servicioBadge = d.servicioCubierto ? '<span class="badge b-ok">solo tips</span>' : '';
-    return `<div class="hist-card" onclick="toggleDia(${i})">
-      <div class="hist-head">
-        <div>
-          <div class="hist-fecha">${fechaLbl(d.fecha)}</div>
-          <div class="hist-ref" id="dia-sub-${i}">${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}</div>
-        </div>
-        <div class="hist-total">${fmtCRC(totalDia)}</div>
-      </div>
-      <div class="hist-row"><span>Venta Neta: ${fmtCRC(d.ventaNeta)} · ${servicioTxt}${tipsTxt}</span>${servicioBadge}${aviso}</div>
-    </div>
-    <div class="hist-detail" id="dia-detalle-${i}">
-      <div class="toolbar">
-        <button type="button" class="btn-mini" onclick="marcarTodosDia(${i},true)">Seleccionar todos (reparto equitativo)</button>
-        <button type="button" class="btn-mini" onclick="marcarTodosDia(${i},false)">Ninguno</button>
-        <button type="button" class="btn-mini" onclick="agregarOtroColaboradorDia(${i})">+ otro colaborador</button>
-      </div>
-      <div id="dia-checklist-${i}">${checklistHtml(i)}</div>
-    </div>`;
-  }).join('');
+  const scrollL = cont.scrollLeft, scrollT = cont.scrollTop;
+  const filas = diasCalculados[0].colaboradores;
+  const repartos = diasCalculados.map(repartoDia);
+  const idxSalon = filas.map((c, ri) => ri).filter(ri => !filas[ri].cocina);
+  const idxCocina = filas.map((c, ri) => ri).filter(ri => filas[ri].cocina);
+
+  const head = `<tr><th class="sticky-col">Colaborador</th>${diasCalculados.map((d, i) => {
+    const r = repartos[i];
+    const alerta = (!r.partes && r.totalDia > 0.5) ? '<div class="d-sub d-alerta">⚠ sin asignar</div>' : '';
+    const soloTips = d.servicioCubierto ? '<div class="d-sub">solo tips</div>' : '';
+    const tipsTxt = d.tipsMonto > 0 ? ` · tips ${fmtCRC(d.tipsMonto)}` : '';
+    return `<th class="col-dia" title="Venta Neta ${fmtCRC(d.ventaNeta)} · Servicio ${fmtCRC(d.montoServicio)}${tipsTxt}\nClic para marcar/desmarcar a todos este día" onclick="toggleColumna(${i})">
+      <div class="d-fecha">${fechaCorta(d.fecha)}</div>
+      <div class="d-monto">${fmtCRC(r.totalDia)}</div>${soloTips}${alerta}</th>`;
+  }).join('')}<th class="td-total">Total</th></tr>`;
+
+  const fila = (ri) => {
+    const c = filas[ri];
+    let total = 0;
+    const celdas = diasCalculados.map((d, i) => {
+      const cc = d.colaboradores[ri];
+      const m = repartos[i].montos.get(ri);
+      const monto = m ? m.servicio + m.tips : 0;
+      total += monto;
+      const sug = cc.sugerido ? ' sug' : '';
+      return `<td class="celda${cc.recibe ? ' on' : ''}${sug}" onclick="toggleCelda(${ri},${i})" title="${cc.sugerido ? 'Con turno según Horarios' : 'Sin turno en Horarios'}">
+        <input type="checkbox" ${cc.recibe ? 'checked' : ''} tabindex="-1"/>
+        <div class="m">${cc.recibe ? fmtCRC(monto) : ''}</div></td>`;
+    }).join('');
+    const btnCocina = `<button type="button" class="tag-cocina${c.cocina ? ' on' : ''}" title="${c.cocina ? 'Quitar del grupo Cocina' : 'Pasar al grupo Cocina'}" onclick="toggleCocinaFila(${ri})">🍳</button>`;
+    return `<tr class="${c.cocina ? 'fila-cocina' : ''}"><td class="sticky-col"><div class="colab-cell"><div><div class="colab-nom">${escHtml(c.colaborador)}</div><div class="colab-puesto">${escHtml(c.puesto) || ''}</div></div>${btnCocina}</div></td>${celdas}<td class="td-total">${fmtCRC(total)}</td></tr>`;
+  };
+
+  let body = idxSalon.map(fila).join('');
+  if (idxCocina.length) {
+    let totalGrupo = 0;
+    const celdasGrupo = diasCalculados.map((d, i) => {
+      const r = repartos[i];
+      if (!r.nCocina) return '<td class="celda-grupo">—</td>';
+      totalGrupo += r.parte + r.tipsCU * r.nCocina;
+      return `<td class="celda-grupo"><div class="m">${fmtCRC(r.parte)}</div><div class="d-sub">10% ÷ ${r.nCocina}${r.tipsCU ? ` · tips ${fmtCRC(r.tipsCU)} c/u` : ''}</div></td>`;
+    }).join('');
+    body += `<tr class="grupo-cocina"><td class="sticky-col">🍳 Cocina <span class="colab-puesto">· 1 parte compartida</span></td>${celdasGrupo}<td class="td-total">${fmtCRC(totalGrupo)}</td></tr>`;
+    body += idxCocina.map(fila).join('');
+  }
+  if (!filas.length) body = `<tr><td class="sticky-col empty" colspan="${diasCalculados.length + 2}">Sin personal activo en este kiosko — agregá colaboradores abajo.</td></tr>`;
+
+  const totalRepartido = repartos.reduce((s, r) => { r.montos.forEach(m => s += m.servicio + m.tips); return s; }, 0);
+  const foot = `<tr><td class="sticky-col">Partes del día</td>${repartos.map(r => `<td class="celda-pie">${r.partes}${r.nCocina ? `<div class="d-sub">${r.nSalon} + cocina</div>` : ''}</td>`).join('')}<td></td></tr>
+    <tr><td class="sticky-col">10% por parte</td>${repartos.map(r => `<td class="celda-pie mono">${r.partes ? fmtCRC(r.parte) : '—'}</td>`).join('')}<td></td></tr>
+    <tr><td class="sticky-col">Tips por persona</td>${repartos.map(r => `<td class="celda-pie mono">${r.tipsCU ? fmtCRC(r.tipsCU) : '—'}</td>`).join('')}<td class="td-total">${fmtCRC(totalRepartido)}</td></tr>`;
+
+  cont.innerHTML = `<table class="matriz"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+  cont.scrollLeft = scrollL; cont.scrollTop = scrollT;
   actualizarResumenReparto();
 }
 
-function toggleDia(i) {
-  const el = document.getElementById('dia-detalle-' + i);
-  if (el) el.classList.toggle('open');
+function toggleCelda(ri, i) {
+  const c = diasCalculados[i].colaboradores[ri];
+  c.recibe = !c.recibe;
+  renderDiasReparto();
 }
 
-function toggleRecibeDia(i, ci, checked) {
-  diasCalculados[i].colaboradores[ci].recibe = checked;
-  actualizarDiaResumen(i);
+// Clic en el encabezado de una fecha: si falta alguien por marcar, marca a
+// todos ese día; si ya estaban todos marcados, los desmarca.
+function toggleColumna(i) {
+  const cols = diasCalculados[i].colaboradores;
+  const valor = cols.some(c => !c.recibe);
+  cols.forEach(c => c.recibe = valor);
+  renderDiasReparto();
 }
 
-function marcarTodosDia(i, valor) {
-  diasCalculados[i].colaboradores.forEach(c => c.recibe = valor);
-  renderChecklistDia(i);
-  actualizarDiaResumen(i);
+// Mueve una persona dentro/fuera del grupo Cocina (en todas las fechas).
+function toggleCocinaFila(ri) {
+  if (window.event) window.event.stopPropagation();
+  diasCalculados.forEach(d => { d.colaboradores[ri].cocina = !d.colaboradores[ri].cocina; });
+  renderDiasReparto();
 }
 
-// Aplica "Seleccionar todos"/"Ninguno" a TODAS las fechas calculadas de una
-// sola vez (reparto equitativo entre todo el roster, en cada día). Evita
-// recalcular el resumen global una vez por fecha (actualizarDiaResumen lo
-// hace) — acá se actualiza cada fecha y se recalcula el total una sola vez
-// al final.
 function marcarTodosGlobal(valor) {
   if (!diasCalculados.length) return;
-  diasCalculados.forEach((d, i) => {
-    d.colaboradores.forEach(c => c.recibe = valor);
-    renderChecklistDia(i);
-    const { seleccionados, total, montoCU } = diaResumenTexto(i);
-    const sub = document.getElementById('dia-sub-' + i);
-    if (sub) sub.textContent = `${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}`;
-  });
-  actualizarResumenReparto();
-  showToast(valor ? 'Todo el equipo activo quedó marcado en todas las fechas' : 'Se limpió la selección en todas las fechas', 'success');
+  diasCalculados.forEach(d => d.colaboradores.forEach(c => c.recibe = valor));
+  renderDiasReparto();
+  showToast(valor ? 'Todos marcados en todas las fechas' : 'Se limpió la selección en todas las fechas', 'success');
 }
 
-function agregarOtroColaboradorDia(i) {
-  const nombre = (window.prompt('Nombre del colaborador:') || '').trim();
-  if (!nombre) return;
-  if (diasCalculados[i].colaboradores.some(c => c.colaborador.toLowerCase() === nombre.toLowerCase())) {
-    showToast('Ya está en la lista de ese día', 'error'); return;
+// Vuelve a la precarga original (turnos "Trabajo" según Horarios).
+function restaurarSegunHorarios() {
+  if (!diasCalculados.length) return;
+  diasCalculados.forEach(d => d.colaboradores.forEach(c => c.recibe = !!c.sugerido));
+  renderDiasReparto();
+  showToast('Matriz restaurada según Horarios', 'success');
+}
+
+function poblarDatalistPersonal() {
+  const dl = document.getElementById('sv-personal-list');
+  if (!dl) return;
+  dl.innerHTML = personalTodos.map(p => `<option value="${escHtml(p.nombre)}">${escHtml([p.puesto, p.kiosko].filter(Boolean).join(' · '))}</option>`).join('');
+}
+
+function alEscribirNuevoColab() {
+  const nombre = document.getElementById('sv-nuevo-colab').value.trim().toLowerCase();
+  const p = personalTodos.find(x => x.nombre.toLowerCase() === nombre);
+  if (p) document.getElementById('sv-nuevo-cocina').checked = !!p.cocina;
+}
+
+// Agrega una fila nueva a la matriz (en todas las fechas, sin marcar) —
+// luego se marcan a mano los días que corresponda.
+function agregarColaboradorMatriz() {
+  if (!diasCalculados.length) { showToast('Primero calculá el reparto', 'error'); return; }
+  const inp = document.getElementById('sv-nuevo-colab');
+  const nombre = inp.value.trim();
+  if (!nombre) { showToast('Escribí el nombre del colaborador', 'error'); return; }
+  if (diasCalculados[0].colaboradores.some(c => c.colaborador.toLowerCase() === nombre.toLowerCase())) {
+    showToast('Ya está en la matriz', 'error'); return;
   }
-  diasCalculados[i].colaboradores.push({ colaborador: nombre, puesto: '', recibe: true });
-  renderChecklistDia(i);
-  actualizarDiaResumen(i);
+  const p = personalTodos.find(x => x.nombre.toLowerCase() === nombre.toLowerCase());
+  const cocina = document.getElementById('sv-nuevo-cocina').checked;
+  diasCalculados.forEach(d => d.colaboradores.push({
+    colaborador: p ? p.nombre : nombre, puesto: p ? p.puesto : '', cocina, recibe: false, sugerido: false, extra: true
+  }));
+  inp.value = ''; document.getElementById('sv-nuevo-cocina').checked = false;
+  renderDiasReparto();
+  showToast('Colaborador agregado — marcá los días que le corresponden', 'success');
 }
 
-function actualizarDiaResumen(i) {
-  const { seleccionados, total, montoCU } = diaResumenTexto(i);
-  const sub = document.getElementById('dia-sub-' + i);
-  if (sub) sub.textContent = `${seleccionados}/${total} colaboradores · ₡ c/u ${fmtCRC(montoCU)}`;
-  actualizarResumenReparto();
-}
-
-// Servicio y tips se redondean por separado, por persona seleccionada ese
-// día (mismo criterio que cerrarCalculo() al guardar), así el resumen que
-// se ve acá coincide con lo que realmente queda archivado al cerrar.
+// Servicio y tips se redondean por separado (mismo criterio que
+// cerrarCalculo() al guardar), así el resumen coincide con lo archivado.
 function calcularResumenColaboradores() {
   const map = new Map();
   diasCalculados.forEach(d => {
-    const seleccionados = d.colaboradores.filter(c => c.recibe);
-    if (!seleccionados.length) return;
-    const servicioCU = Math.round(d.montoServicio / seleccionados.length);
-    const tipsCU = d.tipsMonto ? Math.round(d.tipsMonto / seleccionados.length) : 0;
-    seleccionados.forEach(c => {
-      if (!map.has(c.colaborador)) map.set(c.colaborador, { colaborador: c.colaborador, puesto: c.puesto, dias: 0, servicio: 0, tips: 0, monto: 0 });
+    repartoDia(d).montos.forEach((m, ri) => {
+      const c = d.colaboradores[ri];
+      if (!map.has(c.colaborador)) map.set(c.colaborador, { colaborador: c.colaborador, puesto: c.puesto, cocina: c.cocina, dias: 0, servicio: 0, tips: 0, monto: 0 });
       const e = map.get(c.colaborador);
-      e.dias += 1; e.servicio += servicioCU; e.tips += tipsCU; e.monto += servicioCU + tipsCU;
+      e.dias += 1; e.servicio += m.servicio; e.tips += m.tips; e.monto += m.servicio + m.tips;
       if (c.puesto) e.puesto = c.puesto;
+      e.cocina = c.cocina;
     });
   });
   return Array.from(map.values()).sort((a, b) => b.monto - a.monto || a.colaborador.localeCompare(b.colaborador));
@@ -807,7 +908,7 @@ function actualizarResumenReparto() {
   const resumen = calcularResumenColaboradores();
   const cont = document.getElementById('sv-resumen-body');
   cont.innerHTML = resumen.length
-    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.servicio)}</td><td class="num">${fmtCRC(r.tips)}</td><td class="num">${fmtCRC(r.monto)}</td></tr>`).join('')
+    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}${r.cocina ? ' <span class="badge b-pend">Cocina</span>' : ''}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.servicio)}</td><td class="num">${fmtCRC(r.tips)}</td><td class="num">${fmtCRC(r.monto)}</td></tr>`).join('')
     : '<tr><td colspan="6" class="empty">Sin colaboradores asignados todavía.</td></tr>';
 
   const totalVentaNeta = diasCalculados.reduce((s, d) => s + d.ventaNeta, 0);
@@ -837,14 +938,17 @@ async function cerrarCalculo() {
   const asignaciones = [];
   const tipsIdsCubiertos = [];
   diasCalculados.forEach((d, i) => {
-    const seleccionados = d.colaboradores.filter(c => c.recibe);
-    if (!seleccionados.length) return; // día sin asignar: sus tips (si tenía) siguen pendientes
-    const montoServicioCU = Math.round(d.montoServicio / seleccionados.length);
-    const montoTipsCU = d.tipsMonto ? Math.round(d.tipsMonto / seleccionados.length) : 0;
-    seleccionados.forEach(c => asignaciones.push({
-      fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || '',
-      monto_servicio: montoServicioCU, monto_tips: montoTipsCU, monto: montoServicioCU + montoTipsCU
-    }));
+    const r = repartoDia(d);
+    if (!r.montos.size) return; // día sin asignar: sus tips (si tenía) siguen pendientes
+    // Montos por persona según la matriz (Cocina = 1 parte dividida entre
+    // los de cocina marcados ese día — ver repartoDia()).
+    r.montos.forEach((m, ri) => {
+      const c = d.colaboradores[ri];
+      asignaciones.push({
+        fecha: d.fecha, colaborador: c.colaborador, puesto: c.puesto || (c.cocina ? 'Cocina' : ''),
+        monto_servicio: m.servicio, monto_tips: m.tips, monto: m.servicio + m.tips
+      });
+    });
     if (d.tipsIds && d.tipsIds.length) tipsIdsCubiertos.push(...d.tipsIds);
   });
   if (!asignaciones.length) { showToast('No hay colaboradores marcados en ningún día', 'error'); return; }
@@ -932,7 +1036,7 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.ventaNeta)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.montoServicio)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${d.tipsMonto ? fmtCRC(d.tipsMonto) : '—'}</td>
-      <td style="padding:5px;border:1px solid #c8ddd0">${d.colaboradores.filter(c => c.recibe).map(c => escHtml(c.colaborador)).join(', ') || '—'}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0">${d.colaboradores.filter(c => c.recibe).map(c => escHtml(c.colaborador) + (c.cocina ? ' (cocina)' : '')).join(', ') || '—'}</td>
     </tr>`).join('');
   const filasResumen = resumen.map(r => `<tr>
       <td style="padding:5px;border:1px solid #c8ddd0">${escHtml(r.colaborador)}</td>
