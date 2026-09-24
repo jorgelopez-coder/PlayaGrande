@@ -1246,6 +1246,13 @@ async function cerrarCalculo() {
   try {
     pdfDoc = await htmlAPdf(buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen));
     if (pdfDoc) pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
+    // Tope de seguridad: un POST muy grande a Apps Script falla con
+    // "Failed to fetch". La copia en Drive es opcional; si el PDF pesa
+    // demasiado se cierra sin ella (igual se descarga local y queda en Historial).
+    if (pdfBase64 && pdfBase64.length > 4 * 1024 * 1024) {
+      console.warn('PDF demasiado pesado para enviarlo al servidor (' + Math.round(pdfBase64.length / 1048576) + ' MB) — se cierra sin copia en Drive');
+      pdfBase64 = '';
+    }
   } catch (e) {
     console.warn('No se pudo generar el PDF del reparto', e);
     showToast('Aviso: no se pudo generar el PDF (' + (e && e.message ? e.message : e) + ') — el cierre sigue; podés descargarlo luego desde Historial', 'error');
@@ -1274,9 +1281,17 @@ async function cerrarCalculo() {
       resp = await postRRHH(payload, 120000);
     } catch (errRed) {
       btn.textContent = 'Verificando si se guardó…';
-      const previo = await buscarRepartoGuardado(idReparto);
-      if (!previo) throw errRed;
-      resp = { ok: true, result: { id: idReparto, pdf_url: previo['PDF URL'] || '' } };
+      let previo = await buscarRepartoGuardado(idReparto);
+      if (!previo && payload.pdf_base64) {
+        // Reintento sin el PDF (lo más pesado del envío). El backend es
+        // idempotente por ID, así que no puede duplicar el reparto.
+        btn.textContent = 'Reintentando sin PDF…';
+        delete payload.pdf_base64;
+        try { resp = await postRRHH(payload, 120000); } catch (e2) { previo = await buscarRepartoGuardado(idReparto); if (!previo) throw errRed; }
+      } else if (!previo) {
+        throw errRed;
+      }
+      if (previo) resp = { ok: true, result: { id: idReparto, pdf_url: previo['PDF URL'] || '' } };
     }
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     const pdfOk = resp.result && resp.result.pdf_url;
@@ -1499,13 +1514,17 @@ async function htmlAPdf(html) {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
   const imgW = pageW, imgH = canvas.height * imgW / canvas.width;
-  const imgData = canvas.toDataURL('image/png');
+  // JPEG (no PNG) + alias: la imagen se incrusta UNA sola vez aunque el PDF
+  // tenga varias páginas. Con PNG repetido por página el PDF pasaba de 10+ MB
+  // y Google rechazaba el POST de "Cerrar cálculo" con "Failed to fetch".
+  const imgData = canvas.toDataURL('image/jpeg', 0.82);
+  const alias = 'reparto_' + Date.now();
   let heightLeft = imgH, position = 0;
-  pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+  pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH, alias, 'FAST');
   heightLeft -= pageH;
   while (heightLeft > 0) {
     position = heightLeft - imgH; pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+    pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH, alias, 'FAST');
     heightLeft -= pageH;
   }
   return pdf;
