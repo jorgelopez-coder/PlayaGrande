@@ -225,7 +225,7 @@ table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px
 
   <div class="card">
     <p class="card-title">Periodo a repartir</p>
-    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%; en <b>Catalinas</b> la base son las Ventas Netas de Square y el servicio es Ventas Netas × 10%), suma los Tips ₡ pendientes de ese día que todavía no se pagaron por Control de Tips, y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Servicio y tips se reparten juntos, en partes iguales entre los tildados de cada fecha. Los días que ya quedaron incluidos en un reparto cerrado anterior aparecen bloqueados 🔒 (en gris, solo lectura, con lo que se asignó) para no pagarlos dos veces ni editarlos, y los tips incluidos acá se marcan como cubiertos para que no aparezcan también en Control de Tips.</p>
+    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%; en <b>Catalinas</b> la base son las Ventas Netas de Square y el servicio es Ventas Netas ÷ 1.23 × 10%), suma los Tips ₡ pendientes de ese día que todavía no se pagaron por Control de Tips, y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Servicio y tips se reparten juntos, en partes iguales entre los tildados de cada fecha. Los días que ya quedaron incluidos en un reparto cerrado anterior aparecen bloqueados 🔒 (en gris, solo lectura, con lo que se asignó) para no pagarlos dos veces ni editarlos, y los tips incluidos acá se marcan como cubiertos para que no aparezcan también en Control de Tips.</p>
     <div class="field-row">
       <div class="field">
         <label for="sv-fecha-inicio">Fecha inicio <span class="req">*</span></label>
@@ -473,17 +473,18 @@ const PORCENTAJE_SERVICIO = 0.10;
 
 // Kioskos cuya base del 10% sale de las VENTAS NETAS de Square (pestaña
 // Resumen_Cierre_Diario de su hoja "Square - <Kiosko>", columna E), no de
-// Cierres. Ahí la venta neta ya NO trae el 10%, así que el servicio es
-// directo Ventas Netas × 10% (sin ÷1.1). Mismo sheetId/gid que cierres.html.
+// Cierres. Fórmula decidida por Jorge (2026-09-24): Servicio = Ventas Netas
+// Square ÷ 1.23 × 10%. Mismo sheetId/gid que cierres.html.
+const DIVISOR_VENTA_SQUARE = 1.23;
 const SQUARE_VENTAS_KIOSKOS = {
   'catalinas': { sheetId: '1okiGwQqSzgwBHNDGM1fLn7QE8yBBulqkU-BYnKwyehY', gid: '1124052141', resumenTab: 'Resumen_Cierre_Diario' }
 };
 function cfgVentasSquare(k) { return SQUARE_VENTAS_KIOSKOS[String(k || '').trim().toLowerCase()] || null; }
 function usaVentasSquare() { return !!cfgVentasSquare(kioskoActual); }
-function divisorServicio() { return usaVentasSquare() ? 1 : DIVISOR_VENTA_CON_SERVICIO; }
+function divisorServicio() { return usaVentasSquare() ? DIVISOR_VENTA_SQUARE : DIVISOR_VENTA_CON_SERVICIO; }
 function formulaServicioTxt(ventaNeta, monto) {
   return usaVentasSquare()
-    ? `Venta Neta Square ${fmtCRC(ventaNeta)} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(monto)}`
+    ? `Venta Neta Square ${fmtCRC(ventaNeta)} ÷ ${DIVISOR_VENTA_SQUARE} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(monto)}`
     : `Venta Neta ${fmtCRC(ventaNeta)} ÷ ${DIVISOR_VENTA_CON_SERVICIO} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(monto)}`;
 }
 // Lee vía gviz Resumen_Cierre_Diario (Fecha, Location ID, Ventas Brutas,
