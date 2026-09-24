@@ -225,7 +225,7 @@ table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px
 
   <div class="card">
     <p class="card-title">Periodo a repartir</p>
-    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%), suma los Tips ₡ pendientes de ese día que todavía no se pagaron por Control de Tips, y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Servicio y tips se reparten juntos, en partes iguales entre los tildados de cada fecha. Los días que ya quedaron incluidos en un reparto cerrado anterior aparecen bloqueados 🔒 (en gris, solo lectura, con lo que se asignó) para no pagarlos dos veces ni editarlos, y los tips incluidos acá se marcan como cubiertos para que no aparezcan también en Control de Tips.</p>
+    <p class="card-note">Elegí un kiosko arriba y el rango de fechas. Por cada día del periodo, el sistema trae la Venta Neta tal cual está registrada en Cierres, calcula el monto de servicio (Servicio = Venta Neta ÷ 1.1 × 10%; en <b>Catalinas</b> la base son las Ventas Netas de Square y el servicio es Ventas Netas × 10%), suma los Tips ₡ pendientes de ese día que todavía no se pagaron por Control de Tips, y tilda por defecto a quienes tuvieron turno "Trabajo" ese día según Horarios, sobre el listado completo de colaboradores activos del kiosko — todo editable día por día (check/no check) antes de cerrar. Servicio y tips se reparten juntos, en partes iguales entre los tildados de cada fecha. Los días que ya quedaron incluidos en un reparto cerrado anterior aparecen bloqueados 🔒 (en gris, solo lectura, con lo que se asignó) para no pagarlos dos veces ni editarlos, y los tips incluidos acá se marcan como cubiertos para que no aparezcan también en Control de Tips.</p>
     <div class="field-row">
       <div class="field">
         <label for="sv-fecha-inicio">Fecha inicio <span class="req">*</span></label>
@@ -471,6 +471,56 @@ const COL_ID = 0, COL_FECHA = 1, COL_KIOSKO = 3, COL_TOTAL_VENTAS = 10, COL_TIPS
 const DIVISOR_VENTA_CON_SERVICIO = 1.1;
 const PORCENTAJE_SERVICIO = 0.10;
 
+// Kioskos cuya base del 10% sale de las VENTAS NETAS de Square (pestaña
+// Resumen_Cierre_Diario de su hoja "Square - <Kiosko>", columna E), no de
+// Cierres. Ahí la venta neta ya NO trae el 10%, así que el servicio es
+// directo Ventas Netas × 10% (sin ÷1.1). Mismo sheetId/gid que cierres.html.
+const SQUARE_VENTAS_KIOSKOS = {
+  'catalinas': { sheetId: '1okiGwQqSzgwBHNDGM1fLn7QE8yBBulqkU-BYnKwyehY', gid: '1124052141', resumenTab: 'Resumen_Cierre_Diario' }
+};
+function cfgVentasSquare(k) { return SQUARE_VENTAS_KIOSKOS[String(k || '').trim().toLowerCase()] || null; }
+function usaVentasSquare() { return !!cfgVentasSquare(kioskoActual); }
+function divisorServicio() { return usaVentasSquare() ? 1 : DIVISOR_VENTA_CON_SERVICIO; }
+function formulaServicioTxt(ventaNeta, monto) {
+  return usaVentasSquare()
+    ? `Venta Neta Square ${fmtCRC(ventaNeta)} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(monto)}`
+    : `Venta Neta ${fmtCRC(ventaNeta)} ÷ ${DIVISOR_VENTA_CON_SERVICIO} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(monto)}`;
+}
+// Lee vía gviz Resumen_Cierre_Diario (Fecha, Location ID, Ventas Brutas,
+// Descuentos y Cortesías, Ventas Netas, ...) y devuelve fecha -> Ventas Netas
+// dentro del rango. Si falla, lanza error (no se usa Cierres como respaldo,
+// para no calcular el 10% con otra base sin avisar).
+async function obtenerVentasNetasSquarePorFecha(cfg, fi, ff) {
+  const url = cfg.gid
+    ? `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&gid=${encodeURIComponent(cfg.gid)}`
+    : `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.resumenTab)}`;
+  let json;
+  try {
+    const texto = await fetchConTimeout(url, {}, 60000).then(r => r.text());
+    json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+  } catch (e) {
+    throw new Error('No se pudieron leer las Ventas Netas de Square (' + e.message + ')');
+  }
+  const aISO = c => {
+    if (!c) return '';
+    const f = String(c.f || '');
+    if (/^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0, 10);
+    const v = String(c.v || '');
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+    const m = v.match(/Date\((\d+),(\d+),(\d+)/);
+    if (m) return `${m[1]}-${String(+m[2] + 1).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    return '';
+  };
+  const map = new Map();
+  ((json.table && json.table.rows) || []).forEach(fila => {
+    const c = fila.c || [];
+    const f = aISO(c[0]);
+    if (!f || f < fi || f > ff) return;
+    map.set(f, (map.get(f) || 0) + (Number(c[4] && c[4].v) || 0));
+  });
+  return map;
+}
+
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
@@ -665,7 +715,8 @@ async function calcularReparto() {
   const btn = document.getElementById('btn-calcular');
   btn.disabled = true; const original = btn.textContent; btn.textContent = 'Calculando… (puede tardar hasta 1 min)';
   try {
-    const [rCierres, idsCubiertos, rHorarios, rPersonal, rDetalle] = await Promise.all([
+    const cfgSq = cfgVentasSquare(kioskoActual);
+    const [rCierres, idsCubiertos, rHorarios, rPersonal, rDetalle, ventasSquare] = await Promise.all([
       getJSONConReintento(SHEETS_URL + '?action=read'),
       incluirTips ? obtenerIdsTipsCubiertos() : Promise.resolve(new Set()),
       // Filtro del lado del servidor (kiosko + rango): mucho más liviano que
@@ -673,11 +724,14 @@ async function calcularReparto() {
       // devuelve todo y el filtro de abajo (mismoKiosko/fechas) lo resuelve.
       getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=horarios&kiosko=' + encodeURIComponent(kioskoActual) + '&desde=' + fi + '&hasta=' + ff),
       getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=personal'),
-      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle')
+      getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle'),
+      cfgSq ? obtenerVentasNetasSquarePorFecha(cfgSq, fi, ff) : Promise.resolve(null)
     ]);
     const cierres = rCierres.records || [];
     cierresUltimos = cierres;
-    const ventasPorFecha = calcularVentasPorFechaSync(cierres, kioskoActual, fi, ff);
+    // Catalinas (y cualquier kiosko en SQUARE_VENTAS_KIOSKOS): base = Ventas
+    // Netas de Square. Resto: Total Ventas de Cierres.
+    const ventasPorFecha = ventasSquare || calcularVentasPorFechaSync(cierres, kioskoActual, fi, ff);
     const tipsPorFecha = incluirTips ? calcularTipsPendientesPorFecha(cierres, idsCubiertos, kioskoActual, fi, ff) : new Map();
 
     detalleTodos = rDetalle.registros || [];
@@ -780,7 +834,7 @@ async function calcularReparto() {
         // repartió antes, el monto de servicio queda en 0 (no se duplica),
         // pero la venta neta se sigue mostrando de referencia.
         const ventaNeta = ventasPorFecha.get(f) || 0;
-        const montoServicio = servicioCubierto ? 0 : (ventaNeta / DIVISOR_VENTA_CON_SERVICIO) * PORCENTAJE_SERVICIO;
+        const montoServicio = servicioCubierto ? 0 : (ventaNeta / divisorServicio()) * PORCENTAJE_SERVICIO;
         const tipsInfo = tipsPorFecha.get(f) || { monto: 0, ids: [] };
         const trabajaron = colaboradoresPorFecha.get(f) || new Map();
         // Misma lista (y mismo orden) todos los días = filas de la matriz.
@@ -914,7 +968,7 @@ function renderDiasReparto() {
     const aj = Number(d.ajuste) || 0;
     const calc = d.servicioCubierto
       ? `Servicio de esta fecha ya repartido antes`
-      : `Venta Neta ${fmtCRC(d.ventaNeta)} ÷ ${DIVISOR_VENTA_CON_SERVICIO} × ${Math.round(PORCENTAJE_SERVICIO * 100)}% = ${fmtCRC(d.montoServicio)}`;
+      : formulaServicioTxt(d.ventaNeta, d.montoServicio);
     const tituloDesg = `${calc}\nTips pendientes: ${fmtCRC(d.tipsMonto || 0)}${aj ? `\nAjuste manual: ${aj > 0 ? '+' : ''}${fmtCRC(aj)}` : ''}\nTotal a distribuir: ${fmtCRC(r.totalDia)}`;
     const ajLinea = aj ? `<div>Ajuste<span class="${aj > 0 ? 'aj-pos' : 'aj-neg'}">${aj > 0 ? '+' : '−'}${fmtCRC(Math.abs(aj))}</span></div>` : '';
     return `<th class="col-dia">
