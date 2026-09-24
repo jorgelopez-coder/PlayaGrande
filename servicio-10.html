@@ -245,6 +245,12 @@ table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px
     </div>
   </div>
 
+  <div id="sv-cierre-ok" style="display:none;margin:0 0 1rem;padding:12px 14px;border:1px solid var(--green);border-radius:10px;background:var(--green-bg);font-size:13px;align-items:center;gap:10px;flex-wrap:wrap">
+    <span id="sv-cierre-ok-txt" style="flex:1;min-width:200px"></span>
+    <button type="button" class="btn-primary" id="sv-cierre-pdf-btn" onclick="descargarPdfCierre()" style="padding:8px 16px;font-size:13px">Descargar PDF ⬇</button>
+    <a id="sv-cierre-drive" class="btn-mini" target="_blank" style="display:none">Ver en Drive ↗</a>
+    <button type="button" class="btn-mini" onclick="document.getElementById('sv-cierre-ok').style.display='none'">✕</button>
+  </div>
   <div id="sv-resultado" style="display:none">
 
     <div class="card">
@@ -1140,7 +1146,11 @@ async function cerrarCalculo() {
   try {
     pdfDoc = await htmlAPdf(buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen));
     if (pdfDoc) pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
-  } catch (e) { console.warn('No se pudo generar el PDF del reparto', e); }
+  } catch (e) {
+    console.warn('No se pudo generar el PDF del reparto', e);
+    showToast('Aviso: no se pudo generar el PDF (' + (e && e.message ? e.message : e) + ') — el cierre sigue; podés descargarlo luego desde Historial', 'error');
+  }
+  if (!pdfDoc && !(window.html2canvas && window.jspdf)) showToast('Aviso: la librería de PDF no cargó — podés descargarlo luego desde Historial', 'error');
   const diasCerrados = new Set(asignaciones.map(a => a.fecha)).size;
 
   btn.textContent = 'Cerrando…';
@@ -1164,7 +1174,12 @@ async function cerrarCalculo() {
     if (tipsIdsCubiertos.length) await marcarTipsComoIncluidos(idReparto, tipsIdsCubiertos, totalTips, fi, ff);
 
     // Descarga local del PDF con el detalle (además de la copia en Drive).
-    if (pdfDoc) { try { pdfDoc.save(nombrePdfServicio(kioskoPdf, fi, ff)); } catch (e) { console.warn('No se pudo descargar el PDF', e); } }
+    // Algunos navegadores (Safari/iPhone) bloquean descargas automáticas
+    // después de esperar al servidor, así que además queda un botón
+    // "Descargar PDF" visible (clic del usuario = descarga permitida).
+    ultimoPdfCierre = pdfDoc ? { doc: pdfDoc, nombre: nombrePdfServicio(kioskoPdf, fi, ff) } : null;
+    mostrarAvisoCierre(kioskoPdf, fi, ff, idReparto, pdfOk ? resp.result.pdf_url : '');
+    if (pdfDoc) { try { pdfDoc.save(ultimoPdfCierre.nombre); } catch (e) { console.warn('No se pudo descargar el PDF', e); } }
 
     const tipsTxt = totalTips > 0 ? ` + ${fmtCRC(totalTips)} de tips` : '';
     showToast(`Cálculo cerrado 🔒 (${diasCerrados} fecha${diasCerrados === 1 ? '' : 's'} bloqueada${diasCerrados === 1 ? '' : 's'} · ${fmtCRC(totalServicio)}${tipsTxt})${pdfOk ? ' · PDF archivado' : ''}`, 'success');
@@ -1242,6 +1257,28 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
       <tbody>${filasResumen}</tbody>
     </table>
   </div>`;
+}
+
+let ultimoPdfCierre = null; // { doc, nombre } del último cálculo cerrado
+
+function mostrarAvisoCierre(kiosko, fi, ff, idReparto, driveUrl) {
+  const box = document.getElementById('sv-cierre-ok');
+  if (!box) return;
+  document.getElementById('sv-cierre-ok-txt').textContent = `🔒 Reparto #${idReparto} cerrado — ${kiosko}, ${fechaLbl(fi)} al ${fechaLbl(ff)}.`;
+  document.getElementById('sv-cierre-pdf-btn').dataset.id = String(idReparto);
+  const a = document.getElementById('sv-cierre-drive');
+  if (driveUrl) { a.href = driveUrl; a.style.display = 'inline-flex'; } else a.style.display = 'none';
+  box.style.display = 'flex';
+}
+
+// Botón del aviso de cierre: usa el PDF ya generado; si no existe (falló la
+// generación), lo arma con lo archivado, igual que en Historial.
+async function descargarPdfCierre() {
+  if (ultimoPdfCierre) { ultimoPdfCierre.doc.save(ultimoPdfCierre.nombre); return; }
+  const id = document.getElementById('sv-cierre-pdf-btn').dataset.id;
+  const i = histListaActual.findIndex(r => String(r['ID']) === String(id));
+  if (i >= 0) descargarPDFHistorial(i, document.getElementById('sv-cierre-pdf-btn'));
+  else showToast('Buscalo en la pestaña Historial para descargarlo', 'error');
 }
 
 function nombrePdfServicio(kiosko, fi, ff) {
