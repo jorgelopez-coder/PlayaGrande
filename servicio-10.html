@@ -282,10 +282,15 @@ table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px
       <div class="resumen-row aviso" id="sv-sin-asignar-row" style="display:none"><span>Sin asignar (días sin colaboradores o diferencia de redondeo)</span><span id="sv-sin-asignar">₡0</span></div>
 
       <p class="card-title" style="margin-top:1.5rem">Resumen por colaborador</p>
+      <div id="sv-tc-wrap" style="display:none;align-items:center;gap:.6rem;margin-bottom:.75rem;flex-wrap:wrap">
+        <label for="sv-tc" style="font-size:13px">Tipo de cambio (₡ por $1)</label>
+        <input type="number" id="sv-tc" min="0" step="0.01" placeholder="Ej: 505.50" style="max-width:160px" oninput="actualizarResumenReparto()"/>
+        <span style="font-size:12px;color:var(--muted)">Calcula el total de cada colaborador en colones.</span>
+      </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Días</th><th style="text-align:right">10% ₡</th><th style="text-align:right">Tips ₡</th><th style="text-align:right">Total ₡</th></tr></thead>
-          <tbody id="sv-resumen-body"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+          <thead><tr><th>Colaborador</th><th>Puesto</th><th style="text-align:right">Días</th><th style="text-align:right">10% <span class="sv-mon">₡</span></th><th style="text-align:right">Tips <span class="sv-mon">₡</span></th><th style="text-align:right">Total <span class="sv-mon">₡</span></th><th class="sv-col-crc" style="text-align:right;display:none">Total ₡ (TC)</th></tr></thead>
+          <tbody id="sv-resumen-body"><tr><td colspan="7" class="empty">—</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -472,7 +477,23 @@ const hace7ISO = hace7.toISOString().slice(0,10);
 const hace30 = new Date(hoy); hace30.setDate(hace30.getDate() - 29);
 const hace30ISO = hace30.toISOString().slice(0,10);
 
-const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+// Catalinas opera en dólares (igual que cierres.html): sus montos se
+// muestran con $ y 2 decimales; el resto de kioskos en ₡ sin decimales.
+const KIOSKOS_USD = ['catalinas'];
+function esKioskoUSD(k) { return KIOSKOS_USD.includes(String(k || '').trim().toLowerCase()); }
+function monedaUSD() { return esKioskoUSD(kioskoActual); }
+function simboloMon() { return monedaUSD() ? '$' : '₡'; }
+function redondeoMon(n) { return monedaUSD() ? Math.round((n||0) * 100) / 100 : Math.round(n||0); }
+const fmtColones = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
+const fmtCRC = n => monedaUSD()
+  ? '$' + (Number(n)||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  : fmtColones(n);
+// Actualiza los rótulos fijos (₡/$) y el campo de tipo de cambio.
+function actualizarRotulosMoneda() {
+  document.querySelectorAll('.sv-mon').forEach(el => { el.textContent = simboloMon(); });
+  const tc = document.getElementById('sv-tc-wrap');
+  if (tc) tc.style.display = monedaUSD() ? 'flex' : 'none';
+}
 const soloFecha = f => f ? String(f).slice(0,10) : '';
 function fechaLbl(iso) {
   iso = soloFecha(iso);
@@ -614,6 +635,7 @@ function poblarKioskosSelect() {
 function actualizarLabels() {
   const lbl = kioskoActual || 'Todos los kioskos';
   document.getElementById('sv-kiosko-lbl').textContent = kioskoActual || '—';
+  actualizarRotulosMoneda();
   document.getElementById('pend-kiosko-lbl').textContent = lbl;
   document.getElementById('historial-kiosko-lbl').textContent = lbl;
 }
@@ -842,9 +864,9 @@ function repartoDia(d) {
   const nCocina = sel.filter(c => c.cocina).length;
   const nSalon = sel.length - nCocina;
   const partes = nSalon + (nCocina ? 1 : 0);
-  const servicioParte = partes ? Math.round(pool.servicio / partes) : 0;
-  const servicioCocina = nCocina ? Math.round(servicioParte / nCocina) : 0;
-  const tipsCU = (sel.length && pool.tips) ? Math.round(pool.tips / sel.length) : 0;
+  const servicioParte = partes ? redondeoMon(pool.servicio / partes) : 0;
+  const servicioCocina = nCocina ? redondeoMon(servicioParte / nCocina) : 0;
+  const tipsCU = (sel.length && pool.tips) ? redondeoMon(pool.tips / sel.length) : 0;
   const montos = new Map(); // ri -> { servicio, tips }
   d.colaboradores.forEach((c, ri) => {
     if (!c.recibe || c.oculto) return;
@@ -899,7 +921,7 @@ function renderDiasReparto() {
         <div>10%<span>${d.servicioCubierto ? 'repartido' : fmtCRC(d.montoServicio)}</span></div>
         <div>Tips<span>${fmtCRC(d.tipsMonto || 0)}</span></div>${ajLinea}
       </div>
-      <input type="number" class="ajuste-inp" step="500" placeholder="± ajuste" value="${aj || ''}" title="Monto a sumar (o restar con signo −) al monto a distribuir este día" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')this.blur()" onchange="setAjusteDia(${i}, this.value)"/>
+      <input type="number" class="ajuste-inp" step="${monedaUSD() ? 1 : 500}" placeholder="± ajuste" value="${aj || ''}" title="Monto a sumar (o restar con signo −) al monto a distribuir este día" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')this.blur()" onchange="setAjusteDia(${i}, this.value)"/>
     </th>`;
   }).join('')}<th class="td-total">Total</th></tr>`;
 
@@ -977,7 +999,7 @@ function toggleCocinaFila(ri) {
 // Ajuste manual (±) al monto a distribuir de una fecha.
 function setAjusteDia(i, valor) {
   if (diasCalculados[i].bloqueado) return;
-  const v = Math.round(Number(String(valor).replace(/[^0-9.\-]/g, '')) || 0);
+  const v = redondeoMon(Number(String(valor).replace(/[^0-9.\-]/g, '')) || 0);
   diasCalculados[i].ajuste = v;
   renderDiasReparto();
 }
@@ -1077,12 +1099,24 @@ function calcularResumenColaboradores() {
   return Array.from(map.values()).sort((a, b) => b.monto - a.monto || a.colaborador.localeCompare(b.colaborador));
 }
 
+// Tipo de cambio (₡ por $) para ver en colones el resumen de kioskos en $.
+function tipoCambioResumen() {
+  if (!monedaUSD()) return 0;
+  const v = Number(document.getElementById('sv-tc')?.value) || 0;
+  return v > 0 ? v : 0;
+}
+
 function actualizarResumenReparto() {
   const resumen = calcularResumenColaboradores();
   const cont = document.getElementById('sv-resumen-body');
+  actualizarRotulosMoneda();
+  const tc = tipoCambioResumen();
+  document.querySelectorAll('.sv-col-crc').forEach(el => { el.style.display = tc ? '' : 'none'; });
+  const celdaCRC = m => tc ? `<td class="num">${fmtColones(m * tc)}</td>` : '';
   cont.innerHTML = resumen.length
-    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}${r.cocina ? ' <span class="badge b-pend">Cocina</span>' : ''}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.servicio)}</td><td class="num">${fmtCRC(r.tips)}</td><td class="num">${fmtCRC(r.monto)}</td></tr>`).join('')
-    : '<tr><td colspan="6" class="empty">Sin colaboradores asignados todavía.</td></tr>';
+    ? resumen.map(r => `<tr><td>${escHtml(r.colaborador)}${r.cocina ? ' <span class="badge b-pend">Cocina</span>' : ''}</td><td>${escHtml(r.puesto) || '—'}</td><td class="num">${r.dias}</td><td class="num">${fmtCRC(r.servicio)}</td><td class="num">${fmtCRC(r.tips)}</td><td class="num">${fmtCRC(r.monto)}</td>${celdaCRC(r.monto)}</tr>`).join('')
+      + (tc ? `<tr><td colspan="5" style="text-align:right;font-weight:600">Total</td><td class="num" style="font-weight:600">${fmtCRC(resumen.reduce((s, r) => s + r.monto, 0))}</td>${celdaCRC(resumen.reduce((s, r) => s + r.monto, 0)).replace('class="num"', 'class="num" style="font-weight:600"')}</tr>` : '')
+    : '<tr><td colspan="7" class="empty">Sin colaboradores asignados todavía.</td></tr>';
 
   const totalVentaNeta = diasCalculados.reduce((s, d) => s + (d.bloqueado ? 0 : d.ventaNeta), 0);
   const totalServicio = diasCalculados.reduce((s, d) => s + d.montoServicio, 0);
@@ -1100,7 +1134,7 @@ function actualizarResumenReparto() {
   document.getElementById('sv-total-repartido').textContent = fmtCRC(totalRepartido);
   const sinAsignar = totalGeneral - totalRepartido;
   document.getElementById('sv-sin-asignar').textContent = fmtCRC(sinAsignar);
-  document.getElementById('sv-sin-asignar-row').style.display = sinAsignar > 1 ? 'flex' : 'none';
+  document.getElementById('sv-sin-asignar-row').style.display = sinAsignar > (monedaUSD() ? 0.05 : 1) ? 'flex' : 'none';
 
   actualizarBotonCerrar();
 }
@@ -1225,6 +1259,8 @@ function limpiarFormReparto() {
 
 // ── PDF DEL REPARTO (html2canvas + jsPDF) ──────────────────────────
 function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resumen) {
+  const sm = simboloMon();
+  const tc = tipoCambioResumen();
   const filasDias = diasCalculados.filter(d => !d.bloqueado && repartoDia(d).montos.size).map(d => `<tr>
       <td style="padding:5px;border:1px solid #c8ddd0">${fechaLbl(d.fecha)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(d.ventaNeta)}</td>
@@ -1240,7 +1276,7 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${r.dias}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.servicio)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.tips)}</td>
-      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>
+      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>${tc ? `<td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtColones(r.monto * tc)}</td>` : ''}
     </tr>`).join('');
   const tipsLinea = totalTips > 0 ? ` · Tips pendientes: ${fmtCRC(totalTips)}` : '';
   return `<div style="font-family:Arial,sans-serif;padding:24px;width:1000px;color:#1c3a28">
@@ -1248,12 +1284,12 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
     <p style="margin-bottom:16px;color:#5a8a6a;font-size:13px">Periodo: ${fechaLbl(fi)} – ${fechaLbl(ff)} · Venta Neta: ${fmtCRC(totalVentaNeta)} · Servicio 10%: ${fmtCRC(totalServicio)}${tipsLinea} · Total: ${fmtCRC(totalServicio + totalTips)}</p>
     <h3 style="margin-bottom:8px;font-size:14px">Detalle por fecha</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
-      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Fecha</th><th style="padding:5px;border:1px solid #c8ddd0">Venta Neta ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Servicio ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Ajuste ₡</th><th style="padding:5px;border:1px solid #c8ddd0">A distribuir ₡</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaboradores</th></tr></thead>
+      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Fecha</th><th style="padding:5px;border:1px solid #c8ddd0">Venta Neta ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Servicio ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Ajuste ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">A distribuir ${sm}</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaboradores</th></tr></thead>
       <tbody>${filasDias}</tbody>
     </table>
     <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador (Servicio + Tips)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">10% ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ₡</th><th style="padding:5px;border:1px solid #c8ddd0">Total ₡</th></tr></thead>
+      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">10% ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Total ${sm}</th>${tc ? '<th style="padding:5px;border:1px solid #c8ddd0">Total ₡ (TC ' + tc.toLocaleString('es-CR') + ')</th>' : ''}</tr></thead>
       <tbody>${filasResumen}</tbody>
     </table>
   </div>`;
