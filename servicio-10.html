@@ -1198,7 +1198,20 @@ async function cerrarCalculo() {
       pdf_base64: pdfBase64 || undefined,
       asignaciones
     };
-    const resp = await postRRHH(payload, 60000);
+    // El cierre puede tardar >60s (PDF + Drive + hojas grandes). Si el
+    // navegador corta por timeout/red, el servidor pudo haberlo guardado
+    // igual: antes de dar error se verifica si el reparto #idReparto ya
+    // existe (y si se reintenta, el backend devuelve el mismo reparto en
+    // vez de rechazar por "fechas repetidas").
+    let resp;
+    try {
+      resp = await postRRHH(payload, 120000);
+    } catch (errRed) {
+      btn.textContent = 'Verificando si se guardó…';
+      const previo = await buscarRepartoGuardado(idReparto);
+      if (!previo) throw errRed;
+      resp = { ok: true, result: { id: idReparto, pdf_url: previo['PDF URL'] || '' } };
+    }
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     const pdfOk = resp.result && resp.result.pdf_url;
 
@@ -1220,11 +1233,30 @@ async function cerrarCalculo() {
     limpiarFormReparto();
     await Promise.all([cargarPendientes(), cargarHistorial()]);
   } catch (e) {
-    showToast('No se pudo cerrar el cálculo: ' + e.message, 'error');
+    const msg = String(e && e.message || e);
+    if (/ya fue incluido en otro reparto cerrado/.test(msg)) {
+      showToast('Esas fechas ya tienen un reparto cerrado (revisá Historial). Volvé a "Calcular" para ver la matriz actualizada 🔒. Detalle: ' + msg, 'error');
+    } else {
+      showToast('No se pudo cerrar el cálculo: ' + msg, 'error');
+    }
   } finally {
     btn.disabled = false; btn.textContent = original;
     actualizarBotonCerrar();
   }
+}
+
+// Busca en ServicioRepartos un reparto por ID (tras un timeout del POST).
+// Reintenta unas veces porque el servidor puede seguir terminando de guardar.
+async function buscarRepartoGuardado(idReparto) {
+  for (let n = 0; n < 4; n++) {
+    try {
+      const r = await getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_repartos&_=' + Date.now(), 60000, 1);
+      const hit = (r.registros || []).find(x => String(x['ID']) === String(idReparto));
+      if (hit) return hit;
+    } catch (e) { /* seguimos intentando */ }
+    await new Promise(res => setTimeout(res, 8000));
+  }
+  return null;
 }
 
 // Registra en "TipsPagos" (mismo Web App/Sheet de Cierres que
