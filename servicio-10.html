@@ -162,6 +162,9 @@ td.celda-grupo,td.celda-pie{text-align:center;font-size:11.5px}
 th.col-dia.bloq{background:var(--surface)!important;opacity:.85}
 th.col-dia.bloq .d-monto{color:var(--muted)}
 .d-lock{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px}
+.btn-desbloq{margin-top:4px;width:100%;font-size:10.5px;font-weight:600;padding:3px 4px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;white-space:nowrap}
+.btn-desbloq:hover{border-color:var(--green);color:var(--green)}
+.btn-desbloq:disabled{opacity:.5;cursor:wait}
 td.celda.bloq{cursor:not-allowed;background:repeating-linear-gradient(45deg,transparent,transparent 6px,var(--surface) 6px,var(--surface) 12px)}
 td.celda.bloq:hover{background:repeating-linear-gradient(45deg,transparent,transparent 6px,var(--surface) 6px,var(--surface) 12px)}
 td.celda.bloq .m{color:var(--muted)}
@@ -673,6 +676,7 @@ async function calcularReparto() {
       getJSONConReintento(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle')
     ]);
     const cierres = rCierres.records || [];
+    cierresUltimos = cierres;
     const ventasPorFecha = calcularVentasPorFechaSync(cierres, kioskoActual, fi, ff);
     const tipsPorFecha = incluirTips ? calcularTipsPendientesPorFecha(cierres, idsCubiertos, kioskoActual, fi, ff) : new Map();
 
@@ -902,6 +906,7 @@ function renderDiasReparto() {
         <div class="d-monto">${fmtCRC(totArch)}</div>
         <div class="d-lock">🔒 Cerrado</div>
         <div class="d-desg"><div>VN<span>${fmtCRC(d.ventaNeta)}</span></div><div>Estado<span>archivado</span></div></div>
+        <button type="button" class="btn-desbloq" title="Anular lo cerrado de esta fecha y volver a editarla (requiere código de administrador)" onclick="desbloquearFecha(${i}, this)">🔓 Desbloquear</button>
       </th>`;
     }
     const alerta = (!r.partes && r.totalDia > 0.5) ? '<div class="d-sub d-alerta">⚠ sin asignar</div>' : '';
@@ -922,6 +927,7 @@ function renderDiasReparto() {
         <div>Tips<span>${fmtCRC(d.tipsMonto || 0)}</span></div>${ajLinea}
       </div>
       <input type="number" class="ajuste-inp" step="${monedaUSD() ? 1 : 500}" placeholder="± ajuste" value="${aj || ''}" title="Monto a sumar (o restar con signo −) al monto a distribuir este día" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')this.blur()" onchange="setAjusteDia(${i}, this.value)"/>
+      ${d.servicioCubierto ? `<button type="button" class="btn-desbloq" title="El 10% de esta fecha ya se cerró antes — desbloquear para anularlo y recalcularlo (requiere código de administrador)" onclick="desbloquearFecha(${i}, this)">🔓 Desbloquear 10%</button>` : ''}
     </th>`;
   }).join('')}<th class="td-total">Total</th></tr>`;
 
@@ -1245,6 +1251,66 @@ async function cerrarCalculo() {
   }
 }
 
+// ── DESBLOQUEAR FECHA CERRADA (código de administrador) ─────────────
+// Anula lo ya archivado de una fecha (servicio + tips) para este kiosko y la
+// deja editable de nuevo. La validación real del código vive en el backend
+// (Script Property ADMIN_PIN, default 'admin'). No se permite si alguien ya
+// cobró ese día. Los tips que ese reparto había marcado como cubiertos en
+// TipsPagos se liberan para que vuelvan a aparecer como pendientes.
+async function desbloquearFecha(i, btn) {
+  const d = diasCalculados[i];
+  if (!d || !kioskoActual) return;
+  let codigo = codigoAdminSesion;
+  if (!codigo) {
+    codigo = prompt(`Código de administrador para desbloquear el ${fechaLbl(d.fecha)}:`);
+    if (codigo === null) return;
+    codigo = codigo.trim();
+    if (!codigo) { showToast('Falta el código de administrador', 'error'); return; }
+  }
+  if (!confirm(`¿Desbloquear el ${fechaLbl(d.fecha)} en ${kioskoActual}?\n\nSe anula lo que ya se había asignado ese día en el reparto cerrado (10% y tips) y la fecha vuelve a quedar editable para recalcularla.\n\nSolo se puede si nadie ha cobrado todavía ese día. La matriz se recalcula (se pierden los cambios sin cerrar).`)) return;
+
+  const txtOriginal = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Desbloqueando…'; }
+  try {
+    const resp = await postRRHH({
+      modulo: 'servicio_desbloquear', kiosko: kioskoActual, fechas: [d.fecha], codigo,
+      usuario: (PORTAL_SESION && PORTAL_SESION.nombre) || ''
+    }, 60000);
+    if (!resp.ok) {
+      if (/código de administrador/i.test(resp.error || '')) codigoAdminSesion = '';
+      throw new Error(resp.error || 'Error desconocido');
+    }
+    codigoAdminSesion = codigo;
+    const repartos = (resp.result && resp.result.repartos) || [];
+
+    // Liberar en TipsPagos los tips de esa fecha que cubría el reparto.
+    const conTips = repartos.filter(r => (Number(r.tips) || 0) > 0);
+    if (conTips.length) {
+      const idsLiberar = cierresUltimos
+        .filter(r => mismoKiosko(r[COL_KIOSKO], kioskoActual) && soloFecha(r[COL_FECHA]) === d.fecha && (Number(r[COL_TIPS]) || 0) > 0)
+        .map(r => String(r[COL_ID]));
+      try {
+        await fetch(SHEETS_URL, {
+          method: 'POST', mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ type: 'tipsLiberar', idsLiberar, liberaciones: conTips.map(r => ({ referencia: 'Servicio 10% #' + r.id, monto: r.tips })) })
+        });
+      } catch (e) {
+        console.warn('No se pudieron liberar los tips en Control de Tips', e);
+        showToast('Aviso: la fecha se desbloqueó pero no se pudieron liberar sus tips en Control de Tips', 'error');
+      }
+    }
+
+    const anulados = repartos.filter(r => r.anulado).map(r => '#' + r.id);
+    await calcularReparto();
+    await Promise.all([cargarPendientes(), cargarHistorial()]);
+    showToast(`${fechaLbl(d.fecha)} desbloqueada 🔓 — ya se puede recalcular y volver a cerrar${anulados.length ? ` (reparto ${anulados.join(', ')} quedó anulado)` : ''}`, 'success');
+  } catch (e) {
+    showToast('No se pudo desbloquear: ' + (e && e.message ? e.message : e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = txtOriginal; }
+  }
+}
+
 // Busca en ServicioRepartos un reparto por ID (tras un timeout del POST).
 // Reintenta unas veces porque el servidor puede seguir terminando de guardar.
 async function buscarRepartoGuardado(idReparto) {
@@ -1327,6 +1393,8 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
   </div>`;
 }
 
+let cierresUltimos = [];     // registros de Cierres del último "Calcular" (para liberar tips al desbloquear)
+let codigoAdminSesion = '';  // código de admin ya validado en esta sesión (no se vuelve a pedir)
 let ultimoPdfCierre = null; // { doc, nombre } del último cálculo cerrado
 
 function mostrarAvisoCierre(kiosko, fi, ff, idReparto, driveUrl) {
@@ -1674,7 +1742,8 @@ function renderHistorialServicio() {
   cont.innerHTML = lista.map((r, i) => {
     const detalle = detalleTodos.filter(d => String(d['ID Reparto']) === String(r['ID']));
     const pagados = detalle.filter(esPagado).length;
-    const badge = !detalle.length ? ''
+    const badge = String(r['Estado'] || '') === 'Anulado' ? '<span class="badge b-pend">Anulado 🔓</span>'
+      : !detalle.length ? ''
       : pagados === detalle.length ? '<span class="badge b-ok">Pagado completo</span>'
       : pagados > 0 ? `<span class="badge b-pend">Parcial (${pagados}/${detalle.length})</span>`
       : '<span class="badge b-pend">Pendiente</span>';
