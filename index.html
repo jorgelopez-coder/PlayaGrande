@@ -1140,7 +1140,15 @@ async function cargarKPIs() {
     fetchGvizSheet(SHEET_ID_CAJA_CHICA, 'CajaChica_Periodos'),
     fetchGvizSheet(COMPRAS_SHEET_ID, 'Registro Facturas')
   ]);
-  // Aprobaciones pendientes y planillas (RRHH) para Costo laboral y alertas.
+  // Costo laboral (2026-09-24): turnos del Horario (período elegido + el
+  // de comparación, filtrado en el backend con desde/hasta) + Feriados.
+  const desdeLaboral = (desde && hasta) ? fechaComparable(desde, desde, hasta) : desde;
+  const laboralPromise = Promise.all([
+    fetch(APPS_SCRIPT_URL + '?modulo=horarios&desde=' + encodeURIComponent(desdeLaboral) + '&hasta=' + encodeURIComponent(hasta))
+      .then(r => r.json()).catch(() => ({ registros: [] })),
+    fetch(APPS_SCRIPT_URL + '?modulo=feriados').then(r => r.json()).catch(() => ({ registros: [] }))
+  ]);
+  // Aprobaciones pendientes y planillas (RRHH) para alertas.
   const rrhhPromise = Promise.all(['horas_extra', 'vacaciones', 'permisos_sin_goce', 'planillas']
     .map(m => fetch(APPS_SCRIPT_URL + '?modulo=' + m).then(r => r.json()).catch(() => ({ registros: [] }))));
 
@@ -1216,8 +1224,8 @@ async function cargarKPIs() {
       }
     }
 
-    const [dataMermas, [periodosCajaChicaRows, facturasCajaChicaRows], [dataHE, dataVac, dataPSG, dataPlan]] =
-      await Promise.all([mermasPromise, cajaChicaPromise, rrhhPromise]);
+    const [dataMermas, [periodosCajaChicaRows, facturasCajaChicaRows], [dataHE, dataVac, dataPSG, dataPlan], [dataHor, dataFer]] =
+      await Promise.all([mermasPromise, cajaChicaPromise, rrhhPromise, laboralPromise]);
     const mermas = (dataMermas.registros || []).map(r => ({
       fecha: String(r['Fecha']||'').slice(0,10), kN: normK(r['Kiosko']), g: Number(r['Peso Neto Merma (g)'])||0
     })).filter(m => m.fecha && m.kN);
@@ -1228,6 +1236,7 @@ async function cargarKPIs() {
     const ctx = {
       listaKioskos, kioskosOperativos: kioskosActivos, desde, hasta, hoyIso, cierres, tcRespaldo: tcRespaldoDe(cierres),
       squarePorKiosko, mermas, planillas: dataPlan.registros || [],
+      horarios: dataHor.registros || [], feriados: dataFer.registros || [], personal: personalRegs,
       efectivoPendientesArr, tipsPendientesArr
     };
     const res = renderIndicadores(ctx);
@@ -1339,8 +1348,10 @@ function renderEfectivoPendiente(cierresRaw, depositosRaw, salidasFondoRaw) {
 //  2. Cuadre de caja .... Diferencia Caja/Tarjeta de cada cierre del período.
 //  3. Merma cerveza % ... merma (g→oz) ÷ (onzas vendidas Square + merma),
 //                         misma fórmula que indicadores.html.
-//  4. Costo laboral % ... Planillas (Total ingresos) prorrateadas por día ÷
-//                         ventas de los MISMOS días que cubre la planilla.
+//  4. Costo laboral % ... turnos del Horario × salario mensual ÷ 30 (feriado
+//                         trabajado ×2) × cargas sociales/provisiones, ÷
+//                         ventas del día (cierre; si aún no hay, Square).
+//                         Ver COSTO_LABORAL y la sección 4 de renderIndicadores.
 //  5. Efectivo sin depositar — SALDO a hoy (no depende del período) +
 //                         antigüedad del pendiente más viejo.
 //  6. Ticket promedio ... ventas netas Square ÷ órdenes únicas (Order ID).
@@ -1359,6 +1370,16 @@ const UMBRALES_KPI = {
   tipsDiasAlerta: 7,                       // tips sin pagar
   cajaChicaMinPct: 20,                     // % del monto inicial
   toleranciaCRC: 500, toleranciaUSD: 1     // igual que cierres.html
+};
+// Costo laboral diario (2026-09-24, decidido por Jorge): cada persona con
+// turno en el Horario ese día cuesta salario mensual ÷ 30; si el día es un
+// feriado activo (pestaña Feriados de planilla.html) se paga doble (Art.
+// 148 CT). Sobre eso se suman cargas patronales y provisiones.
+const COSTO_LABORAL = {
+  ccssPatronalPct: 26.67,   // CCSS + LPT patronal
+  provAguinaldoPct: 8.33,   // 1/12
+  provVacacionesPct: 4.17,  // 2 semanas / 48
+  factorFeriado: 2          // feriado trabajado = salario del día × 2
 };
 const DENSIDAD_CERVEZA_G_ML = 1.005;
 const ML_POR_ONZA = 29.5735;
@@ -1556,34 +1577,84 @@ function renderIndicadores(ctx) {
   const pctMermaTot = (tOz + tMermaOz) > 0 ? (tMermaOz / (tOz + tMermaOz)) * 100 : null;
   const pctMermaPrev = (pOz + pMermaOz) > 0 ? (pMermaOz / (pOz + pMermaOz)) * 100 : null;
 
-  // 4. COSTO LABORAL %
-  const planMap = {};
-  planillas.forEach(r => {
-    const kN = normK(r['Kiosko']);
-    const ini = isoDeCadena(String(r['Fecha inicio'] || '').slice(0, 10)) || String(r['Fecha inicio'] || '').slice(0, 10);
-    const fin = isoDeCadena(String(r['Fecha fin'] || '').slice(0, 10)) || String(r['Fecha fin'] || '').slice(0, 10);
-    const total = limpiarMontoTexto(r['Total ingresos']);
-    if (!kN || !/^\d{4}-\d{2}-\d{2}$/.test(ini) || !/^\d{4}-\d{2}-\d{2}$/.test(fin) || fin < ini || total <= 0) return;
-    planMap[kN + '|' + ini + '|' + fin] = { kN, ini, fin, total, dias: diasEntre(ini, fin) + 1 }; // la última corrida gana
+  // 4. COSTO LABORAL % — desde el HORARIO (2026-09-24)
+  // Turno = fila de Horarios con Estado "trabajo" (o "otro" con horas).
+  // Día libre, vacaciones, incapacidad y permiso sin goce NO suman (las
+  // vacaciones ya van en la provisión de COSTO_LABORAL).
+  const CL = COSTO_LABORAL;
+  const factorCargas = 1 + (CL.ccssPatronalPct + CL.provAguinaldoPct + CL.provVacacionesPct) / 100;
+  const isoFlexible = v => { const t = String(v || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : isoDeCadena(String(v || '').trim()); };
+  const salarioPorNombre = {};
+  (ctx.personal || []).forEach(p => { const n = normK(p['Nombre completo']); if (n) salarioPorNombre[n] = limpiarMontoTexto(p['Salario']); });
+  const feriadosMap = {};
+  (ctx.feriados || []).forEach(f => { if (normK(f['Activo']) === 'no') return; const iso = isoFlexible(f['Fecha']); if (iso) feriadosMap[iso] = f['Nombre'] || 'Feriado'; });
+  const laboralDia = {}; // kN → fecha → { costo, turnos, turnosFeriado, sinSalario:Set }
+  const vistos = new Set();
+  (ctx.horarios || []).forEach(h => {
+    const est = normK(h['Estado']) || 'trabajo';
+    if (!(est === 'trabajo' || (est === 'otro' && Number(h['Horas']) > 0))) return;
+    const kN = normK(h['Kiosko']), fecha = isoFlexible(h['Fecha']), col = normK(h['Colaborador']);
+    if (!kN || !fecha || !col) return;
+    const llave = kN + '|' + fecha + '|' + col;
+    if (vistos.has(llave)) return; // un turno por persona/día/kiosko
+    vistos.add(llave);
+    const d = (laboralDia[kN] || (laboralDia[kN] = {}))[fecha] || (laboralDia[kN][fecha] = { costo: 0, turnos: 0, turnosFeriado: 0, sinSalario: new Set() });
+    const salario = salarioPorNombre[col] || 0;
+    d.turnos++;
+    if (!salario) { d.sinSalario.add(h['Colaborador']); return; }
+    const esFeriado = !!feriadosMap[fecha];
+    if (esFeriado) d.turnosFeriado++;
+    d.costo += (salario / 30) * (esFeriado ? CL.factorFeriado : 1) * factorCargas;
   });
-  const planLista = Object.values(planMap);
-  let lCosto = 0, lVentas = 0;
+  // Ventas del día en ₡: cierre de caja; si todavía no hay cierre (ej. hoy),
+  // ventas netas de Square del kiosko.
+  const ventaDelDia = (kN, nombre, f) => {
+    const vd = ventasDia[kN];
+    if (vd && vd[f] !== undefined) return { monto: vd[f], square: false };
+    const sq = squarePorKiosko[kN];
+    const d = sq && sq[f];
+    if (d && d.netas > 0) return { monto: d.netas * (esKioskoUSD(nombre) ? (tcRespaldo || 0) : 1), square: true };
+    return { monto: 0, square: false };
+  };
+  const aggLaboral = (kN, nombre, fechas) => {
+    const ld = laboralDia[kN] || {};
+    const a = { costo: 0, costoConVenta: 0, ventas: 0, turnos: 0, turnosFeriado: 0, dias: 0, diasSinVenta: 0, diasSquare: 0, sinSalario: new Set(), feriados: new Set() };
+    fechas.forEach(f => {
+      const d = ld[f]; if (!d) return;
+      a.dias++; a.costo += d.costo; a.turnos += d.turnos; a.turnosFeriado += d.turnosFeriado;
+      d.sinSalario.forEach(n => a.sinSalario.add(n));
+      if (d.turnosFeriado) a.feriados.add(feriadosMap[f]);
+      const v = ventaDelDia(kN, nombre, f);
+      if (v.monto > 0) { a.ventas += v.monto; a.costoConVenta += d.costo; if (v.square) a.diasSquare++; }
+      else a.diasSinVenta++;
+    });
+    return a;
+  };
+  let lCosto = 0, lCostoConVenta = 0, lVentas = 0, lTurnos = 0, lCostoPrev = 0, lVentasPrev = 0;
   const filasLaboral = listaKioskos.map(nombre => {
     const kN = normK(nombre);
-    const ps = planLista.filter(p => p.kN === kN);
-    let costo = 0; const cubiertas = new Set();
-    ps.forEach(p => fechasCur.forEach(f => { if (f >= p.ini && f <= p.fin) { costo += p.total / p.dias; cubiertas.add(f); } }));
-    if (!cubiertas.size) return { nombre, st: 'na', html: `<span class="compare-dash">Sin planilla que cubra el período</span>` };
-    const vd = ventasDia[kN] || {};
-    const ventas = [...cubiertas].reduce((s, f) => s + (vd[f] || 0), 0);
-    if (ventas <= 0) return { nombre, st: 'na', html: `<span class="compare-val">${fmtCRC(costo)}</span><div class="compare-sub">sin ventas en esos días</div>` };
-    lCosto += costo; lVentas += ventas;
-    const pct = costo / ventas * 100;
+    const a = aggLaboral(kN, nombre, fechasCur);
+    const b = aggLaboral(kN, nombre, fechasPrev);
+    lCostoPrev += b.costoConVenta; lVentasPrev += b.ventas;
+    if (!a.dias) return { nombre, st: 'na', html: `<span class="compare-dash">Sin turnos en el horario</span>` };
+    lCosto += a.costo; lTurnos += a.turnos;
+    const notas = [`${a.turnos} turno${a.turnos === 1 ? '' : 's'}`];
+    if (a.turnosFeriado) notas.push(`${a.turnosFeriado} en feriado (×${CL.factorFeriado})`);
+    if (a.diasSquare) notas.push(`ventas Square en ${a.diasSquare} día${a.diasSquare === 1 ? '' : 's'} sin cierre`);
+    if (a.diasSinVenta) notas.push(`${a.diasSinVenta} día${a.diasSinVenta === 1 ? '' : 's'} sin ventas (fuera del %)`);
+    const avisoSal = a.sinSalario.size ? `<div class="compare-sub" style="color:var(--amber);">Sin salario en Personal: ${[...a.sinSalario].join(', ')}</div>` : '';
+    if (a.ventas <= 0) return { nombre, st: 'na', html: `<span class="compare-val">${fmtCRC(a.costo)}</span><div class="compare-sub">${notas.join(' · ')}</div>${avisoSal}` };
+    lCostoConVenta += a.costoConVenta; lVentas += a.ventas;
+    const pct = a.costoConVenta / a.ventas * 100;
+    const pctPrev = b.ventas > 0 ? b.costoConVenta / b.ventas * 100 : null;
     const st = pct > UMBRALES_KPI.laboralBadPct ? 'bad' : pct > UMBRALES_KPI.laboralWarnPct ? 'warn' : 'ok';
-    return { nombre, st, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtCRC(costo)} · cubre ${cubiertas.size} de ${fechasCur.length} día${fechasCur.length === 1 ? '' : 's'}</div>` };
+    const delta = pctPrev != null ? deltaHtml(pctCambio(pct, pctPrev), true) : '';
+    return { nombre, st, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtCRC(a.costo)} costo · ${fmtCRC(a.ventas)} ventas${delta ? ' · ' + delta : ''}</div><div class="compare-sub">${notas.join(' · ')}</div>${avisoSal}` };
   });
   const stLaboral = peorEstado(filasLaboral.map(x => x.st));
-  const pctLaboral = lVentas > 0 ? lCosto / lVentas * 100 : null;
+  const pctLaboral = lVentas > 0 ? lCostoConVenta / lVentas * 100 : null;
+  const pctLaboralPrev = lVentasPrev > 0 ? lCostoPrev / lVentasPrev * 100 : null;
+  const deltaLaboral = (pctLaboral != null && pctLaboralPrev != null) ? deltaHtml(pctCambio(pctLaboral, pctLaboralPrev), true) : '';
 
   // 5. EFECTIVO SIN DEPOSITAR (saldo a hoy)
   let efCrc = 0, efUsd = 0, masViejo = null;
@@ -1646,9 +1717,9 @@ function renderIndicadores(ctx) {
       stMerma, ordenar(filasMerma),
       'Merma pesada (g → oz) ÷ (onzas de barril vendidas en Square + merma). Misma fórmula que Indicadores de Gerencia; la meta se toma de ahí si está definida.') +
     tarjeta('kpi-laboral', 'Costo laboral', fmtPct(pctLaboral),
-      pctLaboral != null ? `planilla ÷ ventas · meta ≤ ${UMBRALES_KPI.laboralWarnPct}%` : 'Sin planilla calculada para el período',
+      lTurnos ? `${fmtCRC(lCosto)} · ${lTurnos} turno${lTurnos === 1 ? '' : 's'}${deltaLaboral ? ' · ' + deltaLaboral + ' ' + cmp : ''} · meta ≤ ${UMBRALES_KPI.laboralWarnPct}%` : 'Sin turnos en el horario del período',
       stLaboral, ordenar(filasLaboral),
-      `Total ingresos de planilla prorrateado por día, dividido entre las ventas de los mismos días que cubre la planilla. Si la planilla del período actual aún no se calcula, use "Este mes" o un rango anterior. Rojo: > ${UMBRALES_KPI.laboralBadPct}%.`) +
+      `Costo del día = cada persona con turno en el Horario × salario mensual ÷ 30 (Personal); si el día es feriado activo se paga ×${CL.factorFeriado} (Art. 148). Incluye CCSS patronal ${CL.ccssPatronalPct}% + aguinaldo ${CL.provAguinaldoPct}% + vacaciones ${CL.provVacacionesPct}% (×${factorCargas.toFixed(3)}). Día libre, vacaciones, incapacidad y permiso no suman. % = costo ÷ ventas de los días con venta (cierre de caja; si aún no hay cierre, Square). Rojo: > ${UMBRALES_KPI.laboralBadPct}%.`) +
     tarjeta('kpi-efectivo', 'Efectivo sin depositar', fmtCRC(efCrc) + (efUsd ? ' + ' + fmtUSD(efUsd) : ''),
       masViejo ? `Más antiguo: ${masViejo.nombre}, ${etiquetaDias(masViejo.dias).toLowerCase()}` : 'Todo depositado ✓',
       stEfectivo, ordenar(filasEfectivo),
