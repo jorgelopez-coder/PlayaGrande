@@ -1223,6 +1223,16 @@ const SQUARE_KIOSKOS = {
   }
 };
 
+// Square Consolidado - Kioskos (2026-09-25): fuente principal de la tarjeta
+// Ventas. Pestaña Resumen_Cierre_Diario (gid 386642466): Fecha · Cuenta ·
+// Location ID · Ventas Brutas · Descuentos y Cortesías · Ventas Netas ·
+// Devoluciones · Ventas Netas Reales. "Cuenta" = nombre del kiosko (se
+// normaliza con normK). Se usa "Ventas Netas Reales" (netas − devoluciones),
+// en la moneda del kiosko (Catalinas en USD → ₡ con el TC del cierre).
+// Si un kiosko/día no está en el consolidado, se usa el cierre de caja.
+const SQUARE_CONSOLIDADO_SHEET_ID = '1aboleK5L_rVwCA4cZKLZrpm85O2_r93SdOc60fyj9PE';
+const SQUARE_CONSOLIDADO_RESUMEN_TAB = 'Resumen_Cierre_Diario';
+
 // URLs adicionales usadas solo por la Matriz de cumplimiento (mismas que
 // mermas.html y horarios-historial.html; ver README). Inventario no tiene
 // endpoint de listado en Apps Script — se lee directo del sheet vía gviz,
@@ -1508,6 +1518,8 @@ async function cargarKPIs() {
     ...squareEntries.map(([, cfg]) => fetchSquareVentas(cfg))
   ]);
 
+  const ventasSqConsPromise = fetchVentasSquareConsolidado();
+
   // Mermas de hoy y saldo de Caja chica: mismas fuentes que mermas.html y
   // caja-chica.html, leídas en paralelo con lo de arriba (independientes
   // entre sí, no bloquean ni son bloqueadas por Cierres/Square).
@@ -1616,9 +1628,10 @@ async function cargarKPIs() {
     // Caja chica para alertas: saldo a HOY (no a la fecha de corte del filtro).
     const saldosCajaChica = calcularSaldosCajaChica(periodosCajaChicaRows, facturasCajaChicaRows, hoyIso);
 
+    const ventasSqCons = await ventasSqConsPromise;
     const ctx = {
       listaKioskos, kioskosOperativos: kioskosActivos, desde, hasta, hoyIso, cierres, tcRespaldo: tcRespaldoDe(cierres),
-      squarePorKiosko, mermas, planillas: dataPlan.registros || [],
+      squarePorKiosko, ventasSqCons, mermas, planillas: dataPlan.registros || [],
       horarios: dataHor.registros || [], feriados: dataFer.registros || [], personal: personalRegs,
       efectivoPendientesArr, tipsPendientesArr
     };
@@ -1839,6 +1852,40 @@ function tcRespaldoDe(cierres) {
   return mejor ? mejor.tc : 0;
 }
 
+// Ventas por kiosko y día desde Square Consolidado (Resumen_Cierre_Diario).
+// Devuelve { kN: { 'AAAA-MM-DD': monto en moneda del kiosko } } o null si
+// no se pudo leer (en ese caso la tarjeta sigue con cierres de caja).
+async function fetchVentasSquareConsolidado() {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SQUARE_CONSOLIDADO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SQUARE_CONSOLIDADO_RESUMEN_TAB)}&headers=1&_=${Date.now()}`;
+    const resp = await fetch(url, { cache: 'no-store' });
+    const texto = await resp.text();
+    const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
+    const cols = (json.table.cols || []).map(c => String(c.label || '').trim());
+    const iF = cols.indexOf('Fecha'), iC = cols.indexOf('Cuenta');
+    let iV = cols.indexOf('Ventas Netas Reales');
+    if (iV < 0) iV = cols.indexOf('Ventas Netas');
+    if (iF < 0 || iC < 0 || iV < 0) { console.warn('Square consolidado: columnas no encontradas', cols); return null; }
+    const out = {};
+    (json.table.rows || []).forEach(fila => {
+      const c = fila.c || [];
+      let f = parseGvizDateStr(c[iF]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+        const m = String((c[iF] && (c[iF].f || c[iF].v)) || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        f = m ? `${m[3]}-${pad(+m[2])}-${pad(+m[1])}` : '';
+      }
+      const kN = normK((c[iC] && c[iC].v) || '');
+      if (!f || !kN) return;
+      const m = out[kN] || (out[kN] = {});
+      m[f] = (m[f] || 0) + (Number(c[iV] && c[iV].v) || 0);
+    });
+    return out;
+  } catch (e) {
+    console.warn('Square consolidado: no se pudo leer (¿compartido con enlace?)', e);
+    return null;
+  }
+}
+
 // Square: se lee Ventas_Por_Producto UNA vez por kiosko y se agrupa por día
 // (netas, órdenes únicas, onzas de barril); así el período actual y el de
 // comparación salen de la misma lectura.
@@ -1890,7 +1937,7 @@ function sqAgg(porDia, fechas) {
 // reglas. fechasCur = fechas a evaluar; cmpFn(f) = fecha equivalente de
 // comparación. Sin cambios de fórmula respecto al tablero v2.
 function calcularIndicadores(ctx, fechasCur, cmpFn) {
-  const { listaKioskos, cierres, tcRespaldo, squarePorKiosko, mermas, efectivoPendientesArr } = ctx;
+  const { listaKioskos, cierres, tcRespaldo, squarePorKiosko, ventasSqCons, mermas, efectivoPendientesArr } = ctx;
   const res = { cuadre: {}, efectivo: {} };
   const fechasPrev = fechasCur.map(cmpFn);
   const setCur = new Set(fechasCur);
@@ -1902,23 +1949,50 @@ function calcularIndicadores(ctx, fechasCur, cmpFn) {
     </div>`;
   const ordenar = arr => arr.sort((a, b) => ST_ORDEN[a.st] - ST_ORDEN[b.st]).map(x => fila(x.nombre, x.st, x.html)).join('');
 
-  // Ventas por kiosko y día (₡), desde Cierres.
-  const ventasDia = {};
-  cierres.forEach(c => { const m = ventasDia[c.kN] || (ventasDia[c.kN] = {}); m[c.fecha] = (m[c.fecha] || 0) + aCRC(c.ventas, c); });
+  // Ventas por kiosko y día (₡): Square Consolidado (Resumen_Cierre_Diario);
+  // si un kiosko/día no está ahí, se usa el cierre de caja como respaldo.
+  // ventasFuente[kN][f] = 'sq' | 'cierre'.
+  const ventasCierre = {}, tcCierre = {};
+  cierres.forEach(c => {
+    const m = ventasCierre[c.kN] || (ventasCierre[c.kN] = {}); m[c.fecha] = (m[c.fecha] || 0) + aCRC(c.ventas, c);
+    if (c.tc > 0) tcCierre[c.kN + '|' + c.fecha] = c.tc;
+  });
+  const ventasDia = {}, ventasFuente = {};
+  const kUSD = {};
+  listaKioskos.forEach(n => { kUSD[normK(n)] = esKioskoUSD(n); });
+  Object.entries(ventasSqCons || {}).forEach(([kN, dias]) => {
+    const usd = kUSD[kN] != null ? kUSD[kN] : esKioskoUSD(kN);
+    Object.entries(dias).forEach(([f, monto]) => {
+      const tc = usd ? (tcCierre[kN + '|' + f] || tcRespaldo || 0) : 1;
+      (ventasDia[kN] || (ventasDia[kN] = {}))[f] = monto * tc;
+      (ventasFuente[kN] || (ventasFuente[kN] = {}))[f] = 'sq';
+    });
+  });
+  Object.entries(ventasCierre).forEach(([kN, dias]) => {
+    Object.entries(dias).forEach(([f, monto]) => {
+      const vd = ventasDia[kN] || (ventasDia[kN] = {});
+      if (vd[f] !== undefined) return;
+      vd[f] = monto;
+      (ventasFuente[kN] || (ventasFuente[kN] = {}))[f] = 'cierre';
+    });
+  });
 
   // 1. VENTAS
   let vCur = 0, vPrev = 0;
   const filasVentas = listaKioskos.map(nombre => {
     const vd = ventasDia[normK(nombre)] || {};
+    const vf = ventasFuente[normK(nombre)] || {};
     const conCierre = fechasCur.filter(f => vd[f] !== undefined);
-    if (!conCierre.length) return { nombre, st: 'na', html: `<span class="compare-dash">Sin cierre en el período</span>` };
+    if (!conCierre.length) return { nombre, st: 'na', html: `<span class="compare-dash">Sin ventas en el período</span>` };
+    const diasCierre = conCierre.filter(f => vf[f] === 'cierre').length;
+    const fuenteTxt = diasCierre === 0 ? 'Square' : diasCierre === conCierre.length ? 'cierre de caja' : `Square + cierre de caja en ${diasCierre} día${diasCierre === 1 ? '' : 's'}`;
     const cur = conCierre.reduce((s, f) => s + vd[f], 0);
     const prev = conCierre.reduce((s, f) => s + (vd[cmpFn(f)] || 0), 0);
     vCur += cur; vPrev += prev;
     const p = pctCambio(cur, prev);
     const st = p == null ? 'ok' : p <= UMBRALES_KPI.ventasBadPct ? 'bad' : p <= UMBRALES_KPI.ventasWarnPct ? 'warn' : 'ok';
     const faltan = fechasCur.filter(f => f < ctx.hoyIso).length - conCierre.filter(f => f < ctx.hoyIso).length;
-    return { nombre, st, cur, prev, html: `<span class="compare-val">${fmtCRC(cur)}</span><div class="compare-sub">${deltaHtml(p) || 'sin dato previo'}${faltan > 0 ? ` · faltan ${faltan} cierre${faltan === 1 ? '' : 's'}` : ''}</div>` };
+    return { nombre, st, cur, prev, html: `<span class="compare-val">${fmtCRC(cur)}</span><div class="compare-sub">${deltaHtml(p) || 'sin dato previo'}${faltan > 0 ? ` · faltan ${faltan} día${faltan === 1 ? '' : 's'}` : ''}</div><div class="compare-sub">Fuente: ${fuenteTxt}</div>` };
   });
   const stVentas = peorEstado(filasVentas.map(x => x.st));
   const pV = pctCambio(vCur, vPrev);
@@ -1996,8 +2070,8 @@ function calcularIndicadores(ctx, fechasCur, cmpFn) {
     if (esFeriado) d.turnosFeriado++;
     d.costo += (salario / 30) * (esFeriado ? CL.factorFeriado : 1) * factorCargas;
   });
-  // Ventas del día en ₡: cierre de caja; si todavía no hay cierre (ej. hoy),
-  // ventas netas de Square del kiosko.
+  // Ventas del día en ₡: Square Consolidado o cierre de caja (ventasDia);
+  // si no hay ninguno, ventas netas del Square propio del kiosko.
   const ventaDelDia = (kN, nombre, f) => {
     const vd = ventasDia[kN];
     if (vd && vd[f] !== undefined) return { monto: vd[f], square: false };
@@ -2314,7 +2388,7 @@ function renderIndicadores(ctx) {
     valor: V.filas.some(x => x.st !== 'na') ? fmtCRC(V.cur) : '—',
     meta: `Sin meta absoluta · ref.: período anterior (alerta ≤ ${U.ventasWarnPct}%)`,
     vsMeta: null,
-    vsPrev: V.pct != null ? `${ctVarHtml(V.pct, ctFmtPct, true)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">${V.filas.some(x => x.st !== 'na') ? 'Sin dato para comparar' : 'Sin cierres de caja en el período'}</span>`,
+    vsPrev: V.pct != null ? `${ctVarHtml(V.pct, ctFmtPct, true)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">${V.filas.some(x => x.st !== 'na') ? 'Sin dato para comparar' : 'Sin ventas en el período'}</span>`,
     aux: '',
     spark: ctSparkHtml(sparkVals('ventas'), { dotColor: dotC('ventas'), capIzq, capDer })
   };
@@ -2349,7 +2423,7 @@ function renderIndicadores(ctx) {
   // Notas de cálculo (se conservan tal cual del tablero v2, en el desglose).
   const CL = k.CL;
   const NOTAS = {
-    ventas: `Según cierres de caja (todos los kioskos). Solo compara fechas con cierre contra su fecha equivalente. Rojo: caída ≥ ${Math.abs(U.ventasBadPct)}%; amarillo: ≥ ${Math.abs(U.ventasWarnPct)}%.`,
+    ventas: `Ventas Netas Reales de Square Consolidado (Resumen_Cierre_Diario); si un kiosko/día no está ahí, se usa el cierre de caja. Catalinas (USD) se pasa a ₡ con el TC del cierre. Solo compara fechas con venta contra su fecha equivalente. Rojo: caída ≥ ${Math.abs(U.ventasBadPct)}%; amarillo: ≥ ${Math.abs(U.ventasWarnPct)}%.`,
     cuadre: `Suma de "Diferencia Caja" de cada cierre (negativo = faltante). Tolerancia ₡${U.toleranciaCRC} / $${U.toleranciaUSD}, igual que cierres.html.`,
     merma: 'Merma pesada (g → oz) ÷ (onzas de barril vendidas en Square + merma). Misma fórmula que Indicadores de Gerencia; la meta se toma de ahí si está definida.',
     laboral: `Costo del día = cada persona con turno en el Horario × salario mensual ÷ 30 (Personal); si el día es feriado activo se paga ×${CL.factorFeriado} (Art. 148). Incluye CCSS patronal ${CL.ccssPatronalPct}% + aguinaldo ${CL.provAguinaldoPct}% + vacaciones ${CL.provVacacionesPct}% (×${k.factorCargas.toFixed(3)}). Día libre, vacaciones, incapacidad y permiso no suman. % = costo ÷ ventas de los días con venta (cierre de caja; si aún no hay cierre, Square). Rojo: > ${U.laboralBadPct}%.`,
