@@ -189,6 +189,39 @@ input[type=date]:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26
 .kpi-periodo-dates input[type=date] { width:132px; }
 .kpi-periodo-lbl { font-size:12px; color:var(--muted); white-space:nowrap; }
 
+/* ── TENDENCIA POR KIOSKO (gráfico de líneas, 2026-09-24) ─── */
+.tend-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:1rem 1.25rem .35rem; }
+.tend-sub { padding:0 1.25rem; font-size:11px; color:var(--muted); }
+.tend-chart { position:relative; padding:.6rem 1rem .2rem .5rem; min-height:240px; }
+.tend-chart svg { display:block; max-width:100%; height:auto; overflow:visible; }
+.tend-chart .t-grid { stroke:var(--border); stroke-width:1; opacity:.55; }
+.tend-chart .t-base { stroke:var(--border-h); stroke-width:1; }
+.tend-chart .t-axis-lbl { font:10.5px var(--font-m); fill:var(--muted); }
+.tend-chart .t-ref { stroke:var(--muted); stroke-width:1; stroke-dasharray:4 4; }
+.tend-chart .t-ref-lbl { font:10px var(--font-b); fill:var(--muted); }
+.tend-chart .t-cross { stroke:var(--text); stroke-width:1; opacity:.35; }
+.tend-chart .t-direct { font:500 11px var(--font-b); fill:var(--text); }
+.tend-tip { position:absolute; display:none; pointer-events:none; background:var(--card); border:1px solid var(--border-h); border-radius:8px; padding:8px 10px; font-size:11.5px; box-shadow:0 8px 20px rgba(28,58,40,.15); z-index:5; white-space:nowrap; }
+.tend-tip-h { font-size:10.5px; color:var(--muted); margin-bottom:5px; }
+.tend-tip-row { display:flex; align-items:center; gap:8px; padding:1px 0; }
+.tend-tip-row b { font-family:var(--font-m); font-weight:600; color:var(--text); min-width:84px; }
+.tend-tip-row .n { color:var(--muted); }
+.tend-key { display:inline-block; width:14px; height:0; border-top:2.5px solid; border-radius:2px; flex-shrink:0; }
+.tend-legend { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; padding:.5rem 1.25rem .7rem; }
+.tend-leg-btn { display:inline-flex; align-items:center; gap:7px; background:none; border:none; font:12px var(--font-b); color:var(--text); cursor:pointer; padding:2px 0; }
+.tend-leg-btn[aria-pressed="false"] { color:var(--subtle); text-decoration:line-through; }
+.tend-leg-btn[aria-pressed="false"] .tend-key { border-top-color:var(--subtle) !important; }
+.tend-sin { font-size:11px; color:var(--subtle); }
+.tend-vista-btn { background:none; border:1px solid var(--border); border-radius:20px; padding:4px 12px; font:12px var(--font-b); color:var(--muted); cursor:pointer; }
+.tend-vista-btn:hover { border-color:var(--border-h); color:var(--text); }
+.tend-table-wrap { overflow-x:auto; padding:.4rem 1.25rem .75rem; }
+.tend-table { width:100%; border-collapse:collapse; font-size:12px; }
+.tend-table th, .tend-table td { padding:.4rem .55rem; border-bottom:1px solid var(--border); text-align:right; white-space:nowrap; }
+.tend-table th:first-child, .tend-table td:first-child { text-align:left; }
+.tend-table th { font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; background:var(--surface); }
+.tend-table td { font-family:var(--font-m); }
+.tend-nota { padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border); line-height:1.45; }
+
 /* ── MATRIZ DE CUMPLIMIENTO (kiosko × fecha) ────────────── */
 .matrix-wrap { overflow-x:auto; }
 .matrix-table { width:100%; border-collapse:collapse; font-size:12px; min-width:760px; }
@@ -279,6 +312,264 @@ input[type=date]:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26
   .ia-panel { right:10px; left:10px; bottom:78px; width:auto; height:min(72vh,560px); }
   .topnav { padding:0 1rem; top:56px; overflow-x:auto; }
   .nav-panel { position:fixed; left:1rem; right:1rem; top:102px; min-width:0 !important; grid-template-columns:1fr !important; max-height:70vh; overflow-y:auto; }
+}
+
+/* ══ BUSINESS CONTROL TOWER (cockpit ejecutivo, 2026-09-24) ══════════
+   Misma paleta del portal (verde, crema, blanco, rojo para alertas);
+   más contraste en textos secundarios dentro del cockpit (--ink2). */
+main { max-width:1240px; }
+.hero { margin-bottom:1rem; }
+.hero h1 { font-size:22px; margin-bottom:2px; }
+.ct { --ink:#15301f; --ink2:#3e6a4e; --line:#dde7de; --soft:#f7f4ec;
+      --on-dark:#f3efe4; --on-dark2:#a9c7b3;
+      --watch:#4f6b8a; --watch-bg:#eef2f7;
+      margin-bottom:1.5rem; color:var(--ink); }
+.ct-shell { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+
+/* Header */
+.ct-head { background:#1c3a28; color:var(--on-dark); padding:16px 22px; display:flex; align-items:center; justify-content:space-between; gap:14px 24px; flex-wrap:wrap; }
+.ct-eyebrow { font:600 9.5px var(--font-m); letter-spacing:.16em; color:var(--on-dark2); text-transform:uppercase; }
+.ct-title { font:800 21px/1.15 var(--font-d); letter-spacing:.07em; margin-top:4px; color:#fff; }
+.ct-subtitle { font-size:12px; color:var(--on-dark2); margin-top:2px; letter-spacing:.03em; }
+.ct-head-right { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.ct-live { display:inline-flex; align-items:center; gap:7px; font:600 10.5px var(--font-m); letter-spacing:.16em; color:#8fd3a9; border:1px solid rgba(143,211,169,.35); border-radius:4px; padding:4px 9px; }
+.ct-live-dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:ctPulse 2.4s ease-in-out infinite; }
+.ct-live.stale { color:#e8c34a; border-color:rgba(232,195,74,.4); }
+.ct-live.stale .ct-live-dot { animation:none; }
+@keyframes ctPulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+@media (prefers-reduced-motion:reduce) { .ct-live-dot { animation:none; } }
+.ct-upd { font:11px/1.55 var(--font-m); color:var(--on-dark2); text-align:right; }
+.ct-upd b { color:var(--on-dark); font-weight:600; }
+.ct-cfg { font:500 11.5px var(--font-b); color:var(--on-dark); text-decoration:none; border-bottom:1px solid rgba(243,239,228,.35); }
+.ct-cfg:hover { border-bottom-color:var(--on-dark); }
+.ct-clock { text-align:right; border-left:1px solid rgba(255,255,255,.14); padding-left:18px; }
+
+/* Filtros compactos */
+.ct-filters.kpi-periodo { padding:9px 22px; gap:8px 12px; background:var(--soft); border-bottom:1px solid var(--line); }
+.ct-filters .kpi-chip-btn { font-size:11.5px; padding:4px 11px; background:var(--card); }
+.ct-filters .kpi-chip-btn.active { background:#1c3a28; border-color:#1c3a28; color:#fff; }
+.ct-filters .kpi-periodo-dates { gap:6px; }
+.ct-filters input[type=date] { font-size:12px; padding:4px 8px; width:124px; background:var(--card); }
+.ct-filters .kpi-periodo-lbl { font-size:11px; color:var(--ink2); }
+.ct-periodo-res { font:11px var(--font-m); color:var(--ink2); }
+
+.ct-body { padding:18px 22px 20px; display:flex; flex-direction:column; gap:20px; }
+.ct-sec-lbl { font:600 9.5px var(--font-m); letter-spacing:.16em; text-transform:uppercase; color:var(--ink2); }
+
+/* System status (nivel 1) */
+.ct-status { display:grid; grid-template-columns:minmax(210px,auto) 1fr auto; gap:14px 28px; align-items:center; padding:16px 20px; border-radius:10px; border:1px solid var(--line); border-left:5px solid #b9c7bd; background:var(--card); }
+.ct-status-bad  { border-left-color:var(--red);   background:linear-gradient(90deg, var(--red-bg), #fff 55%); }
+.ct-status-warn { border-left-color:var(--amber); background:linear-gradient(90deg, var(--amber-bg), #fff 55%); }
+.ct-status-ok   { border-left-color:var(--green); background:linear-gradient(90deg, var(--green-bg), #fff 55%); }
+.ct-status-word { font:800 24px/1.1 var(--font-d); letter-spacing:.05em; margin-top:6px; display:flex; align-items:center; gap:10px; }
+.ct-status-word i { width:12px; height:12px; border-radius:50%; background:currentColor; flex-shrink:0; box-shadow:0 0 0 4px rgba(0,0,0,.05); }
+.ct-status-bad  .ct-status-word { color:var(--red); }
+.ct-status-warn .ct-status-word { color:var(--amber); }
+.ct-status-ok   .ct-status-word { color:var(--green); }
+.ct-status-q { font-size:12px; color:var(--ink2); margin-top:4px; }
+.ct-status-mid { min-width:0; }
+.ct-counts { display:flex; flex-wrap:wrap; gap:4px 20px; font-size:13px; color:var(--ink); }
+.ct-counts b { font:600 17px var(--font-m); margin-right:4px; }
+.ct-counts .c-bad b { color:var(--red); } .ct-counts .c-warn b { color:var(--amber); } .ct-counts .c-ok b { color:var(--green); } .ct-counts .c-na b { color:var(--ink2); }
+.ct-ann { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.ct-ann button { font:600 9.5px var(--font-m); letter-spacing:.1em; text-transform:uppercase; color:var(--ink); background:var(--card); border:1px solid var(--line); border-top:3px solid #c3cfc6; border-radius:4px; padding:4px 8px 3px; cursor:pointer; }
+.ct-ann button:hover { border-color:var(--border-h); }
+.ct-ann .a-bad { border-top-color:var(--red); color:var(--red); }
+.ct-ann .a-warn { border-top-color:var(--amber); color:#8f5510; }
+.ct-ann .a-ok { border-top-color:var(--green); }
+.ct-ann .a-na { color:var(--ink2); border-top-style:dashed; }
+.ct-status-side { text-align:right; font-size:12px; color:var(--ink2); line-height:1.6; }
+.ct-status-side b { font:600 16px var(--font-m); }
+
+/* Executive signal */
+.ct-signal { display:grid; grid-template-columns:150px 1fr; gap:6px 18px; align-items:start; padding:0 2px; }
+.ct-signal .ct-sec-lbl { padding-top:4px; }
+.ct-signal-txt { font:500 15.5px/1.5 var(--font-b); color:var(--ink); max-width:880px; }
+.ct-signals { display:flex; flex-wrap:wrap; gap:6px 8px; margin-top:10px; }
+.ct-sig { font:500 12px var(--font-b); color:var(--ink); display:inline-flex; gap:6px; align-items:center; background:var(--soft); border:1px solid var(--line); border-radius:6px; padding:3px 9px; }
+.ct-sig b { font:600 12.5px var(--font-m); }
+.ct-sig.good b { color:var(--green); } .ct-sig.bad b { color:var(--red); } .ct-sig.warn b { color:var(--amber); } .ct-sig.neutral b { color:var(--ink2); }
+
+/* KPIs */
+.ct-kpis { display:flex; flex-direction:column; gap:18px; }
+.ct-grp-lbl { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+.ct-grp-lbl::after { content:''; flex:1; height:1px; background:var(--line); }
+.ct-grp-lbl .ct-grp-q { font:500 11px var(--font-b); color:var(--ink2); letter-spacing:0; text-transform:none; }
+.ct-crit { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+.ct-row2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.ct-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; }
+.ct .kpi-card { background:var(--card); border:1px solid var(--line); border-top:3px solid #c3cfc6; border-left-width:1px; border-radius:10px; padding:13px 15px 11px; cursor:pointer; transition:box-shadow .15s, border-color .15s; min-width:0; }
+.ct .kpi-card:hover { box-shadow:0 6px 18px rgba(28,58,40,.08); border-left-color:var(--border-h); border-right-color:var(--border-h); border-bottom-color:var(--border-h); }
+.ct .kpi-card-bad, .ct .kpi-card-warn, .ct .kpi-card-ok, .ct .kpi-card-na { border-left-color:var(--line); }
+.ct .kpi-card-bad  { border-top-color:var(--red); }
+.ct .kpi-card-warn { border-top-color:var(--amber); }
+.ct .kpi-card-ok   { border-top-color:var(--green); }
+.ct .kpi-card-na   { border-top-color:#c3cfc6; border-top-style:dashed; }
+.ct .kpi-card.crit { padding:16px 18px 13px; border-top-width:4px; }
+.ct .kpi-card { display:flex; flex-direction:column; }
+.ct .kpi-card > .ct-crit-body { margin-bottom:10px; }
+.ct .kpi-card.crit > .ct-card-foot { margin-top:auto; }
+.ct-spark-wrap { margin-top:auto; padding-bottom:10px; }
+.ct-pair:not(:has(.kpi-card.open)), .ct-crit:not(:has(.kpi-card.open)) { align-items:stretch; }
+.ct .kpi-card.crit.kpi-card-bad { background:linear-gradient(180deg, #fff9f6, #fff 40%); }
+.ct-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.ct-card-name { font:600 10.5px var(--font-m); letter-spacing:.12em; text-transform:uppercase; color:var(--ink); display:flex; align-items:center; gap:7px; }
+.ct-card-name i { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ct-crit-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:18px; align-items:end; }
+.ct-val { font:600 27px/1.1 var(--font-m); letter-spacing:-.02em; margin:9px 0 3px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.crit .ct-val { font-size:40px; margin-top:10px; }
+.ct-val small { font-size:.5em; color:var(--ink2); font-weight:500; margin-left:4px; letter-spacing:0; }
+.ct-meta { font-size:11.5px; color:var(--ink2); }
+.ct-vars { margin-top:8px; display:flex; flex-direction:column; gap:1px; font-size:12px; color:var(--ink); }
+.ct-var { line-height:1.45; }
+.ct-var b { font:600 12px var(--font-m); }
+.ct-var .up-bad, .ct-var .dn-bad { color:var(--red); } .ct-var .up-good, .ct-var .dn-good { color:var(--green); } .ct-var .neu { color:var(--ink2); }
+.ct-var-lbl { color:var(--ink2); }
+.ct-aux { font-size:11px; color:var(--ink2); margin-top:5px; line-height:1.45; }
+.ct-peor { font-size:11.5px; margin-top:6px; color:var(--ink); }
+.ct-peor b { font-weight:600; }
+.ct-peor-bad { color:var(--red); } .ct-peor-warn { color:#9a5a12; }
+.ct-spark { position:relative; height:42px; margin-top:10px; }
+.crit .ct-spark { height:70px; margin-top:0; }
+.ct-spark svg { position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible; }
+.ct-spark-dot { position:absolute; width:8px; height:8px; border-radius:50%; transform:translate(-50%,-50%); border:2px solid #fff; box-shadow:0 0 0 1px rgba(28,58,40,.15); }
+.ct-spark-cap { display:flex; justify-content:space-between; gap:6px; font:9.5px var(--font-m); color:var(--ink2); margin-top:4px; letter-spacing:.03em; }
+.ct-spark-empty { height:42px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--ink2); border:1px dashed var(--line); border-radius:6px; margin-top:10px; padding:0 8px; }
+.crit .ct-spark-empty { height:70px; margin-top:0; }
+.ct-card-foot { display:flex; justify-content:space-between; align-items:center; gap:6px 10px; padding-top:9px; border-top:1px solid var(--line); flex-wrap:wrap; }
+.ct-trend { font:600 9.5px var(--font-m); letter-spacing:.1em; color:var(--ink2); text-transform:uppercase; }
+.ct-trend b { font-weight:700; }
+.ct-trend .t-up { color:var(--green); } .ct-trend .t-down { color:var(--red); } .ct-trend .t-flat { color:var(--ink); } .ct-trend .t-na { color:var(--ink2); font-weight:600; }
+.ct-foot-r { display:flex; align-items:center; gap:8px; }
+.ct-pill { font:700 9.5px var(--font-m); letter-spacing:.1em; padding:3px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.ct-pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.ct-pill-bad { background:var(--red-bg); color:var(--red); }
+.ct-pill-warn { background:var(--amber-bg); color:#9a5a12; }
+.ct-pill-ok { background:var(--green-bg); color:var(--green); }
+.ct-pill-na { background:#f1f3f1; color:var(--ink2); }
+.ct-pill-watch { background:var(--watch-bg); color:var(--watch); }
+.ct .kpi-chevron { margin-top:0; }
+.ct .kpi-breakdown { margin-top:10px; padding-top:8px; }
+.ct .kpi-row-kiosko { color:var(--ink); }
+.ct .kpi-nota { color:var(--ink2); }
+
+/* Paneles nivel 2/3 */
+.ct-split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:18px; align-items:start; }
+.ct-split-b { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.ct-col { display:flex; flex-direction:column; gap:18px; min-width:0; }
+.ct-panel { border:1px solid var(--line); border-radius:10px; background:var(--card); overflow:hidden; min-width:0; }
+.ct-panel-head { display:flex; justify-content:space-between; align-items:center; padding:11px 16px; border-bottom:1px solid var(--line); gap:6px 10px; flex-wrap:wrap; background:var(--soft); }
+.ct-panel-title { font:700 10.5px var(--font-m); letter-spacing:.14em; text-transform:uppercase; color:var(--ink); display:inline-flex; align-items:center; gap:8px; }
+.ct-panel-meta { font-size:11px; color:var(--ink2); }
+.ct-siren { width:9px; height:9px; border-radius:2px; background:var(--red); transform:rotate(45deg); }
+.ct-subhead { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--soft); font:600 9.5px var(--font-m); letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); }
+#alertas-count { font-weight:600; }
+.ct-panel .alertas-lista { padding:.2rem 16px .5rem; }
+.ct-panel .alerta-item { font-size:12.5px; padding:.5rem 0; }
+
+.ct-att-item { display:grid; grid-template-columns:4px minmax(0,1fr); gap:12px; padding:13px 16px; }
+.ct-att-item + .ct-att-item { border-top:1px solid var(--line); }
+.ct-att-bar { border-radius:2px; background:#c3cfc6; }
+.ct-att-bad .ct-att-bar { background:var(--red); } .ct-att-warn .ct-att-bar { background:var(--amber); } .ct-att-watch .ct-att-bar { background:var(--watch); }
+.ct-att-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+.ct-att-kpi { font:700 11px var(--font-m); letter-spacing:.1em; text-transform:uppercase; }
+.ct-att-dev { font:600 15px/1.35 var(--font-m); margin-top:5px; color:var(--ink); }
+.ct-att-dev span { font:500 12px var(--font-b); color:var(--ink2); }
+.ct-att-dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 12px; font-size:12px; margin-top:7px; }
+.ct-att-dl dt { color:var(--ink2); font:600 9px var(--font-m); letter-spacing:.12em; text-transform:uppercase; padding-top:3px; }
+.ct-att-dl dd { color:var(--ink); }
+.ct-att-sub { margin-top:6px; padding-left:10px; border-left:2px solid var(--line); font-size:11.5px; color:var(--ink); }
+.ct-att-sub a { color:inherit; text-decoration:none; display:block; padding:1px 0; }
+.ct-att-sub a:hover { color:var(--green); }
+.ct-att-actions { display:flex; gap:8px; margin-top:9px; flex-wrap:wrap; }
+.ct-btn { font:600 11.5px var(--font-b); color:var(--ink); background:var(--card); border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer; text-decoration:none; }
+.ct-btn:hover { border-color:var(--border-h); background:var(--soft); }
+.ct-btn.primary { background:#1c3a28; color:#fff; border-color:#1c3a28; }
+.ct-btn.primary:hover { background:#27503a; }
+.ct-ok-msg { padding:18px 16px; font-size:12.5px; color:var(--green); display:flex; gap:8px; align-items:center; }
+
+.ct-seg { display:inline-flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.ct-seg button { font:500 11.5px var(--font-b); background:var(--card); color:var(--ink2); border:none; padding:4px 11px; cursor:pointer; }
+.ct-seg button + button { border-left:1px solid var(--border); }
+.ct-seg button.active { background:#1c3a28; color:#fff; }
+.ct-trend-ctrls { display:flex; gap:8px; align-items:center; }
+.ct .tend-vista-btn { border-radius:6px; font-size:11.5px; padding:4px 10px; }
+.ct .tend-bar { padding:.75rem 1rem .25rem; }
+.ct .tend-bar .kpi-chip-btn { font-size:11.5px; padding:4px 11px; }
+.ct .tend-sub { padding:0 1rem; color:var(--ink2); }
+.ct .tend-legend { padding:.35rem 1rem .6rem; }
+.ct .tend-nota { padding:.55rem 1rem; color:var(--ink2); }
+
+.ct-drv { padding:12px 16px; }
+.ct-drv + .ct-drv { border-top:1px solid var(--line); }
+.ct-drv-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+.ct-drv-head b { font:600 16px var(--font-m); }
+.ct-drv-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:5px 0; font-size:12.5px; border-top:1px dashed var(--line); }
+.ct-drv-row:first-of-type { border-top:none; }
+.ct-drv-row span:first-child { color:var(--ink); }
+.ct-drv-row b { font:600 12.5px var(--font-m); white-space:nowrap; }
+.ct-drv-row .bad { color:var(--red); } .ct-drv-row .good { color:var(--green); } .ct-drv-row .warn { color:#9a5a12; } .ct-drv-row .neu { color:var(--ink); }
+.ct-drv-empty { font-size:12px; color:var(--ink2); font-style:italic; padding:4px 0; }
+
+.ct-hm-wrap { overflow-x:auto; }
+.ct-hm { width:100%; border-collapse:collapse; font-size:12px; min-width:420px; }
+.ct-hm th { font:600 9.5px var(--font-m); letter-spacing:.12em; color:var(--ink2); text-align:center; padding:9px 8px; border-bottom:1px solid var(--line); text-transform:uppercase; }
+.ct-hm th:first-child, .ct-hm td:first-child { text-align:left; padding-left:16px; }
+.ct-hm th:last-child, .ct-hm td:last-child { text-align:left; padding-right:16px; }
+.ct-hm td { padding:8px; border-bottom:1px solid var(--line); text-align:center; vertical-align:middle; }
+.ct-hm tbody tr:last-child td { border-bottom:none; }
+.ct-hm td:first-child { font-weight:600; color:var(--ink); white-space:nowrap; }
+.ct-hm tbody tr { cursor:pointer; }
+.ct-hm tbody tr:hover td { background:var(--soft); }
+.ct-cell { display:inline-flex; flex-direction:column; align-items:center; gap:1px; min-width:64px; }
+.ct-cell-v { display:inline-flex; align-items:center; gap:6px; font:600 11.5px var(--font-m); color:var(--ink); }
+.ct-cell-v i { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.ct-cell-s { font:600 8.5px var(--font-m); letter-spacing:.1em; }
+.ct-cell.s-bad i { background:var(--red); } .ct-cell.s-bad .ct-cell-s { color:var(--red); }
+.ct-cell.s-warn i { background:var(--amber); } .ct-cell.s-warn .ct-cell-s { color:#9a5a12; }
+.ct-cell.s-ok i { background:var(--green); } .ct-cell.s-ok .ct-cell-s { color:var(--green); }
+.ct-cell.s-na i { background:transparent; border:1.5px solid #b3c2b8; } .ct-cell.s-na .ct-cell-s, .ct-cell.s-na .ct-cell-v { color:var(--ink2); }
+.ct-read { font-size:11.5px; font-weight:600; white-space:nowrap; }
+.ct-read.r-bad { color:var(--red); } .ct-read.r-warn { color:#9a5a12; } .ct-read.r-good { color:var(--green); } .ct-read.r-neu { color:var(--ink2); }
+.ct-hm-leg { display:flex; flex-wrap:wrap; gap:4px 14px; padding:9px 16px; border-top:1px solid var(--line); font-size:10.5px; color:var(--ink2); }
+.ct-hm-leg span { display:inline-flex; align-items:center; gap:5px; }
+.ct-hm-leg i { width:8px; height:8px; border-radius:50%; }
+
+.ct-method { font-size:11px; color:var(--ink2); border-top:1px solid var(--line); padding-top:10px; }
+.ct-method summary { cursor:pointer; font:600 9.5px var(--font-m); letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); }
+.ct-method p { margin-top:6px; line-height:1.55; max-width:980px; }
+
+@media (max-width:1080px) {
+  .ct-row2 { grid-template-columns:1fr; }
+  .ct-split, .ct-split-b { grid-template-columns:1fr; }
+  .ct-status { grid-template-columns:1fr auto; }
+  .ct-status-mid { grid-column:1 / -1; grid-row:2; }
+}
+@media (max-width:720px) {
+  .ct-head { padding:14px 16px; }
+  .ct-title { font-size:18px; }
+  .ct-head-right { width:100%; justify-content:space-between; gap:12px; flex-wrap:nowrap; }
+  .ct-upd { text-align:right; }
+  .ct-clock { display:none; }
+  .ct-filters.kpi-periodo { padding:9px 16px; }
+  .ct-filters .kpi-periodo-dates { margin-left:0; width:100%; display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr); gap:6px; align-items:center; }
+  .ct-filters .kpi-periodo-dates input[type=date] { width:100%; min-width:0; }
+  .ct-filters #kpi-periodo-dia { grid-column:2 / -1; }
+  .ct-hm { min-width:0; font-size:11px; }
+  .ct-hm th, .ct-hm td { padding:7px 3px; }
+  .ct-hm th:first-child, .ct-hm td:first-child { padding-left:10px; white-space:normal; }
+  .ct-hm th:last-child, .ct-hm td:last-child { padding-right:10px; }
+  .ct-cell { min-width:0; }
+  .ct-cell-v { gap:4px; font-size:10.5px; }
+  .ct-read { white-space:normal; font-size:10.5px; }
+  .ct-body { padding:14px 12px 16px; gap:16px; }
+  .ct-status { grid-template-columns:1fr; padding:14px; }
+  .ct-status-side { text-align:left; }
+  .ct-signal { grid-template-columns:1fr; }
+  .ct-crit, .ct-pair { grid-template-columns:1fr; }
+  .ct-crit-body { grid-template-columns:1fr; gap:10px; }
+  .crit .ct-val { font-size:34px; }
+  .crit .ct-spark { height:56px; }
 }
 </style>
 </head>
@@ -548,55 +839,140 @@ input[type=date]:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(26
       <h1 id="saludo">Buen día</h1>
       <p id="status-general">Cargando datos del sistema…</p>
     </div>
-    <div class="board">
-      <div class="board-date" id="board-date"></div>
-      <div class="board-time" id="board-time"></div>
-    </div>
   </div>
 
-  <!-- Indicadores: tarjetas resumen con desglose por kiosko al hacer clic
-       (reemplaza la tabla "Comparativo por kiosko" desde 2026-08-26). -->
-  <div class="section-card" style="margin-bottom:1.5rem;">
-    <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Indicadores</span>
-      <a href="configuracion.html" class="section-link">Configurar kioskos →</a>
-    </div>
-    <div class="kpi-periodo">
-      <div class="kpi-chip-row" id="kpi-periodo-atajos">
-        <button type="button" class="kpi-chip-btn active" data-atajo="hoy" onclick="aplicarAtajoFechaKpi('hoy')">Hoy</button>
-        <button type="button" class="kpi-chip-btn" data-atajo="semana" onclick="aplicarAtajoFechaKpi('semana')">Esta semana</button>
-        <button type="button" class="kpi-chip-btn" data-atajo="mes" onclick="aplicarAtajoFechaKpi('mes')">Este mes</button>
-        <button type="button" class="kpi-chip-btn" data-atajo="anio" onclick="aplicarAtajoFechaKpi('anio')">Este año</button>
+  <!-- BUSINESS CONTROL TOWER (2026-09-24) — evolución del bloque
+       "Indicadores": mismos KPIs, filtros, semáforos, cálculos y desgloses
+       por kiosko; se reorganiza en 3 niveles (Scan → Understand →
+       Investigate). Todo lo que se muestra sale de calcularIndicadores()
+       y de los datos ya leídos en cargarKPIs(); nada es hardcodeado. -->
+  <section class="ct" id="control-tower" aria-label="Business Control Tower">
+    <div class="ct-shell">
+      <div class="ct-head">
+        <div>
+          <div class="ct-eyebrow">Ecosistema Kioskos · Casa Agüizotes</div>
+          <h2 class="ct-title">BUSINESS CONTROL TOWER</h2>
+          <div class="ct-subtitle">Executive Operations Cockpit</div>
+        </div>
+        <div class="ct-head-right">
+          <span class="ct-live" id="ct-live"><span class="ct-live-dot"></span>LIVE</span>
+          <div class="ct-upd">Última actualización: <b id="ct-upd-hora">—</b><br><a href="configuracion.html" class="ct-cfg">Configurar kioscos →</a></div>
+          <div class="ct-clock">
+            <div class="board-date" id="board-date"></div>
+            <div class="board-time" id="board-time"></div>
+          </div>
+        </div>
       </div>
-      <div class="kpi-periodo-dates">
-        <span class="kpi-periodo-lbl">Día:</span>
-        <input type="date" id="kpi-periodo-dia" onchange="aplicarDiaKpi()"/>
-        <span class="kpi-periodo-lbl">Rango:</span>
-        <input type="date" id="kpi-periodo-desde" onchange="aplicarRangoKpi()"/>
-        <span class="kpi-periodo-lbl">a</span>
-        <input type="date" id="kpi-periodo-hasta" onchange="aplicarRangoKpi()"/>
-      </div>
-    </div>
-    <p id="kpi-periodo-resumen" style="padding:0 1.25rem .75rem; font-size:11px; color:var(--muted);"></p>
-    <div id="kpi-grid" class="kpi-grid">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-    <div style="padding:.6rem 1.25rem; font-size:10.5px; color:var(--subtle); border-top:1px solid var(--border);">
-      Semáforo: rojo = requiere acción, amarillo = vigilar, verde = en orden (cada tarjeta toma el peor estado de sus kioskos). Ventas, Cuadre, Merma, Costo laboral y Ticket usan el período elegido y se comparan contra el período equivalente anterior. Efectivo sin depositar es siempre el saldo a hoy. Haga clic en una tarjeta para ver el desglose por kiosko y cómo se calcula.
-    </div>
-  </div>
 
-  <!-- Requiere atención (2026-09-24): pendientes accionables de todos los
-       kioskos, rojo primero — ver renderAlertas(). -->
-  <div class="section-card" style="margin-bottom:1.5rem;">
-    <div class="section-head">
-      <span class="section-title"><span class="clip"></span>Requiere atención</span>
-      <span class="section-link" id="alertas-count" style="cursor:default;"></span>
+      <div class="ct-filters kpi-periodo">
+        <div class="kpi-chip-row" id="kpi-periodo-atajos">
+          <button type="button" class="kpi-chip-btn active" data-atajo="hoy" onclick="aplicarAtajoFechaKpi('hoy')">Hoy</button>
+          <button type="button" class="kpi-chip-btn" data-atajo="semana" onclick="aplicarAtajoFechaKpi('semana')">Semana</button>
+          <button type="button" class="kpi-chip-btn" data-atajo="mes" onclick="aplicarAtajoFechaKpi('mes')">Mes</button>
+          <button type="button" class="kpi-chip-btn" data-atajo="anio" onclick="aplicarAtajoFechaKpi('anio')">Año</button>
+        </div>
+        <span class="ct-periodo-res" id="kpi-periodo-resumen"></span>
+        <div class="kpi-periodo-dates">
+          <span class="kpi-periodo-lbl">Día</span>
+          <input type="date" id="kpi-periodo-dia" onchange="aplicarDiaKpi()" aria-label="Día puntual"/>
+          <span class="kpi-periodo-lbl">Rango</span>
+          <input type="date" id="kpi-periodo-desde" onchange="aplicarRangoKpi()" aria-label="Desde"/>
+          <span class="kpi-periodo-lbl">–</span>
+          <input type="date" id="kpi-periodo-hasta" onchange="aplicarRangoKpi()" aria-label="Hasta"/>
+        </div>
+      </div>
+
+      <div class="ct-body">
+        <!-- NIVEL 1 · SCAN — ¿Estamos bien? -->
+        <div class="ct-status ct-status-na" id="ct-status">
+          <div class="ct-status-main">
+            <div class="ct-sec-lbl">System status</div>
+            <div class="ct-status-word"><span class="spinner"></span> Calculando…</div>
+          </div>
+        </div>
+
+        <div class="ct-signal" id="ct-signal">
+          <div class="ct-sec-lbl">Executive signal</div>
+          <div><p class="ct-signal-txt">—</p></div>
+        </div>
+
+        <div id="kpi-grid" class="ct-kpis">
+          <div class="no-alerts"><span class="spinner"></span></div>
+        </div>
+
+        <!-- NIVEL 2 · UNDERSTAND — ¿Qué está pasando? -->
+        <div class="ct-split">
+          <div class="ct-panel ct-panel-att">
+            <div class="ct-panel-head">
+              <span class="ct-panel-title"><span class="ct-siren" aria-hidden="true"></span>Attention required</span>
+              <span class="ct-panel-meta" id="ct-att-count"></span>
+            </div>
+            <div id="ct-attention"><div class="no-alerts"><span class="spinner"></span></div></div>
+          </div>
+
+          <div class="ct-col">
+          <div class="ct-panel ct-panel-trend">
+            <div class="ct-panel-head">
+              <span class="ct-panel-title">Performance trend</span>
+              <div class="ct-trend-ctrls">
+                <div class="ct-seg" id="tend-modo" role="group" aria-label="Vista">
+                  <button type="button" class="active" data-modo="total" onclick="elegirModoTendencia('total')">Total</button>
+                  <button type="button" data-modo="kiosko" onclick="elegirModoTendencia('kiosko')">Por kiosko</button>
+                </div>
+                <button type="button" class="tend-vista-btn" id="tend-vista-btn" onclick="toggleVistaTendencia()">Ver tabla</button>
+              </div>
+            </div>
+            <div class="tend-bar">
+              <div class="kpi-chip-row" id="tend-metricas">
+                <button type="button" class="kpi-chip-btn active" data-m="ventas" onclick="elegirMetricaTendencia('ventas')">Ventas</button>
+                <button type="button" class="kpi-chip-btn" data-m="laboral" onclick="elegirMetricaTendencia('laboral')">Costo laboral</button>
+                <button type="button" class="kpi-chip-btn" data-m="ticket" onclick="elegirMetricaTendencia('ticket')">Ticket</button>
+                <button type="button" class="kpi-chip-btn" data-m="merma" onclick="elegirMetricaTendencia('merma')">Merma</button>
+              </div>
+            </div>
+            <p class="tend-sub" id="tend-sub"></p>
+            <div class="tend-chart" id="tend-chart"><div class="no-alerts"><span class="spinner"></span></div></div>
+            <div class="tend-table-wrap" id="tend-tabla" style="display:none;"></div>
+            <div class="tend-legend" id="tend-legend"></div>
+            <div class="tend-nota" id="tend-nota"></div>
+          </div>
+          <div class="ct-panel">
+            <div class="ct-panel-head">
+              <span class="ct-panel-title">Pendientes operativos</span>
+              <span class="ct-panel-meta" id="alertas-count"></span>
+            </div>
+            <div id="alertas-lista" class="alertas-lista">
+              <div class="no-alerts"><span class="spinner"></span></div>
+            </div>
+          </div>
+          </div>
+        </div>
+
+        <!-- NIVEL 3 · INVESTIGATE — ¿Por qué? -->
+        <div class="ct-split ct-split-b">
+          <div class="ct-panel">
+            <div class="ct-panel-head">
+              <span class="ct-panel-title">What is driving the result?</span>
+              <span class="ct-panel-meta">Variaciones medidas · no implican causa</span>
+            </div>
+            <div id="ct-drivers"><div class="no-alerts"><span class="spinner"></span></div></div>
+          </div>
+          <div class="ct-panel">
+            <div class="ct-panel-head">
+              <span class="ct-panel-title">KPI health matrix</span>
+              <span class="ct-panel-meta" id="ct-hm-meta">Ventanas hasta hoy</span>
+            </div>
+            <div id="ct-health"><div class="no-alerts"><span class="spinner"></span></div></div>
+          </div>
+        </div>
+
+        <details class="ct-method">
+          <summary>Cómo se calculan los estados</summary>
+          <p><b>ON TARGET</b> = en objetivo · <b>AT RISK</b> = vigilar · <b>ACTION REQUIRED</b> = requiere acción · <b>NO DATA</b> = sin datos para evaluar. Cada KPI toma el peor estado de sus kioskos con las mismas reglas de siempre (ver UMBRALES_KPI). Ventas, Cuadre, Merma, Costo laboral y Ticket usan el período elegido y se comparan contra el período equivalente anterior; Efectivo sin depositar es siempre el saldo a hoy. Sparklines: últimos 14 días hasta el fin del período, un punto por día, calculados con la misma fórmula de la tarjeta. Trend: promedio de los últimos 7 días vs. los 7 anteriores (banda estable: ±3% en ventas/ticket, ±1.5 pp costo laboral, ±0.5 pp merma). Un KPI en objetivo con tendencia en deterioro aparece como <b>WATCH</b> en Attention Required. Duración = días seguidos (con datos) fuera de objetivo. Haga clic en una tarjeta para ver el desglose por kiosko.</p>
+        </details>
+      </div>
     </div>
-    <div id="alertas-lista" class="alertas-lista">
-      <div class="no-alerts"><span class="spinner"></span></div>
-    </div>
-  </div>
+  </section>
 
   <!-- Matriz de cumplimiento: por kiosko y por fecha, si se completaron las
        tareas operativas del día (cierre de caja, mermas). El horario y el
@@ -1142,9 +1518,16 @@ async function cargarKPIs() {
   ]);
   // Costo laboral (2026-09-24): turnos del Horario (período elegido + el
   // de comparación, filtrado en el backend con desde/hasta) + Feriados.
-  const desdeLaboral = (desde && hasta) ? fechaComparable(desde, desde, hasta) : desde;
+  // Cockpit: se amplía el rango para tener los últimos 30+ días (sparklines,
+  // duración de alertas y matriz de salud 30D) — no cambia el cálculo de
+  // las tarjetas, que filtran por fecha.
+  const hoyIsoL = isoDate(new Date());
+  const hastaLaboral = (hasta && hasta > hoyIsoL) ? hasta : hoyIsoL;
+  const finL = (hasta && hasta < hoyIsoL) ? hasta : hoyIsoL;
+  let desdeLaboral = (desde && hasta) ? fechaComparable(desde, desde, hasta) : desde;
+  [sumarDiasIso(finL, -34), sumarDiasIso(hoyIsoL, -34)].forEach(f => { if (!desdeLaboral || f < desdeLaboral) desdeLaboral = f; });
   const laboralPromise = Promise.all([
-    fetch(APPS_SCRIPT_URL + '?modulo=horarios&desde=' + encodeURIComponent(desdeLaboral) + '&hasta=' + encodeURIComponent(hasta))
+    fetch(APPS_SCRIPT_URL + '?modulo=horarios&desde=' + encodeURIComponent(desdeLaboral) + '&hasta=' + encodeURIComponent(hastaLaboral))
       .then(r => r.json()).catch(() => ({ registros: [] })),
     fetch(APPS_SCRIPT_URL + '?modulo=feriados').then(r => r.json()).catch(() => ({ registros: [] }))
   ]);
@@ -1240,14 +1623,22 @@ async function cargarKPIs() {
       efectivoPendientesArr, tipsPendientesArr
     };
     const res = renderIndicadores(ctx);
+    try { renderTendencias({ ...ctx, res }); }
+    catch (eT) { console.error('Tendencia:', eT); const tc = document.getElementById('tend-chart'); if (tc) tc.innerHTML = '<div class="no-alerts">No se pudo dibujar la tendencia.</div>'; }
     renderAlertas({ ...ctx, res, saldosCajaChica,
       horasExtra: dataHE.registros || [], vacaciones: dataVac.registros || [],
       permisos: dataPSG.registros || [], personal: personalRegs });
+    try { renderCockpit(); } catch (eC) { console.error('Cockpit:', eC); }
   } catch(e) {
     console.error('Indicadores:', e);
     if (kpiGridEl) kpiGridEl.innerHTML = '<div class="no-alerts">No se pudo cargar los indicadores.</div>';
+    const tc = document.getElementById('tend-chart');
+    if (tc) tc.innerHTML = '<div class="no-alerts">No se pudo cargar la tendencia.</div>';
     const al = document.getElementById('alertas-lista');
     if (al) al.innerHTML = '<div class="no-alerts">No se pudo cargar los pendientes.</div>';
+    ['ct-attention', 'ct-drivers', 'ct-health'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="no-alerts">No se pudo cargar.</div>'; });
+    const stEl = document.getElementById('ct-status');
+    if (stEl) { stEl.className = 'ct-status ct-status-na'; stEl.innerHTML = '<div class="ct-status-main"><div class="ct-sec-lbl">System status</div><div class="ct-status-word">SIN CONEXIÓN</div><div class="ct-status-q">No se pudieron leer los datos. Use Actualizar para reintentar.</div></div>'; }
   }
 
   document.getElementById('status-dot').className = 'sdot';
@@ -1493,17 +1884,16 @@ function sqAgg(porDia, fechas) {
   return { netas, ordenes, onzas, dias };
 }
 
-function renderIndicadores(ctx) {
-  const grid = document.getElementById('kpi-grid');
-  const { listaKioskos, desde, hasta, cierres, tcRespaldo, squarePorKiosko, mermas, planillas, efectivoPendientesArr } = ctx;
+// Cockpit (2026-09-24): el cálculo de las 6 tarjetas se separó del pintado
+// para poder evaluarlo en otras ventanas (Hoy / 7D / 30D de la matriz de
+// salud, sparklines y duración de alertas) con EXACTAMENTE las mismas
+// reglas. fechasCur = fechas a evaluar; cmpFn(f) = fecha equivalente de
+// comparación. Sin cambios de fórmula respecto al tablero v2.
+function calcularIndicadores(ctx, fechasCur, cmpFn) {
+  const { listaKioskos, cierres, tcRespaldo, squarePorKiosko, mermas, efectivoPendientesArr } = ctx;
   const res = { cuadre: {}, efectivo: {} };
-  if (!grid) return res;
-  if (!listaKioskos.length) { grid.innerHTML = '<div class="no-alerts">No hay kioskos configurados.</div>'; return res; }
-
-  const fechasCur = fechasDelRango(desde, hasta);
-  const fechasPrev = fechasCur.map(f => fechaComparable(f, desde, hasta));
+  const fechasPrev = fechasCur.map(cmpFn);
   const setCur = new Set(fechasCur);
-  const cmp = etiquetaComparacion();
   const aCRC = (monto, c) => c.usd ? monto * (c.tc || tcRespaldo) : monto;
   const fila = (nombre, st, valorHtml) => `
     <div class="kpi-row">
@@ -1523,12 +1913,12 @@ function renderIndicadores(ctx) {
     const conCierre = fechasCur.filter(f => vd[f] !== undefined);
     if (!conCierre.length) return { nombre, st: 'na', html: `<span class="compare-dash">Sin cierre en el período</span>` };
     const cur = conCierre.reduce((s, f) => s + vd[f], 0);
-    const prev = conCierre.reduce((s, f) => s + (vd[fechaComparable(f, desde, hasta)] || 0), 0);
+    const prev = conCierre.reduce((s, f) => s + (vd[cmpFn(f)] || 0), 0);
     vCur += cur; vPrev += prev;
     const p = pctCambio(cur, prev);
     const st = p == null ? 'ok' : p <= UMBRALES_KPI.ventasBadPct ? 'bad' : p <= UMBRALES_KPI.ventasWarnPct ? 'warn' : 'ok';
     const faltan = fechasCur.filter(f => f < ctx.hoyIso).length - conCierre.filter(f => f < ctx.hoyIso).length;
-    return { nombre, st, html: `<span class="compare-val">${fmtCRC(cur)}</span><div class="compare-sub">${deltaHtml(p) || 'sin dato previo'}${faltan > 0 ? ` · faltan ${faltan} cierre${faltan === 1 ? '' : 's'}` : ''}</div>` };
+    return { nombre, st, cur, prev, html: `<span class="compare-val">${fmtCRC(cur)}</span><div class="compare-sub">${deltaHtml(p) || 'sin dato previo'}${faltan > 0 ? ` · faltan ${faltan} cierre${faltan === 1 ? '' : 's'}` : ''}</div>` };
   });
   const stVentas = peorEstado(filasVentas.map(x => x.st));
   const pV = pctCambio(vCur, vPrev);
@@ -1549,7 +1939,7 @@ function renderIndicadores(ctx) {
     netoCuadre += neto; faltanteTotal += falt; nCierres += cs.length; nDesc += desc;
     res.cuadre[nombre] = { faltante: falt, descuadrados: desc, cierres: cs.length };
     const st = hayFaltante ? 'bad' : desc ? 'warn' : 'ok';
-    return { nombre, st, html: `<span class="compare-val" style="color:${neto < 0 ? 'var(--red)' : 'var(--text)'};">${neto >= 0 ? '+' : '−'}${fmtCRC(Math.abs(neto))}</span><div class="compare-sub">${desc ? `${desc} de ${cs.length} descuadrado${desc === 1 ? '' : 's'}` : `${cs.length} cierre${cs.length === 1 ? '' : 's'} OK ✓`}</div>` };
+    return { nombre, st, neto, falt, desc, n: cs.length, html: `<span class="compare-val" style="color:${neto < 0 ? 'var(--red)' : 'var(--text)'};">${neto >= 0 ? '+' : '−'}${fmtCRC(Math.abs(neto))}</span><div class="compare-sub">${desc ? `${desc} de ${cs.length} descuadrado${desc === 1 ? '' : 's'}` : `${cs.length} cierre${cs.length === 1 ? '' : 's'} OK ✓`}</div>` };
   });
   const stCuadre = peorEstado(filasCuadre.map(x => x.st));
 
@@ -1571,7 +1961,7 @@ function renderIndicadores(ctx) {
     const aggP = sqAgg(sq, fechasPrev); const mOzP = mermaG(kN, fechasPrev) / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA;
     pOz += aggP.onzas; pMermaOz += mOzP;
     const st = pct == null ? 'na' : pct > meta ? 'bad' : pct > meta * 0.8 ? 'warn' : 'ok';
-    return { nombre, st, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtGramos(g)} · ${Math.round(agg.onzas).toLocaleString('es-CR')} oz vendidas</div>` };
+    return { nombre, st, pct, g, oz: agg.onzas, mOz, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtGramos(g)} · ${Math.round(agg.onzas).toLocaleString('es-CR')} oz vendidas</div>` };
   });
   const stMerma = peorEstado(filasMerma.map(x => x.st));
   const pctMermaTot = (tOz + tMermaOz) > 0 ? (tMermaOz / (tOz + tMermaOz)) * 100 : null;
@@ -1631,13 +2021,14 @@ function renderIndicadores(ctx) {
     return a;
   };
   let lCosto = 0, lCostoConVenta = 0, lVentas = 0, lTurnos = 0, lCostoPrev = 0, lVentasPrev = 0;
+  let lTurnosPrev = 0, lTurnosFeriado = 0, lTurnosConVenta = 0; const lSinSalario = new Set();
   const filasLaboral = listaKioskos.map(nombre => {
     const kN = normK(nombre);
     const a = aggLaboral(kN, nombre, fechasCur);
     const b = aggLaboral(kN, nombre, fechasPrev);
-    lCostoPrev += b.costoConVenta; lVentasPrev += b.ventas;
+    lCostoPrev += b.costoConVenta; lVentasPrev += b.ventas; lTurnosPrev += b.turnos;
     if (!a.dias) return { nombre, st: 'na', html: `<span class="compare-dash">Sin turnos en el horario</span>` };
-    lCosto += a.costo; lTurnos += a.turnos;
+    lCosto += a.costo; lTurnos += a.turnos; lTurnosFeriado += a.turnosFeriado; a.sinSalario.forEach(n => lSinSalario.add(n));
     const notas = [`${a.turnos} turno${a.turnos === 1 ? '' : 's'}`];
     if (a.turnosFeriado) notas.push(`${a.turnosFeriado} en feriado (×${CL.factorFeriado})`);
     if (a.diasSquare) notas.push(`ventas Square en ${a.diasSquare} día${a.diasSquare === 1 ? '' : 's'} sin cierre`);
@@ -1649,7 +2040,7 @@ function renderIndicadores(ctx) {
     const pctPrev = b.ventas > 0 ? b.costoConVenta / b.ventas * 100 : null;
     const st = pct > UMBRALES_KPI.laboralBadPct ? 'bad' : pct > UMBRALES_KPI.laboralWarnPct ? 'warn' : 'ok';
     const delta = pctPrev != null ? deltaHtml(pctCambio(pct, pctPrev), true) : '';
-    return { nombre, st, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtCRC(a.costo)} costo · ${fmtCRC(a.ventas)} ventas${delta ? ' · ' + delta : ''}</div><div class="compare-sub">${notas.join(' · ')}</div>${avisoSal}` };
+    return { nombre, st, pct, pctPrev, costo: a.costoConVenta, ventas: a.ventas, html: `<span class="compare-val">${fmtPct(pct)}</span><div class="compare-sub">${fmtCRC(a.costo)} costo · ${fmtCRC(a.ventas)} ventas${delta ? ' · ' + delta : ''}</div><div class="compare-sub">${notas.join(' · ')}</div>${avisoSal}` };
   });
   const stLaboral = peorEstado(filasLaboral.map(x => x.st));
   const pctLaboral = lVentas > 0 ? lCostoConVenta / lVentas * 100 : null;
@@ -1668,7 +2059,7 @@ function renderIndicadores(ctx) {
     if (!masViejo || viejo < masViejo.fecha) masViejo = { fecha: viejo, nombre, dias };
     res.efectivo[nombre] = { crc, usd, dias, fechas: ps.length };
     const st = dias >= UMBRALES_KPI.efectivoDiasBad ? 'bad' : dias >= UMBRALES_KPI.efectivoDiasWarn ? 'warn' : 'ok';
-    return { nombre, st, html: `<span class="compare-val">${fmtCRC(crc)}</span>${usd ? `<div class="compare-sub">+ ${fmtUSD(usd)}</div>` : ''}<div class="compare-sub">${ps.length} día${ps.length === 1 ? '' : 's'} · el más antiguo ${etiquetaDias(dias).toLowerCase()}</div>` };
+    return { nombre, st, crc, usd, dias, html: `<span class="compare-val">${fmtCRC(crc)}</span>${usd ? `<div class="compare-sub">+ ${fmtUSD(usd)}</div>` : ''}<div class="compare-sub">${ps.length} día${ps.length === 1 ? '' : 's'} · el más antiguo ${etiquetaDias(dias).toLowerCase()}</div>` };
   });
   const stEfectivo = peorEstado(filasEfectivo.map(x => x.st));
 
@@ -1686,49 +2077,1066 @@ function renderIndicadores(ctx) {
     const tk = a.netas / a.ordenes, tkP = b.ordenes ? b.netas / b.ordenes : 0;
     const p = pctCambio(tk, tkP);
     const st = p != null && p <= UMBRALES_KPI.ticketWarnPct ? 'warn' : 'ok';
-    return { nombre, st, html: `<span class="compare-val">${fmtMonedaK(tk, nombre)}</span><div class="compare-sub">${a.ordenes.toLocaleString('es-CR')} órdenes ${deltaHtml(pctCambio(a.ordenes, b.ordenes))}${p != null ? ' · ticket ' + deltaHtml(p) : ''}</div>` };
+    return { nombre, st, tk, tkP, ord: a.ordenes, ordP: b.ordenes, netas: a.netas * fx, netasP: b.netas * fx, html: `<span class="compare-val">${fmtMonedaK(tk, nombre)}</span><div class="compare-sub">${a.ordenes.toLocaleString('es-CR')} órdenes ${deltaHtml(pctCambio(a.ordenes, b.ordenes))}${p != null ? ' · ticket ' + deltaHtml(p) : ''}</div>` };
   });
   const stTicket = peorEstado(filasTicket.map(x => x.st));
   const tkTot = tOrd ? tNetas / tOrd : null, tkTotP = tOrdP ? tNetasP / tOrdP : null;
 
-  const tarjeta = (id, label, total, sub, st, filas, nota) => `
-    <div class="kpi-card kpi-card-${st}" id="${id}" onclick="toggleKpiCard('${id}')">
-      <div class="kpi-card-head">
-        <div>
-          <p class="kpi-label"><span class="kpi-st-pill kpi-st-${st}"></span>${label}</p>
-          <p class="kpi-total">${total}</p>
-          <p class="kpi-delta">${sub}</p>
-        </div>
+  return {
+    res, meta, factorCargas, CL, ventasDia, laboralDia, ventaDelDia, feriadosMap,
+    ventas:   { filas: filasVentas, st: stVentas, cur: vCur, prev: vPrev, pct: pV },
+    cuadre:   { filas: filasCuadre, st: stCuadre, neto: netoCuadre, faltante: faltanteTotal, cierres: nCierres, desc: nDesc },
+    merma:    { filas: filasMerma, st: stMerma, pct: pctMermaTot, prevPct: pctMermaPrev, oz: tOz, mOz: tMermaOz, ozP: pOz, mOzP: pMermaOz },
+    laboral:  { filas: filasLaboral, st: stLaboral, pct: pctLaboral, prevPct: pctLaboralPrev, deltaHtml: deltaLaboral,
+                costo: lCosto, costoConVenta: lCostoConVenta, ventas: lVentas, turnos: lTurnos,
+                costoPrev: lCostoPrev, ventasPrev: lVentasPrev, turnosPrev: lTurnosPrev, turnosFeriado: lTurnosFeriado, sinSalario: [...lSinSalario] },
+    efectivo: { filas: filasEfectivo, st: stEfectivo, crc: efCrc, usd: efUsd, masViejo },
+    ticket:   { filas: filasTicket, st: stTicket, cur: tkTot, prev: tkTotP, ord: tOrd, ordP: tOrdP, netas: tNetas, netasP: tNetasP }
+  };
+}
+
+// ══ BUSINESS CONTROL TOWER — pintado del cockpit (2026-09-24) ══════
+// Todo sale de calcularIndicadores() (mismas reglas del tablero v2) y de
+// los datos ya leídos en cargarKPIs(). Si algo no tiene datos, se dice
+// ("No hay histórico suficiente", "No hay datos suficientes…"); nunca se
+// rellena con valores inventados.
+const CT_KPIS = {
+  laboral:  { label: 'Costo laboral',          corto: 'Laboral',  grupo: 'crit', link: 'horarios.html',         mod: 'horarios',         linkTxt: 'Ver horario',        bueno: 'abajo' },
+  efectivo: { label: 'Efectivo sin depositar', corto: 'Efectivo', grupo: 'crit', link: 'depositos.html',        mod: 'depositos',        linkTxt: 'Ir a depósitos' },
+  ventas:   { label: 'Ventas',                 corto: 'Ventas',   grupo: 'perf', link: 'analisis-ventas.html',  mod: 'analisis-ventas',  linkTxt: 'Análisis de ventas', bueno: 'arriba' },
+  ticket:   { label: 'Ticket promedio',        corto: 'Ticket',   grupo: 'perf', link: 'analisis-ventas.html',  mod: 'analisis-ventas',  linkTxt: 'Análisis de ventas', bueno: 'arriba' },
+  cuadre:   { label: 'Cuadre de caja',         corto: 'Cuadre',   grupo: 'ops',  link: 'reportes-cierres.html', mod: 'reportes-cierres', linkTxt: 'Ver cierres' },
+  merma:    { label: 'Merma cerveza',          corto: 'Merma',    grupo: 'ops',  link: 'mermas.html',           mod: 'mermas',           linkTxt: 'Ir a mermas',        bueno: 'abajo' }
+};
+const CT_ORDEN = ['laboral', 'efectivo', 'ventas', 'ticket', 'cuadre', 'merma'];
+const CT_ST_TXT = { ok: 'ON TARGET', warn: 'AT RISK', bad: 'ACTION REQUIRED', na: 'NO DATA', watch: 'WATCH' };
+const CT_TREND_TXT = { up: 'IMPROVING', flat: 'STABLE', down: 'DETERIORATING' };
+const CT_ST_COLOR = { ok: 'var(--green)', warn: 'var(--amber)', bad: 'var(--red)', na: '#b3c2b8' };
+const CT_SPARK_DIAS = 14;
+let CT = null;            // último cálculo del cockpit
+let ctAlertItems = [];    // pendientes de renderAlertas()
+let ctUltimaAct = null;   // Date de la última carga completa
+
+function ctEsc(s) { return tendEsc(s); }
+function ctListaY(arr) { return arr.length <= 1 ? (arr[0] || '') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1]; }
+function ctModPermitido(mod) {
+  return !(sesionActual && Array.isArray(sesionActual.modulos)) || sesionActual.modulos.includes(mod);
+}
+function ctFmtPP(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + ' pp'; }
+function ctFmtPct(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '%'; }
+// Flecha + valor, coloreado según si el cambio es bueno para el KPI.
+function ctVarHtml(v, fmt, buenoArriba) {
+  if (v == null || !isFinite(v)) return null;
+  if (Math.abs(v) < 0.05) return `<b class="neu">= ${fmt(0).replace(/^[+−]/, '')}</b>`;
+  const sube = v > 0, bueno = buenoArriba ? sube : !sube;
+  return `<b class="${sube ? 'up' : 'dn'}-${bueno ? 'good' : 'bad'}">${sube ? '▲' : '▼'} ${fmt(v)}</b>`;
+}
+function ctValorKpi(key, k) {
+  switch (key) {
+    case 'ventas':  return k.ventas.filas.some(x => x.st !== 'na') ? k.ventas.cur : null;
+    case 'ticket':  return k.ticket.cur;
+    case 'laboral': return k.laboral.pct;
+    case 'merma':   return k.merma.pct;
+    case 'cuadre':  return k.cuadre.cierres ? k.cuadre.neto : null;
+    default:        return null;
+  }
+}
+function ctFmtCorto(key, v) {
+  if (v == null) return '—';
+  if (key === 'laboral' || key === 'merma') return fmtPct(v);
+  if (key === 'cuadre') return (v >= 0 ? '+' : '−') + fmtEjeCRC(Math.abs(v));
+  if (key === 'ticket') return fmtCRC(v);
+  return fmtEjeCRC(v);
+}
+
+// Estado diario de los últimos n días hasta "fin" (mismas reglas; cada día
+// contra el mismo día de la semana anterior, igual que el atajo "Hoy").
+function ctEvaluarDias(ctx, fin, n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const f = sumarDiasIso(fin, -i);
+    out.push({ f, k: calcularIndicadores(ctx, [f], x => sumarDiasIso(x, -7)) });
+  }
+  return out;
+}
+// Tendencia: promedio de la 2.ª mitad vs. la 1.ª mitad de la ventana.
+function ctTendencia(key, vals, sts) {
+  const mitad = Math.floor(vals.length / 2);
+  if (key === 'cuadre') {
+    const malos = arr => arr.filter(s => s === 'bad' || s === 'warn').length;
+    const conA = sts.slice(0, mitad).filter(s => s !== 'na'), conB = sts.slice(mitad).filter(s => s !== 'na');
+    if (conA.length < 2 || conB.length < 2) return null;
+    const a = malos(conA) / conA.length, b = malos(conB) / conB.length;
+    return Math.abs(b - a) < 0.1 ? 'flat' : (b < a ? 'up' : 'down');
+  }
+  const pts = vals.map((v, i) => ({ v, i })).filter(p => p.v != null);
+  const A = pts.filter(p => p.i < mitad).map(p => p.v), B = pts.filter(p => p.i >= mitad).map(p => p.v);
+  if (A.length < 2 || B.length < 2) return null;
+  const prom = x => x.reduce((s, v) => s + v, 0) / x.length;
+  const a = prom(A), b = prom(B);
+  let delta, banda;
+  if (key === 'laboral') { delta = b - a; banda = 1.5; }
+  else if (key === 'merma') { delta = b - a; banda = 0.5; }
+  else { if (!(a > 0)) return null; delta = (b - a) / a * 100; banda = 3; }
+  if (Math.abs(delta) < banda) return 'flat';
+  const sube = delta > 0;
+  return (CT_KPIS[key].bueno === 'abajo' ? !sube : sube) ? 'up' : 'down';
+}
+// Días seguidos (con datos) fuera de objetivo, contando hacia atrás.
+function ctDuracion(key, dias) {
+  let n = 0;
+  for (let i = dias.length - 1; i >= 0; i--) {
+    const st = dias[i].k[key].st;
+    if (st === 'na') continue;
+    if (st === 'ok') break;
+    n++;
+  }
+  return n;
+}
+
+// Sparkline real: línea (con meta punteada) o barras (cuadre/efectivo).
+function ctSparkHtml(vals, opt) {
+  const o = opt || {};
+  const n = vals.length;
+  const reales = vals.filter(v => v != null);
+  if (reales.length < (o.min || 4)) return `<div class="ct-spark-empty">No hay histórico suficiente</div>`;
+  const W = 200, H = 60, pad = 5;
+  let lo = Math.min(...reales), hi = Math.max(...reales);
+  if (o.meta != null) { lo = Math.min(lo, o.meta); hi = Math.max(hi, o.meta); }
+  if (o.tipo === 'barras' || o.tipo === 'diverg') { lo = Math.min(0, lo); hi = Math.max(0, hi); }
+  if (hi === lo) { hi += 1; lo -= o.tipo ? 0 : 1; }
+  const X = i => n === 1 ? W / 2 : (i / (n - 1)) * W;
+  const Y = v => pad + (H - 2 * pad) * (1 - (v - lo) / (hi - lo));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`;
+  let dot = '';
+  if (o.tipo === 'barras' || o.tipo === 'diverg') {
+    const bw = Math.max(2, W / n * 0.62), y0 = Y(0);
+    svg += `<line x1="0" x2="${W}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" stroke="#c9d6cc" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+    vals.forEach((v, i) => {
+      if (v == null || v === 0) return;
+      const cx = n === 1 ? W / 2 : (i + 0.5) * (W / n), y = Y(v);
+      const color = o.colorFn ? o.colorFn(v, i) : '#1c3a28';
+      svg += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${Math.min(y, y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(y0 - y)).toFixed(1)}" fill="${color}" rx="1"/>`;
+    });
+  } else {
+    if (o.meta != null) {
+      const ym = Y(o.meta).toFixed(1);
+      svg += `<line x1="0" x2="${W}" y1="${ym}" y2="${ym}" stroke="#c84a20" stroke-opacity=".55" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`;
+    }
+    let d = '', area = '', abierto = false, primero = null, ultimo = null;
+    vals.forEach((v, i) => {
+      if (v == null) { abierto = false; return; }
+      d += (abierto ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1);
+      abierto = true; if (primero == null) primero = i; ultimo = i;
+    });
+    // Área suave solo si la serie no tiene huecos (evita áreas engañosas).
+    if (vals.slice(primero, ultimo + 1).every(v => v != null) && ultimo > primero) {
+      area = d + `L${X(ultimo).toFixed(1)} ${H}L${X(primero).toFixed(1)} ${H}Z`;
+      svg += `<path d="${area}" fill="#1c3a28" fill-opacity=".06"/>`;
+    }
+    svg += `<path d="${d}" fill="none" stroke="#1c3a28" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+    if (ultimo != null) dot = `<span class="ct-spark-dot" style="left:${(X(ultimo) / W * 100).toFixed(2)}%;top:${(Y(vals[ultimo]) / H * 100).toFixed(2)}%;background:${o.dotColor || '#1c3a28'};"></span>`;
+  }
+  svg += '</svg>';
+  return `<div class="ct-spark">${svg}${dot}</div><div class="ct-spark-cap"><span>${ctEsc(o.capIzq || '')}</span><span>${ctEsc(o.capDer || '')}</span></div>`;
+}
+
+function renderIndicadores(ctx) {
+  const grid = document.getElementById('kpi-grid');
+  const { listaKioskos, desde, hasta, hoyIso, efectivoPendientesArr, tcRespaldo } = ctx;
+  const vacio = { cuadre: {}, efectivo: {} };
+  if (!grid) return vacio;
+  if (!listaKioskos.length) { CT = null; grid.innerHTML = '<div class="no-alerts">No hay kioskos configurados.</div>'; return vacio; }
+
+  const cmpFn = f => fechaComparable(f, desde, hasta);
+  const fechasCur = fechasDelRango(desde, hasta);
+  const k = calcularIndicadores(ctx, fechasCur, cmpFn);
+  const kPrev = calcularIndicadores(ctx, fechasCur.map(cmpFn), cmpFn);
+  const fin = (hasta && hasta < hoyIso) ? hasta : hoyIso;
+  const dias = ctEvaluarDias(ctx, fin, 30);
+  const spark = dias.slice(-CT_SPARK_DIAS);
+  const cmp = etiquetaComparacion();
+  const capIzq = `${CT_SPARK_DIAS} días`, capDer = `${fmtFechaCorta(spark[0].f).slice(0, 5)} → ${fmtFechaCorta(fin).slice(0, 5)}`;
+  const U = UMBRALES_KPI;
+
+  const st = {}, trend = {}, dur = {};
+  CT_ORDEN.forEach(key => { st[key] = k[key].st; });
+  ['ventas', 'ticket', 'laboral', 'merma', 'cuadre'].forEach(key => {
+    const vals = spark.map(d => ctValorKpi(key, d.k));
+    trend[key] = ctTendencia(key, vals, spark.map(d => d.k[key].st));
+    dur[key] = ctDuracion(key, dias);
+  });
+  trend.efectivo = null;
+  dur.efectivo = k.efectivo.masViejo ? k.efectivo.masViejo.dias : 0;
+
+  // ── Contenido por tarjeta ──
+  const C = {};
+  const L = k.laboral, Mm = k.merma, V = k.ventas, T = k.ticket, Q = k.cuadre, E = k.efectivo;
+  const sparkVals = key => spark.map(d => ctValorKpi(key, d.k));
+  const dotC = key => CT_ST_COLOR[st[key]] || '#1c3a28';
+
+  C.laboral = {
+    valor: fmtPct(L.pct),
+    meta: `Meta ≤ ${U.laboralWarnPct}% · rojo > ${U.laboralBadPct}%`,
+    vsMeta: L.pct != null ? `${ctVarHtml(L.pct - U.laboralWarnPct, ctFmtPP, false)} <span class="ct-var-lbl">vs meta</span>` : null,
+    vsPrev: (L.pct != null && L.prevPct != null) ? `${ctVarHtml(L.pct - L.prevPct, ctFmtPP, false)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">Sin dato del período anterior</span>`,
+    aux: L.turnos ? `${fmtCRC(L.costo)} costo · ${L.turnos} turno${L.turnos === 1 ? '' : 's'}${L.pct == null ? ' · sin ventas para calcular %' : ''}` : 'Sin turnos en el horario del período',
+    spark: ctSparkHtml(sparkVals('laboral'), { meta: U.laboralWarnPct, dotColor: dotC('laboral'), capIzq, capDer })
+  };
+  const efTotal = fmtCRC(E.crc);
+  // "Sparkline" de efectivo: no existe histórico del saldo, así que se
+  // muestra lo que SÍ hay: el pendiente a hoy por fecha de cierre.
+  const pendPorFecha = {}; let pendAnterior = 0;
+  const permitidos = new Set(listaKioskos.map(normK));
+  const iniEf = sumarDiasIso(hoyIso, -(CT_SPARK_DIAS - 1));
+  (efectivoPendientesArr || []).forEach(p => {
+    if (!permitidos.has(normK(p.kiosko))) return;
+    const m = (p.crc || 0) + (p.usd || 0) * (tcRespaldo || 0);
+    if (!(m > 0) || !p.fecha) return;
+    if (p.fecha < iniEf) pendAnterior += m; else pendPorFecha[p.fecha] = (pendPorFecha[p.fecha] || 0) + m;
+  });
+  const fechasEf = fechasDelRango(iniEf, hoyIso);
+  const efVals = fechasEf.map(f => pendPorFecha[f] || null);
+  C.efectivo = {
+    valor: efTotal,
+    meta: `Meta: depositar en menos de ${U.efectivoDiasWarn} días`,
+    vsMeta: E.masViejo
+      ? `<b class="${E.st === 'ok' ? 'up-good' : 'up-bad'}">${E.masViejo.dias} día${E.masViejo.dias === 1 ? '' : 's'}</b> <span class="ct-var-lbl">el pendiente más antiguo · ${ctEsc(E.masViejo.nombre)}</span>`
+      : `<b class="up-good">✓ Todo depositado</b>`,
+    vsPrev: `<span class="ct-var-lbl">Saldo a hoy · no depende del período</span>`,
+    aux: [E.usd ? `+ ${fmtUSD(E.usd)} en dólares` : '', pendAnterior > 0 ? `${fmtCRC(pendAnterior)} de cierres anteriores a ${fmtFechaCorta(iniEf).slice(0, 5)} (fuera del gráfico)` : ''].filter(Boolean).join(' · '),
+    spark: (efVals.some(v => v != null) || pendAnterior > 0)
+      ? ctSparkHtml(efVals, { tipo: 'barras', min: 1, capIzq: 'Pendiente por fecha de cierre', capDer: `${fmtFechaCorta(iniEf).slice(0, 5)} → hoy`,
+          colorFn: (v, i) => { const d = diasEntre(fechasEf[i], hoyIso); return d >= U.efectivoDiasBad ? '#c84a20' : d >= U.efectivoDiasWarn ? '#c87820' : '#8ab89e'; } })
+      : `<div class="ct-spark-empty">Sin efectivo pendiente</div>`
+  };
+  C.ventas = {
+    valor: V.filas.some(x => x.st !== 'na') ? fmtCRC(V.cur) : '—',
+    meta: `Sin meta absoluta · ref.: período anterior (alerta ≤ ${U.ventasWarnPct}%)`,
+    vsMeta: null,
+    vsPrev: V.pct != null ? `${ctVarHtml(V.pct, ctFmtPct, true)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">${V.filas.some(x => x.st !== 'na') ? 'Sin dato para comparar' : 'Sin cierres de caja en el período'}</span>`,
+    aux: '',
+    spark: ctSparkHtml(sparkVals('ventas'), { dotColor: dotC('ventas'), capIzq, capDer })
+  };
+  const pT = pctCambio(T.cur || 0, T.prev || 0);
+  C.ticket = {
+    valor: T.cur != null ? fmtCRC(T.cur) : '—',
+    meta: `Sin meta absoluta · ref.: período anterior (alerta ≤ ${U.ticketWarnPct}%)`,
+    vsMeta: null,
+    vsPrev: (T.cur != null && pT != null) ? `${ctVarHtml(pT, ctFmtPct, true)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">Sin dato para comparar</span>`,
+    aux: T.cur != null ? `${T.ord.toLocaleString('es-CR')} órdenes (Square)` : 'Sin ventas Square en el período',
+    spark: ctSparkHtml(sparkVals('ticket'), { dotColor: dotC('ticket'), capIzq, capDer })
+  };
+  C.cuadre = {
+    valor: Q.cierres ? `${Q.neto >= 0 ? '+' : '−'}${fmtCRC(Math.abs(Q.neto))}` : '—',
+    meta: `Meta: diferencia ₡0 · tolerancia ₡${U.toleranciaCRC} / $${U.toleranciaUSD}`,
+    vsMeta: !Q.cierres ? `<span class="ct-var-lbl">Sin cierres de caja en el período</span>`
+      : (Q.desc ? `<b class="up-bad">${Q.desc} de ${Q.cierres}</b> <span class="ct-var-lbl">cierres fuera de tolerancia${Q.faltante < 0 ? ` · faltante ${fmtCRC(Math.abs(Q.faltante))}` : ''}</span>`
+                : `<b class="up-good">✓ ${Q.cierres} cierre${Q.cierres === 1 ? '' : 's'}</b> <span class="ct-var-lbl">dentro de tolerancia</span>`),
+    vsPrev: kPrev.cuadre.cierres ? `<span class="ct-var-lbl">Antes: ${kPrev.cuadre.desc} de ${kPrev.cuadre.cierres} descuadrados</span>` : `<span class="ct-var-lbl">Sin cierres en el período anterior</span>`,
+    aux: '',
+    spark: ctSparkHtml(sparkVals('cuadre'), { tipo: 'diverg', capIzq: 'Diferencia neta por día', capDer, colorFn: v => v < 0 ? '#c84a20' : '#8ab89e' })
+  };
+  C.merma = {
+    valor: fmtPct(Mm.pct),
+    meta: `Meta ≤ ${k.meta}%`,
+    vsMeta: Mm.pct != null ? `${ctVarHtml(Mm.pct - k.meta, ctFmtPP, false)} <span class="ct-var-lbl">vs meta</span>` : null,
+    vsPrev: (Mm.pct != null && Mm.prevPct != null) ? `${ctVarHtml(Mm.pct - Mm.prevPct, ctFmtPP, false)} <span class="ct-var-lbl">${cmp}</span>` : `<span class="ct-var-lbl">Sin dato del período anterior</span>`,
+    aux: Mm.pct != null ? `${Math.round(Mm.oz).toLocaleString('es-CR')} oz de barril vendidas` : 'Sin ventas de barril en Square para calcular %',
+    spark: ctSparkHtml(sparkVals('merma'), { meta: k.meta, dotColor: dotC('merma'), capIzq, capDer })
+  };
+
+  // Notas de cálculo (se conservan tal cual del tablero v2, en el desglose).
+  const CL = k.CL;
+  const NOTAS = {
+    ventas: `Según cierres de caja (todos los kioskos). Solo compara fechas con cierre contra su fecha equivalente. Rojo: caída ≥ ${Math.abs(U.ventasBadPct)}%; amarillo: ≥ ${Math.abs(U.ventasWarnPct)}%.`,
+    cuadre: `Suma de "Diferencia Caja" de cada cierre (negativo = faltante). Tolerancia ₡${U.toleranciaCRC} / $${U.toleranciaUSD}, igual que cierres.html.`,
+    merma: 'Merma pesada (g → oz) ÷ (onzas de barril vendidas en Square + merma). Misma fórmula que Indicadores de Gerencia; la meta se toma de ahí si está definida.',
+    laboral: `Costo del día = cada persona con turno en el Horario × salario mensual ÷ 30 (Personal); si el día es feriado activo se paga ×${CL.factorFeriado} (Art. 148). Incluye CCSS patronal ${CL.ccssPatronalPct}% + aguinaldo ${CL.provAguinaldoPct}% + vacaciones ${CL.provVacacionesPct}% (×${k.factorCargas.toFixed(3)}). Día libre, vacaciones, incapacidad y permiso no suman. % = costo ÷ ventas de los días con venta (cierre de caja; si aún no hay cierre, Square). Rojo: > ${U.laboralBadPct}%.`,
+    efectivo: `Saldo a hoy: NO depende del período elegido. Amarillo: ${U.efectivoDiasWarn}+ días sin depositar; rojo: ${U.efectivoDiasBad}+. Las barras muestran el pendiente de hoy según la fecha del cierre (no hay histórico del saldo).`,
+    ticket: 'Ventas netas Square ÷ órdenes únicas. Ayuda a saber si una baja de ventas es por menos clientes o por menos gasto por cliente.'
+  };
+  const filaK = (nombre, s, valorHtml) => `
+    <div class="kpi-row">
+      <span class="kpi-row-kiosko"><span class="kpi-dot kpi-st-${s}"></span>${nombre}</span>
+      <span class="kpi-row-val">${valorHtml}</span>
+    </div>`;
+  const ordenarK = arr => arr.slice().sort((a, b) => ST_ORDEN[a.st] - ST_ORDEN[b.st]).map(x => filaK(x.nombre, x.st, x.html)).join('');
+
+  const tarjeta = key => {
+    const c = C[key], s = st[key], tr = trend[key], crit = CT_KPIS[key].grupo === 'crit';
+    const id = 'kpi-' + key;
+    const trendHtml = key === 'efectivo'
+      ? `Trend: <b class="t-na">sin histórico</b>`
+      : `Trend: <b class="t-${tr || 'na'}">${tr ? CT_TREND_TXT[tr] : 'sin datos'}</b>`;
+    const vars = [c.vsMeta, c.vsPrev].filter(Boolean).map(v => `<div class="ct-var">${v}</div>`).join('');
+    // Si el estado lo pone un kiosko (regla: peor kiosko), se dice cuál.
+    let peor = '';
+    if ((s === 'bad' || s === 'warn') && key !== 'efectivo') {
+      const f = k[key].filas.find(x => x.st === s);
+      if (f) {
+        const det = key === 'ventas' ? (f.prev > 0 ? ctFmtPct(pctCambio(f.cur, f.prev)) : '')
+          : key === 'ticket' ? (f.tkP > 0 ? ctFmtPct(pctCambio(f.tk, f.tkP)) : '')
+          : key === 'cuadre' ? (f.falt < 0 ? 'faltante ' + fmtCRC(Math.abs(f.falt)) : `${f.desc} descuadre${f.desc === 1 ? '' : 's'}`)
+          : fmtPct(f.pct);
+        const otros = k[key].filas.filter(x => x.st === 'bad' || x.st === 'warn').length - 1;
+        peor = `<div class="ct-peor ct-peor-${s}">Fuera de objetivo: <b>${ctEsc(f.nombre)}</b> ${det}${otros > 0 ? ` · +${otros} kiosko${otros === 1 ? '' : 's'}` : ''}</div>`;
+      }
+    }
+    const info = `
+      <div class="ct-val">${c.valor}</div>
+      <div class="ct-meta">${c.meta}</div>
+      <div class="ct-vars">${vars}</div>
+      ${c.aux ? `<div class="ct-aux">${c.aux}</div>` : ''}${peor}`;
+    return `
+    <div class="kpi-card kpi-card-${s}${crit ? ' crit' : ''}" id="${id}" onclick="toggleKpiCard('${id}')">
+      <div class="ct-card-top">
+        <span class="ct-card-name"><i style="background:${CT_ST_COLOR[s]}"></i>${CT_KPIS[key].label}</span>
         <span class="kpi-chevron"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </div>
-      <div class="kpi-breakdown">${filas}${nota ? `<p class="kpi-nota">${nota}</p>` : ''}</div>
+      ${crit ? `<div class="ct-crit-body"><div>${info}</div><div>${c.spark}</div></div>` : info + `<div class="ct-spark-wrap">${c.spark}</div>`}
+      <div class="ct-card-foot">
+        <span class="ct-trend">${trendHtml}</span>
+        <span class="ct-pill ct-pill-${s}"><i></i>${CT_ST_TXT[s]}</span>
+      </div>
+      <div class="kpi-breakdown">${ordenarK(k[key].filas)}<p class="kpi-nota">${NOTAS[key]}</p></div>
     </div>`;
-
+  };
+  const grupo = (titulo, pregunta, html) => `<div><div class="ct-grp-lbl"><span class="ct-sec-lbl">${titulo}</span><span class="ct-grp-q">${pregunta}</span></div>${html}</div>`;
   grid.innerHTML =
-    tarjeta('kpi-ventas', 'Ventas', fmtCRC(vCur),
-      pV != null ? `${deltaHtml(pV)} ${cmp}` : 'Sin dato para comparar', stVentas, ordenar(filasVentas),
-      `Según cierres de caja (todos los kioskos). Solo compara fechas con cierre contra su fecha equivalente. Rojo: caída ≥ ${Math.abs(UMBRALES_KPI.ventasBadPct)}%; amarillo: ≥ ${Math.abs(UMBRALES_KPI.ventasWarnPct)}%.`) +
-    tarjeta('kpi-cuadre', 'Cuadre de caja', `${netoCuadre >= 0 ? '+' : '−'}${fmtCRC(Math.abs(netoCuadre))}`,
-      nCierres ? (nDesc ? `<span style="color:var(--red);">${nDesc} de ${nCierres} cierres descuadrados</span>${faltanteTotal < 0 ? ` · faltante ${fmtCRC(Math.abs(faltanteTotal))}` : ''}` : `${nCierres} cierres, todos cuadrados ✓`) : 'Sin cierres en el período',
-      stCuadre, ordenar(filasCuadre),
-      `Suma de "Diferencia Caja" de cada cierre (negativo = faltante). Tolerancia ₡${UMBRALES_KPI.toleranciaCRC} / $${UMBRALES_KPI.toleranciaUSD}, igual que cierres.html.`) +
-    tarjeta('kpi-merma', 'Merma cerveza', fmtPct(pctMermaTot),
-      `${deltaHtml(pctMermaTot != null && pctMermaPrev != null ? pctCambio(pctMermaTot, pctMermaPrev) : null, true) ? deltaHtml(pctCambio(pctMermaTot, pctMermaPrev), true) + ' ' + cmp + ' · ' : ''}meta ≤ ${meta}%`,
-      stMerma, ordenar(filasMerma),
-      'Merma pesada (g → oz) ÷ (onzas de barril vendidas en Square + merma). Misma fórmula que Indicadores de Gerencia; la meta se toma de ahí si está definida.') +
-    tarjeta('kpi-laboral', 'Costo laboral', fmtPct(pctLaboral),
-      lTurnos ? `${fmtCRC(lCosto)} · ${lTurnos} turno${lTurnos === 1 ? '' : 's'}${deltaLaboral ? ' · ' + deltaLaboral + ' ' + cmp : ''} · meta ≤ ${UMBRALES_KPI.laboralWarnPct}%` : 'Sin turnos en el horario del período',
-      stLaboral, ordenar(filasLaboral),
-      `Costo del día = cada persona con turno en el Horario × salario mensual ÷ 30 (Personal); si el día es feriado activo se paga ×${CL.factorFeriado} (Art. 148). Incluye CCSS patronal ${CL.ccssPatronalPct}% + aguinaldo ${CL.provAguinaldoPct}% + vacaciones ${CL.provVacacionesPct}% (×${factorCargas.toFixed(3)}). Día libre, vacaciones, incapacidad y permiso no suman. % = costo ÷ ventas de los días con venta (cierre de caja; si aún no hay cierre, Square). Rojo: > ${UMBRALES_KPI.laboralBadPct}%.`) +
-    tarjeta('kpi-efectivo', 'Efectivo sin depositar', fmtCRC(efCrc) + (efUsd ? ' + ' + fmtUSD(efUsd) : ''),
-      masViejo ? `Más antiguo: ${masViejo.nombre}, ${etiquetaDias(masViejo.dias).toLowerCase()}` : 'Todo depositado ✓',
-      stEfectivo, ordenar(filasEfectivo),
-      `Saldo a hoy: NO depende del período elegido. Amarillo: ${UMBRALES_KPI.efectivoDiasWarn}+ días sin depositar; rojo: ${UMBRALES_KPI.efectivoDiasBad}+.`) +
-    tarjeta('kpi-ticket', 'Ticket promedio', tkTot != null ? fmtCRC(tkTot) : '—',
-      tkTot != null ? `${tOrd.toLocaleString('es-CR')} órdenes · ${deltaHtml(pctCambio(tkTot, tkTotP)) ? deltaHtml(pctCambio(tkTot, tkTotP)) + ' ' + cmp : 'sin dato previo'}` : 'Sin ventas Square en el período',
-      stTicket, ordenar(filasTicket),
-      'Ventas netas Square ÷ órdenes únicas. Ayuda a saber si una baja de ventas es por menos clientes o por menos gasto por cliente.');
+    grupo('Critical control', '¿Dónde se escapa el dinero?', `<div class="ct-crit">${tarjeta('laboral')}${tarjeta('efectivo')}</div>`) +
+    `<div class="ct-row2">` +
+      grupo('Business performance', '¿Cómo está vendiendo el negocio?', `<div class="ct-pair">${tarjeta('ventas')}${tarjeta('ticket')}</div>`) +
+      grupo('Operational control', '¿Se ejecuta bien la operación?', `<div class="ct-pair">${tarjeta('cuadre')}${tarjeta('merma')}</div>`) +
+    `</div>`;
+
+  CT = { ctx, k, kPrev, dias, fin, st, trend, dur, cmp };
+  const res = k.res;
+  res.tendencia = { ventasDia: k.ventasDia, laboralDia: k.laboralDia, ventaDelDia: k.ventaDelDia };
   return res;
+}
+
+// Abre la tarjeta del KPI y la lleva a la vista (drill-down).
+function ctAbrirKpi(key) {
+  const card = document.getElementById('kpi-' + key);
+  if (!card) return;
+  card.classList.add('open');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Nivel efectivo del KPI para priorizar: bad > warn > watch > ok > na.
+function ctNivel(key) {
+  const s = CT.st[key];
+  if (s === 'ok' && CT.trend[key] === 'down') return 'watch';
+  return s;
+}
+
+function renderCockpit() {
+  if (!CT) {
+    ['ct-attention', 'ct-drivers', 'ct-health'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="no-alerts">Sin datos.</div>'; });
+    return;
+  }
+  ctUltimaAct = new Date();
+  renderSystemStatus();
+  renderExecutiveSignal();
+  renderAtencion();
+  renderDrivers();
+  renderHealthMatrix();
+  ctTickActualizacion();
+}
+
+function renderSystemStatus() {
+  const el = document.getElementById('ct-status');
+  if (!el) return;
+  const niv = {}; CT_ORDEN.forEach(k => { niv[k] = ctNivel(k); });
+  const cuenta = s => CT_ORDEN.filter(k => (s === 'ok' ? CT.st[k] === 'ok' : niv[k] === s)).length;
+  const nBad = cuenta('bad'), nWarn = cuenta('warn'), nOk = cuenta('ok'), nWatch = cuenta('watch');
+  const nNa = CT_ORDEN.filter(k => CT.st[k] === 'na').length;
+  const conDatos = CT_ORDEN.length - nNa;
+  let cls, palabra, resp;
+  if (!conDatos) { cls = 'na'; palabra = 'SIN DATOS'; resp = 'No hay datos suficientes para evaluar el período.'; }
+  else if (nBad) { cls = 'bad'; palabra = 'ACCIÓN REQUERIDA'; resp = `¿Bajo control? No — ${nBad} KPI${nBad === 1 ? '' : 's'} fuera de objetivo.`; }
+  else if (nWarn) { cls = 'warn'; palabra = 'ATENCIÓN'; resp = `¿Bajo control? Parcialmente — ${nWarn} KPI${nWarn === 1 ? '' : 's'} en riesgo.`; }
+  else { cls = 'ok'; palabra = 'BAJO CONTROL'; resp = nWatch ? `Sí, con ${nWatch} KPI${nWatch === 1 ? '' : 's'} en vigilancia por tendencia.` : 'Sí — todos los KPIs con datos en objetivo.'; }
+  el.className = 'ct-status ct-status-' + cls;
+  const urg = ctAlertItems.filter(i => i.sev === 'bad').length;
+  const V = CT.k.ventas;
+  const perf = V.pct != null
+    ? `<b style="color:${V.pct >= 0 ? 'var(--green)' : 'var(--red)'}">${V.pct >= 0 ? '↑' : '↓'} ${ctFmtPct(V.pct)}</b> ventas ${CT.cmp}`
+    : 'Ventas: sin dato para comparar';
+  const ann = CT_ORDEN.map(key => {
+    const n = niv[key], s = CT.st[key];
+    const cls2 = n === 'watch' ? 'a-ok' : 'a-' + s;
+    return `<button type="button" class="${cls2}" onclick="ctAbrirKpi('${key}')" title="${CT_KPIS[key].label}: ${n === 'watch' ? 'ON TARGET · tendencia en deterioro' : CT_ST_TXT[s]}">${CT_KPIS[key].corto}${n === 'watch' ? ' ↘' : ''}</button>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="ct-status-main">
+      <div class="ct-sec-lbl">System status</div>
+      <div class="ct-status-word"><i></i>${palabra}</div>
+      <div class="ct-status-q">${resp}</div>
+    </div>
+    <div class="ct-status-mid">
+      <div class="ct-counts">
+        <span class="c-ok"><b>${nOk} / ${CT_ORDEN.length}</b>KPIs bajo control</span>
+        ${nBad ? `<span class="c-bad"><b>${nBad}</b>requiere${nBad === 1 ? '' : 'n'} acción</span>` : ''}
+        ${nWarn ? `<span class="c-warn"><b>${nWarn}</b>en riesgo</span>` : ''}
+        ${nWatch ? `<span class="c-na"><b>${nWatch}</b>en vigilancia</span>` : ''}
+        ${nNa ? `<span class="c-na"><b>${nNa}</b>sin datos</span>` : ''}
+      </div>
+      <div class="ct-ann" aria-label="Estado por KPI">${ann}</div>
+    </div>
+    <div class="ct-status-side">
+      <div>${perf}</div>
+      <div>${urg ? `<b style="color:var(--red)">${urg}</b> pendiente${urg === 1 ? '' : 's'} urgente${urg === 1 ? '' : 's'}` : 'Sin pendientes urgentes'}</div>
+      <div id="ct-hace">Actualizado hace 0 min</div>
+    </div>`;
+}
+
+function renderExecutiveSignal() {
+  const el = document.getElementById('ct-signal');
+  if (!el) return;
+  const nom = { ventas: 'ventas', ticket: 'ticket promedio', laboral: 'costo laboral', merma: 'merma de cerveza', cuadre: 'cuadre de caja', efectivo: 'efectivo sin depositar' };
+  const niv = {}; CT_ORDEN.forEach(k => { niv[k] = ctNivel(k); });
+  const V = CT.k.ventas;
+  let bad = CT_ORDEN.filter(k => niv[k] === 'bad'), warn = CT_ORDEN.filter(k => niv[k] === 'warn');
+  const watch = CT_ORDEN.filter(k => niv[k] === 'watch'), na = CT_ORDEN.filter(k => niv[k] === 'na');
+  const frases = [];
+  let perf;
+  if (V.pct == null) perf = 'Aún no hay cierres de ventas para comparar en el período';
+  else if (V.pct >= 3) perf = `Las ventas crecen ${V.pct.toFixed(1)}% ${CT.cmp}`;
+  else if (V.pct <= -3) perf = `Las ventas caen ${Math.abs(V.pct).toFixed(1)}% ${CT.cmp}`;
+  else perf = `Las ventas se mantienen estables (${ctFmtPct(V.pct)}) ${CT.cmp}`;
+  if (niv.ventas === 'bad' || niv.ventas === 'warn') perf += ' y están fuera de objetivo';
+  bad = bad.filter(k => k !== 'ventas'); warn = warn.filter(k => k !== 'ventas');
+  const Mayus = t => t.replace(/^./, c => c.toUpperCase());
+  if (bad.length && V.pct == null) frases.push(`${Mayus(ctListaY(bad.map(k => nom[k])))} requiere${bad.length === 1 ? '' : 'n'} atención inmediata. ${perf}.`);
+  else if (bad.length) frases.push(`${perf}, pero ${ctListaY(bad.map(k => nom[k]))} requiere${bad.length === 1 ? '' : 'n'} atención inmediata.`);
+  else if (warn.length) frases.push(`${perf}; ${ctListaY(warn.map(k => nom[k]))} está${warn.length === 1 ? '' : 'n'} en riesgo.`);
+  else if (niv.ventas === 'bad' || niv.ventas === 'warn') frases.push(perf + '.');
+  else frases.push(`${perf} y el resto de indicadores con datos está en objetivo.`);
+  if (bad.length && warn.length) frases.push(`${Mayus(ctListaY(warn.map(k => nom[k])))} en riesgo.`);
+  if (watch.length) frases.push(`Vigilar ${ctListaY(watch.map(k => nom[k]))}: en objetivo, pero con tendencia en deterioro.`);
+  else if (na.length && frases.length < 3) frases.push(`Sin datos suficientes para ${ctListaY(na.map(k => nom[k]))}.`);
+
+  // Señales: una por KPI, generadas de los datos.
+  const sig = [];
+  const s = (glyph, tono, txt) => sig.push(`<span class="ct-sig ${tono}"><b>${glyph}</b>${txt}</span>`);
+  const E = CT.k.efectivo;
+  if (E.masViejo && E.masViejo.dias >= UMBRALES_KPI.efectivoDiasWarn) s('⚠', E.masViejo.dias >= UMBRALES_KPI.efectivoDiasBad ? 'bad' : 'warn', `Efectivo pendiente ${E.masViejo.dias} días · ${ctEsc(E.masViejo.nombre)}`);
+  else if (E.crc > 0 || E.usd > 0) s('→', 'good', 'Efectivo al día');
+  else s('✓', 'good', 'Todo el efectivo depositado');
+  const porTrend = (key, txt) => {
+    const t = CT.trend[key];
+    if (!t) return;
+    const vals = CT.dias.slice(-CT_SPARK_DIAS).map(d => ctValorKpi(key, d.k));
+    const subeValor = (CT_KPIS[key].bueno === 'abajo') ? t === 'down' : t === 'up';
+    if (t === 'flat') s('→', 'neutral', `${txt} estable · 14 d`);
+    else s(subeValor ? '↑' : '↓', t === 'up' ? 'good' : 'bad', `${txt} ${t === 'up' ? 'mejorando' : 'empeorando'} · 14 d`);
+  };
+  const porDelta = (key, txt, pct) => {
+    if (pct == null || !isFinite(pct)) return porTrend(key, txt);
+    if (Math.abs(pct) < 1) return s('→', 'neutral', `${txt} estable`);
+    s(pct > 0 ? '↑' : '↓', pct > 0 ? 'good' : 'bad', `${txt} ${ctFmtPct(pct)}`);
+  };
+  porDelta('ventas', 'Ventas', V.pct);
+  const T = CT.k.ticket;
+  porDelta('ticket', 'Ticket promedio', T.cur != null ? pctCambio(T.cur, T.prev || 0) : null);
+  porTrend('laboral', 'Costo laboral');
+  porTrend('merma', 'Merma');
+  const Q = CT.k.cuadre;
+  if (Q.faltante < 0) s('⚠', 'bad', `Faltante de caja ${fmtCRC(Math.abs(Q.faltante))}`);
+  else if (Q.desc) s('⚠', 'warn', `${Q.desc} cierre${Q.desc === 1 ? '' : 's'} descuadrado${Q.desc === 1 ? '' : 's'}`);
+  else if (Q.cierres) s('✓', 'good', 'Caja cuadrada');
+
+  el.innerHTML = `<div class="ct-sec-lbl">Executive signal</div>
+    <div><p class="ct-signal-txt">${frases.slice(0, 3).join(' ')}</p><div class="ct-signals">${sig.join('')}</div></div>`;
+}
+
+// Desviación + impacto por KPI (todo derivado de los datos del período).
+function ctDetalleAlerta(key) {
+  const k = CT.k, U = UMBRALES_KPI, cmp = CT.cmp;
+  const out = { dev: '', devSub: '', impacto: '', kioskos: '' };
+  const peores = (filas, fmt, n) => filas.filter(x => x.st === 'bad' || x.st === 'warn').slice().sort((a, b) => ST_ORDEN[a.st] - ST_ORDEN[b.st]).slice(0, n || 3).map(fmt).join(' · ');
+  if (key === 'laboral') {
+    const L = k.laboral;
+    out.dev = `${fmtPct(L.pct)} <span>vs meta ≤ ${U.laboralWarnPct}%</span>`;
+    out.devSub = L.pct == null ? '' : L.pct > U.laboralWarnPct ? `${ctFmtPP(L.pct - U.laboralWarnPct)} sobre objetivo` : 'Total en meta; el estado lo ponen kioskos fuera de objetivo';
+    const fuera = L.filas.filter(x => x.pct != null && x.pct > U.laboralWarnPct);
+    const exceso = fuera.reduce((a, x) => a + (x.costo - x.ventas * U.laboralWarnPct / 100), 0);
+    out.impacto = exceso > 0 ? `${fmtCRC(exceso)} de costo por encima de la meta (${ctListaY(fuera.map(x => ctEsc(x.nombre)))})` : 'Sin costo por encima de la meta';
+    out.kioskos = peores(L.filas.filter(x => x.pct != null), x => `${ctEsc(x.nombre)} ${fmtPct(x.pct)}`);
+  } else if (key === 'efectivo') {
+    const E = k.efectivo;
+    out.dev = `${fmtCRC(E.crc)}${E.usd ? ' + ' + fmtUSD(E.usd) : ''} <span>sin depositar</span>`;
+    out.devSub = E.masViejo ? `Mayor antigüedad: ${ctEsc(E.masViejo.nombre)} · ${E.masViejo.dias} días (meta < ${U.efectivoDiasWarn})` : '';
+    out.impacto = 'Riesgo financiero: efectivo fuera del banco';
+  } else if (key === 'ventas') {
+    const V = k.ventas;
+    out.dev = `${fmtCRC(V.cur)} <span>${V.pct != null ? ctFmtPct(V.pct) + ' ' + cmp : ''}</span>`;
+    out.devSub = `Alerta: caída ≥ ${Math.abs(U.ventasWarnPct)}%; acción: ≥ ${Math.abs(U.ventasBadPct)}% (por kiosko)`;
+    const dif = V.prev - V.cur;
+    out.impacto = dif > 0 ? `${fmtCRC(dif)} menos que el período anterior (fechas con cierre)` : 'El total no cae; la alerta viene de kioskos puntuales';
+    out.kioskos = peores(V.filas, x => `${ctEsc(x.nombre)} ${x.prev > 0 ? ctFmtPct(pctCambio(x.cur, x.prev)) : ''}`);
+  } else if (key === 'ticket') {
+    const T = k.ticket, p = pctCambio(T.cur || 0, T.prev || 0);
+    out.dev = `${T.cur != null ? fmtCRC(T.cur) : '—'} <span>${p != null ? ctFmtPct(p) + ' ' + cmp : ''}</span>`;
+    out.devSub = `Alerta: caída ≥ ${Math.abs(U.ticketWarnPct)}% por kiosko`;
+    const perdida = T.prev && T.cur != null ? (T.prev - T.cur) * T.ord : 0;
+    out.impacto = perdida > 0 ? `≈ ${fmtCRC(perdida)} menos de venta por gasto por cliente más bajo` : 'El ticket total no cae; la alerta viene de kioskos puntuales';
+    out.kioskos = peores(T.filas, x => `${ctEsc(x.nombre)} ${x.tkP ? ctFmtPct(pctCambio(x.tk, x.tkP)) : ''}`);
+  } else if (key === 'cuadre') {
+    const Q = k.cuadre;
+    out.dev = `${Q.desc} de ${Q.cierres} <span>cierres fuera de tolerancia</span>`;
+    out.devSub = `Diferencia neta ${Q.neto >= 0 ? '+' : '−'}${fmtCRC(Math.abs(Q.neto))} (meta ₡0)`;
+    out.impacto = Q.faltante < 0 ? `${fmtCRC(Math.abs(Q.faltante))} de faltante en caja` : 'Sin faltantes; hay sobrantes o diferencias de tarjeta';
+  } else if (key === 'merma') {
+    const M = k.merma;
+    out.dev = `${fmtPct(M.pct)} <span>vs meta ≤ ${k.meta}%</span>`;
+    out.devSub = M.pct == null ? '' : M.pct > k.meta ? `${ctFmtPP(M.pct - k.meta)} sobre objetivo` : 'Total en meta; el estado lo ponen kioskos fuera de objetivo';
+    const fuera = M.filas.filter(x => x.pct != null && x.pct > k.meta);
+    const exOz = fuera.reduce((a, x) => a + (x.mOz - (x.oz + x.mOz) * k.meta / 100), 0);
+    out.impacto = exOz > 0 ? `≈ ${Math.round(exOz).toLocaleString('es-CR')} oz de cerveza perdidas por encima de la meta (${ctListaY(fuera.map(x => ctEsc(x.nombre)))})` : 'Kioskos cerca del límite; aún sin pérdida sobre la meta';
+    out.kioskos = peores(M.filas.filter(x => x.pct != null), x => `${ctEsc(x.nombre)} ${fmtPct(x.pct)}`);
+  }
+  return out;
+}
+
+function renderAtencion() {
+  const el = document.getElementById('ct-attention');
+  const cnt = document.getElementById('ct-att-count');
+  if (!el) return;
+  const orden = { bad: 0, warn: 1, watch: 2 };
+  const keys = CT_ORDEN.filter(k => orden[ctNivel(k)] != null).sort((a, b) => orden[ctNivel(a)] - orden[ctNivel(b)]);
+  if (cnt) {
+    const nB = keys.filter(k => ctNivel(k) === 'bad').length;
+    cnt.innerHTML = keys.length ? `<b style="color:${nB ? 'var(--red)' : 'var(--amber)'}">${keys.length}</b> KPI${keys.length === 1 ? '' : 's'} requiere${keys.length === 1 ? '' : 'n'} intervención` : '';
+  }
+  if (!keys.length) {
+    el.innerHTML = '<div class="ct-ok-msg"><span class="ct-pill ct-pill-ok"><i></i>ON TARGET</span> Ningún KPI requiere intervención en el período.</div>';
+    return;
+  }
+  const lbl = { bad: 'ACTION REQUIRED', warn: 'AT RISK', watch: 'WATCH' };
+  el.innerHTML = keys.map(key => {
+    const n = ctNivel(key), d = ctDetalleAlerta(key), K = CT_KPIS[key];
+    let duracion;
+    if (n === 'watch') duracion = 'En objetivo hoy · tendencia en deterioro los últimos 7 días';
+    else if (key === 'efectivo') duracion = CT.dur.efectivo ? `${CT.dur.efectivo} días (cierre más antiguo sin depositar)` : '—';
+    else if (CT.dur[key] >= 30) duracion = '30+ días seguidos fuera de objetivo';
+    else if (CT.dur[key] > 0) duracion = `${CT.dur[key]} día${CT.dur[key] === 1 ? '' : 's'} seguido${CT.dur[key] === 1 ? '' : 's'} fuera de objetivo`;
+    else duracion = 'El último día con datos estuvo en objetivo; el desvío es del acumulado del período';
+    const impacto = n === 'watch' ? 'Aún sin impacto — anticipar antes de que salga de objetivo' : d.impacto;
+    const sub = ctAlertItems.filter(i => i.kpi === key);
+    const subHtml = sub.length
+      ? `<div class="ct-att-sub">${sub.map(i => `<a href="${i.href}">${i.texto}</a>`).join('')}</div>`
+      : (d.kioskos ? `<div class="ct-att-sub">Kioskos: ${d.kioskos}</div>` : '');
+    const link = ctModPermitido(K.mod) ? `<a class="ct-btn" href="${K.link}">${K.linkTxt} →</a>` : '';
+    return `
+      <div class="ct-att-item ct-att-${n}">
+        <div class="ct-att-bar"></div>
+        <div>
+          <div class="ct-att-top">
+            <span class="ct-att-kpi">${K.label}</span>
+            <span class="ct-pill ct-pill-${n}"><i></i>${lbl[n]}</span>
+          </div>
+          <div class="ct-att-dev">${d.dev}</div>
+          <dl class="ct-att-dl">
+            ${d.devSub ? `<dt>Desviación</dt><dd>${d.devSub}</dd>` : ''}
+            <dt>Duración</dt><dd>${duracion}</dd>
+            <dt>Impacto</dt><dd>${impacto}</dd>
+          </dl>
+          ${subHtml}
+          <div class="ct-att-actions">
+            <button type="button" class="ct-btn primary" onclick="ctAbrirKpi('${key}')">Ver desglose</button>
+            ${link}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// Drivers: solo variaciones medibles con los datos disponibles.
+function ctDrivers(key) {
+  const k = CT.k, U = UMBRALES_KPI;
+  const rows = [];
+  const add = (txt, v, tono) => rows.push({ txt, v, tono });
+  const dPct = (txt, cur, prev, buenoArriba) => {
+    if (!(prev > 0) || cur == null) return;
+    const p = pctCambio(cur, prev);
+    if (p == null) return;
+    const tono = Math.abs(p) < 1 ? 'neu' : ((p > 0) === buenoArriba ? 'good' : 'bad');
+    add(txt, `${p > 0 ? '▲' : p < 0 ? '▼' : '='} ${ctFmtPct(p)}`, tono);
+  };
+  if (key === 'laboral') {
+    const L = k.laboral;
+    dPct('Ventas de los días con turno', L.ventas, L.ventasPrev, true);
+    dPct('Costo laboral (₡)', L.costoConVenta, L.costoPrev, false);
+    dPct('Turnos en el horario', L.turnos, L.turnosPrev, false);
+    if (L.turnosFeriado) add('Turnos en feriado (pago ×2)', String(L.turnosFeriado), 'bad');
+    L.filas.filter(x => x.pct != null && x.pct > U.laboralWarnPct).sort((a, b) => b.pct - a.pct).slice(0, 2)
+      .forEach(x => add(`${ctEsc(x.nombre)}: ${fmtCRC(x.costo)} costo / ${fmtCRC(x.ventas)} ventas`, fmtPct(x.pct), x.pct > U.laboralBadPct ? 'bad' : 'neu'));
+    if (L.sinSalario.length) add(`Sin salario en Personal (costo subestimado): ${ctEsc(L.sinSalario.slice(0, 3).join(', '))}${L.sinSalario.length > 3 ? '…' : ''}`, String(L.sinSalario.length), 'neu');
+  } else if (key === 'ventas' || key === 'ticket') {
+    const V = k.ventas, T = k.ticket;
+    if (key === 'ventas') dPct('Ventas (cierres de caja)', V.cur, V.prev, true);
+    else dPct('Ventas netas (Square)', T.netas, T.netasP, true);
+    dPct('Órdenes (Square)', T.ord, T.ordP, true);
+    if (key === 'ventas' && T.cur != null) dPct('Ticket promedio', T.cur, T.prev, true);
+    if (key === 'ventas') {
+      V.filas.filter(x => x.prev > 0).map(x => ({ x, d: x.cur - x.prev })).filter(o => o.d < 0).sort((a, b) => a.d - b.d).slice(0, 2)
+        .forEach(o => add(`${ctEsc(o.x.nombre)} (aporte a la variación)`, '−' + fmtCRC(Math.abs(o.d)), 'bad'));
+    } else {
+      T.filas.filter(x => x.tkP > 0).map(x => ({ x, p: pctCambio(x.tk, x.tkP) })).filter(o => o.p < 0).sort((a, b) => a.p - b.p).slice(0, 2)
+        .forEach(o => add(`${ctEsc(o.x.nombre)}: ticket`, `▼ ${ctFmtPct(o.p)}`, 'bad'));
+    }
+  } else if (key === 'merma') {
+    const M = k.merma;
+    dPct('Merma pesada (oz)', M.mOz, M.mOzP, false);
+    dPct('Onzas de barril vendidas', M.oz, M.ozP, true);
+    M.filas.filter(x => x.pct != null && x.pct > k.meta * 0.8).sort((a, b) => b.pct - a.pct).slice(0, 2)
+      .forEach(x => add(`${ctEsc(x.nombre)}: ${fmtGramos(x.g)} de merma`, fmtPct(x.pct), x.pct > k.meta ? 'bad' : 'neu'));
+  } else if (key === 'cuadre') {
+    const Q = k.cuadre, P = CT.kPrev.cuadre;
+    if (Q.cierres) add('Cierres fuera de tolerancia', `${Q.desc} de ${Q.cierres}${P.cierres ? ` (antes ${P.desc} de ${P.cierres})` : ''}`, Q.desc > P.desc ? 'bad' : 'neu');
+    Q.filas.filter(x => x.falt < 0).sort((a, b) => a.falt - b.falt).slice(0, 3)
+      .forEach(x => add(`${ctEsc(x.nombre)}: faltante (${x.desc} de ${x.n} cierres)`, '−' + fmtCRC(Math.abs(x.falt)), 'bad'));
+  } else if (key === 'efectivo') {
+    // Composición del saldo por antigüedad del cierre (en ₡).
+    const E = k.efectivo, ctx = CT.ctx;
+    const perm = new Set(ctx.listaKioskos.map(normK));
+    const tramos = [
+      { txt: `Cierres de hace ${U.efectivoDiasBad}+ días`, min: U.efectivoDiasBad, max: Infinity, tono: 'bad' },
+      { txt: `Cierres de hace ${U.efectivoDiasWarn}–${U.efectivoDiasBad - 1} días`, min: U.efectivoDiasWarn, max: U.efectivoDiasBad - 1, tono: 'warn' },
+      { txt: `Cierres de hace menos de ${U.efectivoDiasWarn} días`, min: -Infinity, max: U.efectivoDiasWarn - 1, tono: 'good' }
+    ];
+    const tot = { crc: 0 }; tramos.forEach(t => { t.crc = 0; t.n = 0; });
+    (ctx.efectivoPendientesArr || []).forEach(p => {
+      if (!perm.has(normK(p.kiosko)) || !((p.crc || 0) > 0)) return;
+      const d = diasDesde(p.fecha) || 0;
+      const t = tramos.find(x => d >= x.min && d <= x.max);
+      if (t) { t.crc += p.crc; t.n++; tot.crc += p.crc; }
+    });
+    tramos.forEach(t => { if (t.n) add(`${t.txt} (${t.n} fecha${t.n === 1 ? '' : 's'})`, `${fmtCRC(t.crc)} · ${Math.round(t.crc / tot.crc * 100)}%`, t.tono); });
+    const top = E.filas.filter(x => x.crc > 0).sort((a, b) => b.crc - a.crc)[0];
+    if (top && tot.crc > 0) add(`Kiosko con más saldo: ${ctEsc(top.nombre)}`, `${Math.round(top.crc / tot.crc * 100)}% del total`, 'neu');
+  }
+  return rows;
+}
+
+function renderDrivers() {
+  const el = document.getElementById('ct-drivers');
+  if (!el) return;
+  const orden = { bad: 0, warn: 1, watch: 2 };
+  const keys = CT_ORDEN.filter(k => orden[ctNivel(k)] != null).sort((a, b) => orden[ctNivel(a)] - orden[ctNivel(b)]).slice(0, 3);
+  if (!keys.length) { el.innerHTML = '<div class="ct-ok-msg">Todos los KPIs están en objetivo — no hay desviaciones que explicar.</div>'; return; }
+  el.innerHTML = keys.map(key => {
+    const rows = ctDrivers(key), n = ctNivel(key);
+    const val = ctFmtCorto(key, ctValorKpi(key, CT.k));
+    const valTxt = key === 'efectivo' ? fmtCRC(CT.k.efectivo.crc) : key === 'cuadre' ? `${CT.k.cuadre.desc} descuadres` : key === 'ventas' ? fmtCRC(CT.k.ventas.cur) : val;
+    return `<div class="ct-drv">
+      <div class="ct-drv-head"><span class="ct-card-name"><i style="background:${n === 'watch' ? 'var(--watch)' : CT_ST_COLOR[n]}"></i>${CT_KPIS[key].label}</span><b>${valTxt}</b></div>
+      ${rows.length ? rows.map(r => `<div class="ct-drv-row"><span>${r.txt}</span><b class="${r.tono}">${r.v}</b></div>`).join('')
+                    : '<div class="ct-drv-empty">No hay datos suficientes para determinar drivers.</div>'}
+    </div>`;
+  }).join('');
+}
+
+function renderHealthMatrix() {
+  const el = document.getElementById('ct-health');
+  if (!el) return;
+  const { ctx } = CT, hoy = ctx.hoyIso;
+  const ventanas = [
+    { id: 'hoy', lbl: 'Hoy', k: calcularIndicadores(ctx, [hoy], f => sumarDiasIso(f, -7)) },
+    { id: 'd7',  lbl: '7D',  k: calcularIndicadores(ctx, fechasDelRango(sumarDiasIso(hoy, -6), hoy), f => sumarDiasIso(f, -7)) },
+    { id: 'd30', lbl: '30D', k: calcularIndicadores(ctx, fechasDelRango(sumarDiasIso(hoy, -29), hoy), f => sumarDiasIso(f, -30)) }
+  ];
+  const STC = { ok: 'OK', warn: 'RISK', bad: 'ACTION', na: 'NO DATA' };
+  const filasOrden = ['ventas', 'ticket', 'laboral', 'merma', 'cuadre', 'efectivo'];
+  const esMalo = s => s === 'bad' || s === 'warn';
+  const lectura = (h, a, b) => {
+    const reales = [h, a, b].filter(s => s !== 'na');
+    if (!reales.length) return ['Sin datos', 'neu'];
+    if (esMalo(b) && esMalo(a) && (esMalo(h) || h === 'na')) return ['Persistente', 'bad'];
+    if (b === 'ok' && (esMalo(a) || esMalo(h))) return ['Deterioro reciente', 'warn'];
+    if (esMalo(b) && a === 'ok' && h !== 'bad' && h !== 'warn') return ['Recuperación', 'good'];
+    if (esMalo(b) && !esMalo(a)) return ['Mejorando', 'good'];
+    if (esMalo(h) && !esMalo(a)) return ['Desvío puntual hoy', 'warn'];
+    if (reales.every(s => s === 'ok')) return ['Estable', 'good'];
+    return ['Mixto', 'neu'];
+  };
+  const celda = (key, w) => {
+    if (key === 'efectivo' && w.id !== 'hoy') return `<td><span class="ct-cell s-na" title="Efectivo es un saldo a hoy: no hay histórico por ventana"><span class="ct-cell-v"><i></i>saldo</span><span class="ct-cell-s">NO DATA</span></span></td>`;
+    const s = w.k[key].st;
+    const v = key === 'efectivo' ? fmtEjeCRC(w.k.efectivo.crc) : ctFmtCorto(key, ctValorKpi(key, w.k));
+    return `<td><span class="ct-cell s-${s}" title="${CT_KPIS[key].label} · ${w.lbl}: ${CT_ST_TXT[s]}"><span class="ct-cell-v"><i></i>${v}</span><span class="ct-cell-s">${STC[s]}</span></span></td>`;
+  };
+  const body = filasOrden.map(key => {
+    let lec;
+    if (key === 'efectivo') {
+      const E = ventanas[0].k.efectivo;
+      lec = !E.masViejo ? ['Al día', 'good'] : E.masViejo.dias >= 7 ? [`Persistente (${E.masViejo.dias} d)`, 'bad'] : E.st === 'ok' ? ['Al día', 'good'] : ['Atrasado', 'warn'];
+    } else lec = lectura(ventanas[0].k[key].st, ventanas[1].k[key].st, ventanas[2].k[key].st);
+    return `<tr onclick="ctAbrirKpi('${key}')"><td>${CT_KPIS[key].label}</td>${ventanas.map(w => celda(key, w)).join('')}<td><span class="ct-read r-${lec[1]}">${lec[0]}</span></td></tr>`;
+  }).join('');
+  el.innerHTML = `<div class="ct-hm-wrap"><table class="ct-hm">
+      <thead><tr><th>KPI</th>${ventanas.map(w => `<th>${w.lbl}</th>`).join('')}<th>Lectura</th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="ct-hm-leg">
+      <span><i style="background:var(--green)"></i>ON TARGET</span><span><i style="background:var(--amber)"></i>AT RISK</span>
+      <span><i style="background:var(--red)"></i>ACTION REQUIRED</span><span><i style="border:1.5px solid #b3c2b8"></i>NO DATA</span>
+      <span>Hoy / últimos 7 / últimos 30 días, independiente del filtro. 7D y Hoy se comparan contra la semana anterior; 30D contra los 30 días previos.</span>
+    </div>`;
+  const meta = document.getElementById('ct-hm-meta');
+  if (meta) meta.textContent = `Hasta ${fmtFechaCorta(hoy)}`;
+}
+
+function ctTickActualizacion() {
+  const live = document.getElementById('ct-live');
+  const hora = document.getElementById('ct-upd-hora');
+  const hace = document.getElementById('ct-hace');
+  if (!ctUltimaAct) return;
+  const min = Math.floor((Date.now() - ctUltimaAct.getTime()) / 60000);
+  if (hora) hora.textContent = pad(ctUltimaAct.getHours()) + ':' + pad(ctUltimaAct.getMinutes());
+  if (hace) hace.textContent = min < 1 ? 'Actualizado hace menos de 1 min' : `Actualizado hace ${min} min`;
+  if (live) live.classList.toggle('stale', min >= 30);
+}
+setInterval(ctTickActualizacion, 30000);
+
+
+// ── TENDENCIA POR KIOSKO (2026-09-24) — gráfico de líneas grande, una
+// línea por kiosko, del MISMO período que las tarjetas de Indicadores.
+// Reusa los datos ya calculados en renderIndicadores() (res.tendencia) y
+// los de cargarKPIs() (Square, mermas): no hace ninguna lectura nueva.
+// - Período corto (< 7 días, ej. "Hoy"): se extiende hacia atrás hasta el
+//   inicio del período de comparación para que la línea tenga contexto
+//   (esos días ya vienen en los datos, incluido el Horario).
+// - Más de 62 días se agrupa por semana (lunes a domingo); más de 400, por mes.
+// - Los % (costo laboral, merma) se calculan sobre la suma del día/semana,
+//   igual que la tarjeta — no es un promedio de porcentajes.
+// - Colores: paleta categórica fija, validada para daltonismo, asignada
+//   por la posición del kiosko en la lista (no por ranking), así un kiosko
+//   conserva su color aunque se oculten otros.
+const TEND_PALETA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+const TEND_METRICAS = {
+  ventas:  { label: 'Ventas', fmt: v => fmtCRC(v), eje: v => fmtEjeCRC(v),
+             nota: 'Ventas según cierres de caja, en colones (kioskos en dólares convertidos al tipo de cambio del cierre). Un día sin cierre queda como hueco en la línea.' },
+  laboral: { label: 'Costo laboral', fmt: fmtPct, eje: v => Math.round(v) + '%',
+             ref: () => ({ v: UMBRALES_KPI.laboralWarnPct, txt: 'meta ≤ ' + UMBRALES_KPI.laboralWarnPct + '%' }),
+             nota: 'Costo laboral ÷ ventas, mismo cálculo que la tarjeta (turnos del Horario × salario ÷ 30 + cargas; feriado ×2). Solo días con venta (cierre o, si falta, Square).' },
+  merma:   { label: 'Merma cerveza', fmt: fmtPct, eje: v => (v < 10 && v % 1 ? v.toFixed(1) : Math.round(v)) + '%',
+             ref: () => { const m = metaMermaPct(); return { v: m, txt: 'meta ≤ ' + m + '%' }; },
+             nota: 'Merma pesada (g → oz) ÷ (onzas de barril vendidas en Square + merma). Solo días con ventas de barril en Square.' },
+  ticket:  { label: 'Ticket promedio', fmt: v => fmtCRC(v), eje: v => fmtEjeCRC(v),
+             nota: 'Ventas netas Square ÷ órdenes, en colones (kioskos en dólares convertidos al tipo de cambio más reciente de los cierres).' }
+};
+const TEND_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const TEND_DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+let tendMetrica = 'ventas';
+let tendVista = 'grafico';
+let tendModo = 'total'; // 'total' (actual vs meta vs período anterior) | 'kiosko'
+const tendOcultos = new Set(); // normK de kioskos ocultos desde la leyenda
+let tendDatos = null;
+let tendResizeT = null;
+
+function fmtEjeCRC(v) {
+  const a = Math.abs(v);
+  if (a >= 1e6) return '₡' + (v / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+  if (a >= 1e3) return '₡' + Math.round(v / 1e3) + 'k';
+  return '₡' + Math.round(v);
+}
+function tendEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+function escalaNiceTend(max) {
+  if (!(max > 0)) return { top: 1, paso: 0.25 };
+  const bruto = (max * 1.05) / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const f = bruto / mag;
+  const paso = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  return { top: Math.ceil((max * 1.05) / paso) * paso, paso };
+}
+function elegirMetricaTendencia(m) { tendMetrica = m; document.querySelectorAll('#tend-metricas .kpi-chip-btn').forEach(b => b.classList.toggle('active', b.dataset.m === m)); dibujarTendencia(); }
+function elegirModoTendencia(m) { tendModo = m; document.querySelectorAll('#tend-modo button').forEach(b => b.classList.toggle('active', b.dataset.modo === m)); dibujarTendencia(); }
+function toggleVistaTendencia() { tendVista = tendVista === 'tabla' ? 'grafico' : 'tabla'; dibujarTendencia(); }
+window.addEventListener('resize', () => {
+  clearTimeout(tendResizeT);
+  tendResizeT = setTimeout(() => { if (tendDatos && tendVista === 'grafico') dibujarTendencia(); }, 150);
+});
+
+function renderTendencias(ctx) {
+  const cont = document.getElementById('tend-chart');
+  if (!cont) return;
+  const { listaKioskos, desde, hasta, hoyIso, res, squarePorKiosko, mermas, tcRespaldo } = ctx;
+  const t = res && res.tendencia;
+  const fin = (hasta && hasta < hoyIso) ? hasta : hoyIso;
+  if (!t || !desde || !hasta || !listaKioskos.length || desde > fin) {
+    tendDatos = null;
+    cont.innerHTML = '<div class="no-alerts">Sin datos para graficar en este período.</div>';
+    ['tend-sub', 'tend-legend', 'tend-nota'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
+    return;
+  }
+  let ini = desde;
+  const extendido = fechasDelRango(desde, fin).length < 7;
+  if (extendido) ini = fechaComparable(desde, desde, hasta);
+  const fechas = fechasDelRango(ini, fin);
+  const gran = fechas.length <= 62 ? 'dia' : fechas.length <= 400 ? 'semana' : 'mes';
+
+  const buckets = [], idx = {};
+  fechas.forEach(f => {
+    let key = f;
+    if (gran === 'semana') key = sumarDiasIso(f, -((new Date(f + 'T00:00:00').getDay() + 6) % 7));
+    else if (gran === 'mes') key = f.slice(0, 7);
+    if (idx[key] == null) { idx[key] = buckets.length; buckets.push({ key, fechas: [] }); }
+    buckets[idx[key]].fechas.push(f);
+  });
+  buckets.forEach(b => {
+    const [y, m, d] = b.fechas[0].split('-');
+    const u = b.fechas[b.fechas.length - 1].split('-');
+    if (gran === 'dia') {
+      b.corto = `${d}/${m}`;
+      b.largo = `${TEND_DOW[new Date(b.fechas[0] + 'T00:00:00').getDay()]} ${d}/${m}/${y}`;
+    } else if (gran === 'semana') {
+      b.corto = `${d}/${m}`;
+      b.largo = `Semana ${d}/${m} – ${u[2]}/${u[1]}/${u[0]}`;
+    } else {
+      b.corto = `${TEND_MESES[+m - 1]} ${y.slice(2)}`;
+      b.largo = `${TEND_MESES[+m - 1]} ${y}`;
+    }
+  });
+
+  const mermaMap = {};
+  (mermas || []).forEach(m => { const k = m.kN + '|' + m.fecha; mermaMap[k] = (mermaMap[k] || 0) + m.g; });
+
+  // Sumas crudas de un kiosko en un conjunto de fechas (misma lógica de
+  // siempre); se reusa para la línea de cada kiosko y para el total.
+  const sumasKiosko = (nombre, fs) => {
+    const kN = normK(nombre);
+    const vd = t.ventasDia[kN] || {};
+    const ld = t.laboralDia[kN] || {};
+    const sq = squarePorKiosko[kN];
+    const fx = esKioskoUSD(nombre) ? (tcRespaldo || 0) : 1;
+    const r = { v: 0, hayV: false, lc: 0, lv: 0, oz: 0, mOz: 0, net: 0, ord: 0, fx };
+    fs.forEach(f => {
+      if (vd[f] !== undefined) { r.v += vd[f]; r.hayV = true; }
+      const d = ld[f];
+      if (d) { const vv = t.ventaDelDia(kN, nombre, f); if (vv.monto > 0) { r.lc += d.costo; r.lv += vv.monto; } }
+      const s = sq && sq[f];
+      if (s) {
+        r.net += s.netas * fx; r.ord += s.ordenes.size;
+        if (s.onzas > 0) { r.oz += s.onzas; r.mOz += (mermaMap[kN + '|' + f] || 0) / DENSIDAD_CERVEZA_G_ML / ML_POR_ONZA; }
+      }
+    });
+    if (!(fx > 0)) { r.net = 0; r.ord = 0; }
+    return r;
+  };
+  const valores = r => ({
+    ventas: r.hayV ? r.v : null,
+    laboral: r.lv > 0 ? r.lc / r.lv * 100 : null,
+    merma: r.oz > 0 ? r.mOz / (r.oz + r.mOz) * 100 : null,
+    ticket: r.ord > 0 ? r.net / r.ord : null
+  });
+  const sumasTotal = fs => {
+    const T = { v: 0, hayV: false, lc: 0, lv: 0, oz: 0, mOz: 0, net: 0, ord: 0 };
+    listaKioskos.forEach(nombre => {
+      const r = sumasKiosko(nombre, fs);
+      T.v += r.v; T.hayV = T.hayV || r.hayV; T.lc += r.lc; T.lv += r.lv; T.oz += r.oz; T.mOz += r.mOz; T.net += r.net; T.ord += r.ord;
+    });
+    return valores(T);
+  };
+  const series = listaKioskos.map((nombre, i) => {
+    const val = { ventas: [], laboral: [], merma: [], ticket: [] };
+    buckets.forEach(b => { const v = valores(sumasKiosko(nombre, b.fechas)); Object.keys(val).forEach(m => val[m].push(v[m])); });
+    return { nombre, kN: normK(nombre), color: TEND_PALETA[i % TEND_PALETA.length], val };
+  });
+  // Modo Total: línea actual (todos los kioskos) y período anterior
+  // (cada fecha contra su fecha equivalente, misma regla que las tarjetas).
+  const actual = { nombre: 'Actual', kN: 'total:actual', color: '#1c3a28', ancho: 2.6, val: { ventas: [], laboral: [], merma: [], ticket: [] } };
+  const previo = { nombre: 'Período anterior', kN: 'total:prev', color: '#8a9d90', dash: true, val: { ventas: [], laboral: [], merma: [], ticket: [] } };
+  buckets.forEach(b => {
+    const va = sumasTotal(b.fechas), vp = sumasTotal(b.fechas.map(f => fechaComparable(f, desde, hasta)));
+    Object.keys(actual.val).forEach(m => { actual.val[m].push(va[m]); previo.val[m].push(vp[m]); });
+  });
+
+  const granTxt = { dia: 'Por día', semana: 'Por semana (lunes a domingo)', mes: 'Por mes' }[gran];
+  tendDatos = {
+    buckets, series, total: [actual, previo],
+    sub: `${granTxt} · ${fmtFechaCorta(ini)} – ${fmtFechaCorta(fin)}${extendido ? ' · incluye el período de comparación para dar contexto' : ''}`
+  };
+  dibujarTendencia();
+}
+
+function dibujarTendencia() {
+  const cont = document.getElementById('tend-chart');
+  const tabla = document.getElementById('tend-tabla');
+  const leg = document.getElementById('tend-legend');
+  if (!cont || !tendDatos) return;
+  const M = TEND_METRICAS[tendMetrica];
+  const { buckets } = tendDatos;
+  const series = tendModo === 'total' ? tendDatos.total : tendDatos.series;
+  document.getElementById('tend-sub').textContent = tendDatos.sub + (tendModo === 'total' ? ' · total de todos los kioskos' : '');
+  document.getElementById('tend-nota').textContent = M.nota + (tendModo === 'total'
+    ? ' Línea punteada gris = período anterior (cada fecha contra su fecha equivalente); línea roja punteada = meta. Pronóstico: no disponible (no hay un modelo de proyección con datos suficientes).'
+    : '');
+  document.getElementById('tend-vista-btn').textContent = tendVista === 'tabla' ? 'Ver gráfico' : 'Ver tabla';
+
+  const conDatos = series.filter(s => s.val[tendMetrica].some(v => v != null));
+  const sinDatos = series.filter(s => !s.val[tendMetrica].some(v => v != null));
+  const visibles = conDatos.filter(s => !tendOcultos.has(s.kN));
+
+  // Leyenda (clic = mostrar/ocultar). Nombres con textContent.
+  leg.innerHTML = '';
+  conDatos.forEach(s => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tend-leg-btn'; b.title = 'Mostrar / ocultar';
+    b.setAttribute('aria-pressed', tendOcultos.has(s.kN) ? 'false' : 'true');
+    const k = document.createElement('span'); k.className = 'tend-key'; k.style.borderTopColor = s.color;
+    if (s.dash) k.style.borderTopStyle = 'dashed';
+    b.appendChild(k); b.appendChild(document.createTextNode(s.nombre));
+    b.onclick = () => { tendOcultos.has(s.kN) ? tendOcultos.delete(s.kN) : tendOcultos.add(s.kN); dibujarTendencia(); };
+    leg.appendChild(b);
+  });
+  if (M.ref && tendModo === 'total') {
+    const r = M.ref();
+    const sp = document.createElement('span'); sp.className = 'tend-leg-btn'; sp.style.cursor = 'default';
+    const k = document.createElement('span'); k.className = 'tend-key'; k.style.borderTopColor = '#c84a20'; k.style.borderTopStyle = 'dashed';
+    sp.appendChild(k); sp.appendChild(document.createTextNode('Meta ' + r.txt.replace(/^meta /, '')));
+    leg.appendChild(sp);
+  }
+  if (sinDatos.length) {
+    const sp = document.createElement('span'); sp.className = 'tend-sin';
+    sp.textContent = 'Sin datos: ' + sinDatos.map(s => s.nombre).join(', ');
+    leg.appendChild(sp);
+  }
+
+  // Vista tabla
+  if (tendVista === 'tabla') {
+    cont.style.display = 'none'; tabla.style.display = '';
+    tabla.innerHTML = '';
+    const cols = visibles.length ? visibles : conDatos;
+    if (!cols.length) { tabla.innerHTML = '<div class="no-alerts">Sin datos en el período.</div>'; return; }
+    const tb = document.createElement('table'); tb.className = 'tend-table';
+    const trH = document.createElement('tr');
+    ['Fecha', ...cols.map(s => s.nombre)].forEach(txt => { const th = document.createElement('th'); th.textContent = txt; trH.appendChild(th); });
+    const thead = document.createElement('thead'); thead.appendChild(trH); tb.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    buckets.forEach((b, i) => {
+      const tr = document.createElement('tr');
+      const td0 = document.createElement('td'); td0.textContent = b.largo; td0.style.fontFamily = 'var(--font-b)'; tr.appendChild(td0);
+      cols.forEach(s => { const v = s.val[tendMetrica][i]; const td = document.createElement('td'); td.textContent = v == null ? '—' : M.fmt(v); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    tb.appendChild(tbody); tabla.appendChild(tb);
+    return;
+  }
+  cont.style.display = ''; tabla.style.display = 'none';
+  if (!visibles.length) {
+    cont.innerHTML = '<div class="no-alerts">' + (conDatos.length
+      ? 'Todos los kioskos están ocultos — actívelos en la leyenda de abajo.'
+      : 'Sin datos de ' + tendEsc(M.label.toLowerCase()) + ' en el período.') + '</div>';
+    return;
+  }
+
+  // Geometría
+  const W = Math.max(300, Math.floor(cont.clientWidth - 24));
+  const movil = W < 560;
+  const H = movil ? 240 : 300;
+  const directo = visibles.length <= 4 && !movil;
+  const mL = 56, mR = directo ? 110 : 14, mT = 14, mB = 26;
+  const pw = W - mL - mR, ph = H - mT - mB;
+  const n = buckets.length;
+  const X = i => mL + (n === 1 ? pw / 2 : (i / (n - 1)) * pw);
+  let max = 0;
+  visibles.forEach(s => s.val[tendMetrica].forEach(v => { if (v != null && v > max) max = v; }));
+  const ref = M.ref ? M.ref() : null;
+  if (ref && ref.v > max) max = ref.v;
+  const { top, paso } = escalaNiceTend(max);
+  const Y = v => mT + ph - (v / top) * ph;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${tendEsc(M.label)} por kiosko">`;
+  for (let k = 0; k * paso <= top + paso / 1000; k++) {
+    const v = k * paso, y = Y(v).toFixed(1);
+    svg += `<line class="${k === 0 ? 't-base' : 't-grid'}" x1="${mL}" x2="${W - mR}" y1="${y}" y2="${y}"/>`;
+    svg += `<text class="t-axis-lbl" x="${mL - 8}" y="${y}" text-anchor="end" dominant-baseline="middle">${tendEsc(M.eje(v))}</text>`;
+  }
+  const cada = Math.ceil(n / Math.max(2, Math.floor(pw / 58)));
+  buckets.forEach((b, i) => {
+    if (i % cada !== 0) return;
+    svg += `<text class="t-axis-lbl" x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${tendEsc(b.corto)}</text>`;
+  });
+  if (ref) {
+    const y = Y(ref.v).toFixed(1);
+    svg += `<line class="t-ref" x1="${mL}" x2="${W - mR}" y1="${y}" y2="${y}"${tendModo === 'total' ? ' style="stroke:#c84a20;stroke-opacity:.7"' : ''}/>`;
+    svg += `<text class="t-ref-lbl" x="${W - mR - 2}" y="${(Y(ref.v) - 5).toFixed(1)}" text-anchor="end">${tendEsc(ref.txt)}</text>`;
+  }
+  const marcadores = n <= 31;
+  visibles.forEach(s => {
+    const vals = s.val[tendMetrica];
+    let d = '', abierto = false;
+    vals.forEach((v, i) => {
+      if (v == null) { abierto = false; return; }
+      d += (abierto ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1);
+      abierto = true;
+    });
+    svg += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.ancho || 2}"${s.dash ? ' stroke-dasharray="5 4"' : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    vals.forEach((v, i) => {
+      if (v == null) return;
+      const aislado = (i === 0 || vals[i - 1] == null) && (i === n - 1 || vals[i + 1] == null);
+      if (s.dash) { if (aislado) svg += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3" fill="#ffffff" stroke="${s.color}" stroke-width="1.5"/>`; return; }
+      if (marcadores || aislado) svg += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${s.ancho ? 3.5 : 4}" fill="${s.color}" stroke="#ffffff" stroke-width="2"/>`;
+    });
+  });
+  if (directo) {
+    const etq = visibles.map(s => {
+      const vals = s.val[tendMetrica]; let i = vals.length - 1;
+      while (i >= 0 && vals[i] == null) i--;
+      return i < 0 ? null : { s, y: Y(vals[i]) };
+    }).filter(Boolean).sort((a, b) => a.y - b.y);
+    for (let k = 1; k < etq.length; k++) if (etq[k].y - etq[k - 1].y < 14) etq[k].y = etq[k - 1].y + 14;
+    etq.forEach(e => { svg += `<text class="t-direct" x="${W - mR + 10}" y="${e.y.toFixed(1)}" dominant-baseline="middle">${tendEsc(e.s.nombre)}</text>`; });
+  }
+  svg += `<line class="t-cross" id="tend-cross" x1="0" x2="0" y1="${mT}" y2="${mT + ph}" style="display:none"/>`;
+  svg += `<g id="tend-focus"></g>`;
+  svg += `<rect id="tend-hit" x="${mL - 12}" y="0" width="${pw + 24}" height="${H}" fill="transparent" style="cursor:crosshair"/>`;
+  svg += '</svg>';
+  cont.innerHTML = svg + '<div class="tend-tip" id="tend-tip"></div>';
+
+  // Hover: la línea vertical se ubica en la fecha más cercana y el
+  // tooltip lista TODOS los kioskos visibles en esa fecha (mayor a menor).
+  const svgEl = cont.querySelector('svg');
+  const cross = svgEl.querySelector('#tend-cross'), focus = svgEl.querySelector('#tend-focus');
+  const hit = svgEl.querySelector('#tend-hit'), tip = cont.querySelector('#tend-tip');
+  const mover = ev => {
+    const r = svgEl.getBoundingClientRect();
+    const px = (ev.clientX - r.left) * (W / r.width);
+    const i = n === 1 ? 0 : Math.max(0, Math.min(n - 1, Math.round((px - mL) / pw * (n - 1))));
+    const x = X(i);
+    cross.setAttribute('x1', x); cross.setAttribute('x2', x); cross.style.display = '';
+    focus.innerHTML = visibles.map(s => {
+      const v = s.val[tendMetrica][i];
+      return v == null ? '' : `<circle cx="${x.toFixed(1)}" cy="${Y(v).toFixed(1)}" r="5" fill="${s.color}" stroke="#ffffff" stroke-width="2"/>`;
+    }).join('');
+    tip.innerHTML = '';
+    const h = document.createElement('div'); h.className = 'tend-tip-h'; h.textContent = buckets[i].largo; tip.appendChild(h);
+    visibles.map(s => ({ s, v: s.val[tendMetrica][i] }))
+      .sort((a, b) => (b.v == null ? -Infinity : b.v) - (a.v == null ? -Infinity : a.v))
+      .forEach(({ s, v }) => {
+        const row = document.createElement('div'); row.className = 'tend-tip-row';
+        const k = document.createElement('span'); k.className = 'tend-key'; k.style.borderTopColor = s.color; if (s.dash) k.style.borderTopStyle = 'dashed';
+        const b = document.createElement('b'); b.textContent = v == null ? '—' : M.fmt(v);
+        const nm = document.createElement('span'); nm.className = 'n'; nm.textContent = s.nombre;
+        row.append(k, b, nm); tip.appendChild(row);
+      });
+    tip.style.display = 'block';
+    const cr = cont.getBoundingClientRect();
+    const xPx = r.left - cr.left + x * (r.width / W);
+    const tw = tip.offsetWidth;
+    let left = xPx + 14;
+    if (left + tw > cont.clientWidth) left = xPx - tw - 14;
+    tip.style.left = Math.max(0, left) + 'px';
+    tip.style.top = (r.top - cr.top + mT) + 'px';
+  };
+  hit.addEventListener('pointermove', mover);
+  hit.addEventListener('pointerdown', mover);
+  hit.addEventListener('pointerleave', () => { cross.style.display = 'none'; focus.innerHTML = ''; tip.style.display = 'none'; });
 }
 
 // ── REQUIERE ATENCIÓN — pendientes accionables, rojo primero ──
@@ -1740,7 +3148,7 @@ function renderAlertas(ctx) {
   const permitidoN = new Set(listaKioskos.map(normK));
   const restringido = !!(sesionActual && Array.isArray(sesionActual.kioskos));
   const items = [];
-  const add = (sev, texto, href, accion) => items.push({ sev, texto, href, accion });
+  const add = (sev, texto, href, accion, kpi) => items.push({ sev, texto, href, accion, kpi: kpi || null });
 
   // Cierres de ayer
   const ayer = sumarDiasIso(hoyIso, -1);
@@ -1751,14 +3159,14 @@ function renderAlertas(ctx) {
 
   // Faltantes de caja en el período
   Object.entries(res.cuadre || {}).forEach(([k, c]) => {
-    if (c.faltante < 0) add('bad', `<b>${k}</b>: faltante de ${fmtCRC(Math.abs(c.faltante))} (${c.descuadrados} de ${c.cierres} cierres descuadrados en el período)`, 'reportes-cierres.html', 'Ver cierres');
-    else if (c.descuadrados) add('warn', `<b>${k}</b>: ${c.descuadrados} cierre${c.descuadrados === 1 ? '' : 's'} descuadrado${c.descuadrados === 1 ? '' : 's'} en el período`, 'reportes-cierres.html', 'Ver cierres');
+    if (c.faltante < 0) add('bad', `<b>${k}</b>: faltante de ${fmtCRC(Math.abs(c.faltante))} (${c.descuadrados} de ${c.cierres} cierres descuadrados en el período)`, 'reportes-cierres.html', 'Ver cierres', 'cuadre');
+    else if (c.descuadrados) add('warn', `<b>${k}</b>: ${c.descuadrados} cierre${c.descuadrados === 1 ? '' : 's'} descuadrado${c.descuadrados === 1 ? '' : 's'} en el período`, 'reportes-cierres.html', 'Ver cierres', 'cuadre');
   });
 
   // Efectivo atrasado
   Object.entries(res.efectivo || {}).forEach(([k, e]) => {
     if (e.dias >= UMBRALES_KPI.efectivoDiasWarn)
-      add(e.dias >= UMBRALES_KPI.efectivoDiasBad ? 'bad' : 'warn', `<b>${k}</b>: ${fmtCRC(e.crc)}${e.usd ? ' + ' + fmtUSD(e.usd) : ''} sin depositar, el más antiguo ${etiquetaDias(e.dias).toLowerCase()}`, 'depositos.html', 'Ir a depósitos');
+      add(e.dias >= UMBRALES_KPI.efectivoDiasBad ? 'bad' : 'warn', `<b>${k}</b>: ${fmtCRC(e.crc)}${e.usd ? ' + ' + fmtUSD(e.usd) : ''} sin depositar, el más antiguo ${etiquetaDias(e.dias).toLowerCase()}`, 'depositos.html', 'Ir a depósitos', 'efectivo');
   });
 
   // Caja chica
@@ -1794,14 +3202,19 @@ function renderAlertas(ctx) {
   if (plan.length) add('warn', `${plan.length} planilla${plan.length === 1 ? '' : 's'} pendiente${plan.length === 1 ? '' : 's'} de aprobación (${[...new Set(plan.map(p => p['Kiosko']))].join(', ')})`, 'planilla.html', 'Aprobar');
 
   items.sort((a, b) => ST_ORDEN[a.sev] - ST_ORDEN[b.sev]);
+  // Cockpit: los pendientes de cuadre/efectivo se muestran anidados bajo su
+  // KPI en "Attention required"; aquí quedan solo los operativos restantes.
+  ctAlertItems = items;
+  const pendOperativos = items.filter(i => !i.kpi);
   const nRojo = items.filter(i => i.sev === 'bad').length;
   if (badge) {
-    badge.textContent = items.length ? `${items.length} pendiente${items.length === 1 ? '' : 's'}${nRojo ? ` · ${nRojo} urgente${nRojo === 1 ? '' : 's'}` : ''}` : 'Todo en orden';
-    badge.style.color = nRojo ? 'var(--red)' : items.length ? 'var(--amber)' : 'var(--green)';
+    const nRojoOp = pendOperativos.filter(i => i.sev === 'bad').length;
+    badge.textContent = pendOperativos.length ? `${pendOperativos.length} pendiente${pendOperativos.length === 1 ? '' : 's'}${nRojoOp ? ` · ${nRojoOp} urgente${nRojoOp === 1 ? '' : 's'}` : ''}` : 'Todo en orden';
+    badge.style.color = nRojoOp ? 'var(--red)' : pendOperativos.length ? 'var(--amber)' : 'var(--green)';
   }
-  cont.innerHTML = items.length
-    ? items.map(i => `<a class="alerta-item" href="${i.href}"><span class="kpi-dot kpi-st-${i.sev}"></span><span class="alerta-texto">${i.texto}</span><span class="alerta-accion">${i.accion} →</span></a>`).join('')
-    : '<div class="no-alerts">Todo en orden ✓ — no hay pendientes que requieran atención.</div>';
+  cont.innerHTML = pendOperativos.length
+    ? pendOperativos.map(i => `<a class="alerta-item" href="${i.href}"><span class="kpi-dot kpi-st-${i.sev}"></span><span class="alerta-texto">${i.texto}</span><span class="alerta-accion">${i.accion} →</span></a>`).join('')
+    : '<div class="no-alerts">Sin pendientes pendOperativos ✓</div>';
 }
 function fmtGramos(g) {
   const n = Math.round(g || 0);
