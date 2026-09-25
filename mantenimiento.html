@@ -108,7 +108,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .reporte-card.abierto .reporte-body{display:block}
 .reporte-meta{font-size:12px;color:var(--muted);margin-bottom:8px}
 .reporte-detalle{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;background:var(--surface);border-radius:8px;padding:10px 12px}
-.reporte-foto{width:100%;max-height:200px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;margin-bottom:10px;display:block}
+.reporte-foto{width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;margin-bottom:4px;display:block;background:var(--surface)}
+.reporte-foto-wrap{margin-bottom:10px}
 .foto-link{font-size:12px;color:var(--blue);display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;text-decoration:none}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
 .badge-pendiente{background:var(--amber-bg);color:var(--amber)}
@@ -210,8 +211,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <span class="mant-tipo-icon">🚽</span><span>Baño en mal estado</span>
       </label>
       <label class="mant-tipo-opt" onclick="selectTipoMant(this)">
-        <input type="radio" name="mant-tipo" value="Problema con aire acondicionado"/>
-        <span class="mant-tipo-icon">❄️</span><span>Problema con aire acondicionado</span>
+        <input type="radio" name="mant-tipo" value="Daño en equipo de refrigeración"/>
+        <span class="mant-tipo-icon">🧊</span><span>Daño en equipo de refrigeración</span>
       </label>
       <label class="mant-tipo-opt" onclick="selectTipoMant(this)">
         <input type="radio" name="mant-tipo" value="Daño en mobiliario"/>
@@ -620,7 +621,7 @@ function limpiarMant() {
 const TIPO_ICONS = {
   'Bombillo quemado':'💡','Fuga de agua':'💧','Plantas dañadas':'🌿',
   'Problema eléctrico':'⚡','Puerta o ventana dañada':'🚪','Baño en mal estado':'🚽',
-  'Problema con aire acondicionado':'❄️','Daño en mobiliario':'🪑',
+  'Daño en equipo de refrigeración':'🧊','Problema con aire acondicionado':'❄️','Daño en mobiliario':'🪑',
   'Vidrio roto':'🪟','Daño en equipo de cocina':'🍳','Plaga detectada':'🐛','Otro':'📋'
 };
 
@@ -702,9 +703,19 @@ function renderSeguimiento() {
     const diasAbierto     = r.fecha ? Math.round((new Date(hoy()+'T00:00:00') - new Date(r.fecha+'T00:00:00')) / 86400000) : 0;
     const antiguedadAlerta = r.estado !== 'Resuelto' && diasAbierto >= 7;
 
+    // Miniatura pequeña de la foto reportada. Si solo tenemos la URL de Drive
+    // (visor .../file/d/ID/view), se arma la URL de thumbnail con el ID; si
+    // la miniatura no carga, queda solo el link a Drive.
     let fotoHtml = '';
-    if (r.foto) fotoHtml = `<img src="${r.foto}" class="reporte-foto" onclick="verFoto(this.src)" alt="Foto"/>`;
-    else if (r.fotoUrl) fotoHtml = `<a href="${r.fotoUrl}" target="_blank" rel="noopener" class="foto-link">📷 Ver foto en Drive</a><br/>`;
+    const fotoId = driveFileId(r.fotoUrl);
+    const linkDrive = r.fotoUrl ? `<a href="${r.fotoUrl}" target="_blank" rel="noopener" class="foto-link">📷 Ver foto en Drive</a>` : '';
+    if (r.foto) {
+      fotoHtml = `<div class="reporte-foto-wrap"><img src="${r.foto}" class="reporte-foto" onclick="verFoto(this.src)" alt="Foto"/>${linkDrive}</div>`;
+    } else if (fotoId) {
+      fotoHtml = `<div class="reporte-foto-wrap"><img src="https://drive.google.com/thumbnail?id=${fotoId}&sz=w400" class="reporte-foto" loading="lazy" referrerpolicy="no-referrer" onclick="window.open('${r.fotoUrl}','_blank')" onerror="this.remove()" alt="Foto"/>${linkDrive}</div>`;
+    } else if (r.fotoUrl) {
+      fotoHtml = `<div class="reporte-foto-wrap">${linkDrive}</div>`;
+    }
 
     let acciones = '';
     if (r.estado === 'Pendiente') {
@@ -850,6 +861,12 @@ async function agregarNotaUI(id) {
   } catch(e) {
     showToast('Sin conexión — no se pudo agregar la nota', 'error');
   }
+}
+
+function driveFileId(url) {
+  if (!url) return '';
+  const m = String(url).match(/\/d\/([\w-]{20,})/) || String(url).match(/[?&]id=([\w-]{20,})/);
+  return m ? m[1] : '';
 }
 
 function verFoto(src) {
