@@ -278,6 +278,19 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qD
 // Sheet (ver cargarKioskos()/configuracion.html) antes de traer la planilla.
 // Cada kiosko es un "resto" (el horario original de Lorito es un solo punto
 // de venta; acá cada kiosko tiene su propia pestaña con su propio equipo).
+// Sin timeout, si el Apps Script no responde la página se queda en "Actualizando..." para siempre.
+async function fetchConTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
@@ -301,7 +314,7 @@ async function cargarKioskosDesdeBackend(url, conTimeout) {
 }
 async function cargarKioskos() {
   if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.startsWith('TODO_')) {
-    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos');
+    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos', true);
       if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
         KIOSKOS = kioskosPermitidos(data.kioskos);
       }
@@ -392,9 +405,9 @@ async function loadSheet(){
   document.getElementById('header-status').textContent='Actualizando...';
   try{
     const [rP, rV, rPerm] = await Promise.all([
-      fetch(APPS_SCRIPT_URL+'?modulo=personal'),
-      fetch(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null),
-      fetch(APPS_SCRIPT_URL+'?modulo=permisos_sin_goce').catch(()=>null)
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=personal'),
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null),
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=permisos_sin_goce').catch(()=>null)
     ]);
     if(!rP.ok) throw new Error('Personal respondió '+rP.status);
     const dP = await rP.json();
@@ -442,7 +455,7 @@ function resetWeekCells(){
 /* ── Guardar / cargar historial de horarios (hoja "Horarios" en RRHH) ── */
 async function cargarHorarioGuardado(){
   try{
-    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
     if(!resp.ok)return;
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros))return;
@@ -562,7 +575,7 @@ async function copiarSemanaAnterior(){
   const btn=document.getElementById('btn-copy-week');
   if(btn){btn.disabled=true;btn.textContent='Copiando…';}
   try{
-    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
     if(!resp.ok){toast('No se pudo cargar la semana anterior');return}
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar la semana anterior');return}
@@ -644,7 +657,7 @@ async function copiarCeldaAnterior(empId,dayIdx){
   const fechaAnteriorD=new Date(fechaLunes);fechaAnteriorD.setDate(fechaAnteriorD.getDate()-1);
   const fechaAnteriorISO=fmt(fechaAnteriorD);
   try{
-    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios');
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
     if(!resp.ok){toast('No se pudo cargar el día anterior');return}
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar el día anterior');return}
@@ -683,7 +696,7 @@ async function cargarEstadoSemana(){
   const semana=document.getElementById('week-start').value;
   horarioPdfUrl='';
   try{
-    const resp=await fetch(APPS_SCRIPT_URL+'?modulo=horarios_estado');
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado');
     const data=await resp.json();
     // El cierre es por Semana + Kiosko: filas viejas sin "Kiosko" (antes de
     // este cambio) no matchean con ningún kiosko y quedan tratadas como abiertas.
