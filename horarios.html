@@ -18,6 +18,7 @@
   --inc-bg:#fef3c7;--inc-text:#78350f;--inc-border:#fcd34d;
   --per-bg:#f3e8ff;--per-text:#4c1d95;--per-border:#c4b5fd;
   --lib-bg:#f1f5f9;--lib-text:#334155;--lib-border:#cbd5e1;
+  --pend-bg:#f1f5f9;--pend-text:#94a1b2;--pend-border:#dbe2ea;
   --radius:8px;--radius-lg:12px;--shadow:0 1px 3px rgba(0,0,0,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -149,6 +150,40 @@ tbody tr:last-child td{border-bottom:none}
   @page{size:landscape;margin:1cm}
 }
 @media(max-width:640px){main{padding:14px 12px}header{padding:0 14px}}
+/* ── Selector de vista (Horario de trabajo / Historial por kiosko) ── */
+.view-switch{display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.view-switch .vtab{font-size:13.5px;font-weight:600;padding:10px 18px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text2);cursor:pointer;transition:all .15s;margin-bottom:-1px}
+.view-switch .vtab:hover{color:var(--text)}
+.view-switch .vtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* ── Matriz "Historial por kiosko" (integrada, ex horarios-historial.html) ── */
+#view-historial .hist-sub{font-size:13px;color:var(--text2);margin-bottom:16px}
+#view-historial .status-msg{font-size:12px;color:var(--text2);margin-bottom:14px}
+#view-historial .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+#view-historial .metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;box-shadow:var(--shadow)}
+#view-historial .metric-lbl{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+#view-historial .metric-val{font-size:20px;font-weight:600;color:var(--text)}
+#view-historial .metric-val.warn{color:var(--warn-text)}
+#view-historial .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;align-items:center}
+#view-historial .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+#view-historial .legend-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.06)}
+#view-historial .tbl-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow);margin-bottom:20px}
+#view-historial table{border-collapse:collapse;min-width:100%}
+#view-historial thead th{font-size:10.5px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;padding:9px 6px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;line-height:1.35}
+#view-historial thead th.kiosko-col{text-align:left;padding-left:16px;min-width:150px;position:sticky;left:0;background:var(--surface2);z-index:2}
+#view-historial thead th.today-col{background:var(--accent-bg);color:var(--accent-text)}
+#view-historial tbody td{padding:6px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;vertical-align:middle;background:var(--surface)}
+#view-historial tbody td.kiosko-col{text-align:left;padding-left:16px;font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--surface);border-right:1px solid var(--border2)}
+#view-historial tbody tr:last-child td{border-bottom:none}
+#view-historial tbody tr:hover td.kiosko-col{background:var(--surface2)}
+#view-historial .cell-btn{width:100%;min-width:76px;border:none;border-radius:7px;padding:8px 4px;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:opacity .15s}
+#view-historial .cell-btn:hover{opacity:.8}
+#view-historial .cell-icon{font-size:14px;line-height:1}
+#view-historial .cell-lbl{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+#view-historial .cell-sub{font-size:9.5px;opacity:.85}
+#view-historial .st-pendiente{background:var(--pend-bg);color:var(--pend-text)}
+#view-historial .st-cargado{background:var(--accent-bg);color:var(--accent-text)}
+#view-historial .st-cerrado{background:var(--inc-bg);color:var(--inc-text)}
+#view-historial .empty-state{text-align:center;padding:50px 20px;color:var(--text3)}
 </style>
 </head>
 <body>
@@ -166,6 +201,12 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 </header>
 <main>
+  <div class="view-switch">
+    <button type="button" class="vtab active" data-view="editor" onclick="switchView('editor')">&#128197; Horario de trabajo</button>
+    <button type="button" class="vtab" data-view="historial" onclick="switchView('historial')">&#128202; Historial por kiosko</button>
+  </div>
+
+  <div id="view-editor">
   <div class="week-bar">
     <div style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-sm" onclick="shiftWeek(-1)">&larr; Anterior</button>
@@ -176,7 +217,6 @@ tbody tr:last-child td{border-bottom:none}
     <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoy</button>
     <span id="semana-cerrada-badge" class="lock-badge" style="display:none">&#128274; Semana cerrada</span>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-      <a href="horarios-historial.html" class="btn btn-ghost btn-sm">&#128193; Control por kiosko</a>
       <button class="btn btn-sm" id="btn-cerrar-semana" onclick="cerrarSemana()" style="display:none">&#128274; Cerrar horario</button>
       <button class="btn btn-sm" id="btn-reabrir-semana" onclick="reabrirSemana()" style="display:none">&#128275; Reabrir (código admin)</button>
     </div>
@@ -244,6 +284,23 @@ tbody tr:last-child td{border-bottom:none}
   <div class="export-row" id="export-row" style="display:none">
     <button class="btn" id="btn-pdf" onclick="descargarPDF()" disabled title="Cerrá el horario para habilitar la exportación">&darr; Descargar PDF</button>
     <button class="btn btn-import" id="btn-whatsapp" onclick="enviarWhatsApp()" disabled title="Cerrá el horario para habilitar el envío">&#128172; Enviar por WhatsApp</button>
+  </div>
+  </div><!-- /view-editor -->
+
+  <div id="view-historial" style="display:none">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px">
+      <h1 style="font-size:20px;font-weight:600">Estado de horarios por kiosko</h1>
+      <button class="btn btn-sm" onclick="cargarHistorial()">&#8635; Actualizar</button>
+    </div>
+    <p class="hist-sub">Seguimiento semanal: qu&eacute; kioskos tienen el horario pendiente, cargado (abierto) o cerrado. Click en una celda para abrir ese kiosko y esa semana.</p>
+    <div class="status-msg" id="hist-status">Cargando&hellip;</div>
+    <div id="hist-summary"></div>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--pend-bg)"></span>Pendiente &mdash; sin horario cargado</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--accent-bg)"></span>Cargado &mdash; abierto, editable</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--inc-bg)"></span>Cerrado &mdash; bloqueado y enviado</div>
+    </div>
+    <div id="hist-contenido"></div>
   </div>
 </main>
 <div class="toast" id="toast"></div>
@@ -1530,6 +1587,181 @@ async function enviarWhatsApp(){
   const rango=dates[0].date+' al '+dates[6].date+' · '+getWeekLabel();
   const texto='Horario de la semana '+rango+'\n'+horarioPdfUrl;
   window.open('https://wa.me/?text='+encodeURIComponent(texto),'_blank');
+}
+
+/* ── VISTA "HISTORIAL POR KIOSKO" (matriz integrada, ex horarios-historial.html) ──
+   Antes era una página aparte (horarios-historial.html) enlazada como "Control
+   por kiosko". Ahora vive dentro de esta misma pantalla como una segunda vista:
+   la misma matriz semana × kiosko, y al hacer click en una celda se abre ese
+   kiosko + esa semana en el editor sin recargar la página. */
+let histCargando=false;
+
+function switchView(view){
+  const editor=document.getElementById('view-editor');
+  const hist=document.getElementById('view-historial');
+  document.querySelectorAll('.view-switch .vtab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===view);
+  });
+  if(view==='historial'){
+    editor.style.display='none';
+    hist.style.display='block';
+    cargarHistorial(); // siempre refresca para reflejar lo recién guardado/cerrado
+  }else{
+    hist.style.display='none';
+    editor.style.display='block';
+  }
+}
+
+function semanaCorta(iso){
+  const s=new Date(iso+'T00:00:00'),e=new Date(s);e.setDate(s.getDate()+6);
+  return s.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'})+'–'+e.toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit'});
+}
+// Últimas 10 semanas (incluye la actual) + próximas 2 — ventana móvil de
+// seguimiento operativo. Orden: más vieja a la izquierda, futuro a la derecha.
+function semanasVentana(){
+  const hoyLunes=getMondayOf(new Date());
+  const semanas=[];
+  for(let i=-9;i<=2;i++){
+    const d=new Date(hoyLunes);d.setDate(d.getDate()+i*7);
+    semanas.push(fmt(d));
+  }
+  return semanas;
+}
+function estadoCeldaHist(porCelda,estados,semana,kiosko){
+  const key=semana+'||'+kiosko.toLowerCase();
+  const datos=porCelda[key];
+  const est=estados[key];
+  if(est && est.cerrado) return {tipo:'cerrado',datos,est};
+  if(datos && datos.colaboradores.size) return {tipo:'cargado',datos,est};
+  return {tipo:'pendiente',datos,est};
+}
+
+async function cargarHistorial(){
+  if(histCargando) return;
+  histCargando=true;
+  document.getElementById('hist-status').textContent='Cargando…';
+  try{
+    const [rH,rE]=await Promise.all([
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios'),
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado')
+    ]);
+    const dH=await rH.json();
+    const dE=await rE.json();
+    if(!dH.ok) throw new Error(dH.error||'No se pudo leer Horarios');
+
+    const registros=dH.registros||[];
+    // key "semana||kiosko" -> {colaboradores:Set, horas}
+    const porCelda={};
+    registros.forEach(r=>{
+      const semana=(r['Semana inicio']||'').toString().trim();
+      const kiosko=(r['Kiosko']||'').toString().trim();
+      if(!semana||!kiosko)return;
+      const key=semana+'||'+kiosko.toLowerCase();
+      if(!porCelda[key]) porCelda[key]={colaboradores:new Set(),horas:0,kiosko:kiosko};
+      porCelda[key].colaboradores.add((r['Colaborador']||'').toString().trim());
+      porCelda[key].horas+=parseFloat(r['Horas']||0)||0;
+    });
+
+    // key "semana||kiosko" -> {cerrado, actualizado, pdfUrl}
+    const estados={};
+    (dE.ok?dE.registros:[]).forEach(r=>{
+      const semana=(r['Semana inicio']||'').toString().trim();
+      const kiosko=(r['Kiosko']||'').toString().trim();
+      if(!semana||!kiosko)return;
+      const key=semana+'||'+kiosko.toLowerCase();
+      estados[key]={
+        cerrado:(r['Cerrado']||'').toString().trim().toLowerCase()==='sí',
+        actualizado:r['Actualizado']||'',
+        pdfUrl:r['PDF URL']||''
+      };
+    });
+
+    // KIOSKOS ya viene filtrado por rol (cargarKioskos), pero se reaplica por si acaso.
+    const kioskosVisibles = kioskosPermitidos(KIOSKOS);
+    const semanas=semanasVentana();
+    renderHistorial(kioskosVisibles,semanas,porCelda,estados);
+    document.getElementById('hist-status').textContent=
+      kioskosVisibles.length+' kiosko'+(kioskosVisibles.length!==1?'s':'')+' · '+
+      semanas.length+' semanas ('+semanaCorta(semanas[0])+' a '+semanaCorta(semanas[semanas.length-1])+')';
+  }catch(e){
+    console.error(e);
+    document.getElementById('hist-status').textContent='Error al cargar el control: '+e.message;
+    document.getElementById('hist-contenido').innerHTML='<div class="empty-state">No se pudo conectar con RRHH. Prob&aacute; "Actualizar".</div>';
+  }finally{
+    histCargando=false;
+  }
+}
+
+function renderHistorial(kioskos,semanas,porCelda,estados){
+  const cont=document.getElementById('hist-contenido');
+  const sumEl=document.getElementById('hist-summary');
+  if(!kioskos.length){
+    cont.innerHTML='<div class="empty-state">No hay kioskos visibles para tu usuario.</div>';
+    sumEl.innerHTML='';
+    return;
+  }
+  const hoySemana=fmt(getMondayOf(new Date()));
+
+  // Resumen: cuántos kioskos están pendientes/cargados/cerrados en la semana actual.
+  let nPend=0,nCarg=0,nCerr=0;
+  kioskos.forEach(k=>{
+    const e=estadoCeldaHist(porCelda,estados,hoySemana,k);
+    if(e.tipo==='pendiente')nPend++;else if(e.tipo==='cargado')nCarg++;else nCerr++;
+  });
+  sumEl.innerHTML=
+    '<div class="summary">'+
+    '<div class="metric"><div class="metric-lbl">Semana actual</div><div class="metric-val">'+esc(semanaCorta(hoySemana))+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Pendientes esta semana</div><div class="metric-val'+(nPend?' warn':'')+'">'+nPend+' / '+kioskos.length+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Cargados (sin cerrar)</div><div class="metric-val">'+nCarg+'</div></div>'+
+    '<div class="metric"><div class="metric-lbl">Cerrados</div><div class="metric-val">'+nCerr+'</div></div>'+
+    '</div>';
+
+  let html='<div class="tbl-wrap"><table><thead><tr><th class="kiosko-col">Kiosko</th>';
+  semanas.forEach(s=>{
+    const esHoy=s===hoySemana;
+    html+='<th class="'+(esHoy?'today-col':'')+'">'+esc(semanaCorta(s))+(esHoy?'<br>HOY':'')+'</th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  kioskos.forEach(k=>{
+    html+='<tr><td class="kiosko-col">'+esc(k)+'</td>';
+    semanas.forEach(s=>{
+      const e=estadoCeldaHist(porCelda,estados,s,k);
+      const nColab=e.datos?e.datos.colaboradores.size:0;
+      let icon='—',lbl='Pendiente',sub='',cls='st-pendiente';
+      if(e.tipo==='cargado'){icon='&#9999;';lbl='Cargado';sub=nColab+' colab.';cls='st-cargado';}
+      else if(e.tipo==='cerrado'){icon='&#128274;';lbl='Cerrado';sub=nColab+' colab.';cls='st-cerrado';}
+      html+='<td><button type="button" class="cell-btn '+cls+'" '+
+        'onclick="irAKioskoLocal(\''+s+'\',\''+k.replace(/'/g,"\\'")+'\')" '+
+        'title="'+esc(k)+' · '+esc(semanaCorta(s))+' · '+lbl+'">'+
+        '<span class="cell-icon">'+icon+'</span>'+
+        '<span class="cell-lbl">'+lbl+'</span>'+
+        (sub?'<span class="cell-sub">'+esc(sub)+'</span>':'')+
+        '</button></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  cont.innerHTML=html;
+}
+
+// Click en una celda del historial: abrir ese kiosko + semana en el editor,
+// sin salir de la página (antes navegaba entre horarios-historial.html y
+// horarios.html?semana=&kiosko=).
+async function irAKioskoLocal(semana,kiosko){
+  switchView('editor');
+  document.getElementById('week-start').value=semana;
+  updateWeekLabel();
+  const r=restos.find(x=>x.id.toLowerCase()===kiosko.toLowerCase());
+  if(r) activeResto=r.id;
+  renderKioskoTabs();
+  renderAll();
+  mostrarConteoActivos();
+  resetWeekCells();
+  await cargarHorarioGuardado();
+  aplicarVacaciones();
+  aplicarPermisos();
+  await cargarEstadoSemana();
 }
 
 initWeek();
