@@ -619,7 +619,10 @@ async function guardarSemanaDatos(){
     });
   });
   try{
-    const resp=await fetch(APPS_SCRIPT_URL,{
+    // fetchConTimeout (no fetch pelón): si el backend se demora, el guardado
+    // corta a los 30s y muestra el error en vez de dejar el botón pegado en
+    // "Guardando…" para siempre.
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL,{
       method:'POST',
       body:new URLSearchParams({data:JSON.stringify({modulo:'horario_semana',semana_inicio:semana,dias})})
     });
