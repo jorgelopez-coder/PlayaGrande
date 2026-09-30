@@ -404,16 +404,18 @@ function diffDays(isoA,isoB){
 async function loadSheet(){
   document.getElementById('header-status').textContent='Actualizando...';
   try{
-    const [rP, rV, rPerm] = await Promise.all([
-      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=personal'),
-      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null),
-      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=permisos_sin_goce').catch(()=>null)
-    ]);
-    if(!rP.ok) throw new Error('Personal respondió '+rP.status);
-    const dP = await rP.json();
+    // Una sola llamada 'lote' trae personal + vacaciones + permisos, en vez
+    // de 3 fetches separados (3 conexiones y 3 arranques en frío del Apps
+    // Script). El backend responde {ok, resultados:{personal, vacaciones,
+    // permisos_sin_goce}}, cada uno con la misma forma {ok, registros}.
+    const rLote = await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=lote&modulos=personal,vacaciones,permisos_sin_goce');
+    if(!rLote.ok) throw new Error('RRHH respondió '+rLote.status);
+    const dLote = await rLote.json();
+    if(!dLote.ok||!dLote.resultados) throw new Error(dLote.error||'Respuesta inválida de RRHH');
+    const dP = dLote.resultados.personal || {ok:false,registros:[]};
     if(!dP.ok) throw new Error(dP.error||'Respuesta inválida de personal');
-    const dV = rV && rV.ok ? await rV.json() : {ok:false,registros:[]};
-    const dPerm = rPerm && rPerm.ok ? await rPerm.json() : {ok:false,registros:[]};
+    const dV = dLote.resultados.vacaciones || {ok:false,registros:[]};
+    const dPerm = dLote.resultados.permisos_sin_goce || {ok:false,registros:[]};
 
     buildFromPersonal(dP.registros||[]);
     vacaciones = normalizarVacaciones(dV.ok?dV.registros:[]);
@@ -455,13 +457,17 @@ function resetWeekCells(){
 /* ── Guardar / cargar historial de horarios (hoja "Horarios" en RRHH) ── */
 async function cargarHorarioGuardado(){
   try{
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
+    const semana=document.getElementById('week-start').value;
+    const dates=getWeekDatesISO();
+    // Solo se pide al servidor el rango de fechas de la semana visible
+    // (desde/hasta) en vez de todo el histórico de Horarios (~800 filas,
+    // >200KB). El backend filtra por 'Fecha' antes de responder, así que
+    // el navegador recibe solo las ~filas de esta semana.
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
     if(!resp.ok)return;
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros))return;
 
-    const semana=document.getElementById('week-start').value;
-    const dates=getWeekDatesISO();
     const registros=data.registros.filter(r=>(r['Semana inicio']||'')===semana);
     if(!registros.length)return;
 
@@ -570,12 +576,15 @@ async function copiarSemanaAnterior(){
   const semanaActual=document.getElementById('week-start').value;
   const dPrev=new Date(semanaActual+'T00:00:00');dPrev.setDate(dPrev.getDate()-7);
   const semanaPrev=fmt(dPrev);
+  const dPrevFin=new Date(dPrev);dPrevFin.setDate(dPrevFin.getDate()+6);
+  const semanaPrevFin=fmt(dPrevFin);
   if(!confirm('¿Copiar el horario de la semana del '+semanaPrev+' a esta semana?\n\nSe sobreescribirán los turnos actuales de todos los colaboradores.'))return;
 
   const btn=document.getElementById('btn-copy-week');
   if(btn){btn.disabled=true;btn.textContent='Copiando…';}
   try{
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
+    // Solo la semana anterior (rango de 7 días) en vez de todo el histórico.
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(semanaPrev)+'&hasta='+encodeURIComponent(semanaPrevFin));
     if(!resp.ok){toast('No se pudo cargar la semana anterior');return}
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar la semana anterior');return}
@@ -657,7 +666,7 @@ async function copiarCeldaAnterior(empId,dayIdx){
   const fechaAnteriorD=new Date(fechaLunes);fechaAnteriorD.setDate(fechaAnteriorD.getDate()-1);
   const fechaAnteriorISO=fmt(fechaAnteriorD);
   try{
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios');
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(fechaAnteriorISO)+'&hasta='+encodeURIComponent(fechaAnteriorISO));
     if(!resp.ok){toast('No se pudo cargar el día anterior');return}
     const data=await resp.json();
     if(!data.ok||!Array.isArray(data.registros)){toast('No se pudo cargar el día anterior');return}
