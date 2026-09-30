@@ -42,6 +42,14 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b);white-space:nowrap}
 .tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
 .tab-btn:hover:not(.active){color:var(--text)}
+.tabla-cal{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.tabla-cal th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px;border-bottom:1px solid var(--border)}
+.tabla-cal td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tabla-cal tr.cal-prox td{background:var(--amber-bg)}
+.cal-estado{font-size:12px;color:var(--muted)}
+.cal-estado.ok{color:var(--green);font-weight:600}
+.cal-estado.prox{color:var(--amber);font-weight:600}
+.cal-nota{font-size:11px;color:var(--muted)}
 
 main{max-width:1080px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .page{display:none}.page.active{display:block}
@@ -235,8 +243,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <select id="pl-anio" onchange="alCambiarSelector()"></select>
   <select id="pl-mes" onchange="alCambiarSelector()"></select>
   <select id="pl-quincena" onchange="alCambiarSelector()">
-    <option value="1">Del 1 al 15</option>
-    <option value="2">Del 16 al fin de mes</option>
+    <option value="1">1ª quincena (corte 13)</option>
+    <option value="2">2ª quincena (corte 29)</option>
   </select>
   <span class="periodo-chip" id="periodo-chip">—</span>
 </div>
@@ -246,6 +254,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <button class="tab-btn" onclick="showTab('planilla',this)">Planilla</button>
   <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
   <button class="tab-btn" onclick="showTab('feriados',this)">Feriados</button>
+  <button class="tab-btn" onclick="showTab('calendario',this)">Calendario</button>
 </div>
 
 <main>
@@ -300,6 +309,24 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <p class="card-title">Feriados de pago obligatorio</p>
     <p class="hint" style="display:block;margin-bottom:10px">Editá esta lista cada año — las fechas de Semana Santa y algunos traslados de la Ley 8442 cambian. Un feriado inactivo deja de contarse en el cálculo de planilla.</p>
     <div id="fer-items"><div class="empty-lista"><span class="spinner"></span></div></div>
+  </div>
+</div>
+
+<!-- ── TAB CALENDARIO (cortes 13/29 + recordatorios) ── -->
+<div class="page" id="tab-calendario">
+  <div class="control-topbar">
+    <button class="btn-sm" onclick="cambiarAnioCalendario(-1)">← Año anterior</button>
+    <span class="control-anio" id="cal-anio-label">—</span>
+    <button class="btn-sm" onclick="cambiarAnioCalendario(1)">Año siguiente →</button>
+  </div>
+  <div class="card">
+    <p class="card-title">Calendario de cortes de planilla</p>
+    <p class="hint" style="display:block;margin-bottom:10px">Corte automático el <b>13</b> y el <b>29</b> de cada mes (en febrero, el último día) a las 11pm: la planilla de cada kiosko queda con las <b>incidencias en revisión</b> (lista para aprobar) y te llega un resumen por correo. El día anterior a las 8am, los encargados reciben un recordatorio con lo que les falta cargar (horarios, horas extra, deducciones, amonestaciones, vacaciones, incapacidades, feriados y servicio 10%). Las fechas se pueden mover en la pestaña <i>CalendarioPlanilla</i> del Sheet.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn-sm" onclick="descargarICSCalendario()">📅 Descargar para Google Calendar (.ics)</button>
+      <button class="btn-sm" id="btn-cal-generar" onclick="generarAnioCalendario()" style="display:none">Guardar calendario en el Sheet</button>
+    </div>
+    <div id="cal-tabla-cont" style="overflow-x:auto"><div class="empty-state"><span class="spinner"></span></div></div>
   </div>
 </div>
 
@@ -415,6 +442,7 @@ function showTab(tab, el) {
   if (tab === 'planilla') cargarTabPlanilla();
   if (tab === 'historial') cargarHistorial();
   if (tab === 'feriados') cargarFeriados();
+  if (tab === 'calendario') cargarCalendarioPlanilla();
 }
 
 // ── KIOSKOS ───────────────────────────────────────────────────────
@@ -474,27 +502,89 @@ function encabezadoEmpresaHTML(kiosko) {
 function mismoKiosko(a, b) { return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase(); }
 
 // ── PERIODO (quincena) ────────────────────────────────────────────
+// Desde 2026-09-24 los cortes son el 13 y el 29 (en febrero, el último
+// día): 1ª quincena = del día siguiente al corte anterior (30 del mes
+// anterior) al 13; 2ª quincena = del 14 al 29. Transición: 2026-09-Q2 va
+// del 16 al 29. Fuente de verdad: pestaña CalendarioPlanilla del Sheet
+// (?modulo=calendario_planilla, fechas movibles a mano); la fórmula de
+// abajo es la misma que rangoPeriodoPlanilla() en
+// Code-rrhh-planilla-automatica.gs y solo se usa si el periodo no está ahí.
+const PERIODO_TRANSICION = '2026-09-Q2';
+const DIA_CORTE_Q1 = 13, DIA_CORTE_Q2 = 29;
+let CALENDARIO_PLANILLA = [];
+let CALENDARIO_PROMESA = null;
+function isoLocal(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function rangoPeriodoFormula(anio, mes, q) {
+  const clave = `${anio}-${pad(mes)}-Q${q}`;
+  const ultimo = new Date(anio, mes, 0).getDate();
+  let ini, fin;
+  if (clave < PERIODO_TRANSICION) {
+    ini = new Date(anio, mes-1, q === 1 ? 1 : 16); fin = new Date(anio, mes-1, q === 1 ? 15 : ultimo);
+  } else if (clave === PERIODO_TRANSICION) {
+    ini = new Date(anio, mes-1, 16); fin = new Date(anio, mes-1, Math.min(DIA_CORTE_Q2, ultimo));
+  } else if (q === 1) {
+    const aP = mes === 1 ? anio-1 : anio, mP = mes === 1 ? 12 : mes-1;
+    const finPrev = Math.min(DIA_CORTE_Q2, new Date(aP, mP, 0).getDate());
+    ini = new Date(aP, mP-1, finPrev+1); fin = new Date(anio, mes-1, DIA_CORTE_Q1);
+  } else {
+    ini = new Date(anio, mes-1, DIA_CORTE_Q1+1); fin = new Date(anio, mes-1, Math.min(DIA_CORTE_Q2, ultimo));
+  }
+  const rec = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate()-1);
+  return { periodo: clave, fechaInicio: isoLocal(ini), fechaFin: isoLocal(fin), fechaRecordatorio: isoLocal(rec), fila: null };
+}
+function rangoPeriodo(anio, mes, q) {
+  const f = rangoPeriodoFormula(anio, mes, q);
+  const fila = CALENDARIO_PLANILLA.find(r => String(r['Periodo']) === f.periodo);
+  if (fila && fila['Fecha inicio'] && fila['Fecha corte']) {
+    return { periodo: f.periodo, fechaInicio: String(fila['Fecha inicio']).slice(0,10), fechaFin: String(fila['Fecha corte']).slice(0,10),
+      fechaRecordatorio: String(fila['Fecha recordatorio'] || f.fechaRecordatorio).slice(0,10), fila };
+  }
+  return f;
+}
+// Periodo (año, mes, quincena) que contiene una fecha ISO.
+function periodoDeFecha(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  const a = d.getFullYear(), m = d.getMonth() + 1;
+  const sig = m === 12 ? [a+1, 1] : [a, m+1];
+  const candidatos = [[a, m, 1], [a, m, 2], [sig[0], sig[1], 1]];
+  for (const c of candidatos) {
+    const r = rangoPeriodo(c[0], c[1], c[2]);
+    if (iso >= r.fechaInicio && iso <= r.fechaFin) return { anio: c[0], mes: c[1], quincena: c[2] };
+  }
+  return { anio: a, mes: m, quincena: d.getDate() <= 15 ? 1 : 2 };
+}
 function poblarSelectoresPeriodo() {
   const anioActual = hoy.getFullYear();
   const selAnio = document.getElementById('pl-anio');
   selAnio.innerHTML = [anioActual-1, anioActual, anioActual+1].map(a => `<option value="${a}">${a}</option>`).join('');
-  selAnio.value = anioActual;
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('pl-mes').innerHTML = meses.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
-  document.getElementById('pl-mes').value = hoy.getMonth() + 1;
-  document.getElementById('pl-quincena').value = hoy.getDate() <= 15 ? '1' : '2';
+  seleccionarPeriodoDeHoy();
+}
+function seleccionarPeriodoDeHoy() {
+  const p = periodoDeFecha(isoLocal(hoy));
+  document.getElementById('pl-anio').value = p.anio;
+  document.getElementById('pl-mes').value = p.mes;
+  document.getElementById('pl-quincena').value = String(p.quincena);
 }
 function rangoPeriodoActual() {
   const anio = Number(document.getElementById('pl-anio').value);
   const mes = Number(document.getElementById('pl-mes').value);
   const quincena = Number(document.getElementById('pl-quincena').value);
-  const ini = quincena === 1 ? 1 : 16;
-  const fin = quincena === 1 ? 15 : new Date(anio, mes, 0).getDate();
-  const fechaInicio = `${anio}-${pad(mes)}-${pad(ini)}`;
-  const fechaFin = `${anio}-${pad(mes)}-${pad(fin)}`;
-  const periodo = `${anio}-${pad(mes)}-Q${quincena}`;
-  return { anio, mes, quincena, fechaInicio, fechaFin, periodo };
+  const r = rangoPeriodo(anio, mes, quincena);
+  return { anio, mes, quincena, fechaInicio: r.fechaInicio, fechaFin: r.fechaFin, periodo: r.periodo };
 }
+// Carga CalendarioPlanilla una sola vez (las pantallas que arman el rango
+// del periodo esperan esta promesa). Si el backend todavía no tiene el
+// módulo, sigue con la fórmula sin romper nada.
+function cargarCalendarioDatos(forzar) {
+  if (CALENDARIO_PROMESA && !forzar) return CALENDARIO_PROMESA;
+  CALENDARIO_PROMESA = fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=calendario_planilla')
+    .then(d => { CALENDARIO_PLANILLA = (d && d.ok) ? d.registros : []; })
+    .catch(() => { CALENDARIO_PLANILLA = []; });
+  return CALENDARIO_PROMESA;
+}
+function esperarCalendario() { return cargarCalendarioDatos(false); }
 function fechaBonita(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('es-CR', { day:'numeric', month:'short' });
@@ -926,6 +1016,7 @@ async function cargarTabPlanilla() {
   const cont = document.getElementById('planilla-contenido');
   cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
   const kiosko = document.getElementById('pl-kiosko').value;
+  await esperarCalendario();
   const r = rangoPeriodoActual();
 
   try {
@@ -941,15 +1032,21 @@ async function cargarTabPlanilla() {
 
     PLANILLA_ACTUAL = planillaFila || null;
 
-    if (PLANILLA_ACTUAL && PLANILLA_ACTUAL['Estado'] === 'Aprobada') {
+    const estadoPl = PLANILLA_ACTUAL ? PLANILLA_ACTUAL['Estado'] : '';
+    if (PLANILLA_ACTUAL && estadoEsCalculada(estadoPl)) {
       renderPlanillaAprobada(PLANILLA_ACTUAL);
-    } else if (PLANILLA_ACTUAL && PLANILLA_ACTUAL['Estado'] === 'Pendiente de aprobación') {
+    } else if (PLANILLA_ACTUAL && estadoPl === 'Incidencias aprobadas') {
       WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
-      WIZARD_MAX_PASO = 5; WIZARD_PASO = 5;
+      WIZARD_MAX_PASO = 4; WIZARD_PASO = 4;
+      renderWizard();
+    } else if (PLANILLA_ACTUAL && estadoPl === 'Incidencias en revisión') {
+      WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
+      WIZARD_MAX_PASO = 3; WIZARD_PASO = 3;
       renderWizard();
     } else if (incidenciasDelPeriodo.length) {
+      // Estado 'Abierta' (o sin fila todavía pero con incidencias): armado.
       WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
-      WIZARD_MAX_PASO = 3; WIZARD_PASO = 2;
+      WIZARD_MAX_PASO = 2; WIZARD_PASO = 2;
       renderWizard();
     } else {
       renderCTAAbrirPeriodo(kiosko);
@@ -995,7 +1092,21 @@ function iniciarWizardNuevo() {
 }
 
 // ── INDICADOR DE PASOS ────────────────────────────────────────────
-const WIZARD_ETIQUETAS = ['Colaboradores', 'Ingresos', 'Deducciones', 'Cálculo', 'Revisión final'];
+// Circuito NUEVO (2026-09-29): se aprueban las incidencias antes del cálculo.
+//   1 Colaboradores → 2 Reporte de incidencias (editable) → 3 Aprobación (rol)
+//   → 4 Cálculo final. El viejo Paso 5 (checklist) se eliminó.
+const WIZARD_ETIQUETAS = ['Colaboradores', 'Reporte de incidencias', 'Aprobación', 'Cálculo final'];
+// ¿La sesión actual puede APROBAR incidencias? (rol con módulo 'planilla-aprobar').
+function puedeAprobarPlanilla() {
+  if (!PORTAL_SESION) return false;
+  return PORTAL_SESION.modulos === 'todos' || (Array.isArray(PORTAL_SESION.modulos) && PORTAL_SESION.modulos.includes('planilla-aprobar'));
+}
+function nombreSesion() { return (PORTAL_SESION && PORTAL_SESION.nombre) ? PORTAL_SESION.nombre : ''; }
+// Estados terminales/legacy que muestran el resultado final (ya tienen
+// snapshot en PlanillasDetalle). 'Aprobada' y 'Pendiente de aprobación' son
+// del flujo viejo (con checklist) — se muestran como calculadas para no dejar
+// planillas históricas atrapadas en el nuevo circuito.
+function estadoEsCalculada(e) { return e === 'Calculada' || e === 'Aprobada' || e === 'Pendiente de aprobación'; }
 function renderWizardSteps() {
   return `<div class="wizard-steps">${WIZARD_ETIQUETAS.map((label, i) => {
     const n = i + 1;
@@ -1020,7 +1131,6 @@ function renderWizard() {
   if (WIZARD_PASO === 2) renderPaso2();
   if (WIZARD_PASO === 3) renderPaso3();
   if (WIZARD_PASO === 4) renderPaso4();
-  if (WIZARD_PASO === 5) renderPaso5();
 }
 
 // ── PASO 1: VERIFICAR COLABORADORES ACTIVOS ──────────────────────
@@ -1220,7 +1330,9 @@ async function confirmarPaso1YContinuar() {
     const incidenciasDelPeriodo = (data.ok ? data.registros : [])
       .filter(row => String(row['Periodo']) === r.periodo && mismoKiosko(row['Kiosko'], kiosko));
     WIZARD_PARTICIPANTES = incidenciasDelPeriodo.map(incidenciaAParticipante);
-    WIZARD_PASO = 2; WIZARD_MAX_PASO = Math.max(WIZARD_MAX_PASO, 2);
+    // La cabecera de Planillas quedó creada en 'Abierta' (abrirPeriodoPlanilla).
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, { Periodo: r.periodo, Kiosko: kiosko, Estado: 'Abierta' });
+    WIZARD_PASO = 2; WIZARD_MAX_PASO = 2;
     renderWizard();
   } catch (err) {
     showToast('Error al abrir el periodo: ' + err.message, 'error');
@@ -1248,7 +1360,16 @@ function horasHorarioRegistradas(nombre, fechaInicio, fechaFin) {
   return resultado;
 }
 let PASO2_EXPANDIDO = -1;
+// ¿La captura de incidencias está bloqueada? (ya se envió a aprobación / se
+// aprobó / se calculó). Para editar hay que reabrir la planilla.
+function incidenciasBloqueadas() {
+  if (!PLANILLA_ACTUAL) return false;
+  return ['Incidencias en revisión', 'Incidencias aprobadas', 'Calculada', 'Aprobada', 'Pendiente de aprobación']
+    .includes(PLANILLA_ACTUAL['Estado']);
+}
 function renderPaso2() {
+  const bloqueado = incidenciasBloqueadas();
+  const notaRechazo = PLANILLA_ACTUAL && PLANILLA_ACTUAL['Nota rechazo'] ? PLANILLA_ACTUAL['Nota rechazo'] : '';
   const r = rangoPeriodoActual();
   const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
     if (String(f['Activo']||'Sí').trim().toLowerCase()==='no') return false;
@@ -1275,13 +1396,33 @@ function renderPaso2() {
     `;
   }).join('');
 
+  const bannerBloqueo = bloqueado ? `
+    <div class="card" style="border-left:3px solid var(--amber);background:var(--amber-bg)">
+      <p style="margin:0"><b>🔒 Incidencias ${PLANILLA_ACTUAL['Estado'] === 'Incidencias en revisión' ? 'enviadas a aprobación' : (PLANILLA_ACTUAL['Estado'] === 'Incidencias aprobadas' ? 'aprobadas' : 'ya calculadas')}.</b> Para modificarlas tenés que reabrir la planilla — eso anula la aprobación y hay que volver a aprobar antes de calcular.</p>
+      <button class="btn-secondary" style="margin-top:10px" onclick="reabrirPlanillaUI(event.target)">🔓 Reabrir para editar</button>
+    </div>` : '';
+  const bannerRechazo = (!bloqueado && notaRechazo) ? `
+    <div class="card" style="border-left:3px solid var(--red);background:var(--red-bg)">
+      <p style="margin:0"><b>↩️ Incidencias devueltas para corregir.</b> Nota de quien revisó: <i>${notaRechazo}</i></p>
+    </div>` : '';
+  const footer = bloqueado
+    ? `<div class="wizard-actions">
+        <button class="btn-secondary" onclick="irAPaso(1)">← Atrás</button>
+        <button class="btn-primary" onclick="irAPaso(3)">Ir a aprobación →</button>
+      </div>`
+    : `<div class="wizard-actions">
+        <button class="btn-secondary" onclick="irAPaso(1)">← Atrás</button>
+        <button class="btn-primary" id="btn-enviar-aprobacion" onclick="enviarAAprobacion(event.target)">Enviar a aprobación →</button>
+      </div>`;
+
   document.getElementById('wizard-paso').innerHTML = `
+    ${bannerBloqueo}${bannerRechazo}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <p class="card-title" style="margin:0">Ingresos — horas de la quincena</p>
+        <p class="card-title" style="margin:0">Reporte de incidencias — horas de la quincena</p>
         <button class="btn-secondary" onclick="refrescarVacaciones(event.target)" title="Vuelve a traer las solicitudes de vacaciones, feriados, amonestaciones y horas extra más recientes y recalcula el preview">🔄 Refrescar cálculo</button>
       </div>
-      <p class="hint" style="display:block;margin:6px 0 10px">Horas regulares vienen precargadas en 120 (quincena completa) — ajustalas solo si hace falta. "Extra 50%/100%" y "Tardanza" se calculan solas (Horas extra aprobadas y Amonestaciones de Llegada tardía) — para reportar o aprobar horas extra usá <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a>; si son al 50% o al 100% se define acá, en el "Detalle" de cada colaborador. Usá "Detalle" también para feriados, incapacidades, vacaciones y subsidio.</p>
+      <p class="hint" style="display:block;margin:6px 0 10px">Este es el reporte consolidado de incidencias de la quincena. Horas regulares vienen precargadas en 120 — ajustalas solo si hace falta. "Extra 50%/100%" y "Tardanza" se calculan solas (Horas extra aprobadas y Amonestaciones de Llegada tardía) — para reportar o aprobar horas extra usá <a href="rrhh-horas-extra.html" target="_blank">Horas extra</a>; si son al 50% o al 100% se define en el "Detalle". Usá "Detalle" también para feriados, incapacidades, vacaciones, permiso sin goce, subsidio y <b>deducciones</b> (CCSS, adelanto, compras, embargo, pensión).</p>
       <table class="tabla-wizard">
         <thead><tr><th>Colaborador</th><th>Horas reg.</th><th>Extra 50%</th><th>Extra 100%</th><th>Días no trab.</th><th>Tardanza</th><th></th></tr></thead>
         <tbody>${filas}</tbody>
@@ -1289,11 +1430,73 @@ function renderPaso2() {
     </div>
     ${renderFeriadosSeccion(feriadosDelPeriodo)}
     ${renderServicio10Seccion()}
-    <div class="wizard-actions">
-      <button class="btn-secondary" onclick="irAPaso(1)">← Atrás</button>
-      <button class="btn-primary" onclick="guardarPaso2YContinuar()">Guardar y continuar →</button>
-    </div>
+    ${footer}
   `;
+}
+
+// Paso 2 → "Enviar a aprobación": guarda el reporte de incidencias y lo deja
+// en 'Incidencias en revisión'; salta al Paso 3 (aprobación).
+async function enviarAAprobacion(btn) {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  try {
+    // 1) Guardar todas las incidencias de la tabla (mismo lote que antes).
+    const resLote = await postBackend({
+      modulo: 'incidencias_guardar_lote',
+      incidencias: WIZARD_PARTICIPANTES.map(p => participanteAPayload(r, kiosko, p))
+    });
+    if (resLote.ok === false) throw new Error(resLote.error || 'Error del servidor');
+    // 2) Enviar a aprobación (congela la captura).
+    const res = await postBackend({
+      modulo: 'planilla_incidencias_enviar', periodo: r.periodo, fecha_inicio: r.fechaInicio,
+      fecha_fin: r.fechaFin, kiosko: kiosko, enviado_por: nombreSesion()
+    });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, {
+      ID: res.result.id, Periodo: r.periodo, Kiosko: kiosko, Estado: 'Incidencias en revisión',
+      'Enviado por': nombreSesion(), 'Nota rechazo': ''
+    });
+    showToast('Reporte de incidencias enviado a aprobación', 'success');
+    WIZARD_PASO = 3; WIZARD_MAX_PASO = 3;
+    renderWizard();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar a aprobación →'; }
+  }
+}
+
+// "Reabrir para editar": vuelve la planilla a 'Abierta' y anula la aprobación.
+async function reabrirPlanillaUI(btn) {
+  if (!confirm('Reabrir anula la aprobación de incidencias y obliga a volver a aprobar antes de calcular. ¿Continuar?')) return;
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  if (btn) { btn.disabled = true; btn.textContent = 'Reabriendo…'; }
+  try {
+    const res = await postBackend({ modulo: 'planilla_reabrir', periodo: r.periodo, kiosko: kiosko });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, { Estado: 'Abierta', 'Aprobado por': '', 'Fecha aprobación': '', 'Nota rechazo': '' });
+    showToast('Planilla reabierta para editar', 'success');
+    WIZARD_PASO = 2; WIZARD_MAX_PASO = 2;
+    renderWizard();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔓 Reabrir para editar'; }
+  }
+}
+// Reabrir desde la vista de planilla ya calculada → vuelve al armado (Paso 2).
+async function reabrirDesdeVista(btn, periodo, kiosko) {
+  if (!confirm('Reabrir anula la aprobación y el cálculo final. Vas a tener que volver a aprobar y recalcular. ¿Continuar?')) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Reabriendo…'; }
+  try {
+    const res = await postBackend({ modulo: 'planilla_reabrir', periodo: periodo, kiosko: kiosko });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    showToast('Planilla reabierta para editar', 'success');
+    await cargarTabPlanilla();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔓 Reabrir para editar'; }
+  }
 }
 // Sección consolidada de Servicio 10% y Tips dentro de Ingresos: automática
 // desde 2026-08-15 — el monto se trae solo (pendiente de pago en
@@ -1529,62 +1732,7 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
         <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.diasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'diasNoTrabajados',this.value)"></div>
         <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioDiasNoTrabajados}" oninput="actualizarCampoSilencioso(${i},'comentarioDiasNoTrabajados',this.value)"></div>
       </div>
-  `);
-}
-function toggleFeriadoTrabajado(i, fecha, marcado) {
-  const p = WIZARD_PARTICIPANTES[i];
-  const idx = p.feriadosTrabajados.indexOf(fecha);
-  if (marcado && idx === -1) p.feriadosTrabajados.push(fecha);
-  if (!marcado && idx !== -1) p.feriadosTrabajados.splice(idx, 1);
-}
-
-async function guardarPaso2YContinuar() {
-  await guardarLoteYAvanzar(3, event.target);
-}
-
-// ── PASO 3: DEDUCCIONES ───────────────────────────────────────────
-let PASO3_EXPANDIDO = -1;
-function renderPaso3() {
-  const filas = WIZARD_PARTICIPANTES.map((p, i) => {
-    const prev = calcularClientePreview(p);
-    const detalleAbierto = PASO3_EXPANDIDO === i;
-    return `
-    <tr>
-      <td>${p.nombre}${p.esExtra?'<span class="tag-manual">Extra</span>':''}${!p.ccssRegistrado?'<span class="tag-manual" style="background:var(--red-bg);color:var(--red)">Sin CCSS</span>':''}</td>
-      <td class="monto">${fmt(prev.baseCCSSAuto)}</td>
-      <td><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso3(${i},'ccssBaseAjustada',this.value)" ${!p.ccssRegistrado?'disabled title="No tiene CCSS marcado en el expediente — no se aplica rebajo"':''}></td>
-      <td class="monto">${fmt(prev.ccssObreraMonto)}</td>
-      <td><button class="detalle-toggle" onclick="togglePaso3Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
-    </tr>
-    <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="5">${detalleAbierto?renderDetallePaso3(i, prev):''}</td></tr>
-    `;
-  }).join('');
-
-  document.getElementById('wizard-paso').innerHTML = `
-    <div class="card">
-      <p class="card-title">Deducciones</p>
-      <p class="hint" style="display:block;margin-bottom:10px">La base de CCSS ya excluye subsidio e incapacidades. Dejá "Base CCSS ajustada" vacío para usar el cálculo automático, o escribí un monto para forzarlo. Adelanto de salario y compras aprobadas se cargan en el detalle, dentro de "Otras deducciones".</p>
-      <table class="tabla-wizard">
-        <thead><tr><th>Colaborador</th><th style="text-align:right">Base CCSS auto</th><th>Base ajustada</th><th style="text-align:right">CCSS (10.83%)</th><th></th></tr></thead>
-        <tbody>${filas}</tbody>
-      </table>
-    </div>
-    <div class="wizard-actions">
-      <button class="btn-secondary" onclick="irAPaso(2)">← Atrás</button>
-      <button class="btn-primary" onclick="guardarPaso3YContinuar()">Guardar y continuar →</button>
-    </div>
-  `;
-}
-function actualizarCampoPaso3(i, campo, valor) {
-  setCampoParticipante(i, campo, valor);
-  renderPaso3();
-}
-function togglePaso3Detalle(i) { PASO3_EXPANDIDO = PASO3_EXPANDIDO === i ? -1 : i; renderPaso3(); }
-function renderDetallePaso3(i, prev) {
-  const p = WIZARD_PARTICIPANTES[i];
-  return `
-    <div class="subcard">
-      <div class="subcard-title">Cómo se arma la base de CCSS</div>
+  `) + subcardColapsable(scId(2,i,'ccss'), `CCSS y base de cotización${!p.ccssRegistrado?' — sin CCSS en expediente':''}`, `
       <div style="font-size:12.5px">
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Horas regulares</span><span>${fmt(prev.horasRegularesMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>+ Horas extra 50%${prev.extra50Horas>0?` (${prev.extra50Horas}h)`:''}</span><span>${fmt(prev.extra50Monto)}</span></div>
@@ -1595,14 +1743,12 @@ function renderDetallePaso3(i, prev) {
         <div style="display:flex;justify-content:space-between;padding:3px 0"><span>− Tardanza${prev.tardanzaHoras>0?` (${prev.tardanzaHoras}h)`:''}</span><span>−${fmt(prev.tardanzaMonto)}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);font-weight:600"><span>= Base CCSS automática</span><span>${fmt(prev.baseCCSSAuto)}</span></div>
       </div>
-      <p class="hint" style="display:block;margin-top:8px">Las horas extra (50% y 100%) sí forman parte de la base de cotización de CCSS — quedan afuera el subsidio de alimentación/transporte, el Servicio 10%, los Tips y las incapacidades (CCSS, INS, interna), que no son salario sujeto a cuota.</p>
-      ${p.esExtra ? '<p class="hint" style="display:block;margin-top:4px;color:var(--red)">Colaborador extra: no se le consideran vacaciones ni incapacidades registradas (quedan en ₡0 arriba aunque haya fechas cargadas).</p>' : ''}
-      ${p.ccssRegistrado
-        ? '<p class="hint" style="display:block;margin-top:4px">Registrado en CCSS según el expediente — se aplica la cuota obrera (10.83%) sobre esta base.</p>'
-        : '<p class="hint" style="display:block;margin-top:4px;color:var(--red)">Este colaborador no tiene marcado "CCSS" en su expediente (rrhh-personal.html) — no se aplica el rebajo, aunque haya base calculada. Si es un error, corregilo en la ficha del colaborador.</p>'}
-    </div>
-    <div class="subcard">
-      <div class="subcard-title">Otras deducciones</div>
+      <div class="field-row" style="margin-top:10px">
+        <div class="field"><label>Base CCSS ajustada (opcional)</label><input type="number" min="0" step="100" placeholder="auto" value="${p.ccssBaseAjustada}" onchange="actualizarCampoPaso2(${i},'ccssBaseAjustada',this.value)" ${!p.ccssRegistrado?'disabled title="No tiene CCSS marcado en el expediente — no se aplica rebajo"':''}></div>
+        <div class="field"><label>CCSS obrera (10.83%)</label><input type="text" value="${fmt(prev.ccssObreraMonto)}" disabled></div>
+      </div>
+      <p class="hint" style="display:block;margin-top:6px">Dejá "Base ajustada" vacío para usar el cálculo automático, o escribí un monto para forzarlo. Quedan afuera de la base el subsidio, el Servicio 10%, los Tips y las incapacidades. ${p.ccssRegistrado ? 'Registrado en CCSS según el expediente.' : '<span style="color:var(--red)">Sin "CCSS" marcado en el expediente (rrhh-personal.html) — no se aplica el rebajo. Si es un error, corregilo en la ficha.</span>'}</p>
+  `) + subcardColapsable(scId(2,i,'deducciones'), 'Otras deducciones', `
       <div class="field-row">
         <div class="field"><label>Adelanto de salario ₡</label><input type="number" min="0" step="100" value="${p.dedAdelanto}" oninput="actualizarCampoSilencioso(${i},'dedAdelanto',this.value)"></div>
         <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioAdelanto}" oninput="actualizarCampoSilencioso(${i},'comentarioAdelanto',this.value)"></div>
@@ -1623,10 +1769,125 @@ function renderDetallePaso3(i, prev) {
         <div class="field"><label>Pensión alimenticia ₡</label><input type="number" min="0" step="100" value="${p.dedPension}" oninput="actualizarCampoSilencioso(${i},'dedPension',this.value)"></div>
         <div class="field"><label>Comentario</label><input type="text" value="${p.comentarioPension}" oninput="actualizarCampoSilencioso(${i},'comentarioPension',this.value)"></div>
       </div>
+  `);
+}
+function toggleFeriadoTrabajado(i, fecha, marcado) {
+  const p = WIZARD_PARTICIPANTES[i];
+  const idx = p.feriadosTrabajados.indexOf(fecha);
+  if (marcado && idx === -1) p.feriadosTrabajados.push(fecha);
+  if (!marcado && idx !== -1) p.feriadosTrabajados.splice(idx, 1);
+}
+
+async function guardarPaso2YContinuar() {
+  await guardarLoteYAvanzar(3, event.target);
+}
+
+// ── PASO 3: APROBACIÓN DE INCIDENCIAS (por rol autorizado) ─────────
+function renderPaso3() {
+  const estado = PLANILLA_ACTUAL ? PLANILLA_ACTUAL['Estado'] : '';
+  const enRevision = estado === 'Incidencias en revisión';
+  const aprobadas = estado === 'Incidencias aprobadas' || estado === 'Calculada' || estado === 'Aprobada';
+  const puede = puedeAprobarPlanilla();
+  const enviadoPor = PLANILLA_ACTUAL ? (PLANILLA_ACTUAL['Enviado por'] || '') : '';
+  const aprobadoPor = PLANILLA_ACTUAL ? (PLANILLA_ACTUAL['Aprobado por'] || '') : '';
+
+  // Reporte consolidado en solo lectura, una fila por colaborador.
+  const filas = WIZARD_PARTICIPANTES.map(p => {
+    const prev = calcularClientePreview(p);
+    const feriadosT = (p.feriadosTrabajados || []).length;
+    const incap = (prev.incapCCSSMonto + prev.incapINSMonto + prev.incapInternaMonto) > 0
+      ? fmt(prev.incapCCSSMonto + prev.incapINSMonto + prev.incapInternaMonto) : '—';
+    const deducManuales = (Number(p.dedAdelanto)||0)+(Number(p.dedCompras)||0)+(Number(p.dedOtras)||0)+(Number(p.dedEmbargo)||0)+(Number(p.dedPension)||0);
+    return `<tr>
+      <td>${p.nombre}${p.esExtra?'<span class="tag-manual">Extra</span>':''}</td>
+      <td class="monto">${p.horasRegulares}h</td>
+      <td class="monto">${(prev.extra50Horas+prev.extra100Horas)>0?`${prev.extra50Horas+prev.extra100Horas}h`:'—'}</td>
+      <td class="monto">${feriadosT>0?feriadosT:'—'}</td>
+      <td class="monto">${incap}</td>
+      <td class="monto">${prev.vacacionesDias>0?`${prev.vacacionesDias}d`:'—'}</td>
+      <td class="monto">${prev.permisoDias>0?`${prev.permisoDias}d`:'—'}</td>
+      <td class="monto" ${prev.tardanzaHoras>0?'style="color:var(--red)"':''}>${prev.tardanzaHoras>0?`−${prev.tardanzaHoras}h`:'—'}</td>
+      <td class="monto">${deducManuales>0?fmt(deducManuales):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const estadoTxt = enRevision
+    ? `<span class="estado-badge pendiente">En revisión</span> Enviado a aprobación${enviadoPor?` por ${enviadoPor}`:''}.`
+    : aprobadas
+      ? `<span class="estado-badge aprobada">Aprobadas</span> Incidencias aprobadas${aprobadoPor?` por ${aprobadoPor}`:''}.`
+      : `<span class="estado-badge captura">En captura</span> Todavía no se enviaron a aprobación.`;
+
+  let acciones = '';
+  if (enRevision && puede) {
+    acciones = `
+      <div class="wizard-actions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap">
+        <button class="btn-primary" style="background:var(--green);border-color:var(--green)" id="btn-aprobar-inc" onclick="aprobarIncidenciasUI(event.target)">✓ Aprobar incidencias</button>
+        <button class="btn-secondary" onclick="rechazarIncidenciasUI(event.target)">↩️ Rechazar (devolver para corregir)</button>
+      </div>`;
+  } else if (enRevision && !puede) {
+    acciones = `<div class="info-box" style="margin-top:14px">Tu usuario no tiene permiso para aprobar incidencias. Esto lo hace un rol autorizado (Gerencia/Contabilidad). Avisales que la planilla de <b>${document.getElementById('pl-kiosko').value}</b> — ${rangoPeriodoActual().periodo} está lista para aprobar.
+      <div style="margin-top:10px"><button class="btn-wa" onclick='avisarAprobacionWA()'><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg> Avisar por WhatsApp</button></div>
+    </div>`;
+  } else if (aprobadas) {
+    acciones = `<div class="wizard-actions" style="justify-content:flex-start"><button class="btn-primary" onclick="irAPaso(4)">Ir al cálculo final →</button></div>`;
+  }
+
+  document.getElementById('wizard-paso').innerHTML = `
+    <div class="card">
+      <p class="card-title">Aprobación de incidencias</p>
+      <p class="hint" style="display:block;margin:6px 0 12px">${estadoTxt} Una vez aprobadas, se habilita <b>Generar cálculo final</b> (Paso 4). Para cambiar algo, reabrí la planilla — eso vuelve al Paso 2 y anula la aprobación.</p>
+      <table class="calc-tabla">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Horas reg.</th><th style="text-align:right">Extra</th><th style="text-align:right">Feriados</th><th style="text-align:right">Incap.</th><th style="text-align:right">Vac.</th><th style="text-align:right">P. s/goce</th><th style="text-align:right">Tardanza</th><th style="text-align:right">Deduc.</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      ${acciones}
+    </div>
+    <div class="wizard-actions">
+      <button class="btn-secondary" onclick="reabrirPlanillaUI(event.target)">🔓 Reabrir para editar</button>
+      ${aprobadas?'<button class="btn-primary" onclick="irAPaso(4)">Ir al cálculo final →</button>':'<span></span>'}
     </div>
   `;
 }
-async function guardarPaso3YContinuar() { await guardarLoteYAvanzar(4, event.target); }
+function avisarAprobacionWA() {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  abrirWhatsApp(`La planilla de ${kiosko} — ${r.periodo} tiene las incidencias listas para aprobar. Entrá a Planilla → Aprobación para revisarlas y aprobarlas.`);
+}
+async function aprobarIncidenciasUI(btn) {
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  if (!confirm('Aprobás las incidencias de ' + kiosko + ' — ' + r.periodo + '? Esto habilita el cálculo final.')) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Aprobando…'; }
+  try {
+    const res = await postBackend({ modulo: 'planilla_incidencias_aprobar', periodo: r.periodo, kiosko: kiosko, aprobado_por: nombreSesion() || 'Sin nombre' });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, { Estado: 'Incidencias aprobadas', 'Aprobado por': nombreSesion() });
+    showToast('Incidencias aprobadas', 'success');
+    WIZARD_PASO = 4; WIZARD_MAX_PASO = 4;
+    renderWizard();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Aprobar incidencias'; }
+  }
+}
+async function rechazarIncidenciasUI(btn) {
+  const nota = prompt('¿Por qué se devuelve para corregir? (la nota le llega a quien arma la planilla)');
+  if (nota === null) return;
+  const kiosko = document.getElementById('pl-kiosko').value;
+  const r = rangoPeriodoActual();
+  if (btn) { btn.disabled = true; btn.textContent = 'Devolviendo…'; }
+  try {
+    const res = await postBackend({ modulo: 'planilla_incidencias_rechazar', periodo: r.periodo, kiosko: kiosko, nota: nota });
+    if (res.ok === false) throw new Error(res.error || 'Error del servidor');
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, { Estado: 'Abierta', 'Nota rechazo': nota, 'Aprobado por': '', 'Fecha aprobación': '' });
+    showToast('Incidencias devueltas para corregir', 'success');
+    WIZARD_PASO = 2; WIZARD_MAX_PASO = 2;
+    renderWizard();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '↩️ Rechazar (devolver para corregir)'; }
+  }
+}
 
 async function guardarLoteYAvanzar(siguientePaso, btn) {
   const kiosko = document.getElementById('pl-kiosko').value;
@@ -1658,15 +1919,20 @@ async function renderPaso4() {
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error del servidor');
     WIZARD_CALCULO_PREVIEW = data.resultado;
+    const estado = PLANILLA_ACTUAL ? PLANILLA_ACTUAL['Estado'] : '';
+    const aprobadas = estado === 'Incidencias aprobadas' || estadoEsCalculada(estado);
+    const yaCalculada = estadoEsCalculada(estado);
+    const gateMsg = aprobadas ? '' : `<div class="info-box" style="margin-bottom:10px">⚠️ El cálculo final se habilita cuando las incidencias están <b>aprobadas</b>. <a onclick="irAPaso(3)" style="cursor:pointer;text-decoration:underline">Ir a aprobación →</a></div>`;
     document.getElementById('wizard-paso').innerHTML = renderTablaCalculo(data.resultado) + `
       <div class="card">
-        <p class="card-title">Cerrar cálculo</p>
-        <div class="field"><label>Calculado por</label><input type="text" id="calc-por"></div>
+        <p class="card-title">Cálculo final</p>
+        ${gateMsg}
+        <div class="field"><label>Calculado por</label><input type="text" id="calc-por" value="${nombreSesion()}"></div>
         <div class="wizard-actions">
-          <button class="btn-secondary" onclick="irAPaso(3)">← Atrás</button>
-          <button class="btn-primary" id="btn-enviar-revision" onclick="cerrarYEnviarRevision()">Cerrar cálculo y enviar a aprobación</button>
+          <button class="btn-secondary" onclick="reabrirPlanillaUI(event.target)">🔓 Reabrir para editar</button>
+          <button class="btn-primary" id="btn-calc-final" ${aprobadas?'':'disabled'} onclick="generarCalculoFinalUI(event.target)">${yaCalculada?'Volver a generar cálculo':'Generar cálculo final'}</button>
         </div>
-        <div id="wa-revision" style="margin-top:12px"></div>
+        <div id="post-aprobacion" style="margin-top:12px"></div>
       </div>
     `;
   } catch (err) {
@@ -1783,32 +2049,65 @@ function toggleDetalleCalculo(i) {
   const fila = document.getElementById('det-calc-' + i);
   fila.style.display = fila.style.display === 'none' ? '' : 'none';
 }
-async function cerrarYEnviarRevision() {
+// Paso 4 → "Generar cálculo final": solo con incidencias aprobadas. Corre el
+// cálculo definitivo (snapshot en PlanillasDetalle, estado → 'Calculada') y
+// deja disponibles PDF, CSV, boletas y el reporte de pago.
+async function generarCalculoFinalUI(btn) {
   const kiosko = document.getElementById('pl-kiosko').value;
   const r = rangoPeriodoActual();
-  const calculadoPor = document.getElementById('calc-por').value.trim();
-  const btn = document.getElementById('btn-enviar-revision');
-  btn.disabled = true; btn.textContent = 'Enviando…';
+  const calculadoPor = (document.getElementById('calc-por').value || '').trim() || nombreSesion();
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
   try {
     const res = await postBackend({
-      modulo: 'planilla_enviar_revision', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
+      modulo: 'planilla_calcular_final', periodo: r.periodo, fecha_inicio: r.fechaInicio, fecha_fin: r.fechaFin,
       kiosko: kiosko, calculado_por: calculadoPor
     });
     if (res.ok === false) throw new Error(res.error || 'Error del servidor');
-    PLANILLA_ACTUAL = { 'ID': res.result.id, Estado: 'Pendiente de aprobación' };
-    showToast('Planilla cerrada y enviada a aprobación', 'success');
-    const total = WIZARD_CALCULO_PREVIEW ? WIZARD_CALCULO_PREVIEW.totales.totalNeto : res.result.total_neto;
-    document.getElementById('wa-revision').innerHTML = `
-      <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(`La planilla de ${kiosko} — ${r.periodo} está lista para tu revisión. Total neto: ${fmt(total)}.`)})'>
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg>
-        Avisar por WhatsApp
-      </button>
-      <button class="btn-primary" style="margin-left:10px" onclick="irAPaso(5)">Continuar a revisión final →</button>
+    PLANILLA_ACTUAL = Object.assign({}, PLANILLA_ACTUAL || {}, { 'ID': res.result.id, Estado: 'Calculada' });
+    showToast('Cálculo final generado', 'success');
+    if (res.result && res.result.servicio10_marcados > 0) showToast(`${res.result.servicio10_marcados} pago(s) de Servicio 10%/Tips marcados como pagados`, 'success');
+    if (res.result && res.result.servicio10_error) showToast('Cálculo generado, pero no se pudo marcar el Servicio 10%/Tips como pagado: ' + res.result.servicio10_error, 'error');
+
+    // Filas de detalle para el reporte de pago (snapshot recién guardado).
+    try {
+      const dDet = await fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
+      WIZARD_DETALLE_FILAS = (dDet.ok ? dDet.registros : []).filter(d => String(d['ID Planilla']) === String(res.result.id));
+    } catch (e) { WIZARD_DETALLE_FILAS = []; }
+
+    const total = WIZARD_CALCULO_PREVIEW.totales.totalNeto;
+    const pdfBase64 = await generarPDFPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
+    const csvUrl = generarCSVPlanilla(kiosko, r.periodo, WIZARD_CALCULO_PREVIEW);
+
+    let driveMsg = '', driveUrl = '';
+    try {
+      const archResp = await postBackend({ modulo: 'planilla_guardar_archivo', id: PLANILLA_ACTUAL['ID'], pdf_base64: pdfBase64, kiosko, periodo: r.periodo });
+      if (archResp.ok === false) throw new Error(archResp.error);
+      driveUrl = archResp.result.url;
+      driveMsg = `<p class="hint" style="display:block;margin-top:6px">PDF archivado en Drive: <a href="${driveUrl}" target="_blank">ver archivo ↗</a></p>`;
+    } catch (e) {
+      driveMsg = `<p class="hint" style="display:block;margin-top:6px">No se pudo archivar en Drive (${e.message}). Podés descargar el PDF igual.</p>`;
+    }
+
+    const textoWA = `La planilla de ${kiosko} — ${r.periodo} está lista. Total a pagar: ${fmt(total)}.` + (driveUrl ? ` Ver archivo: ${driveUrl}` : '');
+    document.getElementById('post-aprobacion').innerHTML = `
+      <div class="card" style="border-left:3px solid var(--green)">
+        <p class="card-title">Cálculo final generado ✓</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick='descargarPDF(${JSON.stringify(pdfBase64)}, ${JSON.stringify('Planilla_'+kiosko+'_'+r.periodo+'.pdf')})'>Descargar PDF</button>
+          <a class="btn-secondary" href="${csvUrl}" download="Planilla_${kiosko}_${r.periodo}.csv" style="text-decoration:none;display:inline-block">Descargar Excel/CSV</a>
+          <button class="btn-wa" onclick='abrirWhatsApp(${JSON.stringify(textoWA)})'>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2z"/></svg>
+            Notificar por WhatsApp
+          </button>
+        </div>
+        ${driveMsg}
+      </div>
+      ${renderReportePago(PLANILLA_ACTUAL['ID'], kiosko, r.periodo, WIZARD_DETALLE_FILAS)}
     `;
-    WIZARD_MAX_PASO = 5;
+    if (btn) btn.textContent = 'Volver a generar cálculo';
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
-    btn.disabled = false; btn.textContent = 'Cerrar cálculo y enviar a aprobación';
+    if (btn) { btn.disabled = false; btn.textContent = 'Generar cálculo final'; }
   }
 }
 
@@ -2270,13 +2569,15 @@ function generarCSVPlanilla(kiosko, periodo, resultado) {
 // tarde (para seguir marcando pagos o reenviar boletas) no pierde la tabla.
 async function renderPlanillaAprobada(planilla) {
   const cont = document.getElementById('planilla-contenido');
+  const puedeReabrir = puedeAprobarPlanilla();
   cont.innerHTML = `
     <div class="card">
-      <p class="card-title">Planilla aprobada <span class="estado-badge aprobada" style="margin-left:6px">Aprobada</span></p>
-      <p class="hint" style="display:block">Calculada: ${planilla['Fecha cálculo']||''} · Aprobada por ${planilla['Aprobado por']||'—'} el ${planilla['Fecha aprobación']||''}</p>
+      <p class="card-title">Planilla calculada <span class="estado-badge aprobada" style="margin-left:6px">Calculada</span></p>
+      <p class="hint" style="display:block">Incidencias aprobadas por ${planilla['Aprobado por']||'—'}${planilla['Fecha aprobación']?` el ${planilla['Fecha aprobación']}`:''} · Cálculo final: ${planilla['Fecha cálculo']||''}${planilla['Calculado por']?` por ${planilla['Calculado por']}`:''}</p>
       <div class="total-row" style="margin-top:12px"><span class="total-label">Total neto</span><span class="total-valor">${fmt(planilla['Total neto'])}</span></div>
       ${planilla['PDF URL'] ? `<p style="margin-top:10px"><a href="${planilla['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
-      <p class="hint" style="display:block;margin-top:10px">Esta planilla ya fue aprobada — para corregirla hay que editar directamente el Sheet o abrir un periodo nuevo.</p>
+      <p class="hint" style="display:block;margin-top:10px">La planilla ya fue calculada. Para corregir incidencias, reabrila (anula la aprobación y hay que volver a aprobar y recalcular).</p>
+      ${puedeReabrir ? `<button class="btn-secondary" style="margin-top:8px" onclick="reabrirDesdeVista(event.target, ${JSON.stringify(planilla['Periodo']).replace(/"/g,'&quot;')}, ${JSON.stringify(planilla['Kiosko']).replace(/"/g,'&quot;')})">🔓 Reabrir para editar</button>` : ''}
     </div>
     <div id="reporte-pago-aprobada"><div class="empty-state"><span class="spinner"></span></div></div>
   `;
@@ -2353,16 +2654,22 @@ function renderTablaControl() {
   `;
 }
 function idCeldaControl(kiosko, periodo) { return 'cc-' + (kiosko + '|' + periodo).replace(/[^a-zA-Z0-9]/g, '_'); }
+// Mapea el estado del circuito a la clase de celda/badge y un ícono.
+function estiloEstadoPlanilla(estado) {
+  if (estadoEsCalculada(estado)) return { celda: 'aprobada', icono: '✓', badge: 'aprobada' };
+  if (estado === 'Incidencias aprobadas') return { celda: 'pendiente', icono: '☑', badge: 'pendiente' };
+  if (estado === 'Incidencias en revisión') return { celda: 'pendiente', icono: '⏳', badge: 'pendiente' };
+  return { celda: 'pendiente', icono: '✏', badge: 'captura' }; // Abierta
+}
 function celdaControl(kiosko, periodo) {
   const fila = buscarPlanillaControl(kiosko, periodo);
   const id = idCeldaControl(kiosko, periodo);
   if (!fila) return `<td><span class="control-celda" id="${id}">—</span></td>`;
-  const estado = fila['Estado'] || 'Pendiente de aprobación';
-  const clase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
-  const icono = estado === 'Aprobada' ? '✓' : '⏳';
+  const estado = fila['Estado'] || 'Abierta';
+  const est = estiloEstadoPlanilla(estado);
   const kioskoAttr = JSON.stringify(kiosko).replace(/"/g, '&quot;');
   const periodoAttr = JSON.stringify(periodo).replace(/"/g, '&quot;');
-  return `<td><span class="control-celda clickable ${clase}" id="${id}" title="${estado}" onclick="seleccionarCeldaControl(${kioskoAttr}, ${periodoAttr})">${icono}</span></td>`;
+  return `<td><span class="control-celda clickable ${est.celda}" id="${id}" title="${estado}" onclick="seleccionarCeldaControl(${kioskoAttr}, ${periodoAttr})">${est.icono}</span></td>`;
 }
 function seleccionarCeldaControl(kiosko, periodo) {
   document.querySelectorAll('.control-celda.selected').forEach(el => el.classList.remove('selected'));
@@ -2370,15 +2677,15 @@ function seleccionarCeldaControl(kiosko, periodo) {
   if (el) el.classList.add('selected');
   const fila = buscarPlanillaControl(kiosko, periodo);
   if (!fila) return;
-  const estado = fila['Estado'] || 'Pendiente de aprobación';
-  const badgeClase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
+  const estado = fila['Estado'] || 'Abierta';
+  const badgeClase = estiloEstadoPlanilla(estado).badge;
   document.getElementById('control-detalle').innerHTML = `
     <p class="card-title">${kiosko} — ${periodo} <span class="estado-badge ${badgeClase}" style="margin-left:6px">${estado}</span></p>
     <div class="total-row" style="margin-top:10px">
       <span class="total-label">Total pagado</span>
       <span class="total-valor">${fmt(fila['Total neto'])}</span>
     </div>
-    <p class="hint" style="display:block;margin-top:8px">${fechaBonita(fila['Fecha inicio'])} — ${fechaBonita(fila['Fecha fin'])} · ${fila['Colaboradores']||0} colaborador(es) · calculado por ${fila['Calculado por']||'—'}${estado==='Aprobada' ? ` · aprobado por ${fila['Aprobado por']||'—'}` : ''}</p>
+    <p class="hint" style="display:block;margin-top:8px">${fechaBonita(fila['Fecha inicio'])} — ${fechaBonita(fila['Fecha fin'])} · ${fila['Colaboradores']||0} colaborador(es) · calculado por ${fila['Calculado por']||'—'}${fila['Aprobado por'] ? ` · incidencias aprobadas por ${fila['Aprobado por']}` : ''}</p>
     ${fila['PDF URL'] ? `<p class="hint" style="display:block;margin-top:4px"><a href="${fila['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
   `;
 }
@@ -2399,8 +2706,8 @@ async function cargarHistorial() {
       return;
     }
     document.getElementById('hist-items').innerHTML = registros.map((r, i) => {
-      const estado = r['Estado'] || 'Pendiente de aprobación';
-      const clase = estado === 'Aprobada' ? 'aprobada' : 'pendiente';
+      const estado = r['Estado'] || 'Abierta';
+      const clase = estiloEstadoPlanilla(estado).badge;
       return `
       <div class="hist-item" onclick="clickHistorial(${i})">
         <div class="hist-main">
@@ -2589,9 +2896,138 @@ async function toggleFeriadoActivo(i) {
   }
 }
 
+// ══════════════════════════ CALENDARIO DE CORTES ══════════════════════════
+// Pestaña "Calendario": las 24 quincenas del año con fecha de recordatorio
+// (día antes, 8am, correo a encargados) y de corte automático (11pm, queda
+// "Pendiente de aprobación"). Lo ejecuta Code-rrhh-planilla-automatica.gs.
+let CAL_ANIO = hoy.getFullYear();
+const MESES_CAL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaCal(iso) {
+  if (!iso) return '—';
+  return new Date(iso + 'T00:00:00').toLocaleDateString('es-CR', { weekday:'short', day:'numeric', month:'short' });
+}
+function filasCalendarioAnio(anio) {
+  const filas = [];
+  for (let mes = 1; mes <= 12; mes++) {
+    for (const q of [1, 2]) {
+      const r = rangoPeriodo(anio, mes, q);
+      if (r.periodo < PERIODO_TRANSICION) continue;
+      filas.push(Object.assign({ mes, q }, r));
+    }
+  }
+  return filas;
+}
+function cambiarAnioCalendario(delta) { CAL_ANIO += delta; renderCalendario(); }
+async function cargarCalendarioPlanilla() {
+  document.getElementById('cal-tabla-cont').innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
+  await cargarCalendarioDatos(true);
+  renderCalendario();
+}
+function renderCalendario() {
+  document.getElementById('cal-anio-label').textContent = CAL_ANIO;
+  const filas = filasCalendarioAnio(CAL_ANIO);
+  const cont = document.getElementById('cal-tabla-cont');
+  const btnGen = document.getElementById('btn-cal-generar');
+  if (!filas.length) {
+    btnGen.style.display = 'none';
+    cont.innerHTML = '<div class="empty-state">Antes de setiembre 2026 no había cortes automáticos.</div>';
+    return;
+  }
+  const faltan = filas.some(f => !f.fila);
+  btnGen.style.display = faltan ? '' : 'none';
+  btnGen.textContent = `Guardar calendario ${CAL_ANIO} en el Sheet`;
+  const hoyIso = isoLocal(hoy);
+  const proximo = filas.find(f => f.fechaFin >= hoyIso && !(f.fila && f.fila['Corte ejecutado']));
+  const cuerpo = filas.map(f => {
+    const fila = f.fila || {};
+    let estado;
+    if (fila['Corte ejecutado']) estado = `<span class="cal-estado ok" title="${String(fila['Resultado corte']||'').replace(/"/g,'&quot;')}">✓ Corte hecho</span>`;
+    else if (proximo && f.periodo === proximo.periodo) estado = fila['Recordatorio enviado'] ? '<span class="cal-estado prox">Recordatorio enviado</span>' : '<span class="cal-estado prox">Próximo</span>';
+    else if (f.fechaFin < hoyIso) estado = '<span class="cal-estado">Sin corte automático</span>';
+    else estado = '<span class="cal-estado">Programado</span>';
+    const nombre = `${f.q === 1 ? '1ª' : '2ª'} ${MESES_CAL[f.mes-1]}`;
+    const esProx = proximo && f.periodo === proximo.periodo;
+    return `<tr class="${esProx ? 'cal-prox' : ''}">
+      <td><b>${nombre}</b>${fila['Notas'] ? `<div class="cal-nota">${fila['Notas']}</div>` : ''}</td>
+      <td>${fechaCal(f.fechaInicio)} → ${fechaCal(f.fechaFin)}</td>
+      <td>${fechaCal(f.fechaRecordatorio)} · 8am</td>
+      <td><b>${fechaCal(f.fechaFin)} · 11pm</b></td>
+      <td>${estado}</td>
+      <td><button class="btn-sm" onclick="irAPeriodoCalendario(${CAL_ANIO},${f.mes},${f.q})">Abrir</button></td>
+    </tr>`;
+  }).join('');
+  cont.innerHTML = `
+    ${faltan ? '<p class="hint" style="display:block;margin-bottom:8px">⚠ Este año todavía no está guardado en el Sheet (pestaña CalendarioPlanilla): se muestran las fechas calculadas. Sin guardarlo, los recordatorios y cortes automáticos no corren.</p>' : ''}
+    <table class="tabla-cal">
+      <thead><tr><th>Quincena</th><th>Periodo</th><th>Recordatorio</th><th>Corte</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${cuerpo}</tbody>
+    </table>`;
+}
+function irAPeriodoCalendario(anio, mes, q) {
+  const selAnio = document.getElementById('pl-anio');
+  if (![...selAnio.options].some(o => Number(o.value) === anio)) selAnio.insertAdjacentHTML('beforeend', `<option value="${anio}">${anio}</option>`);
+  selAnio.value = anio;
+  document.getElementById('pl-mes').value = mes;
+  document.getElementById('pl-quincena').value = String(q);
+  actualizarChipPeriodo();
+  const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.trim() === 'Planilla');
+  showTab('planilla', btn);
+}
+async function generarAnioCalendario() {
+  const btn = document.getElementById('btn-cal-generar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const r = await postBackend({ modulo: 'calendario_planilla_generar', anio: CAL_ANIO });
+    if (r.ok === false) throw new Error(r.error || 'Error del servidor');
+    showToast(`Calendario ${CAL_ANIO} guardado`);
+    await cargarCalendarioPlanilla();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+// Descarga un .ics con los recordatorios y cortes del año, para importarlo
+// en Google Calendar (Configuración > Importar) o abrirlo en el celular.
+function descargarICSCalendario() {
+  const filas = filasCalendarioAnio(CAL_ANIO);
+  if (!filas.length) { showToast('No hay cortes para ese año', 'error'); return; }
+  const compacta = iso => iso.replace(/-/g, '');
+  const diaSig = iso => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate()+1); return compacta(isoLocal(d)); };
+  const sello = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const evento = (uid, iso, titulo, desc) => [
+    'BEGIN:VEVENT', `UID:${uid}@ecosistema-kioskos`, `DTSTAMP:${sello}`,
+    `DTSTART;VALUE=DATE:${compacta(iso)}`, `DTEND;VALUE=DATE:${diaSig(iso)}`,
+    `SUMMARY:${titulo}`, `DESCRIPTION:${desc}`, 'TRANSP:TRANSPARENT', 'END:VEVENT'
+  ].join('\r\n');
+  const eventos = [];
+  filas.forEach(f => {
+    const nombre = `${f.q === 1 ? '1ª' : '2ª'} quincena ${MESES_CAL[f.mes-1]}`;
+    eventos.push(evento(`planilla-rec-${f.periodo}`, f.fechaRecordatorio, `Planilla: cargar incidencias (${nombre})`,
+      `Mañana a las 11pm es el corte. Cargar y aprobar horarios\\, horas extra\\, deducciones\\, amonestaciones\\, vacaciones\\, incapacidades\\, feriados y servicio 10%.`));
+    eventos.push(evento(`planilla-corte-${f.periodo}`, f.fechaFin, `Corte de planilla 11pm (${nombre})`,
+      `Periodo ${f.fechaInicio} al ${f.fechaFin}. La planilla de cada kiosko queda con las incidencias en revisión\\, lista para aprobar.`));
+  });
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ecosistema Kioskos//Planilla//ES', 'CALSCALE:GREGORIAN',
+    'X-WR-CALNAME:Cortes de planilla', ...eventos, 'END:VCALENDAR'].join('\r\n');
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `cortes-planilla-${CAL_ANIO}.ics`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 // ── INICIO ────────────────────────────────────────────────────────
 poblarSelectoresPeriodo();
 actualizarChipPeriodo();
+// Cuando llega CalendarioPlanilla (fechas oficiales), re-ubicar el selector
+// en el periodo de hoy y refrescar el chip de fechas.
+const PERIODO_INICIAL = rangoPeriodoActual().periodo;
+cargarCalendarioDatos().then(() => {
+  // Solo si nadie cambió el selector mientras cargaba.
+  if (rangoPeriodoActual().periodo === PERIODO_INICIAL) seleccionarPeriodoDeHoy();
+  actualizarChipPeriodo();
+});
 cargarKioskos().then(() => cargarControl());
 </script>
 </body>
