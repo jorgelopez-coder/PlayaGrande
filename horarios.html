@@ -404,18 +404,38 @@ function diffDays(isoA,isoB){
 async function loadSheet(){
   document.getElementById('header-status').textContent='Actualizando...';
   try{
-    // Una sola llamada 'lote' trae personal + vacaciones + permisos, en vez
-    // de 3 fetches separados (3 conexiones y 3 arranques en frío del Apps
-    // Script). El backend responde {ok, resultados:{personal, vacaciones,
-    // permisos_sin_goce}}, cada uno con la misma forma {ok, registros}.
-    const rLote = await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=lote&modulos=personal,vacaciones,permisos_sin_goce');
-    if(!rLote.ok) throw new Error('RRHH respondió '+rLote.status);
-    const dLote = await rLote.json();
-    if(!dLote.ok||!dLote.resultados) throw new Error(dLote.error||'Respuesta inválida de RRHH');
-    const dP = dLote.resultados.personal || {ok:false,registros:[]};
-    if(!dP.ok) throw new Error(dP.error||'Respuesta inválida de personal');
-    const dV = dLote.resultados.vacaciones || {ok:false,registros:[]};
-    const dPerm = dLote.resultados.permisos_sin_goce || {ok:false,registros:[]};
+    // Trae personal + vacaciones + permisos. Se intenta primero con UNA sola
+    // llamada 'lote' (1 conexión y 1 arranque en frío del Apps Script en vez
+    // de 3). Si el backend desplegado todavía no soporta 'lote', se cae
+    // automáticamente a las 3 llamadas individuales (comportamiento previo),
+    // así la pantalla siempre carga aunque el web app no esté al día.
+    let dP, dV, dPerm;
+    let usoLote=false;
+    try{
+      const rLote = await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=lote&modulos=personal,vacaciones,permisos_sin_goce');
+      if(rLote.ok){
+        const dLote = await rLote.json();
+        if(dLote && dLote.ok && dLote.resultados && dLote.resultados.personal && dLote.resultados.personal.ok){
+          dP = dLote.resultados.personal;
+          dV = dLote.resultados.vacaciones || {ok:false,registros:[]};
+          dPerm = dLote.resultados.permisos_sin_goce || {ok:false,registros:[]};
+          usoLote=true;
+        }
+      }
+    }catch(e){ /* sin lote: usamos las 3 llamadas de siempre */ }
+
+    if(!usoLote){
+      const [rP, rV, rPerm] = await Promise.all([
+        fetchConTimeout(APPS_SCRIPT_URL+'?modulo=personal'),
+        fetchConTimeout(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>null),
+        fetchConTimeout(APPS_SCRIPT_URL+'?modulo=permisos_sin_goce').catch(()=>null)
+      ]);
+      if(!rP.ok) throw new Error('Personal respondió '+rP.status);
+      dP = await rP.json();
+      if(!dP.ok) throw new Error(dP.error||'Respuesta inválida de personal');
+      dV = rV && rV.ok ? await rV.json() : {ok:false,registros:[]};
+      dPerm = rPerm && rPerm.ok ? await rPerm.json() : {ok:false,registros:[]};
+    }
 
     buildFromPersonal(dP.registros||[]);
     vacaciones = normalizarVacaciones(dV.ok?dV.registros:[]);
