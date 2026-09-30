@@ -1548,10 +1548,113 @@ function renderDetalleCierre(r, i) {
       ${r.fotoSistemaUrl?`<a href="${r.fotoSistemaUrl}" target="_blank">📷 Foto sistema</a>`:''}
       ${r.fotoDatafonoUrl?`<a href="${r.fotoDatafonoUrl}" target="_blank">💳 Foto datáfono</a>`:''}
     </div></div>` : ''}
-    <div class="hist-detail-section">
+    <div class="hist-detail-section" style="display:flex;flex-wrap:wrap;gap:8px">
       <button class="btn-wa" onclick="event.stopPropagation(); reenviarWhatsAppHistorial(${i})">${WA_SVG} Reenviar por WhatsApp</button>
+      <button class="btn-secondary" onclick="event.stopPropagation(); recalcularCuadreHistorial(${i}, this)" title="Vuelve a leer las Ventas Netas de Square para esta fecha y recalcula si el cierre cuadra. Deja una nota con la fecha y hora del recálculo.">↻ Actualizar Square y recalcular cuadre</button>
+      <button class="btn-secondary" onclick="event.stopPropagation(); eliminarCierreHistorial(${i}, this)" style="color:var(--red);border-color:var(--red)" title="Elimina este cierre del historial (requiere código de administrador)">🗑 Eliminar cierre</button>
     </div>
   `;
+}
+
+// ── ELIMINAR / RECALCULAR CIERRE DESDE HISTORIAL ───────────────────
+// Eliminar pide código de administrador (validado en el backend contra la
+// Script Property ADMIN_PIN, default 'admin' — mismo patrón que servicio-10 e
+// inventario). Recalcular vuelve a leer las Ventas Netas de Square para la
+// fecha del cierre, recalcula la diferencia y si cuadra, y deja una nota con
+// la fecha/hora del recálculo en Observaciones (queda registrada en el Sheet).
+
+async function eliminarCierreHistorial(i, btn) {
+  const r = historialListaActual[i];
+  if (!r) return;
+  if (!SHEETS_URL || SHEETS_URL.startsWith('TODO_')) { showToast('Configurá SHEETS_URL primero', 'error'); return; }
+  const fechaLbl = r.fecha
+    ? new Date(r.fecha+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'2-digit',month:'short'})
+    : '—';
+  let codigo = prompt(`Código de administrador para ELIMINAR el cierre de ${r.kiosko||'—'} · ${fechaLbl} · ${r.hora||'—'}:`);
+  if (codigo === null) return;
+  codigo = codigo.trim();
+  if (!codigo) { showToast('Falta el código de administrador', 'error'); return; }
+  if (!confirm(`¿Eliminar definitivamente este cierre?\n\n${r.kiosko||'—'} · ${fechaLbl} · ${r.encargado||'—'}\n\nEsta acción no se puede deshacer.`)) return;
+  const txt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
+  try {
+    const resp = await fetch(SHEETS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'eliminarCierre', id: r.id, codigo })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast('Cierre eliminado');
+    await cargarHistorial();
+  } catch (e) {
+    showToast('No se pudo eliminar: ' + (e && e.message ? e.message : e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = txt; }
+  }
+}
+
+// Lee las Ventas Netas actuales de Square para un kiosko+fecha del historial,
+// reutilizando la misma configuración que el formulario (SQUARE_KIOSKOS por
+// gviz, o SQUARE_URL para SQUARE_URL_KIOSKO). Si el kiosko tiene Web App propio
+// (execUrl) o es el de SQUARE_URL, primero le pide recalcular su
+// Resumen_Cierre_Diario para "actualizar los datos registrados en Square".
+async function obtenerVentasNetasSquareHistorial(kiosko, fecha) {
+  const cfgPropio = SQUARE_KIOSKOS[kiosko];
+  if (cfgPropio) {
+    if (cfgPropio.execUrl) {
+      try { await fetch(cfgPropio.execUrl + '?action=actualizarResumen').then(r => r.json()); } catch (e) {}
+    }
+    const resumen = await obtenerResumenFechaSquare(cfgPropio, fecha);
+    if (resumen === null) return { error: 'No se pudo leer Ventas SQUARE de ' + kiosko };
+    if (resumen.sinDatos) return { ventasNetas: 0, sinDatos: true };
+    return { ventasNetas: resumen.ventasNetas || 0, sinDatos: false };
+  }
+  if (kiosko === SQUARE_URL_KIOSKO && SQUARE_URL && !SQUARE_URL.startsWith('TODO_')) {
+    try {
+      await fetch(SQUARE_URL + '?action=actualizarResumen').then(r => r.json()).catch(() => {});
+      const resp = await fetch(SQUARE_URL + '?action=resumenCierre&fecha=' + encodeURIComponent(fecha) + '&kiosko=' + encodeURIComponent(kiosko));
+      const data = await resp.json();
+      if (!data.ok) return { error: data.error || 'No se pudo leer Ventas SQUARE' };
+      return { ventasNetas: (data.resumen && data.resumen.ventasNetas) || 0, sinDatos: false };
+    } catch (e) { return { error: e && e.message ? e.message : String(e) }; }
+  }
+  return { error: 'Square no está configurado para ' + kiosko };
+}
+
+async function recalcularCuadreHistorial(i, btn) {
+  const r = historialListaActual[i];
+  if (!r) return;
+  if (!SHEETS_URL || SHEETS_URL.startsWith('TODO_')) { showToast('Configurá SHEETS_URL primero', 'error'); return; }
+  const txt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Actualizando Square…'; }
+  try {
+    const sq = await obtenerVentasNetasSquareHistorial(r.kiosko, r.fecha);
+    if (sq.error) { showToast(sq.error, 'error'); if (btn) { btn.disabled = false; btn.textContent = txt; } return; }
+    const ventasNetasSquare = sq.ventasNetas || 0;
+    // Total declarado guardado en el cierre (Base + Efectivo + SINPE) = cajaTotalContada.
+    const totalDeclarado = r.cajaTotalContada || 0;
+    const diff = totalDeclarado - ventasNetasSquare;
+    const cuadra = Math.abs(diff) <= toleranciaCuadre(r.kiosko);
+    const ahora = new Date();
+    const sello = ahora.toLocaleDateString('es-CR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      + ' ' + ahora.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+    const nota = `🔄 Recálculo Square ${sello}: Ventas Netas ${fmtMoneda(ventasNetasSquare, r.kiosko)}, `
+      + `diferencia ${(diff >= 0 ? '+' : '') + fmtMoneda(diff, r.kiosko)} — ${cuadra ? 'cuadra ✅' : 'no cuadra ⚠️'}`
+      + (sq.sinDatos ? ' (sin datos de Square para esa fecha)' : '');
+    if (btn) btn.textContent = 'Guardando…';
+    const resp = await fetch(SHEETS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'recalcularCuadre', id: r.id, ventasNetasSquare, diferenciaCaja: diff, cajaCuadra: cuadra, nota })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast(cuadra ? 'Recalculado — cuadra ✅' : 'Recalculado — no cuadra ⚠️');
+    await cargarHistorial();
+  } catch (e) {
+    showToast('No se pudo recalcular: ' + (e && e.message ? e.message : e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = txt; }
+  }
 }
 
 // ── LIMPIAR FORM ──────────────────────────────────────────────────
