@@ -1511,6 +1511,21 @@ function escHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</
 function escapeAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
 
+// Si se llega con ?buscar=NOMBRE (ej. desde "homologar" en Menú y Recetas),
+// prellenar la búsqueda y mostrar todos los estados para que el producto
+// aparezca aunque ya esté confirmado. renderMaestro() lo toma al terminar de cargar.
+(function(){
+  try {
+    var q = new URLSearchParams(location.search).get('buscar');
+    if (q) {
+      var inp = document.getElementById('mp-buscar');
+      var est = document.getElementById('mp-estado');
+      if (inp) inp.value = q;
+      if (est) est.value = '';
+    }
+  } catch (e) {}
+})();
+
 cargarMaestro();
 cargarKioskosDisponibles();
 cargarConfiguracion();

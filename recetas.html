@@ -98,6 +98,27 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .costo-display{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
 .suggest-box{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--amber);margin-bottom:1rem;flex-wrap:wrap}
 
+/* ── Ficha en pasos (acordeón) + barra de costo fija ─────────────── */
+.ficha-costo-bar{position:sticky;top:0;z-index:5;background:var(--purple-bg);border:1px solid var(--purple-lt);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.acc{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:var(--card);overflow:hidden}
+.acc[open]{border-color:var(--border-h)}
+.acc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 14px;font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text);user-select:none;background:var(--surface)}
+.acc>summary::-webkit-details-marker{display:none}
+.acc>summary .acc-t{flex:1}
+.acc>summary .acc-sub{font-weight:500;font-size:10.5px;color:var(--subtle);text-transform:uppercase;letter-spacing:.04em}
+.acc>summary .acc-chev{width:14px;height:14px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.acc[open]>summary .acc-chev{transform:rotate(180deg)}
+.acc-body{padding:14px}
+
+/* ── Contadores de pendientes clickables (tab Menú) ──────────────── */
+.plt-stat{cursor:pointer;border-radius:7px;padding:3px 8px;transition:background .15s,box-shadow .15s}
+.plt-stat:hover{background:var(--surface)}
+.plt-stat.sel{background:var(--amber-bg);box-shadow:inset 0 0 0 1px var(--amber-lt)}
+.plt-stat[data-estado=""].sel{background:var(--green-bg);box-shadow:inset 0 0 0 1px var(--green-lt)}
+
+/* ── Nota de caché (histórico / sin receta) ──────────────────────── */
+.cache-nota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--blue);background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:9px;padding:9px 13px;margin-bottom:1rem}
+
 /* ── Presentaciones / Ingredientes (filas dinámicas) ────────────── */
 .pres-row,.ing-row{display:grid;gap:8px;align-items:end;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px}
 .pres-row{grid-template-columns:1.3fr .8fr 1fr 1.3fr auto}
@@ -338,10 +359,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </p>
   <div class="n1-strip" id="plt-n1-strip"></div>
   <div class="plt-counts">
-    <span>Sin receta: <b id="plt-count-sinreceta" style="color:var(--amber)">0</b></span>
-    <span>Sin precio: <b id="plt-count-sinprecio" style="color:var(--amber)">0</b></span>
-    <span>Sin nombre Square: <b id="plt-count-sinsquare" style="color:var(--amber)">0</b></span>
-    <span>Total: <b id="plt-count-total">0</b></span>
+    <span class="plt-stat" data-estado="sinReceta" onclick="filtrarEstado('sinReceta')" title="Ver solo los que están sin receta">Sin receta: <b id="plt-count-sinreceta" style="color:var(--amber)">0</b></span>
+    <span class="plt-stat" data-estado="sinPrecio" onclick="filtrarEstado('sinPrecio')" title="Ver solo los que están sin precio">Sin precio: <b id="plt-count-sinprecio" style="color:var(--amber)">0</b></span>
+    <span class="plt-stat" data-estado="sinSquare" onclick="filtrarEstado('sinSquare')" title="Ver solo los que están sin nombre Square">Sin nombre Square: <b id="plt-count-sinsquare" style="color:var(--amber)">0</b></span>
+    <span class="plt-stat" data-estado="" onclick="filtrarEstado('')" title="Quitar el filtro y ver todos">Total: <b id="plt-count-total">0</b></span>
   </div>
   <div class="plt-toolbar">
     <input type="text" id="plt-buscar" placeholder="Buscar plato…" oninput="renderPlatos()"/>
@@ -465,6 +486,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     hoy; hacia atrás se mueve con la variación real de precios. Los productos que todavía no tienen
     <b>Nombre Estándar</b> en el Maestro no entran — aparecen en la pestaña "Sin receta".
   </p>
+  <div id="hist-cache-nota" class="cache-nota" style="display:none"></div>
   <div id="hist-estado" class="empty-state">Tocá "Recalcular" para traer el histórico. Puede tardar unos segundos.</div>
   <div id="hist-contenido" style="display:none">
     <div class="hist-tabs">
@@ -535,6 +557,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <span>Compra no costeada: <b id="sr-monto" style="color:var(--amber)">₡0</b></span>
     <span>Marcados "no aplica": <b id="sr-count-noaplica">0</b></span>
   </div>
+  <div id="sr-cache-nota" class="cache-nota" style="display:none"></div>
   <div id="sr-estado" class="empty-state">Tocá "Actualizar" para traer el cruce.</div>
   <div id="sr-lista"></div>
   <div id="sr-noaplica-wrap" style="display:none;margin-top:1.5rem">
@@ -587,102 +610,122 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="modal-close" onclick="cerrarModalPlato()">×</button>
     </div>
     <div class="modal-body">
-      <div class="field">
-        <label>Nombre <span class="req">*</span></label>
-        <input type="text" id="pm-nombre" placeholder="ej: Ceviche de camarón"/>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Nivel 1 <span class="req">*</span></label>
-          <select id="pm-nivel1" onchange="onNivel1ModalChange()"></select>
+
+      <!-- Barra de costo: siempre visible mientras se arma la ficha -->
+      <div class="ficha-costo-bar">
+        <div>
+          <div style="font-size:11px;color:var(--purple);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Costo de la receta</div>
+          <div style="font-size:11px;color:var(--purple);opacity:.85" id="fm-costo-por-unidad">Por unidad de rendimiento: ₡0</div>
         </div>
-        <div class="field">
-          <label>Nivel 2 (categoría) <span class="req">*</span></label>
-          <select id="pm-nivel2" onchange="onNivel2ModalChange()"></select>
-        </div>
+        <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--purple)" id="fm-costo-total">₡0</div>
       </div>
 
-      <div class="section-label">📍 Kioskos</div>
-      <div class="field">
-        <label class="check-row"><input type="checkbox" id="pm-kioskos-todos" checked onchange="toggleKioskosPlatoTodos()"/> Todos los kioskos (incluye los que abran después)</label>
-        <div class="kiosko-check-grid" id="pm-kioskos-lista" style="display:none"></div>
-      </div>
-
-      <div class="section-label">🍽️ Receta</div>
-      <p class="field-hint" style="margin:-.4rem 0 .75rem">
-        Los ingredientes de este plato. El rendimiento es lo que produce la receta completa (un plato simple
-        rinde "1 porción"; un barril puede rendir "5000 ml") y las presentaciones de abajo se cargan como
-        porciones de ese mismo rendimiento.
-      </p>
-      <div class="field-row">
-        <div class="field">
-          <label>Rendimiento total <span class="req">*</span></label>
-          <input type="number" id="fm-rendimiento" min="0" step="any" placeholder="ej: 1" oninput="recalcularCostoRecetaPreview()"/>
-        </div>
-        <div class="field">
-          <label>Unidad de rendimiento <span class="req">*</span></label>
-          <input type="text" id="fm-unidad" list="fm-unidad-list" placeholder="ej: porciones, ml, oz" oninput="recalcularCostoRecetaPreview()"/>
-          <datalist id="fm-unidad-list"></datalist>
-        </div>
-      </div>
-      <datalist id="fm-ingrediente-list"></datalist>
-      <div id="fm-ingredientes"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
-        <button type="button" class="btn-add" style="margin-top:0" onclick="agregarIngrediente()">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
-          Agregar ingrediente
-        </button>
-        <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
-      </div>
-      <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1rem;margin-bottom:1rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div>
-            <div style="font-size:12px;color:var(--purple)">Costo total de la receta</div>
-            <div style="font-size:11px;color:var(--purple);opacity:.85" id="fm-costo-por-unidad">Por unidad de rendimiento: ₡0</div>
+      <!-- Paso 1: datos del plato -->
+      <details class="acc" open>
+        <summary><span class="acc-t">📋 Datos del plato</span><svg class="acc-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></summary>
+        <div class="acc-body">
+          <div class="field">
+            <label>Nombre <span class="req">*</span></label>
+            <input type="text" id="pm-nombre" placeholder="ej: Ceviche de camarón"/>
           </div>
-          <div style="font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--purple)" id="fm-costo-total">₡0</div>
-        </div>
-      </div>
-      <div id="pm-receta-info" style="font-size:12px;color:var(--muted);margin-bottom:1rem"></div>
-
-      <div class="section-label">📷 Foto del plato</div>
-      <div class="field">
-        <div class="foto-upload" id="pm-foto-upload-area">
-          <input type="file" id="pm-foto" accept="image/*" capture="environment" onchange="onFotoSeleccionadaPlato(event)"/>
-          <div id="pm-foto-placeholder">
-            <div style="font-size:26px;margin-bottom:6px">📷</div>
-            <div>Tocá para tomar foto o seleccionar de galería</div>
-            <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Nivel 1 <span class="req">*</span></label>
+              <select id="pm-nivel1" onchange="onNivel1ModalChange()"></select>
+            </div>
+            <div class="field">
+              <label>Nivel 2 (categoría) <span class="req">*</span></label>
+              <select id="pm-nivel2" onchange="onNivel2ModalChange()"></select>
+            </div>
+          </div>
+          <div class="section-label">📍 Kioskos</div>
+          <div class="field">
+            <label class="check-row"><input type="checkbox" id="pm-kioskos-todos" checked onchange="toggleKioskosPlatoTodos()"/> Todos los kioskos (incluye los que abran después)</label>
+            <div class="kiosko-check-grid" id="pm-kioskos-lista" style="display:none"></div>
           </div>
         </div>
-        <div class="foto-preview-wrap" id="pm-foto-preview-wrap" style="display:none">
-          <img id="pm-foto-preview-img" src="" alt="Vista previa"/>
-          <button type="button" class="foto-remove" onclick="quitarFotoPlato(event)">×</button>
+      </details>
+
+      <!-- Paso 2: receta e ingredientes -->
+      <details class="acc" open>
+        <summary><span class="acc-t">🍽️ Receta e ingredientes</span><svg class="acc-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></summary>
+        <div class="acc-body">
+          <p class="field-hint" style="margin:-.2rem 0 .75rem">
+            Los ingredientes de este plato. El rendimiento es lo que produce la receta completa (un plato simple
+            rinde "1 porción"; un barril puede rendir "5000 ml") y las presentaciones se cargan como
+            porciones de ese mismo rendimiento.
+          </p>
+          <div class="field-row">
+            <div class="field">
+              <label>Rendimiento total <span class="req">*</span></label>
+              <input type="number" id="fm-rendimiento" min="0" step="any" placeholder="ej: 1" oninput="recalcularCostoRecetaPreview()"/>
+            </div>
+            <div class="field">
+              <label>Unidad de rendimiento <span class="req">*</span></label>
+              <input type="text" id="fm-unidad" list="fm-unidad-list" placeholder="ej: porciones, ml, oz" oninput="recalcularCostoRecetaPreview()"/>
+              <datalist id="fm-unidad-list"></datalist>
+            </div>
+          </div>
+          <datalist id="fm-ingrediente-list"></datalist>
+          <div id="fm-ingredientes"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
+            <button type="button" class="btn-add" style="margin-top:0" onclick="agregarIngrediente()">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+              Agregar ingrediente
+            </button>
+            <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
+          </div>
+          <div id="pm-receta-info" style="font-size:12px;color:var(--muted);margin-top:1rem"></div>
         </div>
-      </div>
+      </details>
 
-      <div class="section-label">📝 Indicaciones de preparación</div>
-      <p class="field-hint" style="margin:-.4rem 0 .75rem">
-        Pasos para armar o servir este plato. Más adelante esto alimenta el manual de preparación.
-      </p>
-      <div class="field">
-        <textarea id="pm-indicaciones" rows="5" placeholder="ej: 1. Calentar la salsa a fuego medio. 2. Freír el camarón 2 min por lado. 3. Emplatar con el arroz al centro…"></textarea>
-      </div>
+      <!-- Paso 3: presentaciones de venta -->
+      <details class="acc" open>
+        <summary><span class="acc-t">💰 Presentaciones de venta</span><svg class="acc-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></summary>
+        <div class="acc-body">
+          <p class="field-hint" style="margin:-.2rem 0 .75rem">
+            Cada presentación es una forma de vender este plato (ej. "Regular" para un plato simple, o
+            "Vaso 16oz"/"Vaso 10oz"/"Vaso 4oz" para cerveza draft). La cantidad va en la unidad de rendimiento
+            de la receta enlazada — el costo y el % de costo se calculan solos por proporción.
+          </p>
+          <div id="pm-precarga-wrap"></div>
+          <div id="pm-presentaciones"></div>
+          <button type="button" class="btn-add" onclick="agregarPresentacion()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+            Agregar presentación
+          </button>
+        </div>
+      </details>
 
-      <div class="section-label">💰 Presentaciones de venta</div>
-      <p class="field-hint" style="margin:-.4rem 0 .75rem">
-        Cada presentación es una forma de vender este plato (ej. "Regular" para un plato simple, o
-        "Vaso 16oz"/"Vaso 10oz"/"Vaso 4oz" para cerveza draft). La cantidad va en la unidad de rendimiento
-        de la receta enlazada — el costo y el % de costo se calculan solos por proporción.
-      </p>
-      <div id="pm-precarga-wrap"></div>
-      <div id="pm-presentaciones"></div>
-      <button type="button" class="btn-add" onclick="agregarPresentacion()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
-        Agregar presentación
-      </button>
+      <!-- Paso 4: foto e indicaciones (opcional) -->
+      <details class="acc">
+        <summary><span class="acc-t">📷 Foto e indicaciones</span><span class="acc-sub">opcional</span><svg class="acc-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></summary>
+        <div class="acc-body">
+          <div class="field">
+            <div class="foto-upload" id="pm-foto-upload-area">
+              <input type="file" id="pm-foto" accept="image/*" capture="environment" onchange="onFotoSeleccionadaPlato(event)"/>
+              <div id="pm-foto-placeholder">
+                <div style="font-size:26px;margin-bottom:6px">📷</div>
+                <div>Tocá para tomar foto o seleccionar de galería</div>
+                <div style="font-size:11px;margin-top:4px;color:var(--subtle)">JPG, PNG, HEIC · máx. 5 MB</div>
+              </div>
+            </div>
+            <div class="foto-preview-wrap" id="pm-foto-preview-wrap" style="display:none">
+              <img id="pm-foto-preview-img" src="" alt="Vista previa"/>
+              <button type="button" class="foto-remove" onclick="quitarFotoPlato(event)">×</button>
+            </div>
+          </div>
+          <div class="section-label">📝 Indicaciones de preparación</div>
+          <p class="field-hint" style="margin:-.4rem 0 .75rem">
+            Pasos para armar o servir este plato. Más adelante esto alimenta el manual de preparación.
+          </p>
+          <div class="field">
+            <textarea id="pm-indicaciones" rows="5" placeholder="ej: 1. Calentar la salsa a fuego medio. 2. Freír el camarón 2 min por lado. 3. Emplatar con el arroz al centro…"></textarea>
+          </div>
+        </div>
+      </details>
 
-      <label class="check-row" style="margin-top:1.5rem"><input type="checkbox" id="pm-activo" checked/> Plato activo</label>
+      <label class="check-row" style="margin-top:1rem"><input type="checkbox" id="pm-activo" checked/> Plato activo</label>
     </div>
     <div class="modal-foot">
       <button class="btn-danger-text" id="pm-btn-eliminar" onclick="eliminarPlatoDuro()" style="display:none">Eliminar definitivamente</button>
@@ -1072,8 +1115,10 @@ function switchTab(nombre) {
   // entrar a su pestaña: leen años de facturas y tardan. Se cargan cuando la
   // persona toca "Recalcular"/"Actualizar", o si ya se calcularon antes en
   // esta sesión se vuelven a pintar de memoria.
-  if (nombre === 'costos') { renderIndicadores(); if (HISTORICO) { renderHistorico(); renderRecomendaciones(); } }
-  if (nombre === 'sinreceta' && SINRECETA) renderSinReceta();
+  // Al entrar, histórico y cruce muestran lo guardado al instante (memoria o
+  // caché local); nunca disparan el fetch pesado solo por abrir la pestaña.
+  if (nombre === 'costos') { renderIndicadores(); cargarHistorico(false); }
+  if (nombre === 'sinreceta') cargarSinReceta(false);
   if (nombre === 'combos') renderCombos();
 }
 
@@ -1449,6 +1494,7 @@ function renderPlatos() {
   document.getElementById('plt-count-sinprecio').textContent = conEstado.filter(x => x.estado.sinPrecio).length;
   document.getElementById('plt-count-sinsquare').textContent = conEstado.filter(x => x.estado.sinSquare).length;
   document.getElementById('plt-count-total').textContent = PLATOS.length;
+  marcarStatSel();
 
   const filtrados = conEstado.filter(({p, estado}) => {
     if (!incluirInactivos && !p.activo) return false;
@@ -1556,6 +1602,23 @@ function tarjetaPlato({p, estado}) {
         <button class="btn-sm" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
       </div>
     </div>`;
+}
+
+// Los contadores de pendientes (sin receta / sin precio / sin Square) funcionan
+// como filtros rápidos: tocar uno aplica el filtro de estado y baja a la lista.
+// Tocar "Total" quita el filtro. Replica el <select id="plt-estado"> que sigue ahí.
+function filtrarEstado(estado) {
+  document.getElementById('plt-estado').value = estado;
+  renderPlatos();
+  const lista = document.getElementById('plt-lista');
+  if (lista && lista.scrollIntoView) lista.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function marcarStatSel() {
+  const v = document.getElementById('plt-estado').value;
+  document.querySelectorAll('#tab-platos .plt-stat').forEach(el => {
+    el.classList.toggle('sel', (el.dataset.estado || '') === v);
+  });
 }
 
 function togglePlatoDetalle(id) {
@@ -2795,22 +2858,77 @@ function sparkline(serie, colorSube, colorBaja) {
 function colorVar(v) { return v > 0.5 ? 'var(--red)' : (v < -0.5 ? 'var(--green)' : 'var(--muted)'); }
 function signoPct(v) { return (v > 0 ? '+' : '') + (Number(v) || 0).toFixed(1) + '%'; }
 
+// ── Caché local de los reportes pesados (histórico y cruce sin receta) ──
+// Los dos reportes leen años de facturas y tardan. Antes, al recargar la página
+// o volver otro día, se arrancaba de cero con pantalla en blanco. Ahora el
+// último resultado se guarda en localStorage por ventana de meses: al entrar a
+// la pestaña se muestra al instante el cálculo guardado (con su antigüedad), y
+// "Recalcular"/"Actualizar" trae lo último y refresca el guardado. Entrar a la
+// pestaña NO dispara ningún fetch pesado — solo repinta lo guardado.
+function cacheGuardar(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch (e) {}
+}
+function cacheLeer(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    return (o && o.data) ? o : null;
+  } catch (e) { return null; }
+}
+function edadTexto(ts) {
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return 'hace ' + min + ' min';
+  const h = Math.round(min / 60);
+  if (h < 24) return 'hace ' + h + ' h';
+  return 'hace ' + Math.round(h / 24) + ' día(s)';
+}
+
 async function cargarHistorico(forzar) {
-  if (HISTORICO && !forzar) { renderHistorico(); renderRecomendaciones(); return; }
   const est = document.getElementById('hist-estado');
   const cont = document.getElementById('hist-contenido');
+  const nota = document.getElementById('hist-cache-nota');
+  const meses = document.getElementById('hist-ventana').value;
+  const CKEY = 'recetas_historico_' + meses;
+
+  // Ya está en memoria de esta sesión → solo repintar.
+  if (HISTORICO && !forzar) { renderHistorico(); renderRecomendaciones(); return; }
+
+  // Sin forzar: mostrar el guardado local, sin disparar el fetch pesado.
+  if (!forzar) {
+    const cache = cacheLeer(CKEY);
+    if (cache) {
+      HISTORICO = cache.data;
+      est.style.display = 'none';
+      cont.style.display = '';
+      nota.style.display = '';
+      nota.innerHTML = '📅 Mostrando el cálculo guardado ' + edadTexto(cache.ts) +
+        ' <button class="btn-sm" style="padding:3px 10px" onclick="cargarHistorico(true)">↻ Recalcular ahora</button>';
+      poblarSelectNivel1('hist-nivel1', document.getElementById('hist-nivel1').value);
+      renderHistorico();
+      renderRecomendaciones();
+    }
+    return;
+  }
+
+  // Forzar: traer lo último del backend y refrescar el guardado.
+  nota.style.display = 'none';
   est.style.display = '';
   est.textContent = 'Recalculando el histórico desde las facturas… esto puede tardar entre 10 y 60 segundos.';
   cont.style.display = 'none';
   try {
-    const meses = document.getElementById('hist-ventana').value;
     HISTORICO = await getAP('historico_costos', { meses });
+    cacheGuardar(CKEY, HISTORICO);
     est.style.display = 'none';
     cont.style.display = '';
+    nota.style.display = '';
+    nota.innerHTML = '✓ Actualizado hace un momento.';
     poblarSelectNivel1('hist-nivel1', document.getElementById('hist-nivel1').value);
     renderHistorico();
     renderRecomendaciones();
   } catch (e) {
+    nota.style.display = 'none';
     est.style.display = '';
     est.innerHTML = '⚠ No se pudo calcular el histórico — ' + escHtml(e.message) +
       '<br/><span style="font-size:12px">Si el error dice que la acción no se reconoce, falta volver a desplegar Code-recetas-kioskos-backend.gs.</span>';
@@ -2938,17 +3056,42 @@ function renderRecomendaciones() {
 // ═══════════════════ PRODUCTOS COMPRADOS SIN RECETA ═══════════════════
 
 async function cargarSinReceta(forzar) {
-  if (SINRECETA && !forzar) { renderSinReceta(); return; }
   const est = document.getElementById('sr-estado');
+  const nota = document.getElementById('sr-cache-nota');
+  const meses = document.getElementById('sr-ventana').value;
+  const CKEY = 'recetas_sinreceta_' + meses;
+
+  // Ya está en memoria de esta sesión → solo repintar.
+  if (SINRECETA && !forzar) { renderSinReceta(); return; }
+
+  // Sin forzar: mostrar el guardado local, sin disparar el fetch pesado.
+  if (!forzar) {
+    const cache = cacheLeer(CKEY);
+    if (cache) {
+      SINRECETA = cache.data;
+      est.style.display = 'none';
+      nota.style.display = '';
+      nota.innerHTML = '📅 Mostrando el cruce guardado ' + edadTexto(cache.ts) +
+        ' <button class="btn-sm" style="padding:3px 10px" onclick="cargarSinReceta(true)">↻ Actualizar ahora</button>';
+      renderSinReceta();
+    }
+    return;
+  }
+
+  // Forzar: traer lo último del backend y refrescar el guardado.
+  nota.style.display = 'none';
   est.style.display = '';
   est.textContent = 'Cruzando compras contra recetas…';
   document.getElementById('sr-lista').innerHTML = '';
   try {
-    const meses = document.getElementById('sr-ventana').value;
     SINRECETA = await getAP('productos_sin_receta', { meses });
+    cacheGuardar(CKEY, SINRECETA);
     est.style.display = 'none';
+    nota.style.display = '';
+    nota.innerHTML = '✓ Actualizado hace un momento.';
     renderSinReceta();
   } catch (e) {
+    nota.style.display = 'none';
     est.style.display = '';
     est.innerHTML = '⚠ No se pudo calcular — ' + escHtml(e.message) +
       '<br/><span style="font-size:12px">Si el error dice que la acción no se reconoce, falta volver a desplegar Code-recetas-kioskos-backend.gs.</span>';
