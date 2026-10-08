@@ -452,7 +452,7 @@ async function cargarMaestroProductos() {
         id:            nombre, // Producto = Nombre Estándar, sin ID propio (igual que Inventario v2)
         nombre:        nombre,
         area:          (r['Área de negocio']||'').toString().trim(),
-        categoria:     (r['Categoría']||'').toString().trim(),
+        categoria:     (r['Categoría de producto']||r['Categoría']||'').toString().trim(),
         familia:       (r['Familia']||'').toString().trim(),
         unidad:        (r['Unidad Receta']||r['Unidad']||'').toString().trim(),
         presentacion:  (r['Presentación']||'').toString().trim(),

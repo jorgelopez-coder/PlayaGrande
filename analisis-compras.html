@@ -557,7 +557,7 @@ const AC = (function () {
         archivo: String(r['Archivo'] || '').trim(),
         numFactura: String(r['Número de factura'] || '').trim(),
         kiosko: String(r['Kiosko'] || '').trim(),
-        proveedor, categoria: String(r['Categoría'] || '').trim() || 'Sin categoría',
+        proveedor, categoria: String((fm && fm['Categoría de producto']) || r['Categoría'] || '').trim() || 'Sin categoría',
         productoRaw, nombreIA, producto, homologado: !!estandar, clave, enMaestro: !!fm, aplica,
         unidadRaw: u.raw, unidadCanon: u.canon, magnitud, factor, convFuente, convDetalle,
         cantidad: cantAbs == null ? 0 : cantAbs * signo, cantidadFactura: cantidadRaw, precioFactura: precioRaw,

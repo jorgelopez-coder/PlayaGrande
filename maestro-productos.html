@@ -429,6 +429,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div class="field"><label>Categoría</label>
           <input type="text" id="fi-categoria" list="fi-categoria-list" placeholder="ej: Cerveza"/>
           <datalist id="fi-categoria-list"></datalist>
+          <div class="field-hint" id="fi-categoria-ia" style="display:none"></div>
         </div>
         <div class="field"><label>Área de negocio</label>
           <input type="text" id="fi-area" list="fi-area-list" placeholder="ej: Bar, Cocina, Cava"/>
@@ -724,6 +725,7 @@ async function cargarMaestro() {
       proveedor: r['Proveedor'] || '',
       nombreFactura: r['Nombre en Factura'] || '',
       categoria: r['Categoría'] || '',
+      categoriaProducto: r['Categoría de producto'] || '',
       unidad: r['Unidad'] || '',
       vecesVisto: Number(r['Veces visto']) || 0,
       propuesta: r['Propuesta automática'] || '',
@@ -1010,7 +1012,7 @@ function renderFichas() {
     if (filtroEstado === 'completa' && !g.completa) return false;
     if (filtroEstado === 'pendiente' && g.completa) return false;
     if (!q) return true;
-    const texto = (g.nombre + ' ' + g.rep.categoria + ' ' + g.items.map(i => i.proveedor).join(' ')).toLowerCase();
+    const texto = (g.nombre + ' ' + (g.rep.categoriaProducto||'') + ' ' + g.rep.categoria + ' ' + g.items.map(i => i.proveedor).join(' ')).toLowerCase();
     return texto.includes(q);
   });
 
@@ -1036,7 +1038,7 @@ function renderFichas() {
         ${FICHAS_FILTRADOS.map(g => {
           const m = g.rep;
           const abierto = EXPANDIDOS.has(g.key);
-          const clasif = [m.categoria, [m.familia, m.subfamilia].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
+          const clasif = [(m.categoriaProducto || m.categoria), [m.familia, m.subfamilia].filter(Boolean).join(' › ')].filter(Boolean).join(' · ');
           const filaGrupo = `
             <tr>
               <td><button type="button" class="pf-expand-btn ${abierto?'open':''}" onclick="toggleGrupoFicha('${g.key}')" title="Ver proveedores">▶</button></td>
@@ -1097,7 +1099,7 @@ function construirMatrizEstado(){
       set = new Set();
       KIOSKOS.forEach((k,i) => { if (lista.includes(knorm[i])) set.add(k); });
     }
-    MX_ESTADO.set(g.key, { clave: g.rep.clave, nombre: g.nombre, categoria: g.rep.categoria || '', kioskos: set });
+    MX_ESTADO.set(g.key, { clave: g.rep.clave, nombre: g.nombre, categoria: g.rep.categoriaProducto || g.rep.categoria || '', kioskos: set });
   });
   const sel = document.getElementById('mx-filtro-cat');
   if (sel) {
@@ -1499,7 +1501,7 @@ function poblarDatalistsFicha() {
   // administrado en ⚙ Configuración (con respaldo de valores ya usados en
   // otras fichas, por si todavía no se cargó/sembró ese catálogo).
   const areas = Array.from(new Set([...CONFIG.areas, ...MAESTRO.map(m => m.area).filter(Boolean)]));
-  const categorias = Array.from(new Set([...CONFIG.categorias, ...MAESTRO.map(m => m.categoria).filter(Boolean)]));
+  const categorias = Array.from(new Set([...CONFIG.categorias, ...MAESTRO.map(m => m.categoriaProducto).filter(Boolean)]));
   const familias = Array.from(new Set([...CONFIG.familias, ...MAESTRO.map(m => m.familia).filter(Boolean)]));
   const presentaciones = Array.from(new Set([...CONFIG.presentaciones, ...MAESTRO.map(m => m.presentacion).filter(Boolean)]));
   const unidadesReceta = Array.from(new Set([...CONFIG.unidadesReceta, ...MAESTRO.map(m => m.unidadReceta).filter(Boolean)]));
@@ -1667,7 +1669,8 @@ function abrirFicha(clave) {
   document.getElementById('ficha-nombre').textContent = nombre || '—';
   document.getElementById('ficha-proveedor').textContent = proveedoresTxt;
 
-  document.getElementById('fi-categoria').value = m.categoria || '';
+  document.getElementById('fi-categoria').value = m.categoriaProducto || '';
+  (function(){ var h=document.getElementById('fi-categoria-ia'); if(h){ if(m.categoria){ h.textContent='La IA la clasificó en factura como: '+m.categoria; h.style.display=''; } else { h.style.display='none'; } } })();
   document.getElementById('fi-area').value = m.area || '';
   document.getElementById('fi-familia').value = m.familia || '';
   onFichaFamiliaChange();
