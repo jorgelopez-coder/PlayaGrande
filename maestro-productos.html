@@ -866,7 +866,7 @@ function switchTab(nombre) {
   document.getElementById('tab-btn-fichas').classList.toggle('active', nombre === 'fichas');
   document.getElementById('tab-btn-matriz').classList.toggle('active', nombre === 'matriz');
   document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
-  if (nombre === 'matriz') renderMatriz();
+  if (nombre === 'matriz') { if (!KIOSKOS.length && !CARGANDO_KIOSKOS) cargarKioskosDisponibles(); renderMatriz(); }
 }
 
 function renderMaestro() {
@@ -1348,12 +1348,31 @@ async function guardarManual() {
 }
 
 // ── FICHA DE PRODUCTO (ex Base de Productos, fusionado acá) ───────
+let CARGANDO_KIOSKOS = false;
 async function cargarKioskosDisponibles() {
-    const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-    if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-      KIOSKOS = kioskosPermitidos(data.kioskos);
+  if (CARGANDO_KIOSKOS) return;
+  CARGANDO_KIOSKOS = true;
+  // La lista de kioskos es crítica para la Matriz y las casillas de la Ficha.
+  // Si la primera llamada falla (p.ej. arranque en frío del Apps Script),
+  // se reintenta con espera creciente en vez de quedar vacía para siempre.
+  try {
+    let intentos = 0;
+    while (!KIOSKOS.length && intentos < 6) {
+      try {
+        const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+        if (data && data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+          KIOSKOS = kioskosPermitidos(data.kioskos);
+        }
+      } catch (e) { /* reintenta abajo */ }
+      if (KIOSKOS.length) break;
+      intentos++;
+      await new Promise(r => setTimeout(r, 2000 * intentos));
     }
-  document.getElementById('fi-kioskos-lista').innerHTML = KIOSKOS.map(k =>
+  } finally {
+    CARGANDO_KIOSKOS = false;
+  }
+  const cont = document.getElementById('fi-kioskos-lista');
+  if (cont) cont.innerHTML = KIOSKOS.map(k =>
     `<label class="check-row"><input type="checkbox" class="fi-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
   ).join('');
   poblarSelectsCopiar();
