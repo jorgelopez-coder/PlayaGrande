@@ -132,6 +132,20 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   .field-row,.field-row-3{grid-template-columns:1fr}
   .kiosko-check-grid{grid-template-columns:1fr}
 }
+/* ── Matriz de kioskos ──────────────────── */
+.mx-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:1rem}
+.mx-bar .mx-dirty-count{font-size:12.5px}
+.mx-bar .mx-dirty-count b{color:var(--amber)}
+.mx-copy{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.mx-copy .field{margin:0}
+.mx-table th.mx-k,.mx-table td.mx-k{text-align:center;white-space:nowrap}
+.mx-table td.mx-k input{width:17px;height:17px;cursor:pointer;accent-color:var(--green)}
+.mx-table tr.mx-row-dirty td{background:rgba(245,166,35,.10)}
+.mx-col-btns{display:flex;gap:4px;justify-content:center;margin-top:4px}
+.mx-col-btns button{font-size:10px;line-height:1;padding:2px 5px;border:1px solid var(--border);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--muted)}
+.mx-col-btns button:hover{color:var(--text);border-color:var(--muted)}
+.mx-prod{min-width:200px}
+.mx-todos-badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -152,6 +166,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="mp-tabs">
   <button class="mp-tab active" id="tab-btn-homologacion" onclick="switchTab('homologacion')">Homologación</button>
   <button class="mp-tab" id="tab-btn-fichas" onclick="switchTab('fichas')">Fichas de producto</button>
+  <button class="mp-tab" id="tab-btn-matriz" onclick="switchTab('matriz')">🏪 Matriz de kioskos</button>
   <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
 
@@ -271,6 +286,31 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="stock-table-wrap"><div id="pf-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
 
+<div id="tab-matriz" style="display:none">
+<div class="card">
+  <div class="card-title-row"><p class="card-title">Matriz de kioskos</p></div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Marcá en qué kioskos se vende cada producto — una fila por producto (los "Aplica: Sí"),
+    una columna por kiosko. Si un producto queda marcado en <b>todos</b> los kioskos se guarda como
+    "Todos" (incluye los que abran después). Los cambios se acumulan y <b>nada se guarda</b> hasta
+    que apretés Guardar.
+  </p>
+  <div class="mx-copy">
+    <div class="field"><label>Copiar selección de…</label><select id="mx-copiar-origen"></select></div>
+    <div class="field"><label>…a este kiosko</label><select id="mx-copiar-destino"></select></div>
+    <button type="button" class="btn-sm" onclick="copiarKiosko()">Copiar →</button>
+  </div>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar</label><input type="text" id="mx-buscar" placeholder="producto…" oninput="renderMatriz()"/></div>
+    <div class="field"><label>Categoría</label><select id="mx-filtro-cat" onchange="renderMatriz()"><option value="" selected>Todas</option></select></div>
+  </div>
+  <div id="mx-barra" class="mx-bar" style="display:none">
+    <span class="mx-dirty-count"><b id="mx-dirty-n">0</b> producto(s) con cambios sin guardar</span>
+    <button type="button" class="btn-sm" id="mx-btn-guardar" onclick="guardarMatriz()">Guardar cambios</button>
+    <button type="button" class="btn-sm" onclick="descartarMatriz()">Descartar</button>
+  </div>
+  <div class="stock-table-wrap"><div id="mx-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
 </div>
 
 <div id="tab-config" style="display:none">
@@ -593,6 +633,10 @@ let FICHAS_FILTRADOS = []; // grupos (por Nombre Estándar) visibles en "Fichas 
 let SELECCIONADOS = new Set(); // claves seleccionadas, sobrevive a cambios de filtro/búsqueda
 let FICHA_EN_EDICION = null; // clave del producto abierto en el modal de ficha
 let EXPANDIDOS = new Set(); // grupos con la lista de proveedores desplegada
+// ── Matriz de kioskos ──
+let MX_ESTADO = new Map();  // key grupo -> {clave, nombre, categoria, kioskos:Set}
+let MX_DIRTY = new Set();   // grupos con cambios sin guardar
+let MX_CONSTRUIDO = false;  // matriz ya armada desde los datos actuales
 
 // Catálogos de clasificación (hoja "Configuracion") — Área/Categoría/Familia/
 // Presentación/Unidad de receta son listas simples; Subfamilia depende de
@@ -649,6 +693,7 @@ async function postAP(payload) {
 
 async function cargarMaestro() {
   document.getElementById('mp-lista').innerHTML = '<div class="empty-state">Cargando…</div>';
+  MX_CONSTRUIDO = false; MX_DIRTY = new Set();
   try {
     const datos = await gvizLoad('Maestro_Productos', 'Nombre en Factura');
     MAESTRO = datos.map(r => ({
@@ -700,7 +745,7 @@ async function cargarMaestro() {
   }
 }
 
-function renderTodo() { renderMaestro(); renderFichas(); }
+function renderTodo() { renderMaestro(); renderFichas(); renderMatriz(); }
 
 // ── CONFIGURACIÓN (catálogos de Área/Categoría/Familia/Subfamilia) ────
 async function cargarConfiguracion() {
@@ -815,10 +860,13 @@ async function eliminarSubfamiliaConfig(familia, valor) {
 function switchTab(nombre) {
   document.getElementById('tab-homologacion').style.display = nombre === 'homologacion' ? '' : 'none';
   document.getElementById('tab-fichas').style.display = nombre === 'fichas' ? '' : 'none';
+  document.getElementById('tab-matriz').style.display = nombre === 'matriz' ? '' : 'none';
   document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
   document.getElementById('tab-btn-homologacion').classList.toggle('active', nombre === 'homologacion');
   document.getElementById('tab-btn-fichas').classList.toggle('active', nombre === 'fichas');
+  document.getElementById('tab-btn-matriz').classList.toggle('active', nombre === 'matriz');
   document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
+  if (nombre === 'matriz') renderMatriz();
 }
 
 function renderMaestro() {
@@ -998,6 +1046,163 @@ function toggleGrupoFicha(key) {
   renderFichas();
 }
 
+// ═══ Matriz de kioskos (en qué kioskos se vende cada producto) ═══
+function mxNorm(s){ return (s||'').toString().trim().toLowerCase(); }
+
+function construirMatrizEstado(){
+  MX_ESTADO = new Map();
+  MX_DIRTY = new Set();
+  const candidatos = MAESTRO.filter(m => m.aplica === 'Sí');
+  const grupos = agruparFichas(candidatos);
+  const knorm = KIOSKOS.map(mxNorm);
+  grupos.forEach(g => {
+    const str = (g.rep.kioskosFicha || '').trim();
+    let set;
+    if (!str || str.toLowerCase() === 'todos') {
+      set = new Set(KIOSKOS);
+    } else {
+      const lista = str.split(',').map(x => mxNorm(x)).filter(Boolean);
+      set = new Set();
+      KIOSKOS.forEach((k,i) => { if (lista.includes(knorm[i])) set.add(k); });
+    }
+    MX_ESTADO.set(g.key, { clave: g.rep.clave, nombre: g.nombre, categoria: g.rep.categoria || '', kioskos: set });
+  });
+  const sel = document.getElementById('mx-filtro-cat');
+  if (sel) {
+    const actual = sel.value;
+    const cats = Array.from(new Set(Array.from(MX_ESTADO.values()).map(v => v.categoria).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = '<option value="">Todas</option>' + cats.map(c => `<option value="${escapeAttr(c)}">${escHtml(c)}</option>`).join('');
+    if (cats.indexOf(actual) !== -1) sel.value = actual;
+  }
+  MX_CONSTRUIDO = true;
+}
+
+// "Todos" si están todos marcados (incluye kioskos futuros); si no, lista en orden de KIOSKOS
+function mxValor(set){
+  if (KIOSKOS.length && set.size === KIOSKOS.length) return 'Todos';
+  return KIOSKOS.filter(k => set.has(k)).join(', ');
+}
+
+function poblarSelectsCopiar(){
+  const o = document.getElementById('mx-copiar-origen');
+  const d = document.getElementById('mx-copiar-destino');
+  if (!o || !d || !KIOSKOS.length) return;
+  if (o.options.length === KIOSKOS.length && d.options.length === KIOSKOS.length) return;
+  const opts = KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escHtml(k)}</option>`).join('');
+  o.innerHTML = opts; d.innerHTML = opts;
+  if (KIOSKOS.length > 1) d.selectedIndex = 1;
+}
+
+function actualizarBarraMatriz(){
+  const barra = document.getElementById('mx-barra');
+  if (!barra) return;
+  const n = MX_DIRTY.size;
+  const nEl = document.getElementById('mx-dirty-n');
+  if (nEl) nEl.textContent = n;
+  barra.style.display = n ? 'flex' : 'none';
+}
+
+function renderMatriz(){
+  const cont = document.getElementById('mx-lista');
+  if (!cont) return;
+  if (!KIOSKOS.length){ cont.innerHTML = '<div class="empty-state">Cargando lista de kioskos…</div>'; return; }
+  if (!MX_CONSTRUIDO) construirMatrizEstado();
+  poblarSelectsCopiar();
+  actualizarBarraMatriz();
+
+  const q = mxNorm((document.getElementById('mx-buscar')||{}).value);
+  const cat = (document.getElementById('mx-filtro-cat')||{}).value || '';
+
+  let filas = Array.from(MX_ESTADO.entries());
+  if (!filas.length){ cont.innerHTML = '<div class="empty-state">No hay productos con "Aplica: Sí". Confirmá nombres en Homologación primero.</div>'; return; }
+  filas = filas.filter(([key,v]) => {
+    if (cat && v.categoria !== cat) return false;
+    if (q && !mxNorm(v.nombre).includes(q)) return false;
+    return true;
+  });
+  if (!filas.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para ese filtro/búsqueda.</div>'; return; }
+
+  const thK = KIOSKOS.map(k => `<th class="mx-k">${escHtml(k)}<div class="mx-col-btns"><button type="button" title="Marcar todos (visibles)" onclick="toggleColumnaMatriz('${escapeAttr(k)}',true)">✓</button><button type="button" title="Desmarcar todos (visibles)" onclick="toggleColumnaMatriz('${escapeAttr(k)}',false)">✗</button></div></th>`).join('');
+
+  cont.innerHTML = `
+    <table class="stock-table mx-table">
+      <thead><tr><th class="mx-prod">Producto</th>${thK}</tr></thead>
+      <tbody>
+        ${filas.map(([key,v]) => {
+          const dirty = MX_DIRTY.has(key);
+          const esTodos = KIOSKOS.length && v.kioskos.size === KIOSKOS.length;
+          const celdas = KIOSKOS.map(k => `<td class="mx-k"><input type="checkbox" ${v.kioskos.has(k)?'checked':''} onchange="toggleMatrizCelda('${escapeAttr(key)}','${escapeAttr(k)}',this.checked)"/></td>`).join('');
+          return `<tr class="${dirty?'mx-row-dirty':''}"><td class="mx-prod">${escHtml(v.nombre)}${esTodos?'<span class="mx-todos-badge">todos</span>':''}</td>${celdas}</tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function toggleMatrizCelda(key, kiosko, marcado){
+  const v = MX_ESTADO.get(key); if (!v) return;
+  if (marcado) v.kioskos.add(kiosko); else v.kioskos.delete(kiosko);
+  MX_DIRTY.add(key);
+  renderMatriz();
+}
+
+// Aplica a las filas actualmente visibles (respeta búsqueda/categoría)
+function toggleColumnaMatriz(kiosko, marcar){
+  const q = mxNorm((document.getElementById('mx-buscar')||{}).value);
+  const cat = (document.getElementById('mx-filtro-cat')||{}).value || '';
+  MX_ESTADO.forEach((v,key) => {
+    if (cat && v.categoria !== cat) return;
+    if (q && !mxNorm(v.nombre).includes(q)) return;
+    const tiene = v.kioskos.has(kiosko);
+    if (marcar && !tiene){ v.kioskos.add(kiosko); MX_DIRTY.add(key); }
+    else if (!marcar && tiene){ v.kioskos.delete(kiosko); MX_DIRTY.add(key); }
+  });
+  renderMatriz();
+}
+
+function copiarKiosko(){
+  const o = (document.getElementById('mx-copiar-origen')||{}).value;
+  const d = (document.getElementById('mx-copiar-destino')||{}).value;
+  if (!o || !d || o === d){ showToast('Elegí dos kioskos distintos.', 'error'); return; }
+  let n = 0;
+  MX_ESTADO.forEach((v,key) => {
+    const origen = v.kioskos.has(o);
+    const destino = v.kioskos.has(d);
+    if (origen !== destino){
+      if (origen) v.kioskos.add(d); else v.kioskos.delete(d);
+      MX_DIRTY.add(key); n++;
+    }
+  });
+  renderMatriz();
+  showToast(n ? `Copiado a ${d} (${n} producto(s)). Revisá y guardá.` : `${d} ya tenía la misma selección que ${o}.`);
+}
+
+function descartarMatriz(){
+  MX_CONSTRUIDO = false;
+  MX_DIRTY = new Set();
+  construirMatrizEstado();
+  renderMatriz();
+  showToast('Cambios descartados.');
+}
+
+async function guardarMatriz(){
+  if (!MX_DIRTY.size) return;
+  const btn = document.getElementById('mx-btn-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const cambios = Array.from(MX_DIRTY).map(key => {
+      const v = MX_ESTADO.get(key);
+      return v ? { clave: v.clave, kioskos: mxValor(v.kioskos) } : null;
+    }).filter(c => c && c.clave);
+    const r = await postAP({ modulo: 'maestro_guardar_kioskos_lote', cambios });
+    showToast(`Guardado ✓ — ${r.grupos} producto(s)`);
+    await cargarMaestro();
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar cambios';
+  }
+}
+
 function toggleSeleccion(idx, checked) {
   const item = FILTRADOS[idx];
   if (!item) return;
@@ -1151,6 +1356,8 @@ async function cargarKioskosDisponibles() {
   document.getElementById('fi-kioskos-lista').innerHTML = KIOSKOS.map(k =>
     `<label class="check-row"><input type="checkbox" class="fi-kiosko-chk" value="${escapeAttr(k)}"/> ${escHtml(k)}</label>`
   ).join('');
+  poblarSelectsCopiar();
+  renderMatriz();
 }
 
 function toggleFichaKioskosTodos() {
