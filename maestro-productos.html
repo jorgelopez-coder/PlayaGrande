@@ -146,11 +146,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .mx-col-btns button:hover{color:var(--text);border-color:var(--muted)}
 .mx-prod{min-width:200px}
 .mx-todos-badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
-/* Fila de títulos fija al hacer scroll (queda bajo la barra superior de 56px) */
-.mx-table thead th{position:sticky;top:56px;z-index:3}
-/* Encabezado de grupo por categoría */
-.mx-table tr.mx-grupo td{background:var(--bg);font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text);padding:.5rem .9rem;border-bottom:1px solid var(--border)}
+/* La matriz scrollea dentro de su propia caja; así la fila de títulos queda fija arriba sin que la tape la barra superior */
+#tab-matriz .stock-table-wrap{max-height:calc(100vh - 220px);overflow:auto}
+.mx-table thead th{position:sticky;top:0;z-index:3}
+/* Encabezado de grupo por categoría (colapsable + casilla por kiosko para toda la categoría) */
+.mx-table tr.mx-grupo td{background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.mx-table tr.mx-grupo td.mx-prod{font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text);padding:.5rem .9rem}
+.mx-table tr.mx-grupo td.mx-k input{width:16px;height:16px;cursor:pointer;accent-color:var(--green)}
+.mx-grupo-nombre{vertical-align:middle}
 .mx-table tr.mx-grupo .mx-grupo-n{display:inline-block;margin-left:7px;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0}
+.mx-collapse{background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0 7px 0 0;line-height:1;vertical-align:middle}
+.mx-collapse:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -652,6 +658,8 @@ let EXPANDIDOS = new Set(); // grupos con la lista de proveedores desplegada
 let MX_ESTADO = new Map();  // key grupo -> {clave, nombre, categoria, kioskos:Set}
 let MX_DIRTY = new Set();   // grupos con cambios sin guardar
 let MX_CONSTRUIDO = false;  // matriz ya armada desde los datos actuales
+let MX_COLAPSADOS = new Set(); // categorías colapsadas (por nombre)
+let MX_CAT_LISTA = [];      // categorías en el orden mostrado (índice -> nombre)
 
 // Catálogos de clasificación (hoja "Configuracion") — Área/Categoría/Familia/
 // Presentación/Unidad de receta son listas simples; Subfamilia depende de
@@ -1164,11 +1172,17 @@ function renderMatriz(){
     grupos.get(c).push([key,v]);
   });
   const catsOrden = Array.from(grupos.keys()).sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
-  const colspan = 1 + KIOSKOS.length;
-  const cuerpo = catsOrden.map(c => {
+  MX_CAT_LISTA = catsOrden;
+  const cuerpo = catsOrden.map((c, ci) => {
     const items = grupos.get(c).sort((a,b)=>mxNorm(a[1].nombre).localeCompare(mxNorm(b[1].nombre),'es',{sensitivity:'base'}));
-    const cab = `<tr class="mx-grupo"><td colspan="${colspan}">${escHtml(c)}<span class="mx-grupo-n">${items.length}</span></td></tr>`;
-    return cab + items.map(filaHtml).join('');
+    const colapsado = MX_COLAPSADOS.has(c);
+    // Casilla por kiosko que marca/desmarca toda la categoría (estado indeterminado si está mezclado)
+    const catChks = KIOSKOS.map(k => `<td class="mx-k"><input type="checkbox" class="mx-cat-chk" data-ci="${ci}" data-k="${escapeAttr(k)}" onchange="toggleCategoriaKiosko(${ci},'${escapeAttr(k)}',this.checked)" title="Marcar/desmarcar ${escHtml(k)} en toda la categoría"/></td>`).join('');
+    const cab = `<tr class="mx-grupo">`+
+      `<td class="mx-prod"><button type="button" class="mx-collapse" title="${colapsado?'Expandir':'Colapsar'}" onclick="toggleGrupo(${ci})">${colapsado?'▶':'▼'}</button>`+
+      `<span class="mx-grupo-nombre">${escHtml(c)}</span><span class="mx-grupo-n">${items.length}</span></td>`+
+      catChks+`</tr>`;
+    return cab + (colapsado ? '' : items.map(filaHtml).join(''));
   }).join('');
 
   cont.innerHTML = `
@@ -1176,6 +1190,42 @@ function renderMatriz(){
       <thead><tr><th class="mx-prod">Producto</th>${thK}</tr></thead>
       <tbody>${cuerpo}</tbody>
     </table>`;
+
+  // Estado de las casillas por categoría: marcada si todos los productos (visibles) la tienen,
+  // indeterminada si solo algunos
+  cont.querySelectorAll('.mx-cat-chk').forEach(chk => {
+    const items = grupos.get(catsOrden[+chk.dataset.ci]) || [];
+    const k = chk.dataset.k;
+    const con = items.reduce((n,[key,v]) => n + (v.kioskos.has(k) ? 1 : 0), 0);
+    chk.checked = items.length > 0 && con === items.length;
+    chk.indeterminate = con > 0 && con < items.length;
+  });
+}
+
+// Colapsar/expandir una categoría
+function toggleGrupo(ci){
+  const c = MX_CAT_LISTA[ci];
+  if (c == null) return;
+  if (MX_COLAPSADOS.has(c)) MX_COLAPSADOS.delete(c); else MX_COLAPSADOS.add(c);
+  renderMatriz();
+}
+
+// Marca/desmarca un kiosko para todos los productos (visibles) de una categoría
+function toggleCategoriaKiosko(ci, kiosko, marcar){
+  const c = MX_CAT_LISTA[ci];
+  if (c == null) return;
+  const q = mxNorm((document.getElementById('mx-buscar')||{}).value);
+  const catF = (document.getElementById('mx-filtro-cat')||{}).value || '';
+  MX_ESTADO.forEach((v,key) => {
+    const cc = (v.categoria || '').trim() || 'Sin categoría';
+    if (cc !== c) return;
+    if (catF && v.categoria !== catF) return;
+    if (q && !mxNorm(v.nombre).includes(q)) return;
+    const tiene = v.kioskos.has(kiosko);
+    if (marcar && !tiene){ v.kioskos.add(kiosko); MX_DIRTY.add(key); }
+    else if (!marcar && tiene){ v.kioskos.delete(kiosko); MX_DIRTY.add(key); }
+  });
+  renderMatriz();
 }
 
 function toggleMatrizCelda(key, kiosko, marcado){
