@@ -750,7 +750,16 @@ function renderTodo() { renderMaestro(); renderFichas(); MX_CONSTRUIDO = false; 
 // ── CONFIGURACIÓN (catálogos de Área/Categoría/Familia/Subfamilia) ────
 async function cargarConfiguracion() {
   try {
-    const datos = await gvizLoad('Configuracion', 'Tipo');
+    // Reintenta si la primera lectura vuelve vacía (conexión lenta / arranque
+    // en frío) en vez de quedarse con catálogos vacíos para siempre.
+    let datos = [];
+    let intentos = 0;
+    while (!datos.length && intentos < 5) {
+      datos = await gvizLoad('Configuracion', 'Tipo');
+      if (datos.length) break;
+      intentos++;
+      await new Promise(r => setTimeout(r, 1500 * intentos));
+    }
     const areas = [], categorias = [], familias = [], subPorFam = {}, presentaciones = [], unidadesReceta = [];
     datos.forEach(r => {
       const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
