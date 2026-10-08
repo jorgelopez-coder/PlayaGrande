@@ -607,12 +607,21 @@ let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBa
 // nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
 // lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
 async function cargarKioskosDesdeBackend(url, conTimeout) {
-  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
   let ultimoError;
   for (let intento = 1; intento <= 3; intento++) {
     try {
-      const resp = await fetcher(url);
-      return await resp.json();
+      // Timeout por intento: el Apps Script de RRHH a veces se cuelga sin
+      // responder. Sin esto, fetch espera indefinidamente, nunca reintenta y
+      // la lista de kioskos jamás llega (matriz/fichas quedan vacías). Con el
+      // AbortController, si no responde en 8s aborta y reintenta.
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 8000);
+      try {
+        const resp = await fetch(url, { signal: ac.signal });
+        return await resp.json();
+      } finally {
+        clearTimeout(t);
+      }
     } catch (e) {
       ultimoError = e;
       if (intento < 3) await new Promise(r => setTimeout(r, intento * 800));
