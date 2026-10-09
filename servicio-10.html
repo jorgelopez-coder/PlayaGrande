@@ -251,6 +251,8 @@ table.matriz tfoot td{background:var(--surface);font-weight:600;font-size:11.5px
   <div id="sv-cierre-ok" style="display:none;margin:0 0 1rem;padding:12px 14px;border:1px solid var(--green);border-radius:10px;background:var(--green-bg);font-size:13px;align-items:center;gap:10px;flex-wrap:wrap">
     <span id="sv-cierre-ok-txt" style="flex:1;min-width:200px"></span>
     <button type="button" class="btn-primary" id="sv-cierre-pdf-btn" onclick="descargarPdfCierre()" style="padding:8px 16px;font-size:13px">Descargar PDF ⬇</button>
+    <button type="button" class="btn-mini" id="sv-cierre-print-btn" onclick="imprimirPdfCierre()" style="padding:8px 14px">Imprimir 🖨</button>
+    <button type="button" class="btn-primary" id="sv-cierre-firma-btn" onclick="abrirPagoFirmaDesdeCierre()" style="padding:8px 16px;font-size:13px">Firma y pago →</button>
     <a id="sv-cierre-drive" class="btn-mini" target="_blank" style="display:none">Ver en Drive ↗</a>
     <button type="button" class="btn-mini" onclick="document.getElementById('sv-cierre-ok').style.display='none'">✕</button>
   </div>
@@ -1450,7 +1452,7 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${r.dias}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.servicio)}</td>
       <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.tips)}</td>
-      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>${tc ? `<td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtColones(r.monto * tc)}</td>` : ''}
+      <td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtCRC(r.monto)}</td>${tc ? `<td style="padding:5px;border:1px solid #c8ddd0;text-align:right">${fmtColones(r.monto * tc)}</td>` : ''}<td style="padding:5px;border:1px solid #c8ddd0;min-width:150px;height:30px"></td>
     </tr>`).join('');
   const tipsLinea = totalTips > 0 ? ` · Tips pendientes: ${fmtCRC(totalTips)}` : '';
   return `<div style="font-family:Arial,sans-serif;padding:24px;width:1000px;color:#1c3a28">
@@ -1463,9 +1465,11 @@ function buildRepartoHtml(fi, ff, totalVentaNeta, totalServicio, totalTips, resu
     </table>
     <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador (Servicio + Tips)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Cuenta</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">10% ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Total ${sm}</th>${tc ? '<th style="padding:5px;border:1px solid #c8ddd0">Total ₡ (TC ' + tc.toLocaleString('es-CR') + ')</th>' : ''}</tr></thead>
+      <thead><tr style="background:#f2ede2"><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Colaborador</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Puesto</th><th style="text-align:left;padding:5px;border:1px solid #c8ddd0">Cuenta</th><th style="padding:5px;border:1px solid #c8ddd0">Días</th><th style="padding:5px;border:1px solid #c8ddd0">10% ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Tips ${sm}</th><th style="padding:5px;border:1px solid #c8ddd0">Total ${sm}</th>${tc ? '<th style="padding:5px;border:1px solid #c8ddd0">Total ₡ (TC ' + tc.toLocaleString('es-CR') + ')</th>' : ''}<th style="padding:5px;border:1px solid #c8ddd0;text-align:left">Firma</th></tr></thead>
       <tbody>${filasResumen}</tbody>
     </table>
+    <p style="margin-top:18px;font-size:12px;line-height:1.55">Los colaboradores abajo firmantes declaran estar de acuerdo con el cálculo y con el monto que a cada uno le corresponde del reparto de Servicio 10%${totalTips > 0 ? ' (incluye tips)' : ''} detallado en este documento, y firman en señal de conformidad y recibido conforme.</p>
+    <p style="margin-top:8px;font-size:11px;color:#5a8a6a">Kiosko: ${escHtml(kioskoActual)} · Fecha de firma: ______________________</p>
   </div>`;
 }
 
@@ -1565,7 +1569,7 @@ function buildHistorialPdfHtml(r, detalle) {
   });
   const filasRes = Array.from(map.values()).sort((a, b) => b.monto - a.monto).map(e => {
     const estado = e.pagados === e.dias ? 'Pagado' + (e.refs.size ? ' (' + Array.from(e.refs).map(escHtml).join(', ') + ')' : '') : e.pagados ? `Parcial ${e.pagados}/${e.dias}` : 'Pendiente';
-    return `<tr><td style="${td}">${escHtml(e.colaborador)}</td><td style="${td}">${escHtml(e.puesto) || '—'}</td><td style="${td};text-align:right">${e.dias}</td><td style="${td};text-align:right">${fmtCRC(e.servicio)}</td><td style="${td};text-align:right">${fmtCRC(e.tips)}</td><td style="${td};text-align:right">${fmtCRC(e.monto)}</td><td style="${td}">${estado}</td></tr>`;
+    return `<tr><td style="${td}">${escHtml(e.colaborador)}</td><td style="${td}">${escHtml(e.puesto) || '—'}</td><td style="${td};text-align:right">${e.dias}</td><td style="${td};text-align:right">${fmtCRC(e.servicio)}</td><td style="${td};text-align:right">${fmtCRC(e.tips)}</td><td style="${td};text-align:right">${fmtCRC(e.monto)}</td><td style="${td}">${estado}</td><td style="${td};min-width:150px;height:30px"></td></tr>`;
   }).join('');
   const serv = Number(r['Monto Servicio ₡']) || 0, tips = Number(r['Monto Tips ₡']) || 0;
   const total = r['Monto Total ₡'] != null && r['Monto Total ₡'] !== '' ? Number(r['Monto Total ₡']) || 0 : serv + tips;
@@ -1581,9 +1585,11 @@ function buildHistorialPdfHtml(r, detalle) {
     </table>
     <h3 style="margin-bottom:8px;font-size:14px">Resumen por colaborador</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr><th style="${th};text-align:left">Colaborador</th><th style="${th};text-align:left">Puesto</th><th style="${th}">Días</th><th style="${th}">10% ₡</th><th style="${th}">Tips ₡</th><th style="${th}">Total ₡</th><th style="${th};text-align:left">Pago</th></tr></thead>
+      <thead><tr><th style="${th};text-align:left">Colaborador</th><th style="${th};text-align:left">Puesto</th><th style="${th}">Días</th><th style="${th}">10% ₡</th><th style="${th}">Tips ₡</th><th style="${th}">Total ₡</th><th style="${th};text-align:left">Pago</th><th style="${th};text-align:left">Firma</th></tr></thead>
       <tbody>${filasRes}</tbody>
     </table>
+    <p style="margin-top:18px;font-size:12px;line-height:1.55">Los colaboradores abajo firmantes declaran estar de acuerdo con el cálculo y con el monto que a cada uno le corresponde del reparto de Servicio 10%${tips > 0 ? ' (incluye tips)' : ''} detallado en este documento, y firman en señal de conformidad y recibido conforme.</p>
+    <p style="margin-top:8px;font-size:11px;color:#5a8a6a">Kiosko: ${escHtml(r['Kiosko'])} · Fecha de firma: ______________________</p>
     <p style="margin-top:14px;font-size:10px;color:#8aa">Generado ${new Date().toLocaleString('es-CR')}</p>
   </div>`;
 }
@@ -1854,6 +1860,9 @@ function renderHistorialServicio() {
         <span>${r['Colaboradores'] || 0} colaborador${(r['Colaboradores'] || 0) == 1 ? '' : 'es'} · ${r['Total días'] || 0} días</span>
         ${badge}
         <button type="button" class="btn-mini" onclick="event.stopPropagation();descargarPDFHistorial(${i}, this)">Descargar PDF ⬇</button>
+        <button type="button" class="btn-mini" onclick="event.stopPropagation();imprimirPDFHistorial(${i}, this)">Imprimir 🖨</button>
+        <button type="button" class="btn-mini" onclick="event.stopPropagation();abrirPagoFirmaModal('${escHtml(String(r['ID']))}')" style="border-color:var(--green-lt);color:var(--green)">Firma / pago</button>
+        ${r['Firma URL'] ? `<a href="${escHtml(r['Firma URL'])}" target="_blank" class="btn-mini" onclick="event.stopPropagation()" style="color:var(--green)">Firmado ✓</a>` : ''}
         ${pdfLink}
       </div>
     </div>
@@ -1990,6 +1999,193 @@ function showTab(tab, el) {
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
+// ── IMPRIMIR PDF ───────────────────────────────────────────────────
+// Abre el PDF ya generado con el diálogo de impresión (autoPrint). Si el
+// navegador bloquea la ventana emergente, avisa para usar Descargar.
+function imprimirPdfDoc(doc) {
+  if (!doc) return false;
+  try {
+    doc.autoPrint();
+    const url = doc.output('bloburl');
+    const w = window.open(url, '_blank');
+    if (!w) { showToast('Permití las ventanas emergentes para imprimir, o usá Descargar', 'error'); return false; }
+    return true;
+  } catch (e) { showToast('No se pudo abrir la impresión: ' + (e && e.message || e), 'error'); return false; }
+}
+async function imprimirPdfCierre() {
+  if (ultimoPdfCierre) { imprimirPdfDoc(ultimoPdfCierre.doc); return; }
+  const id = document.getElementById('sv-cierre-pdf-btn').dataset.id;
+  const i = histListaActual.findIndex(r => String(r['ID']) === String(id));
+  if (i >= 0) imprimirPDFHistorial(i, document.getElementById('sv-cierre-print-btn'));
+  else showToast('Buscalo en Historial para imprimirlo', 'error');
+}
+async function imprimirPDFHistorial(i, btn) {
+  const r = histListaActual[i];
+  if (!r) return;
+  const detalle = detalleTodos.filter(d => String(d['ID Reparto']) === String(r['ID']));
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
+  try {
+    const pdf = await htmlAPdf(buildHistorialPdfHtml(r, detalle));
+    if (!pdf) throw new Error('no cargó la librería de PDF');
+    imprimirPdfDoc(pdf);
+  } catch (e) {
+    showToast('No se pudo preparar el PDF: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// ── MODAL: DOCUMENTO FIRMADO Y SOLICITUD DE PAGO ───────────────────
+// Reutiliza el patrón de compresión de foto del resto del ecosistema
+// (comprime ANTES de medir/subir; evita el bug de rechazar por tamaño).
+function comprimirImagen(file, maxDim = 1600, calidad = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+        resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg' });
+      };
+      img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+let _pagoCtx = null; // { id, kiosko, moneda }
+
+function asegurarModalPago() {
+  if (document.getElementById('sv-pago-modal')) return;
+  const st = document.createElement('style');
+  st.textContent = '.sv-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem}'
+    + '.sv-modal{background:var(--card);border-radius:14px;max-width:640px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)}'
+    + '.sv-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1}'
+    + '.sv-modal-head b{font-size:15px}'
+    + '.sv-modal-body{padding:18px}'
+    + '.sv-firma-drop{border:1.5px dashed var(--green-lt);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px}'
+    + '.sv-firma-drop:hover{border-color:var(--green);color:var(--text)}'
+    + '.sv-step{margin-top:1.25rem}';
+  document.head.appendChild(st);
+  const ov = document.createElement('div');
+  ov.id = 'sv-pago-modal'; ov.className = 'sv-modal-ov'; ov.style.display = 'none';
+  ov.innerHTML = '<div class="sv-modal">'
+    + '<div class="sv-modal-head"><b>Documento firmado y solicitud de pago</b><button type="button" class="btn-mini" onclick="cerrarModalPago()">✕</button></div>'
+    + '<div class="sv-modal-body">'
+    + '<p id="sv-pago-sub" class="card-note" style="margin-bottom:.75rem"></p>'
+    + '<div class="table-wrap"><table><thead><tr><th>Colaborador</th><th>Cuenta</th><th style="text-align:right">Monto</th></tr></thead><tbody id="sv-pago-lineas"></tbody></table></div>'
+    + '<div class="sv-step"><p class="card-title" style="margin-bottom:.6rem">1 · Documento firmado</p>'
+    + '<input type="file" id="sv-firma-input" accept="image/*" capture="environment" style="display:none">'
+    + '<div id="sv-firma-box"></div>'
+    + '<p class="field-hint">Imprimí el PDF, recogé las firmas de conformidad y subí acá una foto del documento firmado.</p></div>'
+    + '<div class="sv-step"><p class="card-title" style="margin-bottom:.6rem">2 · Solicitar el pago por correo</p>'
+    + '<div class="field"><label for="sv-pago-email">Correo destinatario (contabilidad)</label><input type="email" id="sv-pago-email" placeholder="contabilidad@casaaguizotes.com"></div>'
+    + '<button type="button" class="btn-primary" id="sv-pago-enviar" onclick="enviarSolicitudPago()" style="margin-top:.5rem">Enviar solicitud de pago ✉</button>'
+    + '<p class="field-hint">El correo lleva el monto a pagar por persona, el total y el link al documento firmado.</p></div>'
+    + '</div></div>';
+  ov.addEventListener('click', e => { if (e.target === ov) cerrarModalPago(); });
+  document.body.appendChild(ov);
+  document.getElementById('sv-firma-input').addEventListener('change', e => { if (e.target.files[0]) handleFirmaSelect(e.target.files[0]); e.target.value = ''; });
+  document.getElementById('sv-pago-email').value = localStorage.getItem('sv_pago_email') || '';
+}
+
+function cerrarModalPago() { const m = document.getElementById('sv-pago-modal'); if (m) m.style.display = 'none'; }
+
+function repartoPorId(id) {
+  return (repartosTodos || []).find(x => String(x['ID']) === String(id))
+      || (histListaActual || []).find(x => String(x['ID']) === String(id));
+}
+
+function abrirPagoFirmaModal(id) {
+  asegurarModalPago();
+  const r = repartoPorId(id);
+  if (!r) { showToast('No se encontró el reparto — abrí Historial y volvé a intentar', 'error'); return; }
+  const kiosko = r['Kiosko'] || kioskoActual;
+  _pagoCtx = { id: String(id), kiosko, moneda: esKioskoUSD(kiosko) ? '$' : '₡' };
+  document.getElementById('sv-pago-sub').textContent = `${r['Kiosko'] || '—'} · ${fechaLbl(r['Fecha inicio'])} al ${fechaLbl(r['Fecha fin'])} · Reparto #${r['ID']}`;
+  const det = (detalleTodos || []).filter(d => String(d['ID Reparto']) === String(id));
+  const map = new Map();
+  det.forEach(d => { const k = d['Colaborador']; if (!map.has(k)) map.set(k, { colaborador: k, puesto: d['Puesto'] || '', monto: 0 }); const e = map.get(k); e.monto += Number(d['Monto ₡']) || 0; if (d['Puesto']) e.puesto = d['Puesto']; });
+  const lineas = Array.from(map.values()).sort((a, b) => b.monto - a.monto);
+  const total = lineas.reduce((s, l) => s + l.monto, 0);
+  document.getElementById('sv-pago-lineas').innerHTML = lineas.length
+    ? lineas.map(l => `<tr><td>${escHtml(l.colaborador)}${l.puesto ? ' · ' + escHtml(l.puesto) : ''}</td><td>${cuentaTxtColaborador(l.colaborador)}</td><td class="num">${fmtCRC(l.monto)}</td></tr>`).join('')
+      + `<tr><td colspan="2" style="text-align:right;font-weight:700">Total a pagar</td><td class="num" style="font-weight:700">${fmtCRC(total)}</td></tr>`
+    : '<tr><td colspan="3" class="empty">Sin colaboradores en este reparto.</td></tr>';
+  renderFirmaBox(r['Firma URL'] || '');
+  document.getElementById('sv-pago-modal').style.display = 'flex';
+}
+
+function abrirPagoFirmaDesdeCierre() {
+  const id = document.getElementById('sv-cierre-pdf-btn').dataset.id;
+  if (id) abrirPagoFirmaModal(id); else showToast('Primero cerrá el cálculo', 'error');
+}
+
+// NOTA: el link de Drive (getUrl) es la página visor, no la imagen directa,
+// así que NO usamos <img> acá (daría "imagen rota"): mostramos un enlace.
+function renderFirmaBox(url) {
+  const box = document.getElementById('sv-firma-box');
+  if (!box) return;
+  box.innerHTML = url
+    ? `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--green-lt);border-radius:10px;background:var(--green-bg)"><span style="color:var(--green);font-weight:600;font-size:13px">Documento firmado cargado ✓</span><a href="${escHtml(url)}" target="_blank" class="btn-mini">Ver ↗</a><button type="button" class="btn-mini" onclick="document.getElementById('sv-firma-input').click()">Reemplazar</button></div>`
+    : `<div class="sv-firma-drop" onclick="document.getElementById('sv-firma-input').click()">📷 Tocá para tomar o subir la foto del documento firmado</div>`;
+}
+
+async function handleFirmaSelect(file) {
+  if (!_pagoCtx) return;
+  const box = document.getElementById('sv-firma-box');
+  box.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px"><span class="spinner"></span> Subiendo documento…</div>';
+  try {
+    const { base64, mime } = await comprimirImagen(file);
+    const resp = await postRRHH({ modulo: 'servicio_firma', id: _pagoCtx.id, kiosko: _pagoCtx.kiosko, imagen_base64: base64, mime }, 90000);
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    const url = (resp.result && resp.result.firma_url) || '';
+    [repartosTodos, histListaActual].forEach(arr => { const r = (arr || []).find(x => String(x['ID']) === String(_pagoCtx.id)); if (r) r['Firma URL'] = url; });
+    renderFirmaBox(url);
+    showToast('Documento firmado cargado ✓', 'success');
+    cargarHistorial();
+  } catch (e) {
+    showToast('No se pudo subir el documento: ' + (e && e.message || e), 'error');
+    const r = repartoPorId(_pagoCtx.id);
+    renderFirmaBox(r && r['Firma URL'] || '');
+  }
+}
+
+async function enviarSolicitudPago() {
+  if (!_pagoCtx) return;
+  const email = (document.getElementById('sv-pago-email').value || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showToast('Escribí un correo destinatario válido', 'error'); return; }
+  const r = repartoPorId(_pagoCtx.id);
+  if (!(r && r['Firma URL']) && !confirm('Todavía no has subido el documento firmado. El correo saldrá sin el link de las firmas. ¿Enviar de todas formas?')) return;
+  localStorage.setItem('sv_pago_email', email);
+  const btn = document.getElementById('sv-pago-enviar'); const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const resp = await postRRHH({ modulo: 'servicio_solicitar_pago', id: _pagoCtx.id, destinatario: email, moneda: _pagoCtx.moneda }, 90000);
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    const res = resp.result || {};
+    const sc = res.sin_cuenta || [];
+    showToast(`Solicitud enviada a ${email} (${res.colaboradores || 0} colaborador${(res.colaboradores || 0) === 1 ? '' : 'es'})${sc.length ? ' · ' + sc.length + ' sin cuenta registrada' : ''}`, 'success');
+    if (sc.length) console.warn('Colaboradores sin cuenta registrada:', sc.join(', '));
+  } catch (e) {
+    showToast('No se pudo enviar el correo: ' + (e && e.message || e), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   document.getElementById('toast-icon').innerHTML = type === 'success'
