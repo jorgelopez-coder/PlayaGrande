@@ -114,19 +114,57 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .pf-clasif{font-size:11.5px;color:var(--muted)}
 .pf-prov-count{font-size:12px;color:var(--muted)}
 
-/* ── Configuración: catálogos en lista ─────────────────────────── */
-.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.cfg-add-row{display:flex;gap:8px;margin-bottom:.85rem}
+/* ── Configuración: catálogos reorganizados (2026-10-09) ───────── */
+.cfg-card-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:1.1rem}
+.cfg-card-head .cfg-ic{font-size:20px;line-height:1.4;flex-shrink:0}
+.cfg-card-head .cfg-h{font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
+.cfg-card-head .cfg-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.cfg-card-head .cfg-s b{color:var(--text);font-weight:600}
+.cfg-block{padding:1rem 0;border-top:1px dashed var(--border)}
+.cfg-block:first-of-type{border-top:none;padding-top:0}
+.cfg-block-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cfg-block-name{font-size:13.5px;font-weight:600;color:var(--text)}
+.cfg-use{font-size:11.5px;color:var(--muted)}
+.cfg-use b{color:var(--text);font-weight:600}
+.cfg-ej{font-size:11.5px;color:var(--subtle);margin:.15rem 0 .7rem}
+.cfg-ej .ia{color:var(--blue)}
+.cfg-add-row{display:flex;gap:8px;margin-bottom:.85rem;max-width:460px}
 .cfg-add-row input{flex:1}
-.cfg-chips{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:9px;overflow:hidden}
-.cfg-chip{display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--surface);padding:8px 12px;font-size:12.5px;border-bottom:1px solid var(--border)}
-.cfg-chip:last-child{border-bottom:none}
-.cfg-chip button{background:none;border:none;color:var(--subtle);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;border-radius:6px;flex-shrink:0}
-.cfg-chip button:hover{color:var(--red);background:var(--red-bg)}
-.cfg-subfamilia-familia{margin-bottom:.85rem;max-width:280px}
-@media(max-width:640px){
-  .cfg-grid{grid-template-columns:1fr}
-}
+.cfg-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.cfg-row{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px}
+.cfg-name{flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cfg-count{font-size:11px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1px 8px;flex-shrink:0;white-space:nowrap}
+.cfg-count.zero{color:var(--subtle)}
+.cfg-act{background:none;border:none;cursor:pointer;color:var(--subtle);font-size:13px;line-height:1;padding:3px 5px;border-radius:6px;flex-shrink:0}
+.cfg-act:hover{color:var(--text);background:var(--card)}
+.cfg-act.del:hover{color:var(--red);background:var(--red-bg)}
+.cfg-empty{font-size:12.5px;color:var(--subtle);padding:.5rem 0}
+.cfg-fam{border:1px solid var(--border);border-radius:10px;margin-bottom:.7rem;overflow:hidden;max-width:760px}
+.cfg-fam-head{display:flex;align-items:center;gap:8px;background:var(--surface);padding:9px 12px}
+.cfg-caret{background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:2px 4px;transition:transform .15s}
+.cfg-caret.open{transform:rotate(90deg)}
+.cfg-fam-name{flex:1;font-size:13.5px;font-weight:600}
+.cfg-fam-body{padding:10px 12px 12px 34px;display:none}
+.cfg-fam-body.open{display:block}
+.cfg-sub-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:.7rem}
+.cfg-sub-chip{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 6px 4px 12px;font-size:12.5px}
+.cfg-sub-chip .cfg-subn{font-size:10px;color:var(--muted)}
+.cfg-sub-chip button{background:none;border:none;color:var(--subtle);cursor:pointer;font-size:13px;line-height:1;padding:1px 5px;border-radius:50%}
+.cfg-sub-chip button:hover{color:var(--red);background:var(--red-bg)}
+.cfg-sub-add{display:flex;gap:7px;max-width:380px}
+.cfg-sub-add input{flex:1;padding:6px 10px;font-size:13px}
+.cfg-sub-empty{font-size:12px;color:var(--subtle);margin-bottom:.6rem}
+.cfg-ov{display:none;position:fixed;inset:0;background:rgba(28,58,40,.35);z-index:210;align-items:center;justify-content:center;padding:1.5rem}
+.cfg-ov.open{display:flex}
+.cfg-md{background:var(--card);border-radius:var(--radius);width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.18);overflow:hidden}
+.cfg-md-head{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);font-family:var(--font-d);font-size:15px;font-weight:700}
+.cfg-md-body{padding:1.2rem 1.4rem;font-size:13px}
+.cfg-md-body input,.cfg-md-body select{margin-top:10px}
+.cfg-md-warn{background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:9px;padding:10px 13px;color:var(--amber);font-size:12.5px}
+.cfg-md-warn b{font-family:var(--font-d)}
+.cfg-md-foot{display:flex;justify-content:flex-end;gap:9px;padding:1rem 1.4rem;border-top:1px solid var(--border)}
+.cfg-btn-danger{font-size:12px;padding:8px 16px;border-radius:7px;border:1px solid var(--red);background:var(--red);color:#fff;cursor:pointer;font-weight:600}
+@media(max-width:640px){ .cfg-list{grid-template-columns:1fr} }
 @media(max-width:640px){
   header{padding:0 1rem}main{padding:1.5rem 1rem 3rem}
   .field-row,.field-row-3{grid-template-columns:1fr}
@@ -328,78 +366,95 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div id="tab-config" style="display:none">
 
 <div class="card">
-  <p class="card-title">Clasificación de productos</p>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Catálogos que se usan en la Ficha de producto (Área de negocio, Categoría, Familia y
-    Subfamilia). Agregá o quitá valores acá — se reflejan al toque en los desplegables de la
-    ficha, sin tocar código. Copiado del mismo panel de Ecosistema Lorito.
-  </p>
-  <div class="cfg-grid">
+  <div class="cfg-card-head">
+    <span class="cfg-ic">🗂️</span>
     <div>
-      <div class="section-label" style="margin-top:0">Área de negocio</div>
-      <div class="cfg-add-row">
-        <input type="text" id="cfg-area-nuevo" placeholder="ej: Barra / Coctelería"/>
-        <button class="btn-sm" onclick="agregarConfigValor('Area','cfg-area-nuevo')">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-area"></div>
+      <div class="cfg-h">Cómo se clasifica un producto</div>
+      <div class="cfg-s">Estos catálogos llenan los desplegables de la <b>Ficha de producto</b>. Cada uno responde a una pregunta distinta — por eso están separados. El número a la par de cada valor es cuántos productos lo usan hoy.</div>
     </div>
-    <div>
-      <div class="section-label" style="margin-top:0">Categoría</div>
-      <div class="cfg-add-row">
-        <input type="text" id="cfg-categoria-nuevo" placeholder="ej: Cerveza"/>
-        <button class="btn-sm" onclick="agregarConfigValor('Categoria','cfg-categoria-nuevo')">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-categoria"></div>
+  </div>
+
+  <div class="cfg-block">
+    <div class="cfg-block-head">
+      <span class="cfg-block-name">Área de negocio</span>
+      <span class="cfg-use">¿<b>Dónde</b> se maneja? → permisos e inventario por área</span>
     </div>
-    <div>
-      <div class="section-label" style="margin-top:0">Familia</div>
-      <div class="cfg-add-row">
-        <input type="text" id="cfg-familia-nuevo" placeholder="ej: Cerveza"/>
-        <button class="btn-sm" onclick="agregarConfigValor('Familia','cfg-familia-nuevo')">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-familia"></div>
+    <div class="cfg-ej">Ejemplos: Barra / Coctelería · Cocina / Snacks · Bodega</div>
+    <div class="cfg-add-row">
+      <input type="text" id="cfg-in-area" placeholder="ej: Barra / Coctelería"/>
+      <button class="btn-sm" onclick="cfgAgregarValor('Area','cfg-in-area')">+ Agregar</button>
     </div>
-    <div>
-      <div class="section-label" style="margin-top:0">Subfamilia</div>
-      <div class="field cfg-subfamilia-familia" style="margin-bottom:.85rem">
-        <select id="cfg-subfamilia-familia-sel" onchange="renderSubfamiliasConfig()"></select>
-      </div>
-      <div class="cfg-add-row" id="cfg-subfamilia-add-row" style="display:none">
-        <input type="text" id="cfg-subfamilia-nuevo" placeholder="ej: IPA"/>
-        <button class="btn-sm" onclick="agregarSubfamiliaConfig()">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-subfamilia"></div>
+    <div class="cfg-list" id="cfg-list-area"></div>
+  </div>
+
+  <div class="cfg-block">
+    <div class="cfg-block-head">
+      <span class="cfg-block-name">Categoría de producto</span>
+      <span class="cfg-use">¿<b>Cómo se agrupa</b> en barra y reportes? → columna de la Matriz de kioskos</span>
+    </div>
+    <div class="cfg-ej">Ejemplos: Cerveza · Licores y Destilados · Snacks · Hielo &nbsp;·&nbsp; <span class="ia">la IA propone una al leer la factura; acá mandás vos</span></div>
+    <div class="cfg-add-row">
+      <input type="text" id="cfg-in-categoria" placeholder="ej: Cerveza"/>
+      <button class="btn-sm" onclick="cfgAgregarValor('Categoria','cfg-in-categoria')">+ Agregar</button>
+    </div>
+    <div class="cfg-list" id="cfg-list-categoria"></div>
+  </div>
+
+  <div class="cfg-block">
+    <div class="cfg-block-head">
+      <span class="cfg-block-name">Familia → Subfamilia</span>
+      <span class="cfg-use">¿Qué <b>detalle fino</b> para recetas y costeo? → el estilo exacto</span>
+    </div>
+    <div class="cfg-ej">Ejemplo: Cerveza › IPA. Abrí una familia para ver y agregar sus subfamilias.</div>
+    <div id="cfg-fam-wrap"></div>
+    <div class="cfg-add-row" style="margin-top:.6rem">
+      <input type="text" id="cfg-in-familia" placeholder="Nueva familia — ej: Cerveza, Licores"/>
+      <button class="btn-sm" onclick="cfgAgregarFamilia()">+ Agregar familia</button>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <p class="card-title">Compra y recetas</p>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Catálogos que usa la Ficha de producto para calcular la <b>conversión automática</b> entre lo que
-    comprás y lo que usás en receta (ej. comprás por Galón, la receta usa Mililitro → la ficha calcula
-    sola que 1 Galón = 3.785,41 ml). Reconocemos Mililitro, Litro, Galón, Onza, Gramo, Kilo, Libra y
-    Unidad para el cálculo automático — el resto de valores (Bulto, Caja, Sifón, Pizca…) siguen
-    funcionando en la ficha, solo que ahí la conversión se completa a mano porque no tienen una
-    cantidad fija.
-  </p>
-  <div class="cfg-grid">
+  <div class="cfg-card-head">
+    <span class="cfg-ic">🧮</span>
     <div>
-      <div class="section-label" style="margin-top:0">Presentación de compra</div>
-      <div class="cfg-add-row">
-        <input type="text" id="cfg-presentacion-nuevo" placeholder="ej: Barril, Six pack"/>
-        <button class="btn-sm" onclick="agregarConfigValor('Presentacion','cfg-presentacion-nuevo')">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-presentacion"></div>
+      <div class="cfg-h">Unidades para compra y recetas</div>
+      <div class="cfg-s">Alimentan la <b>conversión automática</b> compra → receta en la ficha (ej. comprás por Galón, la receta usa Mililitro → 1 Galón = 3.785,41 ml). Reconocemos Mililitro, Litro, Galón, Onza, Gramo, Kilo, Libra y Unidad para el cálculo automático; el resto funciona igual, pero ahí la conversión se completa a mano.</div>
     </div>
-    <div>
-      <div class="section-label" style="margin-top:0">Unidad de medida para receta</div>
-      <div class="cfg-add-row">
-        <input type="text" id="cfg-unidadreceta-nuevo" placeholder="ej: Cucharada"/>
-        <button class="btn-sm" onclick="agregarConfigValor('UnidadReceta','cfg-unidadreceta-nuevo')">+ Agregar</button>
-      </div>
-      <div class="cfg-chips" id="cfg-chips-unidadreceta"></div>
+  </div>
+
+  <div class="cfg-block">
+    <div class="cfg-block-head">
+      <span class="cfg-block-name">Presentación de compra</span>
+      <span class="cfg-use">Cómo viene del proveedor</span>
     </div>
+    <div class="cfg-ej">Ejemplos: Barril · Caja · Six pack · Galón</div>
+    <div class="cfg-add-row">
+      <input type="text" id="cfg-in-presentacion" placeholder="ej: Barril, Six pack"/>
+      <button class="btn-sm" onclick="cfgAgregarValor('Presentacion','cfg-in-presentacion')">+ Agregar</button>
+    </div>
+    <div class="cfg-list" id="cfg-list-presentacion"></div>
+  </div>
+
+  <div class="cfg-block">
+    <div class="cfg-block-head">
+      <span class="cfg-block-name">Unidad de medida para receta</span>
+      <span class="cfg-use">Cómo se usa en la receta</span>
+    </div>
+    <div class="cfg-ej">Ejemplos: Mililitro · Onza · Gramo · Unidad · Cucharada</div>
+    <div class="cfg-add-row">
+      <input type="text" id="cfg-in-unidadreceta" placeholder="ej: Cucharada"/>
+      <button class="btn-sm" onclick="cfgAgregarValor('UnidadReceta','cfg-in-unidadreceta')">+ Agregar</button>
+    </div>
+    <div class="cfg-list" id="cfg-list-unidadreceta"></div>
+  </div>
+</div>
+
+<div class="cfg-ov" id="cfg-ov">
+  <div class="cfg-md">
+    <div class="cfg-md-head" id="cfg-md-head"></div>
+    <div class="cfg-md-body" id="cfg-md-body"></div>
+    <div class="cfg-md-foot" id="cfg-md-foot"></div>
   </div>
 </div>
 
@@ -770,13 +825,22 @@ async function cargarMaestro() {
   }
 }
 
-function renderTodo() { renderMaestro(); renderFichas(); MX_CONSTRUIDO = false; renderMatriz(); }
+function renderTodo() { renderMaestro(); renderFichas(); MX_CONSTRUIDO = false; renderMatriz(); renderConfiguracion(); }
 
-// ── CONFIGURACIÓN (catálogos de Área/Categoría/Familia/Subfamilia) ────
+// ── CONFIGURACIÓN (catálogos) — reorganizada 2026-10-09 ───────────────
+// Área/Categoría/Familia/Subfamilia + Presentación/Unidad de receta.
+// Conteo de uso: se calcula en el navegador desde MAESTRO (ver cfgUso).
+// Renombrar y el borrado con reasignación llaman al backend, que hace la
+// cascada a los productos del Maestro (Code-cuentas-por-pagar-kioskos-backend.gs).
+
+// Mapa: tipo de catálogo -> campo del objeto MAESTRO (para contar uso).
+const CFG_CAMPO = { Area:'area', Categoria:'categoriaProducto', Familia:'familia', Presentacion:'presentacion', UnidadReceta:'unidadReceta' };
+const CFG_LABEL = { Area:'Área de negocio', Categoria:'Categoría de producto', Familia:'Familia', Presentacion:'Presentación de compra', UnidadReceta:'Unidad de medida' };
+const CFG_FAM_OPEN = {}; // qué familias están expandidas en el árbol
+
 async function cargarConfiguracion() {
   try {
-    // Reintenta si la primera lectura vuelve vacía (conexión lenta / arranque
-    // en frío) en vez de quedarse con catálogos vacíos para siempre.
+    // Reintenta si la primera lectura vuelve vacía (arranque en frío).
     let datos = [];
     let intentos = 0;
     while (!datos.length && intentos < 5) {
@@ -797,99 +861,229 @@ async function cargarConfiguracion() {
       else if (tipo === 'UnidadReceta') unidadesReceta.push(valor);
     });
     CONFIG = { areas, categorias, familias, subfamiliasPorFamilia: subPorFam, presentaciones, unidadesReceta };
-  } catch (e) { /* si falla, se sigue con listas vacías (datalists quedan libres) */ }
+  } catch (e) { /* si falla, se sigue con listas vacías (datalists libres) */ }
   renderConfiguracion();
   poblarDatalistsFicha();
 }
 
-function renderConfiguracion() {
-  const chipsArea = document.getElementById('cfg-chips-area');
-  if (!chipsArea) return; // todavía no cargó el DOM de esta pestaña
-  chipsArea.innerHTML = chipsConfigHtml('Area', CONFIG.areas);
-  document.getElementById('cfg-chips-categoria').innerHTML = chipsConfigHtml('Categoria', CONFIG.categorias);
-  document.getElementById('cfg-chips-familia').innerHTML = chipsConfigHtml('Familia', CONFIG.familias);
-  document.getElementById('cfg-chips-presentacion').innerHTML = chipsConfigHtml('Presentacion', CONFIG.presentaciones);
-  document.getElementById('cfg-chips-unidadreceta').innerHTML = chipsConfigHtml('UnidadReceta', CONFIG.unidadesReceta);
+// Escapa un valor para meterlo como argumento dentro de onclick="fn('...')".
+function cfgArg(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
-  const sel = document.getElementById('cfg-subfamilia-familia-sel');
-  const familiaSel = sel.value;
-  sel.innerHTML = '<option value="">Elegí una familia…</option>' +
-    CONFIG.familias.map(f => `<option value="${escapeAttr(f)}" ${f===familiaSel?'selected':''}>${escHtml(f)}</option>`).join('');
-  renderSubfamiliasConfig();
+// Cuántos productos del Maestro usan un valor de un catálogo.
+function cfgUso(tipo, valor){
+  const campo = CFG_CAMPO[tipo]; if (!campo) return 0;
+  const v = String(valor||'').trim().toLowerCase();
+  let n = 0;
+  for (const m of MAESTRO) if (String(m[campo]||'').trim().toLowerCase() === v) n++;
+  return n;
+}
+function cfgUsoSub(familia, sub){
+  const f = String(familia||'').trim().toLowerCase(), s = String(sub||'').trim().toLowerCase();
+  let n = 0;
+  for (const m of MAESTRO) if (String(m.familia||'').trim().toLowerCase()===f && String(m.subfamilia||'').trim().toLowerCase()===s) n++;
+  return n;
+}
+function cfgBadge(n){ return n>0 ? `<span class="cfg-count">${n}\u00a0prod.</span>` : `<span class="cfg-count zero">sin uso</span>`; }
+
+function renderConfiguracion(){
+  if (!document.getElementById('cfg-list-area')) return; // pestaña aún no en el DOM
+  cfgRenderLista('Area', 'cfg-list-area', CONFIG.areas);
+  cfgRenderLista('Categoria', 'cfg-list-categoria', CONFIG.categorias);
+  cfgRenderLista('Presentacion', 'cfg-list-presentacion', CONFIG.presentaciones);
+  cfgRenderLista('UnidadReceta', 'cfg-list-unidadreceta', CONFIG.unidadesReceta);
+  cfgRenderFamilias();
 }
 
-function chipsConfigHtml(tipo, valores) {
-  if (!valores.length) return '<span class="empty-state" style="padding:.6rem .75rem;display:block">Todavía no hay valores.</span>';
-  return valores.map(v => `
-    <span class="cfg-chip">${escHtml(v)}
-      <button type="button" title="Quitar" onclick="eliminarConfigValor('${tipo}','${escapeAttr(v)}')">×</button>
-    </span>`).join('');
+function cfgRenderLista(tipo, hostId, valores){
+  const host = document.getElementById(hostId); if (!host) return;
+  valores = valores || [];
+  if (!valores.length){ host.innerHTML = '<div class="cfg-empty">Todavía no hay valores.</div>'; return; }
+  host.innerHTML = valores.map(v => `
+    <div class="cfg-row">
+      <span class="cfg-name" title="${escapeAttr(v)}">${escHtml(v)}</span>
+      ${cfgBadge(cfgUso(tipo, v))}
+      <button class="cfg-act" title="Renombrar" onclick="cfgPedirRenombrar('${tipo}','${cfgArg(v)}')">✎</button>
+      <button class="cfg-act del" title="Quitar" onclick="cfgPedirEliminar('${tipo}','${cfgArg(v)}')">✕</button>
+    </div>`).join('');
 }
 
-function renderSubfamiliasConfig() {
-  const familia = document.getElementById('cfg-subfamilia-familia-sel').value;
-  document.getElementById('cfg-subfamilia-add-row').style.display = familia ? 'flex' : 'none';
-  const subfamilias = familia ? (CONFIG.subfamiliasPorFamilia[familia] || []) : [];
-  const cont = document.getElementById('cfg-chips-subfamilia');
-  if (!familia) { cont.innerHTML = '<span class="empty-state" style="padding:.6rem .75rem;display:block">Elegí una familia para ver/agregar sus subfamilias.</span>'; return; }
-  if (!subfamilias.length) { cont.innerHTML = '<span class="empty-state" style="padding:.6rem .75rem;display:block">Todavía no hay subfamilias para esta familia.</span>'; return; }
-  cont.innerHTML = subfamilias.map(v => `
-    <span class="cfg-chip">${escHtml(v)}
-      <button type="button" title="Quitar" onclick="eliminarSubfamiliaConfig('${escapeAttr(familia)}','${escapeAttr(v)}')">×</button>
-    </span>`).join('');
+function cfgRenderFamilias(){
+  const w = document.getElementById('cfg-fam-wrap'); if (!w) return;
+  const familias = CONFIG.familias || [];
+  if (!familias.length){ w.innerHTML = '<div class="cfg-empty">Todavía no hay familias.</div>'; return; }
+  w.innerHTML = familias.map((f, fi) => {
+    const subs = (CONFIG.subfamiliasPorFamilia[f] || []);
+    const total = cfgUso('Familia', f);
+    const abierta = !!CFG_FAM_OPEN[f];
+    const chips = subs.length
+      ? '<div class="cfg-sub-chips">' + subs.map(s => `
+          <span class="cfg-sub-chip">${escHtml(s)} <span class="cfg-subn">${cfgUsoSub(f,s)}</span>
+            <button title="Quitar" onclick="cfgPedirEliminarSub('${cfgArg(f)}','${cfgArg(s)}')">×</button></span>`).join('') + '</div>'
+      : '<div class="cfg-sub-empty">Todavía no hay subfamilias para esta familia.</div>';
+    return `<div class="cfg-fam">
+      <div class="cfg-fam-head">
+        <button class="cfg-caret ${abierta?'open':''}" onclick="cfgToggleFamilia('${cfgArg(f)}')">▶</button>
+        <span class="cfg-fam-name">${escHtml(f)}</span>
+        ${cfgBadge(total)}
+        <button class="cfg-act" title="Renombrar familia" onclick="cfgPedirRenombrar('Familia','${cfgArg(f)}')">✎</button>
+        <button class="cfg-act del" title="Quitar familia" onclick="cfgPedirEliminarFamilia('${cfgArg(f)}')">✕</button>
+      </div>
+      <div class="cfg-fam-body ${abierta?'open':''}">
+        ${chips}
+        <div class="cfg-sub-add">
+          <input type="text" id="cfg-sub-in-${fi}" placeholder="Nueva subfamilia — ej: IPA"/>
+          <button class="btn-sm" onclick="cfgAgregarSub('${cfgArg(f)}',${fi})">+ Agregar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-async function agregarConfigValor(tipo, inputId) {
+function cfgToggleFamilia(f){ CFG_FAM_OPEN[f] = !CFG_FAM_OPEN[f]; cfgRenderFamilias(); }
+
+// ── Altas ──
+async function cfgAgregarValor(tipo, inputId){
   const input = document.getElementById(inputId);
-  const valor = input.value.trim();
-  if (!valor) { showToast('Escribí un valor', 'error'); return; }
+  const valor = (input.value||'').trim();
+  if (!valor){ showToast('Escribí un valor', 'error'); return; }
   try {
-    await postAP({ modulo: 'config_agregar', tipo: tipo, valor: valor });
+    await postAP({ modulo:'config_agregar', tipo: tipo, valor: valor });
     input.value = '';
     showToast('Agregado ✓');
     await cargarConfiguracion();
-  } catch (e) {
-    showToast('No se pudo agregar — ' + e.message, 'error');
-  }
+  } catch (e){ showToast('No se pudo agregar — ' + e.message, 'error'); }
 }
-
-async function eliminarConfigValor(tipo, valor) {
-  if (!confirm(`¿Quitar "${valor}" de la lista?`)) return;
+async function cfgAgregarFamilia(){
+  const input = document.getElementById('cfg-in-familia');
+  const valor = (input.value||'').trim();
+  if (!valor){ showToast('Escribí una familia', 'error'); return; }
   try {
-    await postAP({ modulo: 'config_eliminar', tipo: tipo, valor: valor });
-    showToast('Eliminado ✓');
-    await cargarConfiguracion();
-  } catch (e) {
-    showToast('No se pudo eliminar — ' + e.message, 'error');
-  }
-}
-
-async function agregarSubfamiliaConfig() {
-  const familia = document.getElementById('cfg-subfamilia-familia-sel').value;
-  const input = document.getElementById('cfg-subfamilia-nuevo');
-  const valor = input.value.trim();
-  if (!familia) { showToast('Elegí una familia primero', 'error'); return; }
-  if (!valor) { showToast('Escribí una subfamilia', 'error'); return; }
-  try {
-    await postAP({ modulo: 'config_subfamilia_agregar', familia: familia, valor: valor });
+    await postAP({ modulo:'config_agregar', tipo:'Familia', valor: valor });
     input.value = '';
-    showToast('Agregada ✓');
+    CFG_FAM_OPEN[valor] = true;
+    showToast('Familia agregada ✓');
     await cargarConfiguracion();
-  } catch (e) {
-    showToast('No se pudo agregar — ' + e.message, 'error');
-  }
+  } catch (e){ showToast('No se pudo agregar — ' + e.message, 'error'); }
+}
+async function cfgAgregarSub(familia, fi){
+  const input = document.getElementById('cfg-sub-in-' + fi);
+  const valor = (input.value||'').trim();
+  if (!valor){ showToast('Escribí una subfamilia', 'error'); return; }
+  try {
+    await postAP({ modulo:'config_subfamilia_agregar', familia: familia, valor: valor });
+    input.value = '';
+    CFG_FAM_OPEN[familia] = true;
+    showToast('Subfamilia agregada ✓');
+    await cargarConfiguracion();
+  } catch (e){ showToast('No se pudo agregar — ' + e.message, 'error'); }
 }
 
-async function eliminarSubfamiliaConfig(familia, valor) {
-  if (!confirm(`¿Quitar "${valor}" de ${familia}?`)) return;
-  try {
-    await postAP({ modulo: 'config_subfamilia_eliminar', familia: familia, valor: valor });
-    showToast('Eliminada ✓');
-    await cargarConfiguracion();
-  } catch (e) {
-    showToast('No se pudo eliminar — ' + e.message, 'error');
-  }
+// ── Modal genérico de Configuración ──
+function cfgModal(titulo, cuerpoHtml, pieHtml){
+  document.getElementById('cfg-md-head').textContent = titulo;
+  document.getElementById('cfg-md-body').innerHTML = cuerpoHtml;
+  document.getElementById('cfg-md-foot').innerHTML = pieHtml;
+  document.getElementById('cfg-ov').classList.add('open');
 }
+function cfgCerrar(){ const ov = document.getElementById('cfg-ov'); if (ov) ov.classList.remove('open'); }
+
+// ── Renombrar (cascada en el backend) ──
+function cfgPedirRenombrar(tipo, valor){
+  const esFam = tipo === 'Familia';
+  const cuerpo = `${esFam ? 'Se renombra la familia y arrastra sus subfamilias.' : 'Se cambia en el catálogo y, al guardar, en todos los productos que lo usan — así no quedan huérfanos.'}
+    <input type="text" id="cfg-md-in" value="${escapeAttr(valor)}"/>`;
+  const pie = `<button class="btn-sm" onclick="cfgCerrar()">Cancelar</button>
+    <button class="btn-primary" onclick="cfgRenombrar('${cfgArg(tipo)}','${cfgArg(valor)}')">Guardar</button>`;
+  cfgModal(esFam ? 'Renombrar familia' : 'Renombrar ' + (CFG_LABEL[tipo]||'').toLowerCase(), cuerpo, pie);
+  setTimeout(() => { const i = document.getElementById('cfg-md-in'); if (i){ i.focus(); i.select(); } }, 50);
+}
+async function cfgRenombrar(tipo, valorViejo){
+  const nuevo = (document.getElementById('cfg-md-in').value||'').trim();
+  if (!nuevo){ showToast('Escribí el nuevo nombre', 'error'); return; }
+  if (nuevo === valorViejo){ cfgCerrar(); return; }
+  try {
+    const r = await postAP({ modulo:'config_renombrar', tipo: tipo, valor: valorViejo, nuevo: nuevo });
+    cfgCerrar();
+    showToast('Renombrado ✓' + (r && r.actualizados ? ` · ${r.actualizados} producto(s)` : ''));
+    await cargarMaestro();
+    await cargarConfiguracion();
+  } catch (e){ showToast('No se pudo renombrar — ' + e.message, 'error'); }
+}
+
+// ── Borrado inteligente de listas simples ──
+function cfgPedirEliminar(tipo, valor){
+  const n = cfgUso(tipo, valor);
+  let cuerpo, pie;
+  if (n > 0){
+    const otros = (tipo==='Area'?CONFIG.areas : tipo==='Categoria'?CONFIG.categorias : tipo==='Presentacion'?CONFIG.presentaciones : CONFIG.unidadesReceta) || [];
+    const opciones = otros.filter(o => o !== valor).map(o => `<option value="${escapeAttr(o)}">${escHtml(o)}</option>`).join('');
+    cuerpo = `<div class="cfg-md-warn"><b>Ojo:</b> ${n} producto${n>1?'s':''} usa${n>1?'n':''} "${escHtml(valor)}". Si lo quitás sin reasignar, esas fichas quedan con el campo en blanco.</div>
+      <div style="margin-top:12px">Reasignar esos productos a:</div>
+      <select id="cfg-md-reasg"><option value="">— Dejar en blanco —</option>${opciones}</select>`;
+    pie = `<button class="btn-sm" onclick="cfgCerrar()">Cancelar</button>
+      <button class="cfg-btn-danger" onclick="cfgEliminar('${cfgArg(tipo)}','${cfgArg(valor)}',true)">Reasignar y quitar</button>`;
+  } else {
+    cuerpo = `"${escHtml(valor)}" no lo usa ningún producto. Se puede quitar sin problema.`;
+    pie = `<button class="btn-sm" onclick="cfgCerrar()">Cancelar</button>
+      <button class="cfg-btn-danger" onclick="cfgEliminar('${cfgArg(tipo)}','${cfgArg(valor)}',false)">Quitar</button>`;
+  }
+  cfgModal('Quitar "' + valor + '"', cuerpo, pie);
+}
+async function cfgEliminar(tipo, valor, conReasignar){
+  const reasignarA = conReasignar ? ((document.getElementById('cfg-md-reasg')||{}).value || '') : '';
+  try {
+    const r = await postAP({ modulo:'config_eliminar', tipo: tipo, valor: valor, reasignar: !!conReasignar, reasignarA: reasignarA });
+    cfgCerrar();
+    showToast('Quitado ✓' + (r && r.reasignados ? ` · ${r.reasignados} reasignado(s)` : ''));
+    if (conReasignar) await cargarMaestro();
+    await cargarConfiguracion();
+  } catch (e){ showToast('No se pudo quitar — ' + e.message, 'error'); }
+}
+
+// ── Borrar familia (limpia Familia y Subfamilia de sus productos) ──
+function cfgPedirEliminarFamilia(familia){
+  const subs = (CONFIG.subfamiliasPorFamilia[familia] || []);
+  const n = cfgUso('Familia', familia);
+  const cuerpo = (subs.length || n)
+    ? `<div class="cfg-md-warn"><b>Ojo:</b> "${escHtml(familia)}" tiene ${subs.length} subfamilia${subs.length!==1?'s':''} y ${n} producto${n!==1?'s':''} asociado${n!==1?'s':''}. Al quitarla se borran sus subfamilias y esos productos quedan sin Familia ni Subfamilia.</div>`
+    : `"${escHtml(familia)}" está vacía y sin productos. Se puede quitar sin problema.`;
+  const pie = `<button class="btn-sm" onclick="cfgCerrar()">Cancelar</button>
+    <button class="cfg-btn-danger" onclick="cfgEliminarFamilia('${cfgArg(familia)}')">Quitar familia</button>`;
+  cfgModal('Quitar familia "' + familia + '"', cuerpo, pie);
+}
+async function cfgEliminarFamilia(familia){
+  try {
+    const r = await postAP({ modulo:'config_eliminar', tipo:'Familia', valor: familia, reasignar:true, reasignarA:'' });
+    delete CFG_FAM_OPEN[familia];
+    cfgCerrar();
+    showToast('Familia quitada ✓' + (r && r.reasignados ? ` · ${r.reasignados} producto(s)` : ''));
+    await cargarMaestro();
+    await cargarConfiguracion();
+  } catch (e){ showToast('No se pudo quitar — ' + e.message, 'error'); }
+}
+
+// ── Borrar subfamilia (limpia la Subfamilia de sus productos) ──
+function cfgPedirEliminarSub(familia, sub){
+  const n = cfgUsoSub(familia, sub);
+  const cuerpo = n > 0
+    ? `<div class="cfg-md-warn"><b>Ojo:</b> ${n} producto${n>1?'s':''} usa${n>1?'n':''} la subfamilia "${escHtml(sub)}". Al quitarla, esas fichas quedan sin Subfamilia (la Familia se mantiene).</div>`
+    : `"${escHtml(sub)}" no lo usa ningún producto. Se puede quitar sin problema.`;
+  const pie = `<button class="btn-sm" onclick="cfgCerrar()">Cancelar</button>
+    <button class="cfg-btn-danger" onclick="cfgEliminarSub('${cfgArg(familia)}','${cfgArg(sub)}')">Quitar</button>`;
+  cfgModal('Quitar subfamilia "' + sub + '"', cuerpo, pie);
+}
+async function cfgEliminarSub(familia, sub){
+  try {
+    const r = await postAP({ modulo:'config_subfamilia_eliminar', familia: familia, valor: sub });
+    cfgCerrar();
+    showToast('Subfamilia quitada ✓' + (r && r.limpiados ? ` · ${r.limpiados} producto(s)` : ''));
+    await cargarMaestro();
+    await cargarConfiguracion();
+  } catch (e){ showToast('No se pudo quitar — ' + e.message, 'error'); }
+}
+
+// Cerrar el modal al hacer click fuera de la tarjeta.
+(function(){ const ov = document.getElementById('cfg-ov'); if (ov) ov.addEventListener('click', function(e){ if (e.target === ov) cfgCerrar(); }); })();
 
 function switchTab(nombre) {
   document.getElementById('tab-homologacion').style.display = nombre === 'homologacion' ? '' : 'none';
@@ -901,6 +1095,7 @@ function switchTab(nombre) {
   document.getElementById('tab-btn-matriz').classList.toggle('active', nombre === 'matriz');
   document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
   if (nombre === 'matriz') { if (!KIOSKOS.length && !CARGANDO_KIOSKOS) cargarKioskosDisponibles(); renderMatriz(); }
+  if (nombre === 'config') renderConfiguracion();
 }
 
 function renderMaestro() {
