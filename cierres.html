@@ -1807,7 +1807,7 @@ function exportarCSVFaltantes() {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
-function hoy() { return new Date().toISOString().slice(0,10); }
+function hoy() { const d = new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function fmtCRC(n) { return '₡' + Math.round(n||0).toLocaleString('es-CR'); }
 
 // ── INIT ──────────────────────────────────────────────────────────
