@@ -1803,7 +1803,18 @@ async function marcarComoPagadoServicio() {
 // ── TAB 3: HISTORIAL DE REPARTOS ───────────────────────────────────
 async function cargarHistorial() {
   try {
-    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_repartos').then(r => r.json());
+    // El detalle (nombres y montos de cada período) vive en detalleTodos, que
+    // normalmente carga cargarPendientes() con modulo=servicio_detalle. En el
+    // arranque ambas corren en paralelo y, como servicio_detalle trae muchas
+    // más filas, el historial se renderizaba antes de que detalleTodos
+    // estuviera listo y cada reparto quedaba sin nombres ni montos al
+    // expandirlo. Si el detalle aún no llegó, lo traemos acá para que el
+    // render SIEMPRE tenga los datos.
+    const faltaDetalle = !detalleTodos.length;
+    const peticiones = [fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_repartos').then(r => r.json())];
+    if (faltaDetalle) peticiones.push(fetchConTimeout(APPS_SCRIPT_RRHH + '?modulo=servicio_detalle').then(r => r.json()));
+    const [resp, rDetalle] = await Promise.all(peticiones);
+    if (faltaDetalle && rDetalle) detalleTodos = rDetalle.registros || [];
     repartosTodos = (resp.registros || []).sort((a, b) => String(b['Fecha cálculo'] || '').localeCompare(String(a['Fecha cálculo'] || '')));
     renderHistorialServicio();
   } catch (e) {
