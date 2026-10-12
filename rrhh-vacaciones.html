@@ -112,6 +112,14 @@
     .btn-aprobar:hover { background:var(--green); color:#fff; }
     .btn-rechazar { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--red-lt); background:var(--red-bg); color:var(--red); cursor:pointer; font-weight:500; transition:background .15s; }
     .btn-rechazar:hover { background:var(--red); color:#fff; }
+    .btn-modificar { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--blue); background:var(--blue-bg); color:var(--blue); cursor:pointer; font-weight:500; transition:background .15s; }
+    .btn-modificar:hover { background:var(--blue); color:#fff; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(28,58,40,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:1rem; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); width:100%; max-width:440px; padding:1.5rem; box-shadow:0 12px 40px rgba(28,58,40,.2); }
+    .modal-box h3 { margin:0 0 .3rem; font-family:var(--font-d); font-size:1.15rem; color:var(--text); }
+    .modal-box .modal-sub { margin:0 0 1.2rem; font-size:12px; color:var(--muted); }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:1.3rem; }
 
     .empty-state { text-align:center; padding:2.5rem; color:var(--subtle); font-size:13px; }
 
@@ -250,6 +258,30 @@
     <span style="margin-left:auto;">v1.0 · RRHH · Ecosistema Kioskos</span>
   </div>
 </main>
+
+<!-- MODAL MODIFICAR SOLICITUD APROBADA -->
+<div class="modal-overlay" id="modal-modificar">
+  <div class="modal-box">
+    <h3>Modificar solicitud</h3>
+    <p class="modal-sub" id="mod-sub">—</p>
+    <div class="field">
+      <label for="mod-inicio">Primer día de vacaciones</label>
+      <input type="date" id="mod-inicio">
+    </div>
+    <div class="field">
+      <label for="mod-ultimo">Último día de vacaciones</label>
+      <input type="date" id="mod-ultimo">
+    </div>
+    <div class="field">
+      <label for="mod-obs">Observaciones</label>
+      <textarea id="mod-obs" placeholder="Información adicional sobre la solicitud…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-clear" onclick="cerrarModalModificar()">Cancelar</button>
+      <button type="button" class="btn-submit" id="btn-guardar-mod" onclick="guardarModificacion()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
@@ -620,7 +652,7 @@ function pintarHistorial() {
         <div class="action-btns">
           <button class="btn-aprobar" onclick="cambiarEstado(${i},'Aprobado')">Aprobar</button>
           <button class="btn-rechazar" onclick="cambiarEstado(${i},'Rechazado')">Rechazar</button>
-        </div>` : '—'}
+        </div>` : (esModificable(s) ? `<button class="btn-modificar" onclick="abrirModalModificar(${i})">Modificar</button>` : '—')}
       </td>
     </tr>
   `).join('');
@@ -629,6 +661,116 @@ function pintarHistorial() {
     <thead><tr><th>Colaborador</th><th>Inicio</th><th>Regreso</th><th>Días</th><th>Estado</th><th>Acción</th></tr></thead>
     <tbody>${filas}</tbody>
   </table>`;
+}
+
+// ── Modificar solicitud aprobada (solo antes de la fecha de inicio) ──────────
+let modEditId = null;
+
+// Una solicitud es modificable si está Aprobada y su fecha de inicio aún no llegó.
+function esModificable(s) {
+  if (!s || s.estado !== 'Aprobado') return false;
+  const ini = parsearFechaVacG(s.fecha_inicio);
+  if (!ini) return false;
+  const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return ini > hoy0;
+}
+
+// Quita las notas automáticas de modificaciones previas del texto de observaciones.
+function limpiarNotasMod(obs) {
+  return (obs || '').toString()
+    .split('\n')
+    .filter(l => !l.trim().startsWith('[Modificada el'))
+    .join('\n')
+    .trim();
+}
+
+function abrirModalModificar(idx) {
+  const s = solicitudesCache[idx];
+  if (!s) return;
+  if (!esModificable(s)) {
+    showToast('Solo se puede modificar una solicitud aprobada antes de su fecha de inicio.', 'error');
+    return;
+  }
+  modEditId = s.id;
+  document.getElementById('mod-sub').textContent =
+    `${s.colaborador} · actualmente ${s.fecha_inicio} → ${s.fecha_fin} (${s.dias} días)`;
+
+  const iniD = parsearFechaVacG(s.fecha_inicio);
+  const finD = parsearFechaVacG(s.fecha_fin);           // fecha de regreso (no es día de vacación)
+  const ultD = finD ? new Date(finD.getFullYear(), finD.getMonth(), finD.getDate() - 1) : iniD;
+
+  // El nuevo inicio debe ser a partir de mañana.
+  const manana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+  const mananaStr = fechaToStr(manana);
+  const inpIni = document.getElementById('mod-inicio');
+  const inpUlt = document.getElementById('mod-ultimo');
+  inpIni.min = mananaStr; inpUlt.min = mananaStr;
+  inpIni.value = iniD ? fechaToStr(iniD) : '';
+  inpUlt.value = ultD ? fechaToStr(ultD) : '';
+  document.getElementById('mod-obs').value = limpiarNotasMod(s.observaciones);
+
+  document.getElementById('modal-modificar').classList.add('show');
+}
+
+function cerrarModalModificar() {
+  document.getElementById('modal-modificar').classList.remove('show');
+  modEditId = null;
+}
+
+function guardarModificacion() {
+  const idx = solicitudesCache.findIndex(s => String(s.id) === String(modEditId));
+  if (idx < 0) { cerrarModalModificar(); return; }
+  const s = solicitudesCache[idx];
+
+  const vIni = document.getElementById('mod-inicio').value;
+  const vUlt = document.getElementById('mod-ultimo').value;
+  const vObs = document.getElementById('mod-obs').value.trim();
+  if (!vIni || !vUlt) { showToast('Seleccioná las dos fechas.', 'error'); return; }
+
+  const iniD = new Date(vIni + 'T00:00:00');
+  const ultD = new Date(vUlt + 'T00:00:00');
+  if (ultD < iniD) { showToast('El último día no puede ser anterior al primero.', 'error'); return; }
+
+  const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  if (iniD <= hoy0) { showToast('La nueva fecha de inicio debe ser posterior a hoy.', 'error'); return; }
+
+  const regreso = new Date(ultD.getFullYear(), ultD.getMonth(), ultD.getDate() + 1);
+  const fechaInicio = fechaToStr(iniD);
+  const fechaFin = fechaToStr(regreso);
+  const dias = diasHabiles(iniD, regreso);
+
+  const btn = document.getElementById('btn-guardar-mod');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  if (APPS_SCRIPT_URL) {
+    fetch(APPS_SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        modulo:'vacaciones_modificar', id: s.id,
+        fecha_inicio: fechaInicio, fecha_fin: fechaFin, dias, observaciones: vObs
+      })
+    }).catch(()=>{});
+  }
+
+  // Reflejar localmente (incluye la nota de modificación, igual que el backend).
+  const pad2 = n => String(n).padStart(2,'0');
+  const fechaMod = `${pad2(hoy.getDate())}/${pad2(hoy.getMonth()+1)}/${hoy.getFullYear()}`;
+  const nota = `[Modificada el ${fechaMod} — fechas anteriores: ${s.fecha_inicio} → ${s.fecha_fin}]`;
+  s.fecha_inicio = fechaInicio;
+  s.fecha_fin = fechaFin;
+  s.dias = dias;
+  s.observaciones = vObs ? (vObs + '\n' + nota) : nota;
+
+  const locales = getSolicitudes();
+  const i = locales.findIndex(x => String(x.id) === String(s.id));
+  if (i >= 0) locales[i] = s; else locales.unshift(s);
+  localStorage.setItem('solicitudes_vac', JSON.stringify(locales));
+
+  btn.disabled = false; btn.textContent = 'Guardar cambios';
+  cerrarModalModificar();
+  showToast('Solicitud modificada correctamente', 'success');
+  pintarHistorial();
 }
 
 function cambiarEstado(idx, estado) {
