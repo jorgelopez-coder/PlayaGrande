@@ -350,7 +350,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 }
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
@@ -415,7 +415,7 @@ async function fetchLoteJSON(modulos) {
   return data.resultados;
 }
 function postBackend(payload) {
-  return fetchConTimeout(APPS_SCRIPT_URL, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) })
+  return fetchConTimeout(APPS_SCRIPT_URL, { method:'POST', body: new URLSearchParams({ data: JSON.stringify(Object.assign({ rol_id: (PORTAL_SESION && PORTAL_SESION.rol_id) || '' }, payload)) }) })
     .then(r => r.json());
 }
 function showToast(msg, type='success') {
@@ -1914,7 +1914,7 @@ async function renderPaso4() {
   const kiosko = document.getElementById('pl-kiosko').value;
   const r = rangoPeriodoActual();
   try {
-    const url = `${APPS_SCRIPT_URL}?modulo=planilla_calcular&periodo=${encodeURIComponent(r.periodo)}&fecha_inicio=${r.fechaInicio}&fecha_fin=${r.fechaFin}&kiosko=${encodeURIComponent(kiosko)}`;
+    const url = `${APPS_SCRIPT_URL}?modulo=planilla_calcular&periodo=${encodeURIComponent(r.periodo)}&fecha_inicio=${r.fechaInicio}&fecha_fin=${r.fechaFin}&kiosko=${encodeURIComponent(kiosko)}&rol_id=${encodeURIComponent((PORTAL_SESION && PORTAL_SESION.rol_id) || '')}`;
     const resp = await fetchConTimeout(url);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error del servidor');
@@ -2725,7 +2725,10 @@ async function cargarHistorial() {
 }
 function clickHistorial(i) {
   const r = window._historial[i];
-  if (r['Estado'] !== 'Aprobada') {
+  // Con snapshot guardado en PlanillasDetalle (Calculada / Pendiente de aprobación /
+  // Aprobada) mostramos el detalle de solo lectura. Sin snapshot (Abierta, incidencias
+  // en revisión/aprobadas) retomamos el wizard para seguir armándola.
+  if (!estadoEsCalculada(r['Estado'])) {
     // Retoma el wizard: alinea el selector de periodo con esta fila y salta a la pestaña Planilla.
     const m = String(r['Periodo']).match(/^(\d{4})-(\d{2})-Q(\d)$/);
     if (m) {
