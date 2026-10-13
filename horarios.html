@@ -75,6 +75,7 @@ tbody tr:last-child td{border-bottom:none}
 .sl-bg{background:var(--lib-bg)!important;color:var(--lib-text)}
 .auto-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-top:-2px}
 .cover-tag{font-size:10px;font-weight:600;color:var(--accent);margin-top:1px}
+.conflict-badge{font-size:10px;font-weight:700;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;padding:2px 5px;margin:2px 0 1px;line-height:1.25;display:block;cursor:help}
 .btn-extra{font-size:13px;line-height:1;width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 .btn-extra:hover{background:var(--surface2);color:var(--text)}
 .btn-quitar{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid currentColor;background:transparent;color:inherit;opacity:.75;cursor:pointer}
@@ -142,7 +143,7 @@ tbody tr:last-child td{border-bottom:none}
 .cov-total .cov-row-label{font-weight:600;color:var(--text)}
 .cov-empty{font-size:11px;color:var(--text3);padding:6px 0 6px 132px}
 @media print{
-  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,.th-copy-btn,.cell-copy-btn,#metrics,.coverage-section{display:none!important}
+  header,.week-bar .btn,.week-bar input,.toolbar,.add-panel,.export-row,.btn-danger,.status-bar,.banner,.legend,.st-sel,.note-ta,.th-copy-btn,.cell-copy-btn,#metrics,.coverage-section,.conflict-badge{display:none!important}
   .note-print{display:block!important}
   .tbl-wrap{border:none;overflow:visible}
   body{background:white}
@@ -397,6 +398,9 @@ const HORAS_VACACIONES = 8;
 let extraTarget = null;
 
 let restos=[], employees=[], schedule={}, activeResto=null, vacaciones=[], permisos=[];
+// Mapa de dias ya ocupados por el mismo colaborador en OTRO kiosko con el
+// horario CERRADO (aviso de doble asignacion). normNombre -> {dayIdx:[{kiosko,estado}]}.
+let conflictosKiosko={};
 // Kiosko pedido por querystring (ej. desde horarios-historial.html), para
 // abrir directo en el kiosko correcto en vez de siempre el primero de la lista.
 let qsKioskoPendiente = new URLSearchParams(location.search).get('kiosko');
@@ -434,6 +438,7 @@ async function onWeekChange(){
   aplicarVacaciones();
   aplicarPermisos();
   await cargarEstadoSemana();
+  await cargarConflictosOtrosKioskos(); renderSched();
 }
 function shiftWeek(dir){const el=document.getElementById('week-start');const d=new Date(el.value+'T00:00:00');d.setDate(d.getDate()+dir*7);el.value=fmt(d);onWeekChange()}
 function goToday(){document.getElementById('week-start').value=fmt(getMondayOf(new Date()));onWeekChange()}
@@ -502,6 +507,7 @@ async function loadSheet(){
     aplicarPermisos();
     renderAll();
     await cargarEstadoSemana();
+    await cargarConflictosOtrosKioskos(); renderSched();
 
     document.getElementById('header-status').textContent='Planilla actualizada ✓';
     toast('Planilla y vacaciones actualizadas');
@@ -969,6 +975,7 @@ async function switchResto(id){
   // El estado cerrado/abierto es por kiosko: al cambiar de pestaña hay que
   // volver a consultarlo (antes no hacía falta porque era global).
   await cargarEstadoSemana();
+  await cargarConflictosOtrosKioskos(); renderSched();
 }
 
 function normalizarVacaciones(regs){
@@ -1169,6 +1176,70 @@ function renderFilterAreas(){
   sel.innerHTML='<option value="">Todos los departamentos</option>'+areas.map(a=>'<option value="'+esc(a)+'"'+(cur===a?' selected':'')+'>'+esc(a)+'</option>').join('');
 }
 
+function normTxt(x){return (x||'').toString().trim().toLowerCase();}
+
+function estadoCortoConflicto(e){
+  if(e==='trabajo') return 'turno';
+  if(e==='vacaciones') return 'vacaciones';
+  if(e==='incapacidad') return 'incapacidad';
+  if(e==='permiso') return 'permiso';
+  if(e==='otro') return 'otro';
+  return e;
+}
+
+/* Carga que dias de la semana visible ya tiene cada colaborador en el horario
+   de OTRO kiosko que esta CERRADO, para avisar de doble asignacion. Solo
+   lectura/aviso: no modifica el horario ni el backend. */
+async function cargarConflictosOtrosKioskos(){
+  conflictosKiosko={};
+  try{
+    const semana=document.getElementById('week-start').value;
+    const dates=getWeekDatesISO();
+    const [rEst,rHor]=await Promise.all([
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado'),
+      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]))
+    ]);
+    const dEst=await rEst.json();
+    const dHor=await rHor.json();
+    if(!dHor.ok||!Array.isArray(dHor.registros))return;
+    const cerrados=new Set();
+    (dEst.ok?dEst.registros:[]).forEach(r=>{
+      if((r['Semana inicio']||'')!==semana)return;
+      if(normTxt(r['Cerrado'])!=='sí' && normTxt(r['Cerrado'])!=='si')return;
+      cerrados.add(normTxt(r['Kiosko']));
+    });
+    const activo=normTxt(activeResto);
+    dHor.registros.forEach(r=>{
+      if((r['Semana inicio']||'')!==semana)return;
+      const kioskoReg=normTxt(r['Kiosko']);
+      if(!kioskoReg||kioskoReg===activo)return;
+      if(!cerrados.has(kioskoReg))return;
+      const estado=normTxt(r['Estado'])||'trabajo';
+      if(estado==='libre')return;
+      const fecha=r['Fecha']||'';
+      const dayIdx=dates.indexOf(fecha);
+      if(dayIdx<0)return;
+      const nombre=normTxt(r['Colaborador']);
+      if(!nombre)return;
+      if(!conflictosKiosko[nombre])conflictosKiosko[nombre]={};
+      if(!conflictosKiosko[nombre][dayIdx])conflictosKiosko[nombre][dayIdx]=[];
+      const arr=conflictosKiosko[nombre][dayIdx];
+      const kioskoLindo=(r['Kiosko']||'').toString().trim();
+      if(!arr.some(c=>normTxt(c.kiosko)===kioskoReg)) arr.push({kiosko:kioskoLindo,estado});
+    });
+  }catch(e){ /* sin conexion: sin marcadores */ }
+}
+
+function buildConflictBadge(empId,i){
+  const emp=employees.find(e=>e.id===empId);
+  if(!emp)return'';
+  const porDia=conflictosKiosko[normTxt(emp.name)];
+  const conf=porDia&&porDia[i];
+  if(!conf||!conf.length)return'';
+  const detalle=conf.map(c=>esc(c.kiosko)+' ('+esc(estadoCortoConflicto(c.estado))+')').join(', ');
+  return '<div class="conflict-badge" title="Este colaborador ya tiene este dia en un horario CERRADO en: '+detalle+'">&#9888; Ya en '+detalle+'</div>';
+}
+
 function buildDayCell(empId,i,dates){
   const s=schedule[empId]?.[i]||{status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:''};
   const st=s.status||'trabajo';
@@ -1177,6 +1248,7 @@ function buildDayCell(empId,i,dates){
   const extraBtn=semanaCerrada?'':'<button type="button" class="btn-extra" title="Incapacidad / permiso sin goce / otro" onclick="abrirExtra(\''+empId+'\','+i+',this)">+</button>';
   const prevLabel=(dates&&i>0)?dates[i-1].label:'domingo anterior';
   const copyBtn=semanaCerrada?'':'<button type="button" class="cell-copy-btn" title="Copiar el turno de '+esc(prevLabel)+' de este colaborador" onclick="copiarCeldaAnterior(\''+empId+'\','+i+')">&#8630;</button>';
+  const conflictBadge=buildConflictBadge(empId,i);
 
   if(st==='trabajo'||st==='libre'){
     const selEl='<select class="st-sel" onchange="setStatus(\''+empId+'\','+i+',this.value)"'+dis+'>'+
@@ -1185,7 +1257,7 @@ function buildDayCell(empId,i,dates){
       '</select>';
     if(st==='libre'){
       const info=ST.libre;
-      return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
+      return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+conflictBadge+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
     }
     const h=calcH(empId,i);
     const splitRow=s.split
@@ -1194,7 +1266,7 @@ function buildDayCell(empId,i,dates){
         '<input type="time" value="'+esc(s.out2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out2\',this.value)"'+dis+'/>'+
         (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">Quitar tramo 2</button>')
       : (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">&#8646; Partir turno</button>');
-    return '<td><div class="day-cell">'+copyBtn+selEl+
+    return '<td><div class="day-cell">'+copyBtn+conflictBadge+selEl+
       '<input type="time" value="'+esc(s.in)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in\',this.value)"'+dis+'/>'+
       '<input type="time" value="'+esc(s.out)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out\',this.value)"'+dis+'/>'+
       splitRow+
@@ -1210,7 +1282,7 @@ function buildDayCell(empId,i,dates){
   const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
-  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
+  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+conflictBadge+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
 }
 
 function renderSched(){
@@ -1768,6 +1840,7 @@ async function irAKioskoLocal(semana,kiosko){
   aplicarVacaciones();
   aplicarPermisos();
   await cargarEstadoSemana();
+  await cargarConflictosOtrosKioskos(); renderSched();
 }
 
 initWeek();
