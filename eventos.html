@@ -312,18 +312,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
-// ── CONTROL DE ACCESO (solo a nivel de módulo, ver admin-accesos.html).
-// Es un calendario informativo para TODO el equipo: no hay filtro ni
-// asignación por kiosko — todos ven todos los eventos. ──────────────
-const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
-if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
-  localStorage.removeItem('portal_sesion');
-  window.location.href = 'login.html';
-}
-if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('eventos')) {
-  alert('Tu usuario no tiene acceso a este módulo.');
-  window.location.href = 'index.html';
-}
+// ── ACCESO LIBRE ──────────────────────────────────────────────────
+// Calendario informativo para TODO el equipo: NO requiere login ni código
+// de acceso — cualquiera con el link lo puede abrir. Si de casualidad hay
+// una sesión del portal abierta, se usa solo para anotar quién registró un
+// evento; si no la hay, se guarda sin nombre. No hay filtro ni asignación
+// por kiosko: todos ven todos los eventos.
 function sesionNombre() {
   try { const s = JSON.parse(localStorage.getItem('portal_sesion') || 'null'); return s && s.nombre || ''; } catch(e) { return ''; }
 }
