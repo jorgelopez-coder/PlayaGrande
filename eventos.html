@@ -50,12 +50,6 @@ input::placeholder,textarea::placeholder{color:var(--subtle)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 .hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
 
-.chk-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.chk-pill{display:flex;align-items:center;gap:6px;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s}
-.chk-pill:hover{border-color:var(--border-h)}
-.chk-pill input{width:auto;appearance:auto;margin:0;cursor:pointer}
-.chk-pill.on{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:500}
-
 .cat-select{display:flex;flex-wrap:wrap;gap:8px}
 .cat-opt{flex:1;min-width:130px;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:all .15s;background:var(--surface)}
 .cat-opt:hover{border-color:var(--border-h)}
@@ -74,8 +68,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
 .btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
 .btn-sm:hover{border-color:var(--border-h)}
-.btn-add{background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.btn-add:hover{opacity:.9}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -93,7 +85,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 /* ── Barra de filtros ── */
 .topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
-.topbar select{width:auto;min-width:150px}
+.topbar select{width:auto;min-width:170px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:1rem}
 .legend .lg{display:flex;align-items:center;gap:6px}
 .legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
@@ -134,9 +126,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .ev-meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
 .ev-meta b{color:var(--text);font-weight:600}
 .ev-desc{font-size:12.5px;color:var(--text);margin-top:5px}
-.ev-kioskos{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px}
-.ev-ktag{font-size:10.5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:1px 9px;color:var(--muted)}
-.ev-ktag.todos{background:var(--green-bg);border-color:var(--green-lt);color:var(--green);font-weight:600}
 .ev-cancel{text-decoration:line-through;opacity:.55}
 .empty{text-align:center;color:var(--subtle);padding:2.5rem 1rem;font-size:13px}
 
@@ -198,9 +187,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <!-- ════════════ CALENDARIO ════════════ -->
   <div class="page active" id="tab-calendario">
-    <p class="subtitle">Eventos deportivos, shows y fechas importantes para que cada kiosko esté enterado. Tocá un evento para ver el detalle.</p>
+    <p class="subtitle">Eventos deportivos, shows y fechas importantes para todo el equipo. Tocá un evento para ver el detalle.</p>
     <div class="topbar">
-      <select id="cal-kiosko" onchange="renderCalendario()"><option value="">Todos los kioskos</option></select>
       <select id="cal-cat" onchange="renderCalendario()">
         <option value="">Todas las categorías</option>
         <option value="deportivo">⚽ Evento deportivo</option>
@@ -229,9 +217,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <!-- ════════════ PRÓXIMOS / AGENDA ════════════ -->
   <div class="page" id="tab-agenda">
-    <p class="subtitle">Todo lo que viene, de hoy en adelante, en orden. Ideal para revisar de un vistazo qué hay esta semana.</p>
+    <p class="subtitle">Todo lo que viene, de hoy en adelante, en orden. Ideal para ver de un vistazo qué hay esta semana.</p>
     <div class="topbar">
-      <select id="ag-kiosko" onchange="renderAgenda()"><option value="">Todos los kioskos</option></select>
       <select id="ag-cat" onchange="renderAgenda()">
         <option value="">Todas las categorías</option>
         <option value="deportivo">⚽ Evento deportivo</option>
@@ -246,7 +233,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <!-- ════════════ NUEVO / EDITAR ════════════ -->
   <div class="page" id="tab-nuevo">
-    <p class="subtitle" id="nuevo-sub">Registrá un evento para que los encargados de los kioskos lo vean en el calendario.</p>
+    <p class="subtitle" id="nuevo-sub">Registrá un evento para que todo el equipo lo vea en el calendario.</p>
 
     <div class="card">
       <p class="card-title">Categoría <span class="req">*</span></p>
@@ -278,11 +265,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <label for="ev-hora">Hora</label>
           <input type="time" id="ev-hora"/>
         </div>
-      </div>
-      <div class="field">
-        <label>Kioskos <span class="req">*</span></label>
-        <div class="chk-list" id="ev-kioskos-list"><span class="hint">Cargando kioskos…</span></div>
-        <p class="hint">Marcá a cuáles aplica. "Todos" = visible para todo el ecosistema.</p>
       </div>
       <div class="field">
         <label for="ev-desc">Descripción / detalle</label>
@@ -330,7 +312,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <script>
-// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+// ── CONTROL DE ACCESO (solo a nivel de módulo, ver admin-accesos.html).
+// Es un calendario informativo para TODO el equipo: no hay filtro ni
+// asignación por kiosko — todos ven todos los eventos. ──────────────
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
   localStorage.removeItem('portal_sesion');
@@ -340,27 +324,14 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
   alert('Tu usuario no tiene acceso a este módulo.');
   window.location.href = 'index.html';
 }
-function normalizar(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');}
-function kioskosPermitidos(lista) {
-  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(function(k){var _k=normalizar(k);return PORTAL_SESION.kioskos.some(function(p){return normalizar(p)===_k;});});
-}
-function puedeVerKiosko(k){
-  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return true;
-  var _k=normalizar(k);
-  return PORTAL_SESION.kioskos.some(function(p){return normalizar(p)===_k;});
-}
 function sesionNombre() {
   try { const s = JSON.parse(localStorage.getItem('portal_sesion') || 'null'); return s && s.nombre || ''; } catch(e) { return ''; }
 }
 
 // ── CONFIG ──────────────────────────────────────────────────────────
-// Backend compartido de RRHH del ecosistema: lista de kioskos activos (?modulo=kioskos).
-const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // Backend propio de este módulo (Code-eventos-backend.gs). Pegá acá la URL /exec
 // una vez desplegado (reemplazá el placeholder TODO_PEGAR).
 const EVENTOS_URL = 'TODO_PEGAR_URL_EVENTOS';
-const KIOSKOS_RESPALDO = ['Playa Grande','Liberia','Nosara','Playa Hermosa','Tamarindo','Playa Pelada','Catalinas','Lorito'];
 
 const CATEGORIAS = {
   deportivo:   { nombre: 'Evento deportivo', ico: '⚽' },
@@ -369,8 +340,7 @@ const CATEGORIAS = {
   otro:        { nombre: 'Otro',             ico: '📌' }
 };
 
-let KIOSKOS = [];
-let EVENTOS = [];          // crudos del backend, ya filtrados por kiosko permitido
+let EVENTOS = [];          // crudos del backend
 let calRef = new Date();   // mes que muestra el calendario
 let catSeleccionada = '';
 let fotoDataUrl = null;
@@ -380,63 +350,10 @@ document.getElementById('date-chip').textContent = new Date().toLocaleDateString
 document.getElementById('ev-fecha').value = hoy();
 
 if (EVENTOS_URL.includes('TODO_PEGAR')) {
-  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-eventos-backend.gs sin desplegar). Se pueden ver los kioskos pero no guardar ni listar eventos todavía.</div>';
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-eventos-backend.gs sin desplegar). No se pueden guardar ni listar eventos todavía.</div>';
 }
 
-cargarKioskosUI().then(cargarEventos);
-
-// ── KIOSKOS ──────────────────────────────────────────────────────────
-async function cargarKioskosUI() {
-  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
-  if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
-    KIOSKOS = kioskosPermitidos(data.kioskos);
-  } else {
-    KIOSKOS = kioskosPermitidos(KIOSKOS_RESPALDO);
-    showToast('No se pudo confirmar la lista de kioskos — mostrando la última conocida', 'error');
-  }
-  // selects de filtro
-  const opts = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('');
-  document.getElementById('cal-kiosko').innerHTML = opts;
-  document.getElementById('ag-kiosko').innerHTML = opts;
-  // checkboxes del formulario
-  renderKioskosCheckboxes();
-}
-async function cargarKioskosDesdeBackend(url) {
-  let ultimoError;
-  for (let intento = 1; intento <= 3; intento++) {
-    try { const resp = await fetchConTimeout(url); return await resp.json(); }
-    catch (e) { ultimoError = e; if (intento < 3) await new Promise(r => setTimeout(r, intento * 800)); }
-  }
-  console.error('No se pudo cargar la lista de kioskos.', ultimoError);
-  return { ok: false };
-}
-function renderKioskosCheckboxes() {
-  const cont = document.getElementById('ev-kioskos-list');
-  cont.innerHTML =
-    `<label class="chk-pill" id="pill-todos"><input type="checkbox" value="__todos" onchange="onTodosKioskos(this)"/> 🌐 Todos los kioskos</label>` +
-    KIOSKOS.map(k => `<label class="chk-pill"><input type="checkbox" class="chk-k" value="${escapeAttr(k)}" onchange="onKioskoCheck()"/> ${escapeAttr(k)}</label>`).join('');
-  sincronizarPills();
-}
-function onTodosKioskos(cb){
-  if (cb.checked) document.querySelectorAll('.chk-k').forEach(c => c.checked = false);
-  sincronizarPills();
-}
-function onKioskoCheck(){
-  const todos = document.querySelector('#pill-todos input');
-  if (document.querySelectorAll('.chk-k:checked').length) todos.checked = false;
-  sincronizarPills();
-}
-function sincronizarPills(){
-  document.querySelectorAll('.chk-pill').forEach(p => {
-    const inp = p.querySelector('input');
-    p.classList.toggle('on', inp.checked);
-  });
-}
-function kioskosSeleccionados(){
-  const todos = document.querySelector('#pill-todos input');
-  if (todos && todos.checked) return ['Todos'];
-  return Array.from(document.querySelectorAll('.chk-k:checked')).map(c => c.value);
-}
+cargarEventos();
 
 // ── CARGAR EVENTOS ───────────────────────────────────────────────────
 async function cargarEventos(){
@@ -449,7 +366,7 @@ async function cargarEventos(){
     const resp = await fetchConTimeout(EVENTOS_URL + '?modulo=eventos', {}, 20000);
     const data = await resp.json();
     if (!data.ok || !Array.isArray(data.eventos)) throw new Error(data.error || 'Respuesta inválida del servidor');
-    EVENTOS = data.eventos.filter(ev => eventoVisibleParaMi(ev));
+    EVENTOS = data.eventos;
     renderCalendario();
     renderAgenda();
   } catch(e){
@@ -457,28 +374,9 @@ async function cargarEventos(){
     document.getElementById('agenda-list').innerHTML = `<div class="empty" style="color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}).</div>`;
   }
 }
-// Un evento "Todos" lo ve cualquiera. Si está dirigido a kioskos específicos,
-// solo lo ve quien tenga permitido al menos uno de ellos.
-function eventoVisibleParaMi(ev){
-  const ks = parseKioskos(ev['Kioskos']);
-  if (esTodos(ks)) return true;
-  return ks.some(puedeVerKiosko);
-}
-function parseKioskos(raw){
-  const s = String(raw||'').trim();
-  if (!s) return ['Todos'];
-  return s.split(',').map(x => x.trim()).filter(Boolean);
-}
-function esTodos(ks){ return ks.length === 1 && normalizar(ks[0]) === 'todos'; }
-
-// Filtros compartidos de kiosko + categoría de una pestaña
-function pasaFiltros(ev, kioskoSel, catSel){
-  if (catSel && String(ev['Categoria']||'') !== catSel) return false;
-  if (kioskoSel){
-    const ks = parseKioskos(ev['Kioskos']);
-    if (!esTodos(ks) && !ks.some(k => k === kioskoSel)) return false;
-  }
-  return true;
+// Filtro por categoría (compartido por calendario y agenda)
+function pasaFiltro(ev, catSel){
+  return !catSel || String(ev['Categoria']||'') === catSel;
 }
 function eventoActivo(ev){ return String(ev['Estado']||'Activo').toLowerCase() !== 'cancelado'; }
 
@@ -486,14 +384,13 @@ function eventoActivo(ev){ return String(ev['Estado']||'Activo').toLowerCase() !
 function cambiarMes(delta){ calRef.setMonth(calRef.getMonth()+delta); renderCalendario(); }
 function irHoy(){ calRef = new Date(); renderCalendario(); }
 function renderCalendario(){
-  const kioskoSel = document.getElementById('cal-kiosko').value;
   const catSel = document.getElementById('cal-cat').value;
   const y = calRef.getFullYear(), m = calRef.getMonth();
   document.getElementById('cal-month').textContent = calRef.toLocaleDateString('es-CR',{month:'long',year:'numeric'});
 
   // mapa fecha ISO -> eventos de ese día (expandiendo rangos multi-día)
   const porDia = {};
-  EVENTOS.filter(ev => pasaFiltros(ev, kioskoSel, catSel)).forEach(ev => {
+  EVENTOS.filter(ev => pasaFiltro(ev, catSel)).forEach(ev => {
     const ini = String(ev['Fecha']||'');
     const fin = String(ev['Fecha Fin']||'') || ini;
     if (!ini) return;
@@ -531,12 +428,11 @@ function ordenarPorHora(a,b){ return String(a['Hora']||'99:99').localeCompare(St
 
 // ── AGENDA / PRÓXIMOS ────────────────────────────────────────────────
 function renderAgenda(){
-  const kioskoSel = document.getElementById('ag-kiosko').value;
   const catSel = document.getElementById('ag-cat').value;
   const hoyISO = hoy();
   // Un evento aparece si su fecha fin (o inicio) es hoy o posterior
   const futuros = EVENTOS.filter(ev => {
-    if (!pasaFiltros(ev, kioskoSel, catSel)) return false;
+    if (!pasaFiltro(ev, catSel)) return false;
     const fin = String(ev['Fecha Fin']||'') || String(ev['Fecha']||'');
     return fin >= hoyISO;
   }).sort((a,b) => {
@@ -563,10 +459,6 @@ function renderAgenda(){
 function tarjetaEvento(ev){
   const cat = String(ev['Categoria']||'otro');
   const can = eventoActivo(ev) ? '' : 'ev-cancel';
-  const ks = parseKioskos(ev['Kioskos']);
-  const ktags = esTodos(ks)
-    ? '<span class="ev-ktag todos">🌐 Todos los kioskos</span>'
-    : ks.map(k => `<span class="ev-ktag">${escapeAttr(k)}</span>`).join('');
   const hora = ev['Hora'] ? `<span>🕒 <b>${escapeAttr(ev['Hora'])}</b></span>` : '';
   const fin = String(ev['Fecha Fin']||'');
   const rango = (fin && fin !== String(ev['Fecha']||'')) ? `<span>→ hasta ${fechaCorta(fin)}</span>` : '';
@@ -577,7 +469,6 @@ function tarjetaEvento(ev){
       <div class="ev-title ${can}">${escapeAttr(ev['Titulo']||'(sin título)')} ${estado}</div>
       <div class="ev-meta">${hora}${rango}<span>${CATEGORIAS[cat]?CATEGORIAS[cat].nombre:'Otro'}</span></div>
       ${ev['Descripcion'] ? `<div class="ev-desc">${escapeAttr(ev['Descripcion'])}</div>` : ''}
-      <div class="ev-kioskos">${ktags}</div>
     </div>
   </div>`;
 }
@@ -588,13 +479,11 @@ function abrirDetalle(id){
   if (!ev) return;
   const cat = String(ev['Categoria']||'otro');
   document.getElementById('m-titulo').textContent = ev['Titulo'] || '(sin título)';
-  document.getElementById('m-cattag').innerHTML = `<span class="cat-tag ${cat}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico+' '+CATEGORIAS[cat].nombre:'Otro'}</span>` + (eventoActivo(ev)?'':' <span class="cat-tag celebracion" style="background:var(--red-bg);color:var(--red)">Cancelado</span>');
-  const ks = parseKioskos(ev['Kioskos']);
+  document.getElementById('m-cattag').innerHTML = `<span class="cat-tag ${cat}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico+' '+CATEGORIAS[cat].nombre:'Otro'}</span>` + (eventoActivo(ev)?'':' <span class="cat-tag" style="background:var(--red-bg);color:var(--red)">Cancelado</span>');
   const fin = String(ev['Fecha Fin']||'');
   const rango = (fin && fin !== String(ev['Fecha']||'')) ? `${fechaLarga(ev['Fecha'])} → ${fechaLarga(fin)}` : fechaLarga(ev['Fecha']);
   let body = `<div class="mrow"><span class="mk">📅 Fecha</span><span class="mv">${rango}</span></div>`;
   if (ev['Hora']) body += `<div class="mrow"><span class="mk">🕒 Hora</span><span class="mv">${escapeAttr(ev['Hora'])}</span></div>`;
-  body += `<div class="mrow"><span class="mk">📍 Kioskos</span><span class="mv">${esTodos(ks)?'🌐 Todos los kioskos':ks.map(escapeAttr).join(', ')}</span></div>`;
   if (ev['Descripcion']) body += `<div class="mrow"><span class="mk">📝 Detalle</span><span class="mv">${escapeAttr(ev['Descripcion'])}</span></div>`;
   if (ev['Link']) body += `<div class="mrow"><span class="mk">🔗 Link</span><span class="mv"><a href="${escapeAttr(ev['Link'])}" target="_blank" rel="noopener" style="color:var(--blue)">Abrir</a></span></div>`;
   if (ev['Registrado por']) body += `<div class="mrow"><span class="mk">👤 Registró</span><span class="mv">${escapeAttr(ev['Registrado por'])}</span></div>`;
@@ -639,12 +528,10 @@ async function guardarEvento(){
   const titulo = document.getElementById('ev-titulo').value.trim();
   const fecha = document.getElementById('ev-fecha').value;
   const fechaFin = document.getElementById('ev-fecha-fin').value;
-  const ks = kioskosSeleccionados();
   if (!catSeleccionada) { showToast('Elegí una categoría', 'error'); return; }
   if (!titulo) { showToast('Escribí un título', 'error'); return; }
   if (!fecha) { showToast('Elegí la fecha', 'error'); return; }
   if (fechaFin && fechaFin < fecha) { showToast('La fecha fin no puede ser antes de la fecha de inicio', 'error'); return; }
-  if (!ks.length) { showToast('Marcá al menos un kiosko (o "Todos")', 'error'); return; }
 
   const btn = document.getElementById('btn-guardar');
   const txt = btn.textContent; btn.disabled = true; btn.textContent = 'Guardando…';
@@ -654,7 +541,6 @@ async function guardarEvento(){
     titulo, categoria: catSeleccionada,
     fecha, fechaFin: fechaFin || '',
     hora: document.getElementById('ev-hora').value || '',
-    kioskos: ks.join(', '),
     descripcion: document.getElementById('ev-desc').value.trim(),
     link: document.getElementById('ev-link').value.trim(),
     foto: fotoDataUrl || '',
@@ -685,13 +571,6 @@ function editarEvento(id){
   document.getElementById('ev-hora').value = ev['Hora'] || '';
   document.getElementById('ev-desc').value = ev['Descripcion'] || '';
   document.getElementById('ev-link').value = ev['Link'] || '';
-  // kioskos
-  const ks = parseKioskos(ev['Kioskos']);
-  const todos = document.querySelector('#pill-todos input');
-  if (esTodos(ks)) { todos.checked = true; document.querySelectorAll('.chk-k').forEach(c => c.checked = false); }
-  else { todos.checked = false; document.querySelectorAll('.chk-k').forEach(c => c.checked = ks.indexOf(c.value) >= 0); }
-  sincronizarPills();
-  // foto existente: no se recarga como dataUrl; dejamos aviso
   fotoDataUrl = null; quitarFotoVista();
   document.getElementById('nuevo-sub').textContent = 'Editando: ' + (ev['Titulo']||'') + '. Guardá para aplicar los cambios.';
   document.getElementById('btn-guardar').textContent = 'Guardar cambios';
@@ -727,10 +606,8 @@ function limpiarFormulario(){
   document.getElementById('ev-hora').value = '';
   document.getElementById('ev-desc').value = '';
   document.getElementById('ev-link').value = '';
-  document.querySelectorAll('.chk-pill input').forEach(c => c.checked = false);
-  sincronizarPills();
   fotoDataUrl = null; quitarFotoVista();
-  document.getElementById('nuevo-sub').textContent = 'Registrá un evento para que los encargados de los kioskos lo vean en el calendario.';
+  document.getElementById('nuevo-sub').textContent = 'Registrá un evento para que todo el equipo lo vea en el calendario.';
   document.getElementById('btn-guardar').textContent = 'Guardar evento';
 }
 
