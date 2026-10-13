@@ -1192,14 +1192,6 @@ function renderFilterAreas(){
 
 function normTxt(x){return (x||'').toString().trim().toLowerCase();}
 
-function estadoCortoConflicto(e){
-  if(e==='trabajo') return 'turno';
-  if(e==='vacaciones') return 'vacaciones';
-  if(e==='incapacidad') return 'incapacidad';
-  if(e==='permiso') return 'permiso';
-  if(e==='otro') return 'otro';
-  return e;
-}
 
 /* Carga que dias de la semana visible ya tiene cada colaborador en el horario
    de OTRO kiosko que esta CERRADO, para avisar de doble asignacion. Solo
@@ -1229,7 +1221,9 @@ async function cargarConflictosOtrosKioskos(){
       if(!kioskoReg||kioskoReg===activo)return;
       if(!cerrados.has(kioskoReg))return;
       const estado=normTxt(r['Estado'])||'trabajo';
-      if(estado==='libre')return;
+      if(estado!=='trabajo')return;        // solo turnos de trabajo (no vacaciones/incapacidad/permiso)
+      const horas=parseFloat((r['Horas']||'').toString().replace(',','.'))||0;
+      if(horas<=0)return;                   // solo si tiene horas asignadas
       const fecha=r['Fecha']||'';
       const dayIdx=dates.indexOf(fecha);
       if(dayIdx<0)return;
@@ -1239,7 +1233,7 @@ async function cargarConflictosOtrosKioskos(){
       if(!conflictosKiosko[nombre][dayIdx])conflictosKiosko[nombre][dayIdx]=[];
       const arr=conflictosKiosko[nombre][dayIdx];
       const kioskoLindo=(r['Kiosko']||'').toString().trim();
-      if(!arr.some(c=>normTxt(c.kiosko)===kioskoReg)) arr.push({kiosko:kioskoLindo,estado});
+      if(!arr.some(c=>normTxt(c.kiosko)===kioskoReg)) arr.push({kiosko:kioskoLindo,horas});
     });
   }catch(e){ /* sin conexion: sin marcadores */ }
 }
@@ -1250,8 +1244,8 @@ function buildConflictBadge(empId,i){
   const porDia=conflictosKiosko[normTxt(emp.name)];
   const conf=porDia&&porDia[i];
   if(!conf||!conf.length)return'';
-  const detalle=conf.map(c=>esc(c.kiosko)+' ('+esc(estadoCortoConflicto(c.estado))+')').join(', ');
-  return '<div class="conflict-badge" title="Este colaborador ya tiene este dia en un horario CERRADO en: '+detalle+'">&#9888; Ya en '+detalle+'</div>';
+  const detalle=conf.map(c=>esc(c.kiosko)+' ('+(c.horas||0).toFixed(1)+'h)').join(', ');
+  return '<div class="conflict-badge" title="Este colaborador ya tiene turno con horas en un horario CERRADO de: '+detalle+'">&#9888; Ya en '+detalle+'</div>';
 }
 
 function buildDayCell(empId,i,dates){
