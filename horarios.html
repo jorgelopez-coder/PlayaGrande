@@ -327,7 +327,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
@@ -910,7 +910,10 @@ function buildFromPersonal(regs){
     const kioskoMatch = KIOSKOS.find(k=>k.toLowerCase()===kioskoRaw.toLowerCase());
     const kiosko = kioskoMatch || kioskoRaw;
     return {
-      id: 'EMP-'+(p['Cédula']||p.cedula||nombre),
+      // El id incluye el Kiosko: un mismo colaborador (misma cédula) puede estar
+      // en dos kioskos — sin el kiosko en el id, ambas filas compartían schedule[id]
+      // y los horarios se mezclaban entre kioskos (editar/guardar uno pisaba al otro).
+      id: 'EMP-'+(p['Cédula']||p.cedula||nombre)+'-'+kiosko,
       name: nombre,
       restoId: kiosko,
       kiosko: kiosko,
