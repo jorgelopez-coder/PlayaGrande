@@ -26,18 +26,15 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn:hover{color:var(--text);border-color:var(--border-h)}
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.nav-right{display:flex;align-items:center;gap:10px}
 .date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
 
 main{max-width:900px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .subtitle{font-size:12.5px;color:var(--muted);margin:0 0 1.25rem}
 
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
-.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
-
 .field{margin-bottom:1rem}
 .field:last-child{margin-bottom:0}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .req{color:var(--red);margin-left:2px}
 input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{
@@ -60,14 +57,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cat-opt.on[data-cat="celebracion"]{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
 .cat-opt.on[data-cat="otro"]{border-color:var(--green);background:var(--green-bg);color:var(--green)}
 
-.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
-.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary{flex:1;min-width:140px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
 .btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
 .btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
 .btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
 .btn-sm:hover{border-color:var(--border-h)}
+.btn-add{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;transition:opacity .15s}
+.btn-add:hover{opacity:.9}
+.btn-add svg{width:15px;height:15px}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -77,13 +76,23 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 .banner{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 16px;font-size:12.5px;margin-bottom:1rem}
 
-.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap}
-.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
-.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
-.tab-btn:hover:not(.active){color:var(--text)}
-.page{display:none}.page.active{display:block}
+/* ── Recuadro de próximos ── */
+.prox-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.prox-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.prox-title{font-family:var(--font-d);font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
+.prox-title .dotpulse{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.prox-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.prox-card{flex:0 0 auto;min-width:200px;max-width:240px;border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:9px 12px;cursor:pointer;background:var(--surface);transition:border-color .15s}
+.prox-card:hover{border-color:var(--border-h)}
+.prox-card.deportivo{border-left-color:var(--blue)} .prox-card.show{border-left-color:var(--purple)}
+.prox-card.celebracion{border-left-color:var(--amber)} .prox-card.otro{border-left-color:var(--green)}
+.prox-when{font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.prox-when .badge-hoy{background:var(--green);color:#fff;border-radius:20px;padding:0 7px;font-size:9px}
+.prox-name{font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prox-cancel{text-decoration:line-through;opacity:.55}
+.prox-empty{font-size:12.5px;color:var(--subtle);padding:.25rem 0}
 
-/* ── Barra de filtros ── */
+/* ── Barra de categoría ── */
 .topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
 .topbar select{width:auto;min-width:170px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:1rem}
@@ -100,11 +109,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cal-nav button:hover{border-color:var(--border-h)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
 .cal-dow{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0}
-.cal-cell{min-height:92px;border:1px solid var(--border);border-radius:8px;padding:5px;background:var(--surface);display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-cell{min-height:92px;border:1px solid var(--border);border-radius:8px;padding:5px;background:var(--surface);display:flex;flex-direction:column;gap:3px;overflow:hidden;cursor:pointer;transition:border-color .15s,background .15s}
+.cal-cell:not(.other):hover{border-color:var(--green);background:var(--green-bg)}
 .cal-cell.other{opacity:.4}
 .cal-cell.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
-.cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right}
+.cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right;flex-shrink:0}
 .cal-cell.today .cal-daynum{color:var(--green)}
+.cal-add-hint{position:absolute}
 .cal-ev{font-size:10.5px;line-height:1.3;border-radius:5px;padding:2px 5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;border-left:3px solid}
 .cal-ev.deportivo{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
 .cal-ev.show{background:var(--purple-bg);color:var(--purple);border-color:var(--purple)}
@@ -112,10 +123,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cal-ev.otro{background:var(--green-bg);color:var(--green);border-color:var(--green)}
 .cal-more{font-size:10px;color:var(--muted);cursor:pointer;padding-left:5px}
 
-/* ── Agenda / próximos ── */
-.agenda-day{margin-bottom:1.25rem}
-.agenda-dhead{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.agenda-dhead .badge-hoy{background:var(--green);color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;letter-spacing:.03em}
 .ev-row{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
 .ev-row:hover{border-color:var(--border-h)}
 .ev-row.deportivo{border-left-color:var(--blue)} .ev-row.show{border-left-color:var(--purple)}
@@ -123,16 +130,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .ev-ico{font-size:22px;line-height:1.2;flex-shrink:0}
 .ev-body{flex:1;min-width:0}
 .ev-title{font-family:var(--font-d);font-size:15px;font-weight:700;margin-bottom:2px}
-.ev-meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
-.ev-meta b{color:var(--text);font-weight:600}
-.ev-desc{font-size:12.5px;color:var(--text);margin-top:5px}
-.ev-cancel{text-decoration:line-through;opacity:.55}
-.empty{text-align:center;color:var(--subtle);padding:2.5rem 1rem;font-size:13px}
 
-/* ── Modal detalle ── */
+/* ── Modales ── */
 .modal-bg{position:fixed;inset:0;background:rgba(28,58,40,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
 .modal-bg.show{display:flex}
 .modal{background:var(--card);border-radius:14px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal.wide{max-width:540px}
 .modal-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .modal-head h3{font-family:var(--font-d);font-size:18px;font-weight:700}
 .modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
@@ -155,11 +158,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1.25rem 1rem 3rem}
-  .tabs{padding:0 1rem}
-  .field-row,.field-row-3{grid-template-columns:1fr}
-  .cal-cell{min-height:64px}
+  .field-row-3{grid-template-columns:1fr}
+  .cal-cell{min-height:60px}
   .cal-ev{font-size:9px;padding:1px 3px}
   .cal-grid{gap:2px;padding:5px}
+  .page-title{font-size:13px}
 }
 </style>
 </head>
@@ -173,80 +176,84 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </a>
     <span class="page-title">📅 Calendario de Eventos</span>
   </div>
-  <span class="date-chip" id="date-chip"></span>
+  <div class="nav-right">
+    <span class="date-chip" id="date-chip"></span>
+    <button class="btn-add" onclick="abrirFormulario()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      Agregar
+    </button>
+  </div>
 </header>
-
-<div class="tabs">
-  <button class="tab-btn active" onclick="showTab('calendario',this)">Calendario</button>
-  <button class="tab-btn" onclick="showTab('agenda',this)">Próximos</button>
-  <button class="tab-btn" onclick="showTab('nuevo',this)">Agregar evento</button>
-</div>
 
 <main>
   <div id="banner-holder"></div>
 
-  <!-- ════════════ CALENDARIO ════════════ -->
-  <div class="page active" id="tab-calendario">
-    <p class="subtitle">Eventos deportivos, shows y fechas importantes para todo el equipo. Tocá un evento para ver el detalle.</p>
-    <div class="topbar">
-      <select id="cal-cat" onchange="renderCalendario()">
-        <option value="">Todas las categorías</option>
-        <option value="deportivo">⚽ Evento deportivo</option>
-        <option value="show">🎤 Show</option>
-        <option value="celebracion">🎉 Celebración especial</option>
-        <option value="otro">📌 Otro</option>
-      </select>
-      <button class="btn-sm" onclick="cargarEventos()" style="margin-left:auto">↻ Actualizar</button>
+  <!-- ── Recuadro de próximos ── -->
+  <div class="prox-box">
+    <div class="prox-head">
+      <div class="prox-title"><span class="dotpulse"></span>Próximos eventos</div>
+      <button class="btn-sm" onclick="cargarEventos()">↻ Actualizar</button>
     </div>
-    <div class="legend">
-      <span class="lg"><span class="dot dot-deportivo"></span>Deportivo</span>
-      <span class="lg"><span class="dot dot-show"></span>Show</span>
-      <span class="lg"><span class="dot dot-celebracion"></span>Celebración</span>
-      <span class="lg"><span class="dot dot-otro"></span>Otro</span>
-    </div>
-    <div class="cal-head">
-      <div class="cal-month" id="cal-month">—</div>
-      <div class="cal-nav">
-        <button onclick="cambiarMes(-1)" title="Mes anterior">‹</button>
-        <button onclick="irHoy()" title="Hoy" style="width:auto;padding:0 12px;font-size:12px;font-weight:600">Hoy</button>
-        <button onclick="cambiarMes(1)" title="Mes siguiente">›</button>
-      </div>
-    </div>
-    <div class="cal-grid" id="cal-grid"><div class="empty" style="grid-column:1/-1">Cargando eventos…</div></div>
+    <div class="prox-scroll" id="prox-scroll"><div class="prox-empty">Cargando…</div></div>
   </div>
 
-  <!-- ════════════ PRÓXIMOS / AGENDA ════════════ -->
-  <div class="page" id="tab-agenda">
-    <p class="subtitle">Todo lo que viene, de hoy en adelante, en orden. Ideal para ver de un vistazo qué hay esta semana.</p>
-    <div class="topbar">
-      <select id="ag-cat" onchange="renderAgenda()">
-        <option value="">Todas las categorías</option>
-        <option value="deportivo">⚽ Evento deportivo</option>
-        <option value="show">🎤 Show</option>
-        <option value="celebracion">🎉 Celebración especial</option>
-        <option value="otro">📌 Otro</option>
-      </select>
-      <button class="btn-sm" onclick="cargarEventos()" style="margin-left:auto">↻ Actualizar</button>
-    </div>
-    <div id="agenda-list"><div class="empty">Cargando…</div></div>
+  <!-- ── Calendario ── -->
+  <div class="topbar">
+    <select id="cal-cat" onchange="renderCalendario()">
+      <option value="">Todas las categorías</option>
+      <option value="deportivo">⚽ Evento deportivo</option>
+      <option value="show">🎤 Show</option>
+      <option value="celebracion">🎉 Celebración especial</option>
+      <option value="otro">📌 Otro</option>
+    </select>
+    <span class="hint" style="margin-left:auto">Tocá una fecha para agregar · tocá un evento para ver el detalle</span>
   </div>
-
-  <!-- ════════════ NUEVO / EDITAR ════════════ -->
-  <div class="page" id="tab-nuevo">
-    <p class="subtitle" id="nuevo-sub">Registrá un evento para que todo el equipo lo vea en el calendario.</p>
-
-    <div class="card">
-      <p class="card-title">Categoría <span class="req">*</span></p>
-      <div class="cat-select" id="cat-select">
-        <div class="cat-opt" data-cat="deportivo" onclick="elegirCategoria('deportivo')"><span class="cat-ico">⚽</span><span class="cat-name">Evento deportivo</span></div>
-        <div class="cat-opt" data-cat="show" onclick="elegirCategoria('show')"><span class="cat-ico">🎤</span><span class="cat-name">Show</span></div>
-        <div class="cat-opt" data-cat="celebracion" onclick="elegirCategoria('celebracion')"><span class="cat-ico">🎉</span><span class="cat-name">Celebración especial</span></div>
-        <div class="cat-opt" data-cat="otro" onclick="elegirCategoria('otro')"><span class="cat-ico">📌</span><span class="cat-name">Otro</span></div>
-      </div>
+  <div class="legend">
+    <span class="lg"><span class="dot dot-deportivo"></span>Deportivo</span>
+    <span class="lg"><span class="dot dot-show"></span>Show</span>
+    <span class="lg"><span class="dot dot-celebracion"></span>Celebración</span>
+    <span class="lg"><span class="dot dot-otro"></span>Otro</span>
+  </div>
+  <div class="cal-head">
+    <div class="cal-month" id="cal-month">—</div>
+    <div class="cal-nav">
+      <button onclick="cambiarMes(-1)" title="Mes anterior">‹</button>
+      <button onclick="irHoy()" title="Hoy" style="width:auto;padding:0 12px;font-size:12px;font-weight:600">Hoy</button>
+      <button onclick="cambiarMes(1)" title="Mes siguiente">›</button>
     </div>
+  </div>
+  <div class="cal-grid" id="cal-grid"><div class="prox-empty" style="grid-column:1/-1">Cargando eventos…</div></div>
+</main>
 
-    <div class="card">
-      <p class="card-title">Datos del evento</p>
+<!-- Modal DETALLE -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="m-titulo">—</h3><div id="m-cattag" style="margin-top:6px"></div></div>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-foot" id="m-foot"></div>
+  </div>
+</div>
+
+<!-- Modal FORMULARIO (agregar / editar) -->
+<div class="modal-bg" id="form-modal" onclick="if(event.target===this)cerrarFormulario()">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3 id="form-title">Agregar evento</h3>
+      <button class="modal-close" onclick="cerrarFormulario()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Categoría <span class="req">*</span></label>
+        <div class="cat-select" id="cat-select">
+          <div class="cat-opt" data-cat="deportivo" onclick="elegirCategoria('deportivo')"><span class="cat-ico">⚽</span><span class="cat-name">Deportivo</span></div>
+          <div class="cat-opt" data-cat="show" onclick="elegirCategoria('show')"><span class="cat-ico">🎤</span><span class="cat-name">Show</span></div>
+          <div class="cat-opt" data-cat="celebracion" onclick="elegirCategoria('celebracion')"><span class="cat-ico">🎉</span><span class="cat-name">Celebración</span></div>
+          <div class="cat-opt" data-cat="otro" onclick="elegirCategoria('otro')"><span class="cat-ico">📌</span><span class="cat-name">Otro</span></div>
+        </div>
+      </div>
       <div class="field">
         <label for="ev-titulo">Título <span class="req">*</span></label>
         <input type="text" id="ev-titulo" placeholder="Ej. Final UEFA · Real Madrid vs Barça"/>
@@ -286,23 +293,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         </div>
       </div>
     </div>
-
-    <div class="submit-area">
-      <button class="btn-secondary" onclick="limpiarFormulario()" id="btn-limpiar">Limpiar</button>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="cerrarFormulario()">Cancelar</button>
       <button class="btn-primary" id="btn-guardar" onclick="guardarEvento()">Guardar evento</button>
     </div>
-  </div>
-</main>
-
-<!-- Modal detalle -->
-<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)cerrarModal()">
-  <div class="modal">
-    <div class="modal-head">
-      <div><h3 id="m-titulo">—</h3><div id="m-cattag" style="margin-top:6px"></div></div>
-      <button class="modal-close" onclick="cerrarModal()">×</button>
-    </div>
-    <div class="modal-body" id="m-body"></div>
-    <div class="modal-foot" id="m-foot"></div>
   </div>
 </div>
 
@@ -323,8 +317,6 @@ function sesionNombre() {
 }
 
 // ── CONFIG ──────────────────────────────────────────────────────────
-// Backend propio de este módulo (Code-eventos-backend.gs). Pegá acá la URL /exec
-// una vez desplegado (reemplazá el placeholder TODO_PEGAR).
 const EVENTOS_URL = 'https://script.google.com/macros/s/AKfycbw3GYSEI7GHT_8Uyj1ojfAW4hFCMDAtQ-u8e2N9-Pn31a35hj1e0tyQ986uv4Yhi7XtKA/exec';
 
 const CATEGORIAS = {
@@ -334,17 +326,16 @@ const CATEGORIAS = {
   otro:        { nombre: 'Otro',             ico: '📌' }
 };
 
-let EVENTOS = [];          // crudos del backend
-let calRef = new Date();   // mes que muestra el calendario
+let EVENTOS = [];
+let calRef = new Date();
 let catSeleccionada = '';
 let fotoDataUrl = null;
-let editandoId = null;     // ID del evento que se está editando (o null = nuevo)
+let editandoId = null;
 
 document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
-document.getElementById('ev-fecha').value = hoy();
 
 if (EVENTOS_URL.includes('TODO_PEGAR')) {
-  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-eventos-backend.gs sin desplegar). No se pueden guardar ni listar eventos todavía.</div>';
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-eventos-backend.gs sin desplegar).</div>';
 }
 
 cargarEventos();
@@ -352,8 +343,8 @@ cargarEventos();
 // ── CARGAR EVENTOS ───────────────────────────────────────────────────
 async function cargarEventos(){
   if (EVENTOS_URL.includes('TODO_PEGAR')) {
-    document.getElementById('cal-grid').innerHTML = '<div class="empty" style="grid-column:1/-1">Conectá el backend para ver eventos.</div>';
-    document.getElementById('agenda-list').innerHTML = '<div class="empty">Conectá el backend para ver eventos.</div>';
+    document.getElementById('cal-grid').innerHTML = '<div class="prox-empty" style="grid-column:1/-1">Conectá el backend para ver eventos.</div>';
+    document.getElementById('prox-scroll').innerHTML = '<div class="prox-empty">Conectá el backend para ver eventos.</div>';
     return;
   }
   try {
@@ -361,18 +352,43 @@ async function cargarEventos(){
     const data = await resp.json();
     if (!data.ok || !Array.isArray(data.eventos)) throw new Error(data.error || 'Respuesta inválida del servidor');
     EVENTOS = data.eventos;
+    renderProximos();
     renderCalendario();
-    renderAgenda();
   } catch(e){
-    document.getElementById('cal-grid').innerHTML = `<div class="empty" style="grid-column:1/-1;color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}). <button class="btn-sm" onclick="cargarEventos()">Reintentar</button></div>`;
-    document.getElementById('agenda-list').innerHTML = `<div class="empty" style="color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}).</div>`;
+    document.getElementById('cal-grid').innerHTML = `<div class="prox-empty" style="grid-column:1/-1;color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}). <button class="btn-sm" onclick="cargarEventos()">Reintentar</button></div>`;
+    document.getElementById('prox-scroll').innerHTML = `<div class="prox-empty" style="color:var(--red)">No se pudieron cargar los eventos.</div>`;
   }
 }
-// Filtro por categoría (compartido por calendario y agenda)
-function pasaFiltro(ev, catSel){
-  return !catSel || String(ev['Categoria']||'') === catSel;
-}
+function pasaFiltro(ev, catSel){ return !catSel || String(ev['Categoria']||'') === catSel; }
 function eventoActivo(ev){ return String(ev['Estado']||'Activo').toLowerCase() !== 'cancelado'; }
+function ordenarPorHora(a,b){ return String(a['Hora']||'99:99').localeCompare(String(b['Hora']||'99:99')); }
+
+// ── RECUADRO DE PRÓXIMOS (de hoy en adelante, todas las categorías) ──
+function renderProximos(){
+  const hoyISO = hoy();
+  const futuros = EVENTOS.filter(ev => {
+    const fin = String(ev['Fecha Fin']||'') || String(ev['Fecha']||'');
+    return fin >= hoyISO;
+  }).sort((a,b) => {
+    const fa = String(a['Fecha']||''), fb = String(b['Fecha']||'');
+    if (fa !== fb) return fa.localeCompare(fb);
+    return ordenarPorHora(a,b);
+  }).slice(0, 12);
+
+  const cont = document.getElementById('prox-scroll');
+  if (!futuros.length){ cont.innerHTML = '<div class="prox-empty">No hay eventos próximos. Tocá una fecha o "＋ Agregar" para crear uno.</div>'; return; }
+  cont.innerHTML = futuros.map(ev => {
+    const cat = String(ev['Categoria']||'otro');
+    const can = eventoActivo(ev) ? '' : 'prox-cancel';
+    const esHoy = String(ev['Fecha']||'') === hoyISO;
+    const cuando = esHoy ? 'HOY' : fechaCortaDia(ev['Fecha']);
+    const hora = ev['Hora'] ? ' · ' + escapeAttr(ev['Hora']) : '';
+    return `<div class="prox-card ${cat}" onclick="abrirDetalle('${ev['ID']}')">
+      <div class="prox-when">${esHoy?'<span class="badge-hoy">HOY</span>':'<span>'+cuando+'</span>'}${hora}</div>
+      <div class="prox-name ${can}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:'📌'} ${escapeAttr(ev['Titulo']||'(sin título)')}</div>
+    </div>`;
+  }).join('');
+}
 
 // ── CALENDARIO MENSUAL ───────────────────────────────────────────────
 function cambiarMes(delta){ calRef.setMonth(calRef.getMonth()+delta); renderCalendario(); }
@@ -382,21 +398,17 @@ function renderCalendario(){
   const y = calRef.getFullYear(), m = calRef.getMonth();
   document.getElementById('cal-month').textContent = calRef.toLocaleDateString('es-CR',{month:'long',year:'numeric'});
 
-  // mapa fecha ISO -> eventos de ese día (expandiendo rangos multi-día)
   const porDia = {};
   EVENTOS.filter(ev => pasaFiltro(ev, catSel)).forEach(ev => {
     const ini = String(ev['Fecha']||'');
     const fin = String(ev['Fecha Fin']||'') || ini;
     if (!ini) return;
     let d = ini, guard = 0;
-    while (d <= fin && guard < 400){
-      (porDia[d] = porDia[d] || []).push(ev);
-      d = sumarDias(d, 1); guard++;
-    }
+    while (d <= fin && guard < 400){ (porDia[d] = porDia[d] || []).push(ev); d = sumarDias(d, 1); guard++; }
   });
 
   const primero = new Date(y, m, 1);
-  const inicioSemana = new Date(primero); inicioSemana.setDate(1 - ((primero.getDay()+6)%7)); // lunes como primer día
+  const inicioSemana = new Date(primero); inicioSemana.setDate(1 - ((primero.getDay()+6)%7));
   const hoyISO = hoy();
   const dows = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
@@ -409,62 +421,15 @@ function renderCalendario(){
     const visibles = evs.slice(0,3);
     let evHtml = visibles.map(ev => {
       const cat = String(ev['Categoria']||'otro');
-      const can = eventoActivo(ev) ? '' : 'ev-cancel';
+      const can = eventoActivo(ev) ? '' : 'prox-cancel';
       const hora = ev['Hora'] ? ev['Hora']+' ' : '';
-      return `<div class="cal-ev ${cat} ${can}" onclick="abrirDetalle('${ev['ID']}')" title="${escapeAttr(ev['Titulo']||'')}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:''} ${escapeAttr(hora+(ev['Titulo']||''))}</div>`;
+      return `<div class="cal-ev ${cat} ${can}" onclick="event.stopPropagation();abrirDetalle('${ev['ID']}')" title="${escapeAttr(ev['Titulo']||'')}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:''} ${escapeAttr(hora+(ev['Titulo']||''))}</div>`;
     }).join('');
-    if (evs.length > 3) evHtml += `<div class="cal-more" onclick="abrirDia('${iso}')">+${evs.length-3} más</div>`;
-    html += `<div class="cal-cell ${otro?'other':''} ${esHoy?'today':''}"><div class="cal-daynum">${cur.getDate()}</div>${evHtml}</div>`;
+    if (evs.length > 3) evHtml += `<div class="cal-more" onclick="event.stopPropagation();abrirDia('${iso}')">+${evs.length-3} más</div>`;
+    const clickCelda = otro ? '' : `onclick="abrirFormulario('${iso}')"`;
+    html += `<div class="cal-cell ${otro?'other':''} ${esHoy?'today':''}" ${clickCelda}><div class="cal-daynum">${cur.getDate()}</div>${evHtml}</div>`;
   }
   document.getElementById('cal-grid').innerHTML = html;
-}
-function ordenarPorHora(a,b){ return String(a['Hora']||'99:99').localeCompare(String(b['Hora']||'99:99')); }
-
-// ── AGENDA / PRÓXIMOS ────────────────────────────────────────────────
-function renderAgenda(){
-  const catSel = document.getElementById('ag-cat').value;
-  const hoyISO = hoy();
-  // Un evento aparece si su fecha fin (o inicio) es hoy o posterior
-  const futuros = EVENTOS.filter(ev => {
-    if (!pasaFiltro(ev, catSel)) return false;
-    const fin = String(ev['Fecha Fin']||'') || String(ev['Fecha']||'');
-    return fin >= hoyISO;
-  }).sort((a,b) => {
-    const fa = String(a['Fecha']||''), fb = String(b['Fecha']||'');
-    if (fa !== fb) return fa.localeCompare(fb);
-    return ordenarPorHora(a,b);
-  });
-
-  const cont = document.getElementById('agenda-list');
-  if (!futuros.length){ cont.innerHTML = '<div class="empty">No hay eventos próximos con este filtro.<br>Agregá uno desde la pestaña "Agregar evento".</div>'; return; }
-
-  // agrupar por fecha de inicio
-  const grupos = {};
-  futuros.forEach(ev => { const f = String(ev['Fecha']||''); (grupos[f]=grupos[f]||[]).push(ev); });
-  let html = '';
-  Object.keys(grupos).sort().forEach(f => {
-    const esHoy = f === hoyISO;
-    html += `<div class="agenda-day"><div class="agenda-dhead">${fechaLarga(f)} ${esHoy?'<span class="badge-hoy">HOY</span>':''}</div>`;
-    html += grupos[f].map(ev => tarjetaEvento(ev)).join('');
-    html += `</div>`;
-  });
-  cont.innerHTML = html;
-}
-function tarjetaEvento(ev){
-  const cat = String(ev['Categoria']||'otro');
-  const can = eventoActivo(ev) ? '' : 'ev-cancel';
-  const hora = ev['Hora'] ? `<span>🕒 <b>${escapeAttr(ev['Hora'])}</b></span>` : '';
-  const fin = String(ev['Fecha Fin']||'');
-  const rango = (fin && fin !== String(ev['Fecha']||'')) ? `<span>→ hasta ${fechaCorta(fin)}</span>` : '';
-  const estado = eventoActivo(ev) ? '' : '<span style="color:var(--red);font-weight:600">· CANCELADO</span>';
-  return `<div class="ev-row ${cat}" onclick="abrirDetalle('${ev['ID']}')">
-    <div class="ev-ico">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:'📌'}</div>
-    <div class="ev-body">
-      <div class="ev-title ${can}">${escapeAttr(ev['Titulo']||'(sin título)')} ${estado}</div>
-      <div class="ev-meta">${hora}${rango}<span>${CATEGORIAS[cat]?CATEGORIAS[cat].nombre:'Otro'}</span></div>
-      ${ev['Descripcion'] ? `<div class="ev-desc">${escapeAttr(ev['Descripcion'])}</div>` : ''}
-    </div>
-  </div>`;
 }
 
 // ── MODAL DETALLE ────────────────────────────────────────────────────
@@ -493,13 +458,12 @@ function abrirDetalle(id){
   document.getElementById('modal-bg').classList.add('show');
 }
 function abrirDia(iso){
-  // reusa el modal para listar todos los eventos de un día
   const delDia = EVENTOS.filter(ev => {
     const ini = String(ev['Fecha']||''); const fin = String(ev['Fecha Fin']||'')||ini;
     return iso >= ini && iso <= fin;
   }).sort(ordenarPorHora);
   document.getElementById('m-titulo').textContent = fechaLarga(iso);
-  document.getElementById('m-cattag').innerHTML = `${delDia.length} evento${delDia.length===1?'':'s'}`;
+  document.getElementById('m-cattag').innerHTML = `${delDia.length} evento${delDia.length===1?'':'s'} · <a onclick="cerrarModal();abrirFormulario('${iso}')" style="color:var(--green);cursor:pointer;font-size:12px">＋ agregar en este día</a>`;
   document.getElementById('m-body').innerHTML = delDia.map(ev => {
     const cat = String(ev['Categoria']||'otro');
     return `<div class="ev-row ${cat}" style="margin-bottom:8px" onclick="abrirDetalle('${ev['ID']}')">
@@ -512,7 +476,17 @@ function abrirDia(iso){
 }
 function cerrarModal(){ document.getElementById('modal-bg').classList.remove('show'); }
 
-// ── GUARDAR / EDITAR / ESTADO / ELIMINAR ─────────────────────────────
+// ── FORMULARIO (modal agregar / editar) ──────────────────────────────
+function abrirFormulario(iso){
+  limpiarFormulario();
+  if (iso) document.getElementById('ev-fecha').value = iso;
+  else document.getElementById('ev-fecha').value = hoy();
+  document.getElementById('form-title').textContent = 'Agregar evento';
+  document.getElementById('btn-guardar').textContent = 'Guardar evento';
+  document.getElementById('form-modal').classList.add('show');
+  setTimeout(() => document.getElementById('ev-titulo').focus(), 50);
+}
+function cerrarFormulario(){ document.getElementById('form-modal').classList.remove('show'); }
 function elegirCategoria(cat){
   catSeleccionada = cat;
   document.querySelectorAll('.cat-opt').forEach(o => o.classList.toggle('on', o.dataset.cat === cat));
@@ -530,25 +504,21 @@ async function guardarEvento(){
   const btn = document.getElementById('btn-guardar');
   const txt = btn.textContent; btn.disabled = true; btn.textContent = 'Guardando…';
   const payload = {
-    accion: 'evento_guardar',
-    id: editandoId || '',
-    titulo, categoria: catSeleccionada,
-    fecha, fechaFin: fechaFin || '',
+    accion: 'evento_guardar', id: editandoId || '',
+    titulo, categoria: catSeleccionada, fecha, fechaFin: fechaFin || '',
     hora: document.getElementById('ev-hora').value || '',
     descripcion: document.getElementById('ev-desc').value.trim(),
     link: document.getElementById('ev-link').value.trim(),
     foto: fotoDataUrl || '',
-    registrado_por: sesionNombre(),
-    registrado_en: new Date().toISOString()
+    registrado_por: sesionNombre(), registrado_en: new Date().toISOString()
   };
   try {
     const resp = await fetchConTimeout(EVENTOS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 90000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error || 'Error al guardar');
     showToast(editandoId ? 'Evento actualizado ✓' : 'Evento agregado ✓');
-    limpiarFormulario();
+    cerrarFormulario();
     await cargarEventos();
-    showTab('calendario', document.querySelector('.tab-btn'));
   } catch(e){
     showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
   } finally { btn.disabled = false; btn.textContent = txt; }
@@ -557,6 +527,7 @@ function editarEvento(id){
   const ev = EVENTOS.find(e => String(e['ID']) === String(id));
   if (!ev) return;
   cerrarModal();
+  limpiarFormulario();
   editandoId = ev['ID'];
   elegirCategoria(String(ev['Categoria']||'otro'));
   document.getElementById('ev-titulo').value = ev['Titulo'] || '';
@@ -566,9 +537,9 @@ function editarEvento(id){
   document.getElementById('ev-desc').value = ev['Descripcion'] || '';
   document.getElementById('ev-link').value = ev['Link'] || '';
   fotoDataUrl = null; quitarFotoVista();
-  document.getElementById('nuevo-sub').textContent = 'Editando: ' + (ev['Titulo']||'') + '. Guardá para aplicar los cambios.';
+  document.getElementById('form-title').textContent = 'Editar evento';
   document.getElementById('btn-guardar').textContent = 'Guardar cambios';
-  showTab('nuevo', document.querySelectorAll('.tab-btn')[2]);
+  document.getElementById('form-modal').classList.add('show');
 }
 async function cambiarEstado(id, estado){
   cerrarModal();
@@ -601,11 +572,9 @@ function limpiarFormulario(){
   document.getElementById('ev-desc').value = '';
   document.getElementById('ev-link').value = '';
   fotoDataUrl = null; quitarFotoVista();
-  document.getElementById('nuevo-sub').textContent = 'Registrá un evento para que todo el equipo lo vea en el calendario.';
-  document.getElementById('btn-guardar').textContent = 'Guardar evento';
 }
 
-// ── FOTO (compresión en el navegador antes de subir) ─────────────────
+// ── FOTO ─────────────────────────────────────────────────────────────
 function comprimirFoto(file, maxDim = 1280, calidad = 0.7) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -670,7 +639,11 @@ function showToast(msg, type='success') {
 function hoy() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function sumarDias(iso, n){ const p = iso.split('-'); const d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2])); d.setDate(d.getDate()+n); return isoDe(d); }
-function fechaCorta(iso){ const p = String(iso||'').split('-'); return p.length===3?`${p[2]}/${p[1]}`:iso; }
+function fechaCortaDia(iso){
+  const p = String(iso||'').split('-'); if (p.length!==3) return iso;
+  const d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  return d.toLocaleDateString('es-CR',{weekday:'short',day:'numeric',month:'short'});
+}
 function fechaLarga(iso){
   const p = String(iso||'').split('-'); if (p.length!==3) return iso;
   const d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
@@ -678,16 +651,7 @@ function fechaLarga(iso){
 }
 function escapeAttr(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ── TABS ──────────────────────────────────────────────────────────────
-function showTab(tab, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  if (el) el.classList.add('active');
-  if (tab === 'calendario') renderCalendario();
-  if (tab === 'agenda') renderAgenda();
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { cerrarModal(); cerrarFormulario(); } });
 </script>
 </body>
 </html>
