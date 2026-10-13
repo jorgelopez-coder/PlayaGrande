@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Calendario de Eventos - Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --purple:#6b3fa0;--purple-bg:#f3eefb;--purple-lt:#d8c8f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+main{max-width:900px;margin:0 auto;padding:1.5rem 2rem 5rem}
+.subtitle{font-size:12.5px;color:var(--muted);margin:0 0 1.25rem}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder,textarea::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
+
+.chk-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chk-pill{display:flex;align-items:center;gap:6px;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer;user-select:none;transition:all .15s}
+.chk-pill:hover{border-color:var(--border-h)}
+.chk-pill input{width:auto;appearance:auto;margin:0;cursor:pointer}
+.chk-pill.on{background:var(--green-bg);border-color:var(--green);color:var(--green);font-weight:500}
+
+.cat-select{display:flex;flex-wrap:wrap;gap:8px}
+.cat-opt{flex:1;min-width:130px;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:all .15s;background:var(--surface)}
+.cat-opt:hover{border-color:var(--border-h)}
+.cat-opt .cat-ico{font-size:19px;line-height:1}
+.cat-opt .cat-name{font-size:13px;font-weight:600}
+.cat-opt.on[data-cat="deportivo"]{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
+.cat-opt.on[data-cat="show"]{border-color:var(--purple);background:var(--purple-bg);color:var(--purple)}
+.cat-opt.on[data-cat="celebracion"]{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.cat-opt.on[data-cat="otro"]{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+
+.submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+.btn-primary{flex:1;min-width:160px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-add{background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-add:hover{opacity:.9}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+.banner{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 16px;font-size:12.5px;margin-bottom:1rem}
+
+.tabs{display:flex;gap:4px;padding:0 2rem;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab-btn{font-size:13px;font-weight:500;padding:10px 16px;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-b)}
+.tab-btn.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-btn:hover:not(.active){color:var(--text)}
+.page{display:none}.page.active{display:block}
+
+/* ── Barra de filtros ── */
+.topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.topbar select{width:auto;min-width:150px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:1rem}
+.legend .lg{display:flex;align-items:center;gap:6px}
+.legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+.dot-deportivo{background:var(--blue)} .dot-show{background:var(--purple)}
+.dot-celebracion{background:var(--amber)} .dot-otro{background:var(--green)}
+
+/* ── Calendario mensual ── */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cal-month{font-family:var(--font-d);font-size:18px;font-weight:700;text-transform:capitalize}
+.cal-nav{display:flex;gap:6px}
+.cal-nav button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.cal-nav button:hover{border-color:var(--border-h)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.cal-dow{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0}
+.cal-cell{min-height:92px;border:1px solid var(--border);border-radius:8px;padding:5px;background:var(--surface);display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-cell.other{opacity:.4}
+.cal-cell.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right}
+.cal-cell.today .cal-daynum{color:var(--green)}
+.cal-ev{font-size:10.5px;line-height:1.3;border-radius:5px;padding:2px 5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;border-left:3px solid}
+.cal-ev.deportivo{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
+.cal-ev.show{background:var(--purple-bg);color:var(--purple);border-color:var(--purple)}
+.cal-ev.celebracion{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}
+.cal-ev.otro{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.cal-more{font-size:10px;color:var(--muted);cursor:pointer;padding-left:5px}
+
+/* ── Agenda / próximos ── */
+.agenda-day{margin-bottom:1.25rem}
+.agenda-dhead{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.agenda-dhead .badge-hoy{background:var(--green);color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;letter-spacing:.03em}
+.ev-row{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.ev-row:hover{border-color:var(--border-h)}
+.ev-row.deportivo{border-left-color:var(--blue)} .ev-row.show{border-left-color:var(--purple)}
+.ev-row.celebracion{border-left-color:var(--amber)} .ev-row.otro{border-left-color:var(--green)}
+.ev-ico{font-size:22px;line-height:1.2;flex-shrink:0}
+.ev-body{flex:1;min-width:0}
+.ev-title{font-family:var(--font-d);font-size:15px;font-weight:700;margin-bottom:2px}
+.ev-meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.ev-meta b{color:var(--text);font-weight:600}
+.ev-desc{font-size:12.5px;color:var(--text);margin-top:5px}
+.ev-kioskos{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px}
+.ev-ktag{font-size:10.5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:1px 9px;color:var(--muted)}
+.ev-ktag.todos{background:var(--green-bg);border-color:var(--green-lt);color:var(--green);font-weight:600}
+.ev-cancel{text-decoration:line-through;opacity:.55}
+.empty{text-align:center;color:var(--subtle);padding:2.5rem 1rem;font-size:13px}
+
+/* ── Modal detalle ── */
+.modal-bg{position:fixed;inset:0;background:rgba(28,58,40,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:14px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.modal-head h3{font-family:var(--font-d);font-size:18px;font-weight:700}
+.modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
+.modal-body{padding:1.25rem 1.5rem}
+.modal-body .mrow{display:flex;gap:10px;font-size:13px;margin-bottom:10px}
+.modal-body .mrow .mk{color:var(--muted);min-width:90px;flex-shrink:0}
+.modal-body .mrow .mv{font-weight:500}
+.modal-foto{width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin-top:8px}
+.modal-foot{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.cat-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:20px;padding:2px 10px}
+.cat-tag.deportivo{background:var(--blue-bg);color:var(--blue)} .cat-tag.show{background:var(--purple-bg);color:var(--purple)}
+.cat-tag.celebracion{background:var(--amber-bg);color:var(--amber)} .cat-tag.otro{background:var(--green-bg);color:var(--green)}
+
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:.85rem;text-align:center;cursor:pointer;color:var(--muted);font-size:12.5px;transition:border-color .15s;position:relative}
+.foto-upload:hover{border-color:var(--green);color:var(--green)}
+.foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.foto-preview-wrap{position:relative;margin-top:.5rem;width:100%;display:none}
+.foto-preview-wrap img{width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1.25rem 1rem 3rem}
+  .tabs{padding:0 1rem}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+  .cal-cell{min-height:64px}
+  .cal-ev{font-size:9px;padding:1px 3px}
+  .cal-grid{gap:2px;padding:5px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">📅 Calendario de Eventos</span>
+  </div>
+  <span class="date-chip" id="date-chip"></span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('calendario',this)">Calendario</button>
+  <button class="tab-btn" onclick="showTab('agenda',this)">Próximos</button>
+  <button class="tab-btn" onclick="showTab('nuevo',this)">Agregar evento</button>
+</div>
+
+<main>
+  <div id="banner-holder"></div>
+
+  <!-- ════════════ CALENDARIO ════════════ -->
+  <div class="page active" id="tab-calendario">
+    <p class="subtitle">Eventos deportivos, shows y fechas importantes para que cada kiosko esté enterado. Tocá un evento para ver el detalle.</p>
+    <div class="topbar">
+      <select id="cal-kiosko" onchange="renderCalendario()"><option value="">Todos los kioskos</option></select>
+      <select id="cal-cat" onchange="renderCalendario()">
+        <option value="">Todas las categorías</option>
+        <option value="deportivo">⚽ Evento deportivo</option>
+        <option value="show">🎤 Show</option>
+        <option value="celebracion">🎉 Celebración especial</option>
+        <option value="otro">📌 Otro</option>
+      </select>
+      <button class="btn-sm" onclick="cargarEventos()" style="margin-left:auto">↻ Actualizar</button>
+    </div>
+    <div class="legend">
+      <span class="lg"><span class="dot dot-deportivo"></span>Deportivo</span>
+      <span class="lg"><span class="dot dot-show"></span>Show</span>
+      <span class="lg"><span class="dot dot-celebracion"></span>Celebración</span>
+      <span class="lg"><span class="dot dot-otro"></span>Otro</span>
+    </div>
+    <div class="cal-head">
+      <div class="cal-month" id="cal-month">—</div>
+      <div class="cal-nav">
+        <button onclick="cambiarMes(-1)" title="Mes anterior">‹</button>
+        <button onclick="irHoy()" title="Hoy" style="width:auto;padding:0 12px;font-size:12px;font-weight:600">Hoy</button>
+        <button onclick="cambiarMes(1)" title="Mes siguiente">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="cal-grid"><div class="empty" style="grid-column:1/-1">Cargando eventos…</div></div>
+  </div>
+
+  <!-- ════════════ PRÓXIMOS / AGENDA ════════════ -->
+  <div class="page" id="tab-agenda">
+    <p class="subtitle">Todo lo que viene, de hoy en adelante, en orden. Ideal para revisar de un vistazo qué hay esta semana.</p>
+    <div class="topbar">
+      <select id="ag-kiosko" onchange="renderAgenda()"><option value="">Todos los kioskos</option></select>
+      <select id="ag-cat" onchange="renderAgenda()">
+        <option value="">Todas las categorías</option>
+        <option value="deportivo">⚽ Evento deportivo</option>
+        <option value="show">🎤 Show</option>
+        <option value="celebracion">🎉 Celebración especial</option>
+        <option value="otro">📌 Otro</option>
+      </select>
+      <button class="btn-sm" onclick="cargarEventos()" style="margin-left:auto">↻ Actualizar</button>
+    </div>
+    <div id="agenda-list"><div class="empty">Cargando…</div></div>
+  </div>
+
+  <!-- ════════════ NUEVO / EDITAR ════════════ -->
+  <div class="page" id="tab-nuevo">
+    <p class="subtitle" id="nuevo-sub">Registrá un evento para que los encargados de los kioskos lo vean en el calendario.</p>
+
+    <div class="card">
+      <p class="card-title">Categoría <span class="req">*</span></p>
+      <div class="cat-select" id="cat-select">
+        <div class="cat-opt" data-cat="deportivo" onclick="elegirCategoria('deportivo')"><span class="cat-ico">⚽</span><span class="cat-name">Evento deportivo</span></div>
+        <div class="cat-opt" data-cat="show" onclick="elegirCategoria('show')"><span class="cat-ico">🎤</span><span class="cat-name">Show</span></div>
+        <div class="cat-opt" data-cat="celebracion" onclick="elegirCategoria('celebracion')"><span class="cat-ico">🎉</span><span class="cat-name">Celebración especial</span></div>
+        <div class="cat-opt" data-cat="otro" onclick="elegirCategoria('otro')"><span class="cat-ico">📌</span><span class="cat-name">Otro</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Datos del evento</p>
+      <div class="field">
+        <label for="ev-titulo">Título <span class="req">*</span></label>
+        <input type="text" id="ev-titulo" placeholder="Ej. Final UEFA · Real Madrid vs Barça"/>
+      </div>
+      <div class="field-row-3">
+        <div class="field">
+          <label for="ev-fecha">Fecha <span class="req">*</span></label>
+          <input type="date" id="ev-fecha"/>
+        </div>
+        <div class="field">
+          <label for="ev-fecha-fin">Fecha fin</label>
+          <input type="date" id="ev-fecha-fin"/>
+          <p class="hint">Solo si dura varios días</p>
+        </div>
+        <div class="field">
+          <label for="ev-hora">Hora</label>
+          <input type="time" id="ev-hora"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>Kioskos <span class="req">*</span></label>
+        <div class="chk-list" id="ev-kioskos-list"><span class="hint">Cargando kioskos…</span></div>
+        <p class="hint">Marcá a cuáles aplica. "Todos" = visible para todo el ecosistema.</p>
+      </div>
+      <div class="field">
+        <label for="ev-desc">Descripción / detalle</label>
+        <textarea id="ev-desc" rows="3" placeholder="Qué hay que saber: transmisión, promo, horario especial, invitados…"></textarea>
+      </div>
+      <div class="field">
+        <label for="ev-link">Link (opcional)</label>
+        <input type="url" id="ev-link" placeholder="https://… (flyer, repertorio, info)"/>
+      </div>
+      <div class="field">
+        <label>Imagen / flyer (opcional)</label>
+        <div class="foto-upload" id="foto-upload-area">
+          <input type="file" id="ev-foto" accept="image/*" onchange="onFotoSelected(event)"/>
+          <div id="foto-placeholder"><div style="font-size:22px;margin-bottom:2px">🖼️</div><div>Subir flyer o afiche del evento</div></div>
+        </div>
+        <div class="foto-preview-wrap" id="foto-preview-wrap">
+          <img id="foto-preview-img" src="" alt="Vista previa"/>
+          <button class="foto-remove" onclick="quitarFoto(event)">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button class="btn-secondary" onclick="limpiarFormulario()" id="btn-limpiar">Limpiar</button>
+      <button class="btn-primary" id="btn-guardar" onclick="guardarEvento()">Guardar evento</button>
+    </div>
+  </div>
+</main>
+
+<!-- Modal detalle -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="m-titulo">—</h3><div id="m-cattag" style="margin-top:6px"></div></div>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-foot" id="m-foot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" id="toast-icon"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO (rol + kiosko permitido, ver admin-accesos.html) ──
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('eventos')) {
+  alert('Tu usuario no tiene acceso a este módulo.');
+  window.location.href = 'index.html';
+}
+function normalizar(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');}
+function kioskosPermitidos(lista) {
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  return (lista || []).filter(function(k){var _k=normalizar(k);return PORTAL_SESION.kioskos.some(function(p){return normalizar(p)===_k;});});
+}
+function puedeVerKiosko(k){
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return true;
+  var _k=normalizar(k);
+  return PORTAL_SESION.kioskos.some(function(p){return normalizar(p)===_k;});
+}
+function sesionNombre() {
+  try { const s = JSON.parse(localStorage.getItem('portal_sesion') || 'null'); return s && s.nombre || ''; } catch(e) { return ''; }
+}
+
+// ── CONFIG ──────────────────────────────────────────────────────────
+// Backend compartido de RRHH del ecosistema: lista de kioskos activos (?modulo=kioskos).
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// Backend propio de este módulo (Code-eventos-backend.gs). Pegá acá la URL /exec
+// una vez desplegado (reemplazá el placeholder TODO_PEGAR).
+const EVENTOS_URL = 'TODO_PEGAR_URL_EVENTOS';
+const KIOSKOS_RESPALDO = ['Playa Grande','Liberia','Nosara','Playa Hermosa','Tamarindo','Playa Pelada','Catalinas','Lorito'];
+
+const CATEGORIAS = {
+  deportivo:   { nombre: 'Evento deportivo', ico: '⚽' },
+  show:        { nombre: 'Show',             ico: '🎤' },
+  celebracion: { nombre: 'Celebración especial', ico: '🎉' },
+  otro:        { nombre: 'Otro',             ico: '📌' }
+};
+
+let KIOSKOS = [];
+let EVENTOS = [];          // crudos del backend, ya filtrados por kiosko permitido
+let calRef = new Date();   // mes que muestra el calendario
+let catSeleccionada = '';
+let fotoDataUrl = null;
+let editandoId = null;     // ID del evento que se está editando (o null = nuevo)
+
+document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+document.getElementById('ev-fecha').value = hoy();
+
+if (EVENTOS_URL.includes('TODO_PEGAR')) {
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-eventos-backend.gs sin desplegar). Se pueden ver los kioskos pero no guardar ni listar eventos todavía.</div>';
+}
+
+cargarKioskosUI().then(cargarEventos);
+
+// ── KIOSKOS ──────────────────────────────────────────────────────────
+async function cargarKioskosUI() {
+  const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
+  if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) {
+    KIOSKOS = kioskosPermitidos(data.kioskos);
+  } else {
+    KIOSKOS = kioskosPermitidos(KIOSKOS_RESPALDO);
+    showToast('No se pudo confirmar la lista de kioskos — mostrando la última conocida', 'error');
+  }
+  // selects de filtro
+  const opts = '<option value="">Todos los kioskos</option>' + KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`).join('');
+  document.getElementById('cal-kiosko').innerHTML = opts;
+  document.getElementById('ag-kiosko').innerHTML = opts;
+  // checkboxes del formulario
+  renderKioskosCheckboxes();
+}
+async function cargarKioskosDesdeBackend(url) {
+  let ultimoError;
+  for (let intento = 1; intento <= 3; intento++) {
+    try { const resp = await fetchConTimeout(url); return await resp.json(); }
+    catch (e) { ultimoError = e; if (intento < 3) await new Promise(r => setTimeout(r, intento * 800)); }
+  }
+  console.error('No se pudo cargar la lista de kioskos.', ultimoError);
+  return { ok: false };
+}
+function renderKioskosCheckboxes() {
+  const cont = document.getElementById('ev-kioskos-list');
+  cont.innerHTML =
+    `<label class="chk-pill" id="pill-todos"><input type="checkbox" value="__todos" onchange="onTodosKioskos(this)"/> 🌐 Todos los kioskos</label>` +
+    KIOSKOS.map(k => `<label class="chk-pill"><input type="checkbox" class="chk-k" value="${escapeAttr(k)}" onchange="onKioskoCheck()"/> ${escapeAttr(k)}</label>`).join('');
+  sincronizarPills();
+}
+function onTodosKioskos(cb){
+  if (cb.checked) document.querySelectorAll('.chk-k').forEach(c => c.checked = false);
+  sincronizarPills();
+}
+function onKioskoCheck(){
+  const todos = document.querySelector('#pill-todos input');
+  if (document.querySelectorAll('.chk-k:checked').length) todos.checked = false;
+  sincronizarPills();
+}
+function sincronizarPills(){
+  document.querySelectorAll('.chk-pill').forEach(p => {
+    const inp = p.querySelector('input');
+    p.classList.toggle('on', inp.checked);
+  });
+}
+function kioskosSeleccionados(){
+  const todos = document.querySelector('#pill-todos input');
+  if (todos && todos.checked) return ['Todos'];
+  return Array.from(document.querySelectorAll('.chk-k:checked')).map(c => c.value);
+}
+
+// ── CARGAR EVENTOS ───────────────────────────────────────────────────
+async function cargarEventos(){
+  if (EVENTOS_URL.includes('TODO_PEGAR')) {
+    document.getElementById('cal-grid').innerHTML = '<div class="empty" style="grid-column:1/-1">Conectá el backend para ver eventos.</div>';
+    document.getElementById('agenda-list').innerHTML = '<div class="empty">Conectá el backend para ver eventos.</div>';
+    return;
+  }
+  try {
+    const resp = await fetchConTimeout(EVENTOS_URL + '?modulo=eventos', {}, 20000);
+    const data = await resp.json();
+    if (!data.ok || !Array.isArray(data.eventos)) throw new Error(data.error || 'Respuesta inválida del servidor');
+    EVENTOS = data.eventos.filter(ev => eventoVisibleParaMi(ev));
+    renderCalendario();
+    renderAgenda();
+  } catch(e){
+    document.getElementById('cal-grid').innerHTML = `<div class="empty" style="grid-column:1/-1;color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}). <button class="btn-sm" onclick="cargarEventos()">Reintentar</button></div>`;
+    document.getElementById('agenda-list').innerHTML = `<div class="empty" style="color:var(--red)">No se pudieron cargar los eventos (${escapeAttr(e.message)}).</div>`;
+  }
+}
+// Un evento "Todos" lo ve cualquiera. Si está dirigido a kioskos específicos,
+// solo lo ve quien tenga permitido al menos uno de ellos.
+function eventoVisibleParaMi(ev){
+  const ks = parseKioskos(ev['Kioskos']);
+  if (esTodos(ks)) return true;
+  return ks.some(puedeVerKiosko);
+}
+function parseKioskos(raw){
+  const s = String(raw||'').trim();
+  if (!s) return ['Todos'];
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+function esTodos(ks){ return ks.length === 1 && normalizar(ks[0]) === 'todos'; }
+
+// Filtros compartidos de kiosko + categoría de una pestaña
+function pasaFiltros(ev, kioskoSel, catSel){
+  if (catSel && String(ev['Categoria']||'') !== catSel) return false;
+  if (kioskoSel){
+    const ks = parseKioskos(ev['Kioskos']);
+    if (!esTodos(ks) && !ks.some(k => k === kioskoSel)) return false;
+  }
+  return true;
+}
+function eventoActivo(ev){ return String(ev['Estado']||'Activo').toLowerCase() !== 'cancelado'; }
+
+// ── CALENDARIO MENSUAL ───────────────────────────────────────────────
+function cambiarMes(delta){ calRef.setMonth(calRef.getMonth()+delta); renderCalendario(); }
+function irHoy(){ calRef = new Date(); renderCalendario(); }
+function renderCalendario(){
+  const kioskoSel = document.getElementById('cal-kiosko').value;
+  const catSel = document.getElementById('cal-cat').value;
+  const y = calRef.getFullYear(), m = calRef.getMonth();
+  document.getElementById('cal-month').textContent = calRef.toLocaleDateString('es-CR',{month:'long',year:'numeric'});
+
+  // mapa fecha ISO -> eventos de ese día (expandiendo rangos multi-día)
+  const porDia = {};
+  EVENTOS.filter(ev => pasaFiltros(ev, kioskoSel, catSel)).forEach(ev => {
+    const ini = String(ev['Fecha']||'');
+    const fin = String(ev['Fecha Fin']||'') || ini;
+    if (!ini) return;
+    let d = ini, guard = 0;
+    while (d <= fin && guard < 400){
+      (porDia[d] = porDia[d] || []).push(ev);
+      d = sumarDias(d, 1); guard++;
+    }
+  });
+
+  const primero = new Date(y, m, 1);
+  const inicioSemana = new Date(primero); inicioSemana.setDate(1 - ((primero.getDay()+6)%7)); // lunes como primer día
+  const hoyISO = hoy();
+  const dows = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for (let i=0;i<42;i++){
+    const cur = new Date(inicioSemana); cur.setDate(inicioSemana.getDate()+i);
+    const iso = isoDe(cur);
+    const otro = cur.getMonth() !== m;
+    const esHoy = iso === hoyISO;
+    const evs = (porDia[iso]||[]).slice().sort(ordenarPorHora);
+    const visibles = evs.slice(0,3);
+    let evHtml = visibles.map(ev => {
+      const cat = String(ev['Categoria']||'otro');
+      const can = eventoActivo(ev) ? '' : 'ev-cancel';
+      const hora = ev['Hora'] ? ev['Hora']+' ' : '';
+      return `<div class="cal-ev ${cat} ${can}" onclick="abrirDetalle('${ev['ID']}')" title="${escapeAttr(ev['Titulo']||'')}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:''} ${escapeAttr(hora+(ev['Titulo']||''))}</div>`;
+    }).join('');
+    if (evs.length > 3) evHtml += `<div class="cal-more" onclick="abrirDia('${iso}')">+${evs.length-3} más</div>`;
+    html += `<div class="cal-cell ${otro?'other':''} ${esHoy?'today':''}"><div class="cal-daynum">${cur.getDate()}</div>${evHtml}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+function ordenarPorHora(a,b){ return String(a['Hora']||'99:99').localeCompare(String(b['Hora']||'99:99')); }
+
+// ── AGENDA / PRÓXIMOS ────────────────────────────────────────────────
+function renderAgenda(){
+  const kioskoSel = document.getElementById('ag-kiosko').value;
+  const catSel = document.getElementById('ag-cat').value;
+  const hoyISO = hoy();
+  // Un evento aparece si su fecha fin (o inicio) es hoy o posterior
+  const futuros = EVENTOS.filter(ev => {
+    if (!pasaFiltros(ev, kioskoSel, catSel)) return false;
+    const fin = String(ev['Fecha Fin']||'') || String(ev['Fecha']||'');
+    return fin >= hoyISO;
+  }).sort((a,b) => {
+    const fa = String(a['Fecha']||''), fb = String(b['Fecha']||'');
+    if (fa !== fb) return fa.localeCompare(fb);
+    return ordenarPorHora(a,b);
+  });
+
+  const cont = document.getElementById('agenda-list');
+  if (!futuros.length){ cont.innerHTML = '<div class="empty">No hay eventos próximos con este filtro.<br>Agregá uno desde la pestaña "Agregar evento".</div>'; return; }
+
+  // agrupar por fecha de inicio
+  const grupos = {};
+  futuros.forEach(ev => { const f = String(ev['Fecha']||''); (grupos[f]=grupos[f]||[]).push(ev); });
+  let html = '';
+  Object.keys(grupos).sort().forEach(f => {
+    const esHoy = f === hoyISO;
+    html += `<div class="agenda-day"><div class="agenda-dhead">${fechaLarga(f)} ${esHoy?'<span class="badge-hoy">HOY</span>':''}</div>`;
+    html += grupos[f].map(ev => tarjetaEvento(ev)).join('');
+    html += `</div>`;
+  });
+  cont.innerHTML = html;
+}
+function tarjetaEvento(ev){
+  const cat = String(ev['Categoria']||'otro');
+  const can = eventoActivo(ev) ? '' : 'ev-cancel';
+  const ks = parseKioskos(ev['Kioskos']);
+  const ktags = esTodos(ks)
+    ? '<span class="ev-ktag todos">🌐 Todos los kioskos</span>'
+    : ks.map(k => `<span class="ev-ktag">${escapeAttr(k)}</span>`).join('');
+  const hora = ev['Hora'] ? `<span>🕒 <b>${escapeAttr(ev['Hora'])}</b></span>` : '';
+  const fin = String(ev['Fecha Fin']||'');
+  const rango = (fin && fin !== String(ev['Fecha']||'')) ? `<span>→ hasta ${fechaCorta(fin)}</span>` : '';
+  const estado = eventoActivo(ev) ? '' : '<span style="color:var(--red);font-weight:600">· CANCELADO</span>';
+  return `<div class="ev-row ${cat}" onclick="abrirDetalle('${ev['ID']}')">
+    <div class="ev-ico">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:'📌'}</div>
+    <div class="ev-body">
+      <div class="ev-title ${can}">${escapeAttr(ev['Titulo']||'(sin título)')} ${estado}</div>
+      <div class="ev-meta">${hora}${rango}<span>${CATEGORIAS[cat]?CATEGORIAS[cat].nombre:'Otro'}</span></div>
+      ${ev['Descripcion'] ? `<div class="ev-desc">${escapeAttr(ev['Descripcion'])}</div>` : ''}
+      <div class="ev-kioskos">${ktags}</div>
+    </div>
+  </div>`;
+}
+
+// ── MODAL DETALLE ────────────────────────────────────────────────────
+function abrirDetalle(id){
+  const ev = EVENTOS.find(e => String(e['ID']) === String(id));
+  if (!ev) return;
+  const cat = String(ev['Categoria']||'otro');
+  document.getElementById('m-titulo').textContent = ev['Titulo'] || '(sin título)';
+  document.getElementById('m-cattag').innerHTML = `<span class="cat-tag ${cat}">${CATEGORIAS[cat]?CATEGORIAS[cat].ico+' '+CATEGORIAS[cat].nombre:'Otro'}</span>` + (eventoActivo(ev)?'':' <span class="cat-tag celebracion" style="background:var(--red-bg);color:var(--red)">Cancelado</span>');
+  const ks = parseKioskos(ev['Kioskos']);
+  const fin = String(ev['Fecha Fin']||'');
+  const rango = (fin && fin !== String(ev['Fecha']||'')) ? `${fechaLarga(ev['Fecha'])} → ${fechaLarga(fin)}` : fechaLarga(ev['Fecha']);
+  let body = `<div class="mrow"><span class="mk">📅 Fecha</span><span class="mv">${rango}</span></div>`;
+  if (ev['Hora']) body += `<div class="mrow"><span class="mk">🕒 Hora</span><span class="mv">${escapeAttr(ev['Hora'])}</span></div>`;
+  body += `<div class="mrow"><span class="mk">📍 Kioskos</span><span class="mv">${esTodos(ks)?'🌐 Todos los kioskos':ks.map(escapeAttr).join(', ')}</span></div>`;
+  if (ev['Descripcion']) body += `<div class="mrow"><span class="mk">📝 Detalle</span><span class="mv">${escapeAttr(ev['Descripcion'])}</span></div>`;
+  if (ev['Link']) body += `<div class="mrow"><span class="mk">🔗 Link</span><span class="mv"><a href="${escapeAttr(ev['Link'])}" target="_blank" rel="noopener" style="color:var(--blue)">Abrir</a></span></div>`;
+  if (ev['Registrado por']) body += `<div class="mrow"><span class="mk">👤 Registró</span><span class="mv">${escapeAttr(ev['Registrado por'])}</span></div>`;
+  if (ev['Foto URL']) body += `<img class="modal-foto" src="${escapeAttr(ev['Foto URL'])}" alt="Flyer" onerror="this.style.display='none'"/>`;
+  document.getElementById('m-body').innerHTML = body;
+
+  let foot = `<button class="btn-sm" onclick="editarEvento('${ev['ID']}')">✏️ Editar</button>`;
+  if (eventoActivo(ev)) foot += `<button class="btn-sm" onclick="cambiarEstado('${ev['ID']}','Cancelado')" style="color:var(--amber)">Cancelar evento</button>`;
+  else foot += `<button class="btn-sm" onclick="cambiarEstado('${ev['ID']}','Activo')" style="color:var(--green)">Reactivar</button>`;
+  foot += `<button class="btn-sm" onclick="eliminarEvento('${ev['ID']}')" style="color:var(--red);margin-left:auto">🗑 Eliminar</button>`;
+  if (ev['Link']) foot = `<a href="${escapeAttr(ev['Link'])}" target="_blank" rel="noopener" class="btn-sm" style="text-decoration:none">🔗 Abrir link</a>` + foot;
+  document.getElementById('m-foot').innerHTML = foot;
+  document.getElementById('modal-bg').classList.add('show');
+}
+function abrirDia(iso){
+  // reusa el modal para listar todos los eventos de un día
+  const delDia = EVENTOS.filter(ev => {
+    const ini = String(ev['Fecha']||''); const fin = String(ev['Fecha Fin']||'')||ini;
+    return iso >= ini && iso <= fin;
+  }).sort(ordenarPorHora);
+  document.getElementById('m-titulo').textContent = fechaLarga(iso);
+  document.getElementById('m-cattag').innerHTML = `${delDia.length} evento${delDia.length===1?'':'s'}`;
+  document.getElementById('m-body').innerHTML = delDia.map(ev => {
+    const cat = String(ev['Categoria']||'otro');
+    return `<div class="ev-row ${cat}" style="margin-bottom:8px" onclick="abrirDetalle('${ev['ID']}')">
+      <div class="ev-ico">${CATEGORIAS[cat]?CATEGORIAS[cat].ico:'📌'}</div>
+      <div class="ev-body"><div class="ev-title" style="font-size:14px">${ev['Hora']?escapeAttr(ev['Hora'])+' · ':''}${escapeAttr(ev['Titulo']||'')}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('m-foot').innerHTML = '';
+  document.getElementById('modal-bg').classList.add('show');
+}
+function cerrarModal(){ document.getElementById('modal-bg').classList.remove('show'); }
+
+// ── GUARDAR / EDITAR / ESTADO / ELIMINAR ─────────────────────────────
+function elegirCategoria(cat){
+  catSeleccionada = cat;
+  document.querySelectorAll('.cat-opt').forEach(o => o.classList.toggle('on', o.dataset.cat === cat));
+}
+async function guardarEvento(){
+  if (EVENTOS_URL.includes('TODO_PEGAR')) { showToast('El backend todavía no está conectado', 'error'); return; }
+  const titulo = document.getElementById('ev-titulo').value.trim();
+  const fecha = document.getElementById('ev-fecha').value;
+  const fechaFin = document.getElementById('ev-fecha-fin').value;
+  const ks = kioskosSeleccionados();
+  if (!catSeleccionada) { showToast('Elegí una categoría', 'error'); return; }
+  if (!titulo) { showToast('Escribí un título', 'error'); return; }
+  if (!fecha) { showToast('Elegí la fecha', 'error'); return; }
+  if (fechaFin && fechaFin < fecha) { showToast('La fecha fin no puede ser antes de la fecha de inicio', 'error'); return; }
+  if (!ks.length) { showToast('Marcá al menos un kiosko (o "Todos")', 'error'); return; }
+
+  const btn = document.getElementById('btn-guardar');
+  const txt = btn.textContent; btn.disabled = true; btn.textContent = 'Guardando…';
+  const payload = {
+    accion: 'evento_guardar',
+    id: editandoId || '',
+    titulo, categoria: catSeleccionada,
+    fecha, fechaFin: fechaFin || '',
+    hora: document.getElementById('ev-hora').value || '',
+    kioskos: ks.join(', '),
+    descripcion: document.getElementById('ev-desc').value.trim(),
+    link: document.getElementById('ev-link').value.trim(),
+    foto: fotoDataUrl || '',
+    registrado_por: sesionNombre(),
+    registrado_en: new Date().toISOString()
+  };
+  try {
+    const resp = await fetchConTimeout(EVENTOS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }, 90000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    showToast(editandoId ? 'Evento actualizado ✓' : 'Evento agregado ✓');
+    limpiarFormulario();
+    await cargarEventos();
+    showTab('calendario', document.querySelector('.tab-btn'));
+  } catch(e){
+    showToast('No se pudo guardar — ' + (e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message), 'error');
+  } finally { btn.disabled = false; btn.textContent = txt; }
+}
+function editarEvento(id){
+  const ev = EVENTOS.find(e => String(e['ID']) === String(id));
+  if (!ev) return;
+  cerrarModal();
+  editandoId = ev['ID'];
+  elegirCategoria(String(ev['Categoria']||'otro'));
+  document.getElementById('ev-titulo').value = ev['Titulo'] || '';
+  document.getElementById('ev-fecha').value = String(ev['Fecha']||'');
+  document.getElementById('ev-fecha-fin').value = String(ev['Fecha Fin']||'');
+  document.getElementById('ev-hora').value = ev['Hora'] || '';
+  document.getElementById('ev-desc').value = ev['Descripcion'] || '';
+  document.getElementById('ev-link').value = ev['Link'] || '';
+  // kioskos
+  const ks = parseKioskos(ev['Kioskos']);
+  const todos = document.querySelector('#pill-todos input');
+  if (esTodos(ks)) { todos.checked = true; document.querySelectorAll('.chk-k').forEach(c => c.checked = false); }
+  else { todos.checked = false; document.querySelectorAll('.chk-k').forEach(c => c.checked = ks.indexOf(c.value) >= 0); }
+  sincronizarPills();
+  // foto existente: no se recarga como dataUrl; dejamos aviso
+  fotoDataUrl = null; quitarFotoVista();
+  document.getElementById('nuevo-sub').textContent = 'Editando: ' + (ev['Titulo']||'') + '. Guardá para aplicar los cambios.';
+  document.getElementById('btn-guardar').textContent = 'Guardar cambios';
+  showTab('nuevo', document.querySelectorAll('.tab-btn')[2]);
+}
+async function cambiarEstado(id, estado){
+  cerrarModal();
+  try {
+    const resp = await fetchConTimeout(EVENTOS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({accion:'evento_estado', id, estado}) }, 60000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error');
+    showToast(estado === 'Cancelado' ? 'Evento cancelado' : 'Evento reactivado');
+    await cargarEventos();
+  } catch(e){ showToast('No se pudo actualizar — ' + e.message, 'error'); }
+}
+async function eliminarEvento(id){
+  if (!confirm('¿Eliminar este evento definitivamente? No se puede deshacer.')) return;
+  cerrarModal();
+  try {
+    const resp = await fetchConTimeout(EVENTOS_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({accion:'evento_eliminar', id}) }, 60000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error');
+    showToast('Evento eliminado');
+    await cargarEventos();
+  } catch(e){ showToast('No se pudo eliminar — ' + e.message, 'error'); }
+}
+function limpiarFormulario(){
+  editandoId = null; catSeleccionada = '';
+  document.querySelectorAll('.cat-opt').forEach(o => o.classList.remove('on'));
+  document.getElementById('ev-titulo').value = '';
+  document.getElementById('ev-fecha').value = hoy();
+  document.getElementById('ev-fecha-fin').value = '';
+  document.getElementById('ev-hora').value = '';
+  document.getElementById('ev-desc').value = '';
+  document.getElementById('ev-link').value = '';
+  document.querySelectorAll('.chk-pill input').forEach(c => c.checked = false);
+  sincronizarPills();
+  fotoDataUrl = null; quitarFotoVista();
+  document.getElementById('nuevo-sub').textContent = 'Registrá un evento para que los encargados de los kioskos lo vean en el calendario.';
+  document.getElementById('btn-guardar').textContent = 'Guardar evento';
+}
+
+// ── FOTO (compresión en el navegador antes de subir) ─────────────────
+function comprimirFoto(file, maxDim = 1280, calidad = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        let out = canvas.toDataURL('image/webp', calidad);
+        if (!out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', calidad);
+        resolve(out);
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function onFotoSelected(event){
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { showToast('La imagen supera 8 MB', 'error'); return; }
+  comprimirFoto(file).then(dataUrl => {
+    fotoDataUrl = dataUrl;
+    document.getElementById('foto-placeholder').style.display = 'none';
+    document.getElementById('foto-preview-wrap').style.display = 'block';
+    document.getElementById('foto-preview-img').src = dataUrl;
+  }).catch(() => showToast('No se pudo procesar la imagen', 'error'));
+}
+function quitarFoto(event){ event.preventDefault(); event.stopPropagation(); fotoDataUrl = null; quitarFotoVista(); }
+function quitarFotoVista(){
+  const inp = document.getElementById('ev-foto'); if (inp) inp.value = '';
+  document.getElementById('foto-placeholder').style.display = 'block';
+  document.getElementById('foto-preview-wrap').style.display = 'none';
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+async function fetchConTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (err) { if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally { clearTimeout(timer); }
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type === 'success'
+    ? '<polyline points="3 8 7 12 13 4"/>'
+    : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+function hoy() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function sumarDias(iso, n){ const p = iso.split('-'); const d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2])); d.setDate(d.getDate()+n); return isoDe(d); }
+function fechaCorta(iso){ const p = String(iso||'').split('-'); return p.length===3?`${p[2]}/${p[1]}`:iso; }
+function fechaLarga(iso){
+  const p = String(iso||'').split('-'); if (p.length!==3) return iso;
+  const d = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  return d.toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+}
+function escapeAttr(str) { return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (el) el.classList.add('active');
+  if (tab === 'calendario') renderCalendario();
+  if (tab === 'agenda') renderAgenda();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+</script>
+</body>
+</html>

@@ -624,6 +624,10 @@ main { max-width:1240px; }
         <div class="mod-tile-icon ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Servicio 10%</div><div class="mod-tile-area">Cálculo y reparto por días trabajados · pagos</div></div>
       </a>
+      <a href="eventos.html" class="mod-tile" data-mod="eventos">
+        <div class="mod-tile-icon ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="mod-tile-txt"><div class="mod-tile-name">Calendario de Eventos</div><div class="mod-tile-area">Eventos deportivos, shows y fechas importantes por kiosko</div></div>
+      </a>
       <a href="mantenimiento.html" class="mod-tile" data-mod="mantenimiento">
         <div class="mod-tile-icon ic-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div>
         <div class="mod-tile-txt"><div class="mod-tile-name">Mantenimiento</div><div class="mod-tile-area">Reportar y dar seguimiento a incidencias</div></div>
@@ -1478,7 +1482,7 @@ function inicializarPeriodoKpi() {
 // ── KPIs ──────────────────────────────────────────────────────
 function diasDesde(fechaISO) {
   if (!fechaISO) return null;
-  const d = Math.round((new Date(new Date().toISOString().slice(0,10)+'T00:00:00') - new Date(fechaISO+'T00:00:00')) / 86400000);
+  const d = Math.round((new Date(isoDate(new Date())+'T00:00:00') - new Date(fechaISO+'T00:00:00')) / 86400000);
   return d;
 }
 function etiquetaDias(d) {
