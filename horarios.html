@@ -568,7 +568,14 @@ async function cargarHorarioGuardado(){
       const kioskoRegOrig=(r['Kiosko']||'').toString().trim();
       const kioskoReg=kioskoRegOrig.toLowerCase();
       let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
-      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
+      // Solo caer al match por NOMBRE si el registro guardado NO trae Kiosko
+      // (filas viejas, de antes de la columna Kiosko). Si el registro SÍ trae
+      // Kiosko y no calza con ningún colaborador cargado, NO emparejar por
+      // nombre con el de otro kiosko: eso metía el turno guardado de un kiosko
+      // (p.ej. una cobertura en Tamarindo) dentro del colaborador de su kiosko
+      // de origen (Playa Grande). En ese caso se deja caer al bloque de abajo,
+      // que reconstruye el registro con SU kiosko correcto.
+      if(!emp && !kioskoRegOrig) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
       if(!emp){
         // Colaborador guardado que no está en RRHH "Personal": es un
         // empleado extra agregado manualmente en una sesión anterior. Al
@@ -689,7 +696,14 @@ async function copiarSemanaAnterior(){
       const kioskoRegOrig=(r['Kiosko']||'').toString().trim();
       const kioskoReg=kioskoRegOrig.toLowerCase();
       let emp=employees.find(e=>e.name.trim().toLowerCase()===nombre && (e.kiosko||e.restoId||'').toString().trim().toLowerCase()===kioskoReg);
-      if(!emp) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
+      // Solo caer al match por NOMBRE si el registro guardado NO trae Kiosko
+      // (filas viejas, de antes de la columna Kiosko). Si el registro SÍ trae
+      // Kiosko y no calza con ningún colaborador cargado, NO emparejar por
+      // nombre con el de otro kiosko: eso metía el turno guardado de un kiosko
+      // (p.ej. una cobertura en Tamarindo) dentro del colaborador de su kiosko
+      // de origen (Playa Grande). En ese caso se deja caer al bloque de abajo,
+      // que reconstruye el registro con SU kiosko correcto.
+      if(!emp && !kioskoRegOrig) emp=employees.find(e=>e.name.trim().toLowerCase()===nombre);
       if(!emp){
         // Igual que en cargarHorarioGuardado: reconstruir empleados extra que
         // ya no están en RRHH "Personal" pero sí en el horario guardado.
