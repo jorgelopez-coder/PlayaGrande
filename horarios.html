@@ -76,6 +76,12 @@ tbody tr:last-child td{border-bottom:none}
 .auto-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-top:-2px}
 .cover-tag{font-size:10px;font-weight:600;color:var(--accent);margin-top:1px}
 .conflict-badge{font-size:10px;font-weight:700;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;padding:2px 5px;margin:2px 0 1px;line-height:1.25;display:block;cursor:help}
+.blocked-bg{background:#eef2ff;box-shadow:inset 3px 0 0 #6366f1}
+.blocked-cell{color:#3730a3;align-items:center}
+.blocked-cell .sp-lbl{color:#4338ca;font-weight:700}
+.blocked-detail{font-size:10px;color:#4338ca;font-weight:600;margin-top:3px;line-height:1.3;text-align:center}
+.tot-breakdown{font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;line-height:1.3}
+.tot-breakdown .tb-otro{color:#4338ca;font-weight:600}
 .btn-extra{font-size:13px;line-height:1;width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
 .btn-extra:hover{background:var(--surface2);color:var(--text)}
 .btn-quitar{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid currentColor;background:transparent;color:inherit;opacity:.75;cursor:pointer}
@@ -1162,14 +1168,14 @@ function updateTotals(){
   const emps=employees.filter(e=>e.restoId===activeResto||e.restoId===ROTATIVO);
   emps.forEach(emp=>{
     const el=document.getElementById('tot-'+emp.id);
-    if(el){let t=0;DAYS.forEach((_,i)=>{t+=calcH(emp.id,i)});el.textContent=t.toFixed(1)+'h'}
+    if(el)el.innerHTML=totalCellHtml(emp.id);
   });
   DAYS.forEach((_,i)=>{
     const el=document.getElementById('daytot-'+i);
-    if(el){let dt=0;emps.forEach(e=>{dt+=calcH(e.id,i)});el.textContent=dt>0?dt.toFixed(1)+'h':'—'}
+    if(el){let dt=0;emps.forEach(e=>{if(!esBloqueado(e.id,i))dt+=calcH(e.id,i)});el.textContent=dt>0?dt.toFixed(1)+'h':'—'}
   });
   const g=document.getElementById('grand-tot');
-  if(g){let t=0;emps.forEach(e=>{DAYS.forEach((_,i)=>{t+=calcH(e.id,i)})});g.textContent=t.toFixed(1)+'h'}
+  if(g)g.innerHTML=grandTotalHtml(emps);
   renderMetrics();
 }
 
@@ -1238,17 +1244,50 @@ async function cargarConflictosOtrosKioskos(){
   }catch(e){ /* sin conexion: sin marcadores */ }
 }
 
-function buildConflictBadge(empId,i){
+/* Horas que el colaborador ya tiene ese dia en un horario CERRADO de otro
+   kiosko (suma por si hay mas de un kiosko). 0 si no hay. */
+function horasBloqueadasDia(empId,i){
   const emp=employees.find(e=>e.id===empId);
-  if(!emp)return'';
+  if(!emp)return 0;
   const porDia=conflictosKiosko[normTxt(emp.name)];
   const conf=porDia&&porDia[i];
-  if(!conf||!conf.length)return'';
-  const detalle=conf.map(c=>esc(c.kiosko)+' ('+(c.horas||0).toFixed(1)+'h)').join(', ');
-  return '<div class="conflict-badge" title="Este colaborador ya tiene turno con horas en un horario CERRADO de: '+detalle+'">&#9888; Ya en '+detalle+'</div>';
+  if(!conf||!conf.length)return 0;
+  return conf.reduce((a,c)=>a+(c.horas||0),0);
+}
+function esBloqueado(empId,i){return horasBloqueadasDia(empId,i)>0;}
+// Horas propias (de este kiosko): excluye los dias bloqueados por otro kiosko.
+function horasPropiasEmp(empId){let t=0;DAYS.forEach((_,i)=>{if(!esBloqueado(empId,i))t+=calcH(empId,i)});return t;}
+// Horas en otros kioskos (dias bloqueados).
+function horasOtroEmp(empId){let t=0;DAYS.forEach((_,i)=>{t+=horasBloqueadasDia(empId,i)});return t;}
+// Contenido de la celda "Total hrs": total semanal (propias + otro kiosko) y,
+// si hay horas de otro kiosko, el desglose.
+function totalCellHtml(empId){
+  const pr=horasPropiasEmp(empId), ot=horasOtroEmp(empId), tot=pr+ot;
+  let h='<div style="font-weight:600">'+tot.toFixed(1)+'h</div>';
+  if(ot>0) h+='<div class="tot-breakdown">'+pr.toFixed(1)+'h aqu\u00ed<br><span class="tb-otro">'+ot.toFixed(1)+'h otro kiosko</span></div>';
+  return h;
+}
+// Total general (fila inferior): horas de ESTE kiosko; si hay horas en otros
+// kioskos las muestra aparte para no inflar el costo de este kiosko.
+function grandTotalHtml(emps){
+  let pr=0, ot=0; emps.forEach(e=>{pr+=horasPropiasEmp(e.id); ot+=horasOtroEmp(e.id);});
+  let h=pr.toFixed(1)+'h';
+  if(ot>0) h+='<div class="tot-breakdown"><span class="tb-otro">+'+ot.toFixed(1)+'h otros kioskos</span></div>';
+  return h;
 }
 
 function buildDayCell(empId,i,dates){
+  // Dia bloqueado: el colaborador ya tiene turno con horas en un horario
+  // CERRADO de otro kiosko. Se bloquea aqui (no editable) para evitar la doble
+  // asignacion; las horas se cuentan aparte en el total semanal.
+  if(esBloqueado(empId,i)){
+    const empB=employees.find(e=>e.id===empId);
+    const confB=(conflictosKiosko[normTxt(empB?empB.name:'')]||{})[i]||[];
+    const detalle=confB.map(c=>esc(c.kiosko)+' \u00b7 '+(c.horas||0).toFixed(1)+'h').join('<br>');
+    return '<td class="blocked-bg"><div class="special-td blocked-cell" title="Bloqueado: el colaborador ya tiene turno con horas en el horario cerrado de otro kiosko">'
+      +'<div class="sp-icon">&#128274;</div><div class="sp-lbl">Otro kiosko</div>'
+      +'<div class="blocked-detail">'+detalle+'</div></div></td>';
+  }
   const s=schedule[empId]?.[i]||{status:'trabajo',in:'',out:'',note:'',autoVac:false,otroLabel:''};
   const st=s.status||'trabajo';
   const dis=semanaCerrada?' disabled':'';
@@ -1256,7 +1295,6 @@ function buildDayCell(empId,i,dates){
   const extraBtn=semanaCerrada?'':'<button type="button" class="btn-extra" title="Incapacidad / permiso sin goce / otro" onclick="abrirExtra(\''+empId+'\','+i+',this)">+</button>';
   const prevLabel=(dates&&i>0)?dates[i-1].label:'domingo anterior';
   const copyBtn=semanaCerrada?'':'<button type="button" class="cell-copy-btn" title="Copiar el turno de '+esc(prevLabel)+' de este colaborador" onclick="copiarCeldaAnterior(\''+empId+'\','+i+')">&#8630;</button>';
-  const conflictBadge=buildConflictBadge(empId,i);
 
   if(st==='trabajo'||st==='libre'){
     const selEl='<select class="st-sel" onchange="setStatus(\''+empId+'\','+i+',this.value)"'+dis+'>'+
@@ -1265,7 +1303,7 @@ function buildDayCell(empId,i,dates){
       '</select>';
     if(st==='libre'){
       const info=ST.libre;
-      return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+conflictBadge+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
+      return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+selEl+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+info.label+'</div>'+extraBtn+noteEl+'</div></td>';
     }
     const h=calcH(empId,i);
     const splitRow=s.split
@@ -1274,7 +1312,7 @@ function buildDayCell(empId,i,dates){
         '<input type="time" value="'+esc(s.out2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out2\',this.value)"'+dis+'/>'+
         (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">Quitar tramo 2</button>')
       : (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">&#8646; Partir turno</button>');
-    return '<td><div class="day-cell">'+copyBtn+conflictBadge+selEl+
+    return '<td><div class="day-cell">'+copyBtn+selEl+
       '<input type="time" value="'+esc(s.in)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in\',this.value)"'+dis+'/>'+
       '<input type="time" value="'+esc(s.out)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out\',this.value)"'+dis+'/>'+
       splitRow+
@@ -1290,7 +1328,7 @@ function buildDayCell(empId,i,dates){
   const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
-  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+conflictBadge+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
+  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
 }
 
 function renderSched(){
@@ -1314,17 +1352,15 @@ function renderSched(){
   html+='<th>Total hrs</th></tr></thead><tbody>';
 
   emps.forEach(emp=>{
-    let tot=0;DAYS.forEach((_,i)=>{tot+=calcH(emp.id,i)});
     const coverTag=emp.cubre?'<div class="cover-tag">&#8644; Cubre desde '+esc(emp.origenKiosko)+'</div>':'';
     html+='<tr><td class="ec"><div class="emp-name">'+esc(emp.name)+'</div><div class="emp-meta">'+esc([emp.area,emp.puesto].filter(Boolean).join(' · '))+'</div>'+coverTag+((emp.extra&&!semanaCerrada)?'<button class="btn btn-danger" onclick="removeEmployee(\''+emp.id+'\')">&#x2715; quitar</button>':'')+'</td>';
     DAYS.forEach((_,i)=>{html+=buildDayCell(emp.id,i,dates)});
-    html+='<td class="hours-lbl" id="tot-'+emp.id+'" style="font-size:13px;vertical-align:middle">'+tot.toFixed(1)+'h</td></tr>';
+    html+='<td class="hours-lbl" id="tot-'+emp.id+'" style="font-size:13px;vertical-align:middle">'+totalCellHtml(emp.id)+'</td></tr>';
   });
 
-  let grand=0;
   html+='<tr class="total-row"><td class="ec" style="font-size:12px;color:var(--text2)">Total por día</td>';
-  DAYS.forEach((_,i)=>{let dt=0;emps.forEach(e=>{dt+=calcH(e.id,i)});grand+=dt;html+='<td id="daytot-'+i+'">'+(dt>0?dt.toFixed(1)+'h':'—')+'</td>'});
-  html+='<td class="grand" id="grand-tot">'+grand.toFixed(1)+'h</td></tr></tbody></table></div>';
+  DAYS.forEach((_,i)=>{let dt=0;emps.forEach(e=>{if(!esBloqueado(e.id,i))dt+=calcH(e.id,i)});html+='<td id="daytot-'+i+'">'+(dt>0?dt.toFixed(1)+'h':'—')+'</td>'});
+  html+='<td class="grand" id="grand-tot">'+grandTotalHtml(emps)+'</td></tr></tbody></table></div>';
   container.innerHTML=html;
   renderMetrics();
   renderCoverageChart();
