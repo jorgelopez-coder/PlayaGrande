@@ -125,6 +125,19 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
   .tabs{padding:0 1rem}
   .filtro-row{gap:14px}
 }
+
+/* ── REPORTE POR PRODUCTO (exportable) ───────────────────────── */
+.export-btn{font-family:var(--font-m);font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:8px;padding:6px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.export-btn:hover{border-color:var(--green)}
+.export-btn svg{width:13px;height:13px}
+.rep-search{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-b);font-size:12.5px;padding:7px 10px;outline:none;min-width:170px}
+.rep-search:focus{border-color:var(--green)}
+.th-sort{cursor:pointer;user-select:none}
+.th-sort:hover{color:var(--text)}
+.th-sort .arr{color:var(--subtle);font-family:var(--font-m);font-size:9px;margin-left:3px}
+.th-sort.active{color:var(--green)}
+.th-sort.active .arr{color:var(--green)}
+#rep-prod-foot td{font-weight:700;background:var(--surface);border-top:2px solid var(--border);border-bottom:none}
 </style>
 </head>
 <body>
@@ -308,6 +321,36 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
     </div>
 
     <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
+      <div style="padding:1.1rem 1.25rem .5rem;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div style="min-width:0;">
+          <p class="card-title" style="margin-bottom:.15rem;">Reporte por producto (detalle completo)</p>
+          <span id="rep-prod-meta" style="font-size:10.5px;color:var(--subtle);">—</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input type="search" id="rep-prod-busqueda" class="rep-search" placeholder="Buscar producto o categoría…" oninput="pintarReporteProducto()">
+          <button class="export-btn" onclick="exportarReporteProductoXLSX()" title="Descargar en Excel (.xlsx)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </button>
+          <button class="export-btn" onclick="exportarReporteProductoCSV()" title="Descargar en CSV">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            CSV
+          </button>
+        </div>
+      </div>
+      <div style="padding:0 1.25rem .4rem;font-size:10.5px;color:var(--subtle);">Mismo filtro de arriba (kioskos, rango de fechas, días, categorías y productos). El buscador y el orden por columna solo afectan lo que ves; la exportación respeta lo que quedó en pantalla.</div>
+      <div class="compare-wrap">
+        <table class="compare-table" style="min-width:820px;">
+          <thead><tr id="rep-prod-head"></tr></thead>
+          <tbody id="rep-prod-body">
+            <tr><td colspan="10"><div class="no-alerts"><span class="spinner"></span></div></td></tr>
+          </tbody>
+          <tfoot id="rep-prod-foot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-top:1rem;">
       <div style="padding:1.1rem 1.25rem .5rem;">
         <p class="card-title" style="margin-bottom:0;">Ventas por categoría</p>
       </div>
@@ -483,7 +526,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 const APPS_SCRIPT_URL    = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
@@ -1421,6 +1464,331 @@ function renderDescuentos() {
 
 // ── INIT ──────────────────────────────────────────────────────
 cargarTodo();
+</script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   REPORTE POR PRODUCTO (detalle completo) + exportación a Excel/CSV
+   Lee de Square (hoja Ventas_Por_Producto, ver SQUARE_KIOSKOS) respetando
+   los filtros globales. Autónomo: no depende de la lógica interna de
+   renderAnalisisProducto(); se engancha al final de esa función.
+   ════════════════════════════════════════════════════════════════════ */
+let REPORTE_PRODUCTO = [];
+let REPORTE_META = null;
+let REP_PROD_SORT = { key: 'monto', dir: -1 };
+
+const REP_COLS = [
+  { key:'producto',   lbl:'Producto',      t:'s' },
+  { key:'categoria',  lbl:'Categoría',     t:'s' },
+  { key:'kioskos',    lbl:'Kioskos',       t:'s' },
+  { key:'cantidad',   lbl:'Unidades',      t:'n' },
+  { key:'monto',      lbl:'Monto',         t:'n' },
+  { key:'precioProm', lbl:'Precio prom.',  t:'n' },
+  { key:'descuento',  lbl:'Descuento',     t:'n' },
+  { key:'dias',       lbl:'Días c/venta',  t:'n' },
+  { key:'promDia',    lbl:'Prom. u/día',   t:'n' },
+  { key:'pct',        lbl:'% total',       t:'n' },
+];
+
+const _normTxt = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+
+// Reconstruye REPORTE_PRODUCTO desde los filtros actuales.
+function recalcularReporteProducto() {
+  REPORTE_PRODUCTO = [];
+  const desde = document.getElementById('filtro-desde').value || '2000-01-01';
+  const hasta = document.getElementById('filtro-hasta').value || isoHoy();
+  const diasSel = diasSemanaSeleccionados();
+  const kioskosSel = kioskosSeleccionados();
+  const disponibles = Object.keys(SQUARE_KIOSKOS);
+  const kioskosUsar = disponibles.filter(k => kioskosSel.has(k));
+
+  let filasBase = [];
+  kioskosUsar.forEach(k => {
+    const rows = SQUARE_PRODUCT_ROWS[k];
+    if (Array.isArray(rows)) rows.forEach(r => { filasBase.push({ ...r, kiosko: k }); });
+  });
+  filasBase = filasBase.filter(r => r.fecha >= desde && r.fecha <= hasta && diasSel.has(diaSemana(r.fecha)));
+
+  // categorías: respeta las desmarcadas en el filtro de la pestaña
+  const categoriasDisp = Array.from(new Set(filasBase.map(r => r.categoria)));
+  const categoriasSel = categoriasDisp.filter(c => !CATEGORIAS_DESMARCADAS.has(c));
+  const hayFiltroCat = categoriasSel.length < categoriasDisp.length;
+  const setCat = new Set(categoriasSel);
+  const filasCat = hayFiltroCat ? filasBase.filter(r => setCat.has(r.categoria)) : filasBase;
+
+  // productos: respeta los desmarcados
+  const productosDisp = Array.from(new Set(filasCat.map(r => r.producto)));
+  const productosSel = productosDisp.filter(p => !PRODUCTOS_DESMARCADOS.has(p));
+  const hayFiltroProd = productosSel.length < productosDisp.length;
+  const setProd = new Set(productosSel);
+  const filas = hayFiltroProd ? filasCat.filter(r => setProd.has(r.producto)) : filasCat;
+
+  const porProd = {};
+  let totalMonto = 0, totalUnidades = 0, totalDescuento = 0;
+  filas.forEach(r => {
+    totalMonto += r.totalLinea; totalUnidades += r.cantidad; totalDescuento += (r.descuento || 0);
+    let o = porProd[r.producto];
+    if (!o) o = porProd[r.producto] = { producto:r.producto, categoria:r.categoria, monto:0, cantidad:0, descuento:0, _dias:new Set(), _k:new Set() };
+    o.monto += r.totalLinea; o.cantidad += r.cantidad; o.descuento += (r.descuento || 0);
+    if (r.fecha) o._dias.add(r.fecha);
+    if (r.kiosko) o._k.add(r.kiosko);
+  });
+
+  REPORTE_PRODUCTO = Object.values(porProd).map(o => ({
+    producto: o.producto,
+    categoria: o.categoria,
+    kioskos: Array.from(o._k).sort().join(', '),
+    cantidad: o.cantidad,
+    monto: o.monto,
+    precioProm: o.cantidad > 0 ? o.monto / o.cantidad : 0,
+    descuento: o.descuento,
+    dias: o._dias.size,
+    promDia: o._dias.size > 0 ? o.cantidad / o._dias.size : 0,
+    pct: totalMonto > 0 ? o.monto / totalMonto * 100 : 0
+  }));
+
+  REPORTE_META = {
+    desde, hasta,
+    kioskos: kioskosUsar.slice(),
+    totalMonto, totalUnidades, totalDescuento,
+    nProductos: REPORTE_PRODUCTO.length
+  };
+}
+
+// Devuelve las filas visibles (buscador + orden) a partir de REPORTE_PRODUCTO.
+function reporteProductoVisible() {
+  const q = _normTxt((document.getElementById('rep-prod-busqueda') || {}).value || '');
+  let filas = REPORTE_PRODUCTO.slice();
+  if (q) filas = filas.filter(r => _normTxt(r.producto).includes(q) || _normTxt(r.categoria).includes(q));
+  const col = REP_COLS.find(c => c.key === REP_PROD_SORT.key) || REP_COLS[4];
+  const dir = REP_PROD_SORT.dir;
+  filas.sort((a, b) => {
+    let x = a[col.key], y = b[col.key];
+    if (col.t === 'n') return (x - y) * dir;
+    return String(x).localeCompare(String(y), 'es') * dir;
+  });
+  return filas;
+}
+
+function ordenarReporteProducto(key) {
+  if (REP_PROD_SORT.key === key) REP_PROD_SORT.dir *= -1;
+  else { const col = REP_COLS.find(c => c.key === key); REP_PROD_SORT = { key, dir: (col && col.t === 's') ? 1 : -1 }; }
+  pintarReporteProducto();
+}
+
+function pintarReporteProducto() {
+  const head = document.getElementById('rep-prod-head');
+  const body = document.getElementById('rep-prod-body');
+  const foot = document.getElementById('rep-prod-foot');
+  const meta = document.getElementById('rep-prod-meta');
+  if (!head || !body) return;
+
+  // encabezados ordenables
+  head.innerHTML = REP_COLS.map(c => {
+    const activo = REP_PROD_SORT.key === c.key;
+    const flecha = activo ? (REP_PROD_SORT.dir === 1 ? '▲' : '▼') : '↕';
+    return `<th class="th-sort${activo ? ' active' : ''}" onclick="ordenarReporteProducto('${c.key}')">${c.lbl}<span class="arr">${flecha}</span></th>`;
+  }).join('');
+
+  if (meta) {
+    if (REPORTE_META && REPORTE_META.nProductos) {
+      const ks = REPORTE_META.kioskos.length ? REPORTE_META.kioskos.join(', ') : '—';
+      meta.textContent = `Kioskos: ${ks} · ${REPORTE_META.desde} → ${REPORTE_META.hasta} · ${REPORTE_META.nProductos} producto(s) · ${REPORTE_META.totalUnidades.toLocaleString('es-CR')} unid. · ${fmtCRC(REPORTE_META.totalMonto)}`;
+    } else {
+      meta.textContent = 'Sin datos de Square para los filtros actuales.';
+    }
+  }
+
+  const filas = reporteProductoVisible();
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="10"><div class="no-alerts">Sin productos para los filtros / la búsqueda actual.</div></td></tr>';
+    if (foot) foot.innerHTML = '';
+    return;
+  }
+
+  body.innerHTML = filas.map(r => `<tr>
+    <td>${escHtml(r.producto)}</td>
+    <td><span class="compare-sub" style="color:var(--text);">${escHtml(r.categoria)}</span></td>
+    <td><span class="compare-sub" style="color:var(--muted);">${escHtml(r.kioskos)}</span></td>
+    <td class="compare-val">${r.cantidad.toLocaleString('es-CR')}</td>
+    <td class="compare-val">${fmtCRC(r.monto)}</td>
+    <td>${fmtCRC(r.precioProm)}</td>
+    <td>${r.descuento ? fmtCRC(r.descuento) : '<span class="compare-dash">—</span>'}</td>
+    <td>${r.dias}</td>
+    <td>${r.promDia.toLocaleString('es-CR', { maximumFractionDigits: 1 })}</td>
+    <td>${r.pct.toFixed(1)}%</td>
+  </tr>`).join('');
+
+  if (foot) {
+    const sMonto = filas.reduce((s, r) => s + r.monto, 0);
+    const sUnid  = filas.reduce((s, r) => s + r.cantidad, 0);
+    const sDesc  = filas.reduce((s, r) => s + r.descuento, 0);
+    const precioProm = sUnid > 0 ? sMonto / sUnid : 0;
+    const pct = (REPORTE_META && REPORTE_META.totalMonto > 0) ? (sMonto / REPORTE_META.totalMonto * 100) : 100;
+    foot.innerHTML = `<tr>
+      <td>Total (${filas.length})</td><td></td><td></td>
+      <td class="compare-val">${sUnid.toLocaleString('es-CR')}</td>
+      <td class="compare-val">${fmtCRC(sMonto)}</td>
+      <td>${fmtCRC(precioProm)}</td>
+      <td>${sDesc ? fmtCRC(sDesc) : '—'}</td>
+      <td></td><td></td>
+      <td>${pct.toFixed(1)}%</td>
+    </tr>`;
+  }
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function nombreArchivoReporte(ext) {
+  const d = (REPORTE_META && REPORTE_META.desde) || isoHoy();
+  const h = (REPORTE_META && REPORTE_META.hasta) || isoHoy();
+  return `reporte-productos_${d}_a_${h}.${ext}`;
+}
+
+function descargarBlob(contenido, nombre, mime) {
+  const blob = new Blob([contenido], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 600);
+}
+
+// ── Exportar CSV (coma, comillas, BOM, CRLF — convención del portal) ──
+function exportarReporteProductoCSV() {
+  const filas = reporteProductoVisible();
+  if (!filas.length) { if (typeof showToast === 'function') showToast('No hay datos para exportar.', 'error'); else alert('No hay datos para exportar.'); return; }
+  const esc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const cols = ['Producto','Categoría','Kioskos','Unidades','Monto CRC','Precio promedio CRC','Descuento CRC','Días con venta','Promedio unidades/día','% del total'];
+  const linea = r => [
+    r.producto, r.categoria, r.kioskos,
+    r.cantidad, Math.round(r.monto), Math.round(r.precioProm), Math.round(r.descuento),
+    r.dias, r.promDia.toFixed(2), r.pct.toFixed(2)
+  ].map(esc).join(',');
+  const csv = '﻿' + [cols.map(esc).join(','), ...filas.map(linea)].join('\r\n');
+  descargarBlob(csv, nombreArchivoReporte('csv'), 'text/csv;charset=utf-8;');
+}
+
+// ── Exportar Excel (.xlsx real, sin librerías externas) ──
+function exportarReporteProductoXLSX() {
+  const filas = reporteProductoVisible();
+  if (!filas.length) { if (typeof showToast === 'function') showToast('No hay datos para exportar.', 'error'); else alert('No hay datos para exportar.'); return; }
+
+  // Hoja 1: por producto
+  const h1 = [[
+    {v:'Producto',t:'s'},{v:'Categoría',t:'s'},{v:'Kioskos',t:'s'},{v:'Unidades',t:'s'},
+    {v:'Monto ₡',t:'s'},{v:'Precio prom. ₡',t:'s'},{v:'Descuento ₡',t:'s'},
+    {v:'Días con venta',t:'s'},{v:'Prom. unid./día',t:'s'},{v:'% del total',t:'s'}
+  ]];
+  filas.forEach(r => h1.push([
+    {v:r.producto,t:'s'},{v:r.categoria,t:'s'},{v:r.kioskos,t:'s'},{v:r.cantidad,t:'n'},
+    {v:Math.round(r.monto),t:'n'},{v:Math.round(r.precioProm),t:'n'},{v:Math.round(r.descuento),t:'n'},
+    {v:r.dias,t:'n'},{v:+r.promDia.toFixed(2),t:'n'},{v:+r.pct.toFixed(2),t:'n'}
+  ]));
+
+  // Hoja 2: resumen por categoría (sobre las mismas filas visibles)
+  const porCat = {};
+  filas.forEach(r => {
+    let o = porCat[r.categoria]; if (!o) o = porCat[r.categoria] = { monto:0, cantidad:0, descuento:0, n:0 };
+    o.monto += r.monto; o.cantidad += r.cantidad; o.descuento += r.descuento; o.n += 1;
+  });
+  const totCat = Object.values(porCat).reduce((s,o)=>s+o.monto,0);
+  const h2 = [[
+    {v:'Categoría',t:'s'},{v:'Monto ₡',t:'s'},{v:'Unidades',t:'s'},{v:'Descuento ₡',t:'s'},{v:'# Productos',t:'s'},{v:'% del total',t:'s'}
+  ]];
+  Object.entries(porCat).sort((a,b)=>b[1].monto-a[1].monto).forEach(([cat,o])=>h2.push([
+    {v:cat,t:'s'},{v:Math.round(o.monto),t:'n'},{v:o.cantidad,t:'n'},{v:Math.round(o.descuento),t:'n'},{v:o.n,t:'n'},{v:totCat>0?+(o.monto/totCat*100).toFixed(2):0,t:'n'}
+  ]));
+
+  const bytes = _construirXLSX([
+    { nombre:'Por producto', filas:h1 },
+    { nombre:'Por categoría', filas:h2 }
+  ]);
+  descargarBlob(bytes, nombreArchivoReporte('xlsx'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+/* ── Escritor XLSX mínimo (ZIP store + CRC32, inline strings) ── */
+function _crc32(buf){
+  let t=_crc32.t;
+  if(!t){ t=[]; for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++){ c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); } t[n]=c>>>0; } _crc32.t=t; }
+  let crc=0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) crc=(crc>>>8)^t[(crc^buf[i])&0xFF];
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function _zip(files){
+  const enc=new TextEncoder();
+  const u16=n=>[n&0xff,(n>>8)&0xff];
+  const u32=n=>[n&0xff,(n>>8)&0xff,(n>>16)&0xff,(n>>24)&0xff];
+  const chunks=[], central=[]; let offset=0;
+  files.forEach(f=>{
+    const nameBytes=enc.encode(f.name);
+    const data=(f.data instanceof Uint8Array)?f.data:enc.encode(f.data);
+    const crc=_crc32(data);
+    const local=[].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nameBytes.length),u16(0));
+    chunks.push(new Uint8Array(local),nameBytes,data);
+    const cen=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nameBytes.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push({h:new Uint8Array(cen),n:nameBytes});
+    offset+=local.length+nameBytes.length+data.length;
+  });
+  let cSize=0; const cChunks=[];
+  central.forEach(c=>{ cChunks.push(c.h,c.n); cSize+=c.h.length+c.n.length; });
+  const eocd=[].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cSize),u32(offset),u16(0));
+  const all=chunks.concat(cChunks,[new Uint8Array(eocd)]);
+  let total=0; all.forEach(a=>total+=a.length);
+  const out=new Uint8Array(total); let p=0;
+  all.forEach(a=>{ out.set(a,p); p+=a.length; });
+  return out;
+}
+function _xmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+function _colLetter(i){ let s=''; i=i+1; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+function _construirXLSX(hojas){
+  const sheetXmls=hojas.map(hoja=>{
+    const rowsXml=hoja.filas.map((fila,ri)=>{
+      const r=ri+1;
+      const cells=fila.map((cel,ci)=>{
+        const ref=_colLetter(ci)+r;
+        const st=ri===0?' s="1"':'';
+        if(cel&&cel.t==='n'&&cel.v!==''&&cel.v!=null&&!isNaN(cel.v)) return `<c r="${ref}"${st} t="n"><v>${Number(cel.v)}</v></c>`;
+        return `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${_xmlEsc(cel?cel.v:'')}</t></is></c>`;
+      }).join('');
+      return `<row r="${r}">${cells}</row>`;
+    }).join('');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData></worksheet>`;
+  });
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hojas.map((h,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;
+  const rootRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h,i)=>`<sheet name="${_xmlEsc(h.nombre).slice(0,31)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`;
+  const wbRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hojas.map((h,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${hojas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files=[
+    {name:'[Content_Types].xml',data:ct},
+    {name:'_rels/.rels',data:rootRels},
+    {name:'xl/workbook.xml',data:workbook},
+    {name:'xl/_rels/workbook.xml.rels',data:wbRels},
+    {name:'xl/styles.xml',data:styles},
+  ];
+  sheetXmls.forEach((xml,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:xml}));
+  return _zip(files);
+}
+
+/* ── Enganche: tras cada render de "Análisis por producto", refrescar ── */
+if (typeof renderAnalisisProducto === 'function') {
+  const _origRenderAP = renderAnalisisProducto;
+  renderAnalisisProducto = function () {
+    const ret = _origRenderAP.apply(this, arguments);
+    try { recalcularReporteProducto(); pintarReporteProducto(); } catch (e) { console.error('reporte por producto:', e); }
+    return ret;
+  };
+}
+
+/* ── Deep-link: abrir la pestaña "Análisis por producto" con #productos ── */
+(function () {
+  if (location.hash === '#productos') {
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => /'productos'/.test(b.getAttribute('onclick') || ''));
+    if (btn) showTab('productos', btn);
+  }
+})();
 </script>
 </body>
 </html>
