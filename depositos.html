@@ -440,7 +440,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
@@ -511,7 +511,7 @@ const DENOMS_BILLETES_USD = [100,50,20,10,5,1];
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
-const hoyISO = hoy.toISOString().slice(0,10);
+const hoyISO = hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
 
 const fmtCRC = n => '₡' + Math.round(n||0).toLocaleString('es-CR');
 const fmtUSD = n => '$' + Number(n||0).toLocaleString('es-CR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -964,13 +964,60 @@ function renderEnviadosResumen() {
   const enviados = enviosDepositoData.filter(e => e.estado === 'Enviado');
   if (!enviados.length) { card.style.display = 'none'; body.innerHTML = ''; return; }
   card.style.display = '';
-  body.innerHTML = enviados.map(env => `<tr>
-      <td>${env.codigoInterno}</td>
-      <td style="font-size:12px">${env.fechasCubiertas.slice().sort().map(fechaLbl).join(' · ')}</td>
+  body.innerHTML = enviados.map(env => {
+    const envId = 'env-' + env.id;
+    return `<tr>
+      <td>
+        <button type="button" class="fecha-toggle" id="btn-${envId}" onclick="toggleDetalleGenerico('${envId}')">
+          <svg class="chevron" viewBox="0 0 16 16" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"/></svg>
+          ${env.codigoInterno}
+        </button>
+      </td>
+      <td style="font-size:12px">${env.fechasCubiertas.length} fecha${env.fechasCubiertas.length===1?'':'s'}</td>
       <td class="num">${fmtCRC(env.montoCrcCalculado)}</td>
       <td class="num">${env.montoUsdCalculado ? fmtUSD(env.montoUsdCalculado) : '—'}</td>
       <td><button type="button" class="btn-mini" onclick="cancelarEnvioDeposito('${env.id}')">Cancelar</button></td>
-    </tr>`).join('');
+    </tr>
+    <tr class="fila-detalle" id="${envId}">
+      <td></td>
+      <td colspan="4">${renderDetalleEnvioHTML(env)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Detalle por cada día incluido en un envío: una fila por fecha con su
+// total ₡/$ y, dentro, el desglose por denominación (igual que la tabla de
+// fechas pendientes de arriba).
+function renderDetalleEnvioHTML(env) {
+  const fechas = env.fechasCubiertas.slice().sort();
+  const filas = fechas.map(f => {
+    const d = porFecha[f];
+    const fid = 'envf-' + env.id + '-' + String(f).replace(/[^0-9A-Za-z]/g, '');
+    return `<tr>
+        <td>
+          <button type="button" class="fecha-toggle" id="btn-${fid}" onclick="toggleDetalleGenerico('${fid}')">
+            <svg class="chevron" viewBox="0 0 16 16" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"/></svg>
+            ${fechaLbl(f)}
+          </button>
+        </td>
+        <td class="num">${d ? fmtCRC(d.crc) : '—'}</td>
+        <td class="num">${d && d.usd ? fmtUSD(d.usd) : '—'}</td>
+      </tr>
+      <tr class="fila-detalle" id="${fid}">
+        <td></td>
+        <td colspan="2">${renderDenomDetalleHTML(f)}</td>
+      </tr>`;
+  }).join('');
+  return `<div class="table-wrap"><table><tbody>${filas}</tbody></table></div>`;
+}
+
+// Toggle genérico por id de fila (reutilizable para envíos y fechas anidadas).
+function toggleDetalleGenerico(id) {
+  const fila = document.getElementById(id);
+  const btn = document.getElementById('btn-' + id);
+  if (!fila) return;
+  fila.classList.toggle('open');
+  if (btn) btn.classList.toggle('open');
 }
 
 async function cancelarEnvioDeposito(envioId) {
