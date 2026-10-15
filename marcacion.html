@@ -6,7 +6,6 @@
 <title>Marca de entrada · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -27,17 +26,10 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 
-main{max-width:760px;margin:0 auto;padding:1.5rem 2rem 5rem}
+main{max-width:640px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .intro{margin-bottom:1.25rem}
 .intro h1{font-family:var(--font-d);font-size:20px;font-weight:800}
 .intro p{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
-
-/* view tabs */
-.vtabs{display:flex;gap:6px;margin-bottom:1.25rem;background:var(--surface);padding:5px;border-radius:10px;border:1px solid var(--border)}
-.vtab{flex:1;text-align:center;padding:9px 10px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-family:var(--font-d);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s,color .15s}
-.vtab.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.view{display:none}
-.view.active{display:block}
 
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
 .card-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:1.1rem}
@@ -46,15 +38,14 @@ main{max-width:760px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-hint{font-size:11px;color:var(--muted);margin-top:4px}
-input[type=text],input[type=date],select{
+select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
   outline:none;appearance:none;transition:border-color .15s
 }
-input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
 
-/* geo status */
 .geo{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:13px;margin:1rem 0}
 .geo .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--subtle)}
 .geo.ok .dot{background:var(--green)}
@@ -64,10 +55,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .geo .txt{line-height:1.4}
 .geo .txt b{font-weight:600}
 
-/* big clock-in button */
 .marca-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:1.5rem 0 .5rem}
 .btn-marca{
-  width:180px;height:180px;border-radius:50%;border:none;cursor:pointer;
+  width:190px;height:190px;border-radius:50%;border:none;cursor:pointer;
   background:var(--green);color:#fff;font-family:var(--font-d);font-weight:800;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   box-shadow:0 8px 28px rgba(26,122,74,.35);transition:transform .12s,opacity .15s,background .15s
@@ -75,10 +65,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn-marca:hover{transform:scale(1.03)}
 .btn-marca:active{transform:scale(.97)}
 .btn-marca:disabled{background:var(--subtle);box-shadow:none;cursor:not-allowed;opacity:.8;transform:none}
-.btn-marca .reloj{font-family:var(--font-m);font-size:30px;font-weight:600;letter-spacing:.5px}
+.btn-marca .reloj{font-family:var(--font-m);font-size:32px;font-weight:600;letter-spacing:.5px}
 .btn-marca .lbl{font-size:14px;text-transform:uppercase;letter-spacing:.08em}
 
-/* result panel */
 .resultado{display:none;border-radius:var(--radius);padding:1.25rem;margin-top:.5rem;border:1px solid var(--border)}
 .resultado.show{display:block}
 .resultado.ok{background:var(--green-bg);border-color:var(--green-lt)}
@@ -87,39 +76,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .resultado-head .estado-badge{margin-left:auto}
 .resultado-detalle{font-size:13px;color:var(--text);line-height:1.7}
 .resultado-detalle .k{color:var(--muted)}
+.estado-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.e-ok{background:var(--green-bg);color:var(--green)}
+.e-tarde{background:var(--amber-bg);color:var(--amber)}
+.e-sin{background:var(--surface);color:var(--muted)}
 
 .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--font-d);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,opacity .15s;text-decoration:none}
 .btn:hover{border-color:var(--border-h)}
 .btn-wa{background:#25D366;color:#fff;border:none}
 .btn-wa:hover{opacity:.9}
 .btn-wa svg{width:16px;height:16px;fill:#fff}
-.btn-primary{background:var(--green);color:#fff;border:none}
-.btn-primary:hover{opacity:.9}
 
-/* tardias summary */
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem}
-.tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-.tile .n{font-family:var(--font-d);font-size:24px;font-weight:800;line-height:1}
-.tile .l{font-size:11px;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.05em}
-.tile.ok .n{color:var(--green)}
-.tile.tarde .n{color:var(--amber)}
-.tile.sin .n{color:var(--subtle)}
-
-.tabla-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border);white-space:nowrap}
-td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr.row-tarde{background:var(--amber-bg)}
-td.mono{font-family:var(--font-m);font-size:12px}
-.estado-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
-.e-ok{background:var(--green-bg);color:var(--green)}
-.e-tarde{background:var(--amber-bg);color:var(--amber)}
-.e-sin{background:var(--surface);color:var(--muted)}
-.geo-no{color:var(--red);font-weight:600}
-.geo-si{color:var(--green)}
-
-.empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast.success{border-color:var(--green);color:var(--green)}
@@ -129,9 +96,7 @@ td.mono{font-family:var(--font-m);font-size:12px}
 @media(max-width:600px){
   header{padding:0 1rem}main{padding:1.25rem 1rem 5rem}
   .field-row{grid-template-columns:1fr}
-  .tiles{grid-template-columns:repeat(2,1fr)}
   .status-bar{padding:0 1rem}
-  table{font-size:12px}th,td{padding:8px 8px}
 }
 </style>
 </head>
@@ -150,115 +115,56 @@ td.mono{font-family:var(--font-m);font-size:12px}
 <main>
   <div class="intro">
     <h1>Marca de entrada</h1>
-    <p>Registrá la hora de ingreso del personal con un toque. La marca solo se acepta si el teléfono está dentro del área del kiosko, y se compara automáticamente contra la hora de entrada del horario para detectar tardías.</p>
+    <p>Registr&aacute; tu hora de ingreso con un toque. La marca solo se acepta si est&aacute;s dentro del &aacute;rea del kiosko.</p>
   </div>
 
-  <div class="vtabs">
-    <button type="button" class="vtab active" data-view="marcar" onclick="switchView('marcar')">&#128337; Marcar entrada</button>
-    <button type="button" class="vtab" data-view="tardias" onclick="switchView('tardias')">&#9888;&#65039; Control de tard&iacute;as</button>
-  </div>
-
-  <!-- VISTA: MARCAR -->
-  <section class="view active" id="view-marcar">
-    <div class="card">
-      <p class="card-title">Datos de la marca</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="m-kiosko">Kiosko</label>
-          <select id="m-kiosko" onchange="onKioskoChange()"><option value="">Cargando&hellip;</option></select>
-        </div>
-        <div class="field">
-          <label for="m-colaborador">Colaborador</label>
-          <select id="m-colaborador"><option value="">Seleccion&aacute; el kiosko primero</option></select>
-        </div>
+  <div class="card">
+    <p class="card-title">Datos de la marca</p>
+    <div class="field-row">
+      <div class="field">
+        <label for="m-kiosko">Kiosko</label>
+        <select id="m-kiosko" onchange="onKioskoChange()"><option value="">Cargando&hellip;</option></select>
       </div>
-
-      <div class="geo wait" id="geo-estado">
-        <span class="dot"></span>
-        <span class="txt" id="geo-txt">Eleg&iacute; el kiosko y el colaborador para activar el bot&oacute;n.</span>
+      <div class="field">
+        <label for="m-colaborador">Colaborador</label>
+        <select id="m-colaborador"><option value="">Seleccion&aacute; el kiosko primero</option></select>
       </div>
+    </div>
 
-      <div class="marca-wrap">
-        <button type="button" class="btn-marca" id="btn-marca" onclick="marcarEntrada()" disabled>
-          <span class="reloj" id="reloj-vivo">--:--</span>
-          <span class="lbl">Marcar</span>
+    <div class="geo wait" id="geo-estado">
+      <span class="dot"></span>
+      <span class="txt" id="geo-txt">Eleg&iacute; el kiosko y el colaborador para activar el bot&oacute;n.</span>
+    </div>
+
+    <div class="marca-wrap">
+      <button type="button" class="btn-marca" id="btn-marca" onclick="marcarEntrada()" disabled>
+        <span class="reloj" id="reloj-vivo">--:--</span>
+        <span class="lbl">Marcar</span>
+      </button>
+      <p class="field-hint" id="marca-hint" style="text-align:center">Al marcar se pedir&aacute; tu ubicaci&oacute;n para confirmar que est&aacute;s en el kiosko.</p>
+    </div>
+
+    <div class="resultado" id="resultado">
+      <div class="resultado-head">
+        <span id="res-icono">&#9989;</span>
+        <span id="res-titulo">Entrada registrada</span>
+        <span class="estado-badge" id="res-badge"></span>
+      </div>
+      <div class="resultado-detalle" id="res-detalle"></div>
+      <div style="margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap">
+        <button type="button" class="btn btn-wa" id="btn-wa" onclick="enviarWhatsApp()">
+          <svg viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.03c-.24.68-1.42 1.3-1.95 1.35-.5.05-1.13.07-1.83-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.2-4.98-4.4-.15-.2-1.19-1.58-1.19-3.01s.75-2.14 1.02-2.43c.27-.29.58-.37.78-.37.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2.01.89 2.16.07.15.12.32.02.52-.1.2-.15.32-.29.49-.15.17-.31.39-.44.52-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.36 1.46.29.15.46.12.63-.07.17-.2.73-.85.92-1.14.19-.29.39-.24.66-.15.27.1 1.69.8 1.98.94.29.15.48.22.56.34.07.12.07.68-.17 1.36z"/></svg>
+          Enviar por WhatsApp
         </button>
-        <p class="field-hint" id="marca-hint" style="text-align:center">Al marcar se pedir&aacute; tu ubicaci&oacute;n para confirmar que est&aacute;s en el kiosko.</p>
-      </div>
-
-      <div class="resultado" id="resultado">
-        <div class="resultado-head">
-          <span id="res-icono">&#9989;</span>
-          <span id="res-titulo">Entrada registrada</span>
-          <span class="estado-badge" id="res-badge"></span>
-        </div>
-        <div class="resultado-detalle" id="res-detalle"></div>
-        <div style="margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap">
-          <button type="button" class="btn btn-wa" id="btn-wa" onclick="enviarWhatsApp()">
-            <svg viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.03c-.24.68-1.42 1.3-1.95 1.35-.5.05-1.13.07-1.83-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.2-4.98-4.4-.15-.2-1.19-1.58-1.19-3.01s.75-2.14 1.02-2.43c.27-.29.58-.37.78-.37.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2.01.89 2.16.07.15.12.32.02.52-.1.2-.15.32-.29.49-.15.17-.31.39-.44.52-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.03 1.12 1 2.07 1.31 2.36 1.46.29.15.46.12.63-.07.17-.2.73-.85.92-1.14.19-.29.39-.24.66-.15.27.1 1.69.8 1.98.94.29.15.48.22.56.34.07.12.07.68-.17 1.36z"/></svg>
-            Enviar por WhatsApp
-          </button>
-          <button type="button" class="btn" onclick="nuevaMarca()">Nueva marca</button>
-        </div>
+        <button type="button" class="btn" onclick="nuevaMarca()">Nueva marca</button>
       </div>
     </div>
-  </section>
-
-  <!-- VISTA: TARDIAS -->
-  <section class="view" id="view-tardias">
-    <div class="card">
-      <p class="card-title">Filtros</p>
-      <div class="field-row">
-        <div class="field">
-          <label for="t-kiosko">Kiosko</label>
-          <select id="t-kiosko" onchange="renderTardias()"><option value="">Todos</option></select>
-        </div>
-        <div class="field">
-          <label for="t-estado">Estado</label>
-          <select id="t-estado" onchange="renderTardias()">
-            <option value="">Todos</option>
-            <option value="Tarde">Solo tard&iacute;as</option>
-            <option value="A tiempo">A tiempo</option>
-            <option value="Sin horario">Sin horario</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="t-desde">Desde</label>
-          <input type="date" id="t-desde" onchange="renderTardias()"/>
-        </div>
-        <div class="field">
-          <label for="t-hasta">Hasta</label>
-          <input type="date" id="t-hasta" onchange="renderTardias()"/>
-        </div>
-      </div>
-      <div style="margin-top:1rem"><button type="button" class="btn btn-primary" onclick="cargarMarcaciones(true)">&#8635; Actualizar</button></div>
-    </div>
-
-    <div class="tiles">
-      <div class="tile"><div class="n" id="tl-total">0</div><div class="l">Marcas</div></div>
-      <div class="tile ok"><div class="n" id="tl-ok">0</div><div class="l">A tiempo</div></div>
-      <div class="tile tarde"><div class="n" id="tl-tarde">0</div><div class="l">Tard&iacute;as</div></div>
-      <div class="tile sin"><div class="n" id="tl-sin">0</div><div class="l">Sin horario</div></div>
-    </div>
-
-    <div class="tabla-wrap">
-      <table>
-        <thead><tr>
-          <th>Fecha</th><th>Hora</th><th>Colaborador</th><th>Kiosko</th>
-          <th>Programada</th><th>Tarde</th><th>Estado</th><th>Ubic.</th>
-        </tr></thead>
-        <tbody id="t-body"><tr><td colspan="8" class="empty-state">Cargando marcaciones&hellip;</td></tr></tbody>
-      </table>
-    </div>
-  </section>
+  </div>
 </main>
 
 <div class="toast" id="toast"></div>
 <div class="status-bar"><span id="status-msg">v1.0 &middot; Marca de entrada &middot; Ecosistema Kioskos</span></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 // CONFIG
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
@@ -266,7 +172,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qD
 // cual se acepta la marca. Subilo si los telefonos marcan con poca precision.
 const RADIO_GEOCERCA_M = 150;
 
-// CONTROL DE ACCESO (rol + kiosko permitido)
+// CONTROL DE ACCESO (rol + kiosko permitido) — modulo 'marcacion' (todos)
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8*60*60*1000) {
   localStorage.removeItem('portal_sesion');
@@ -285,7 +191,6 @@ function kioskosPermitidos(lista){
 // ESTADO
 let kioskosRegs = [];
 let personalData = [];
-let marcaciones = [];
 let coordsKioskoSel = null;
 let ultimaMarca = null;
 
@@ -329,14 +234,8 @@ function distanciaM(a,b){
 
 // CARGA INICIAL
 async function init(){
-  const hoy = new Date();
-  const hace7 = new Date(hoy.getTime()-6*24*60*60*1000);
-  const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  document.getElementById('t-hasta').value = iso(hoy);
-  document.getElementById('t-desde').value = iso(hace7);
   await Promise.all([cargarKioskos(), cargarPersonal()]);
 }
-
 async function cargarKioskos(){
   try{
     const resp = await fetch(APPS_SCRIPT_URL+'?modulo=kioskos');
@@ -345,12 +244,9 @@ async function cargarKioskos(){
   }catch(e){ kioskosRegs = []; }
   const nombres = kioskosPermitidos(kioskosRegs.map(k=>k['Kiosko']).filter(Boolean));
   const selM = document.getElementById('m-kiosko');
-  const selT = document.getElementById('t-kiosko');
   selM.innerHTML = '<option value="">Seleccion&aacute; un kiosko&hellip;</option>' + nombres.map(n=>'<option>'+n+'</option>').join('');
-  selT.innerHTML = '<option value="">Todos</option>' + nombres.map(n=>'<option>'+n+'</option>').join('');
   if (nombres.length === 1){ selM.value = nombres[0]; onKioskoChange(); }
 }
-
 async function cargarPersonal(){
   try{
     const resp = await fetch(APPS_SCRIPT_URL+'?modulo=personal');
@@ -358,7 +254,6 @@ async function cargarPersonal(){
     if (data.ok) personalData = data.registros||[];
   }catch(e){ personalData = []; }
 }
-
 function poblarColaboradores(kiosko){
   const sel = document.getElementById('m-colaborador');
   const activos = personalData.filter(p => String(p['Estado']||'').toUpperCase()==='ACTIVO');
@@ -383,7 +278,6 @@ async function onKioskoChange(){
   else { setGeo('wait','Listo. Al marcar se confirmar&aacute; que est&aacute;s a menos de '+RADIO_GEOCERCA_M+' m del kiosko.'); }
   actualizarBoton();
 }
-
 function setGeo(cls, txt){
   const g = document.getElementById('geo-estado');
   g.className = 'geo '+cls;
@@ -496,71 +390,6 @@ function enviarWhatsApp(){
   window.open(base+encodeURIComponent(texto), '_blank');
 }
 
-// VISTA TARDIAS
-async function cargarMarcaciones(force){
-  const body = document.getElementById('t-body');
-  if (force) body.innerHTML = '<tr><td colspan="8" class="empty-state">Actualizando&hellip;</td></tr>';
-  try{
-    const resp = await fetch(APPS_SCRIPT_URL+'?modulo=marcaciones');
-    const data = await resp.json();
-    marcaciones = (data.registros||[]);
-  }catch(e){ marcaciones = []; }
-  renderTardias();
-}
-
-function renderTardias(){
-  const kioskoF = document.getElementById('t-kiosko').value;
-  const estadoF = document.getElementById('t-estado').value;
-  const desde = document.getElementById('t-desde').value;
-  const hasta = document.getElementById('t-hasta').value;
-
-  const permitidos = kioskosPermitidos(kioskosRegs.map(k=>k['Kiosko']).filter(Boolean)).map(normNom);
-  let filas = marcaciones.filter(r => String(r['Tipo']||'Entrada')==='Entrada');
-  if (PORTAL_SESION && PORTAL_SESION.kioskos !== 'todos')
-    filas = filas.filter(r => permitidos.indexOf(normNom(r['Kiosko']))!==-1);
-  if (kioskoF) filas = filas.filter(r => normNom(r['Kiosko'])===normNom(kioskoF));
-  if (estadoF) filas = filas.filter(r => (r['Estado']||'')===estadoF);
-  if (desde) filas = filas.filter(r => String(r['Fecha']||'') >= desde);
-  if (hasta) filas = filas.filter(r => String(r['Fecha']||'') <= hasta);
-  filas.sort((a,b)=> (b['Fecha']+ (b['Hora']||'')).localeCompare(a['Fecha']+ (a['Hora']||'')));
-
-  let nOk=0,nTarde=0,nSin=0;
-  filas.forEach(r=>{ const e=r['Estado']; if(e==='Tarde')nTarde++; else if(e==='A tiempo')nOk++; else nSin++; });
-  document.getElementById('tl-total').textContent = filas.length;
-  document.getElementById('tl-ok').textContent = nOk;
-  document.getElementById('tl-tarde').textContent = nTarde;
-  document.getElementById('tl-sin').textContent = nSin;
-
-  const body = document.getElementById('t-body');
-  if (!filas.length){ body.innerHTML = '<tr><td colspan="8" class="empty-state">No hay marcaciones para estos filtros.</td></tr>'; return; }
-  body.innerHTML = filas.map(r=>{
-    const e = r['Estado'];
-    const badge = e==='Tarde' ? '<span class="estado-badge e-tarde">Tarde · '+(r['Minutos tarde']||0)+' min</span>'
-                : e==='A tiempo' ? '<span class="estado-badge e-ok">A tiempo</span>'
-                : '<span class="estado-badge e-sin">Sin horario</span>';
-    const geo = String(r['Dentro geocerca']||'');
-    const geoTxt = geo==='Sí' ? '<span class="geo-si">Sí</span>' : geo==='No' ? '<span class="geo-no">No</span>' : '—';
-    const mt = (r['Minutos tarde']!==''&&r['Minutos tarde']!=null)?r['Minutos tarde']:'—';
-    return '<tr class="'+(e==='Tarde'?'row-tarde':'')+'">'+
-      '<td class="mono">'+(r['Fecha']||'')+'</td>'+
-      '<td class="mono">'+(r['Hora']||'')+'</td>'+
-      '<td>'+(r['Colaborador']||'')+'</td>'+
-      '<td>'+(r['Kiosko']||'')+'</td>'+
-      '<td class="mono">'+(r['Hora programada']||'—')+'</td>'+
-      '<td class="mono">'+mt+'</td>'+
-      '<td>'+badge+'</td>'+
-      '<td>'+geoTxt+'</td>'+
-    '</tr>';
-  }).join('');
-}
-
-// VISTAS + TOAST
-let marcacionesCargadas = false;
-function switchView(v){
-  document.querySelectorAll('.vtab').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
-  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active', s.id==='view-'+v));
-  if (v==='tardias' && !marcacionesCargadas){ marcacionesCargadas=true; cargarMarcaciones(true); }
-}
 let toastT;
 function toast(msg, tipo){
   const el=document.getElementById('toast');
