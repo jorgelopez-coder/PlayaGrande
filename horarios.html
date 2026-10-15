@@ -1179,6 +1179,10 @@ function abrirExtra(empId,day,btnEl){
   extraTarget={empId,day};
   const pop=document.getElementById('extra-popover');
   pop.innerHTML=EXTRA_MENU_HTML;
+  // Los clics dentro del popover no deben llegar al listener global de "clic
+  // afuera": al reconstruir el menu (lista de kioskos) el boton clicado se
+  // desprende del DOM y ese listener lo tomaba como clic externo y cerraba todo.
+  pop.onclick=function(ev){ev.stopPropagation();};
   const r=btnEl.getBoundingClientRect();
   pop.style.display='flex';
   const left=Math.min(r.left,window.innerWidth-180);
