@@ -1344,12 +1344,20 @@ async function confirmarPaso1YContinuar() {
 // Suma las horas de la hoja "Horarios" (horarios.html) para un colaborador
 // dentro del rango de fechas de la planilla — se muestra como nota bajo el
 // campo "Horas reg." del Paso 2 para poder comparar contra lo cargado a mano.
-function horasHorarioRegistradas(nombre, fechaInicio, fechaFin) {
+function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
   const buscado = String(nombre||'').trim().toLowerCase();
   const resultado = { horas: 0, dias: 0 };
   if (!buscado || !fechaInicio || !fechaFin) return resultado;
   HORARIOS_CACHE.forEach(row => {
     if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
+    // Solo turnos de TRABAJO del MISMO kiosko de la planilla. El horario
+    // guarda las vacaciones con 8h (HORAS_VACACIONES en horarios.html) y las
+    // coberturas/permisos/libres/cerrados con 0h; sin este filtro la nota
+    // contaba vacaciones como horas trabajadas y sumaba horas de otros
+    // kioskos. Mismo criterio que nombresSugeridosDesdeHorario() y el aviso
+    // de doble asignacion de horarios.html.
+    if (!mismoKiosko(row['Kiosko'], kiosko)) return;
+    if (String(row['Estado']||'trabajo') !== 'trabajo') return;
     const fecha = String(row['Fecha']||'');
     if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
     const horas = Number(row['Horas']) || 0;
@@ -1371,6 +1379,7 @@ function renderPaso2() {
   const bloqueado = incidenciasBloqueadas();
   const notaRechazo = PLANILLA_ACTUAL && PLANILLA_ACTUAL['Nota rechazo'] ? PLANILLA_ACTUAL['Nota rechazo'] : '';
   const r = rangoPeriodoActual();
+  const kioskoPlanilla = document.getElementById('pl-kiosko').value;
   const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
     if (String(f['Activo']||'Sí').trim().toLowerCase()==='no') return false;
     const fecha = String(f['Fecha']);
@@ -1380,7 +1389,7 @@ function renderPaso2() {
   const filas = WIZARD_PARTICIPANTES.map((p, i) => {
     const prev = calcularClientePreview(p);
     const detalleAbierto = PASO2_EXPANDIDO === i;
-    const horarioInfo = horasHorarioRegistradas(p.nombre, r.fechaInicio, r.fechaFin);
+    const horarioInfo = horasHorarioRegistradas(p.nombre, kioskoPlanilla, r.fechaInicio, r.fechaFin);
     const horarioTxt = horarioInfo.horas > 0 ? `Horario: ${horarioInfo.horas}h (${horarioInfo.dias} día${horarioInfo.dias===1?'':'s'})` : 'Sin horario registrado';
     return `
     <tr>
