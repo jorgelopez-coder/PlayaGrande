@@ -721,6 +721,7 @@ function incidenciaAParticipante(inc) {
     servicio10Incluir: String(inc['Servicio 10% incluir']||'').trim().toLowerCase().indexOf('s') === 0,
     servicio10FechaIni: inc['Servicio 10% fecha inicio']||'', servicio10FechaFin: inc['Servicio 10% fecha fin']||'',
     comentarioServicio10: inc['Comentario servicio 10']||'',
+    tardanzaHorasManual: (inc['Tardanza horas manual']===''||inc['Tardanza horas manual']===undefined||inc['Tardanza horas manual']===null) ? '' : Number(inc['Tardanza horas manual']),
     diasNoTrabajados: numOr(inc['Días no trabajados'],0), comentarioDiasNoTrabajados: inc['Comentario días no trabajados']||'',
     dedAdelanto: numOr(inc['Deducción adelanto salario'],0), comentarioAdelanto: inc['Comentario adelanto']||'',
     dedCompras: numOr(inc['Deducción compras aprobadas'],0), comentarioCompras: inc['Comentario compras']||'',
@@ -752,6 +753,7 @@ function participanteAPayload(r, kiosko, part) {
     servicio10_incluir: part.servicio10Incluir ? 'Sí' : 'No',
     servicio10_fecha_inicio: part.servicio10FechaIni, servicio10_fecha_fin: part.servicio10FechaFin,
     comentario_servicio10: part.comentarioServicio10,
+    tardanza_horas_manual: part.tardanzaHorasManual,
     dias_no_trabajados: part.diasNoTrabajados, comentario_dias_no_trabajados: part.comentarioDiasNoTrabajados,
     ded_adelanto: part.dedAdelanto, comentario_adelanto: part.comentarioAdelanto,
     ded_compras: part.dedCompras, comentario_compras: part.comentarioCompras,
@@ -896,8 +898,16 @@ function calcularClientePreview(part) {
   const extra50Monto = extra50Horas * salarioHora * 1.5;
   const extra100Monto = extra100Horas * salarioHora * 2;
 
-  const tardanza = sumarHorasTardanzaCliente(part.nombre, r.fechaInicio, r.fechaFin);
-  const tardanzaHoras = tardanza.horas;
+  // Tardanza SOLO para colaboradores nativos del kiosko (no Extra): la
+  // amonestación se rebaja en su planilla nativa, no cuando cubre en otro
+  // kiosko como Extra (si no, se rebajaría doble). El automático (suma de
+  // "Llegada tardía" de Amonestaciones en la quincena) se precarga y se
+  // puede corregir a mano en el Paso 2 — tardanzaHorasManual vacío = usar el
+  // automático. Mismo criterio en el backend (calcularPlanilla).
+  const tardanza = esExtra ? { horas: 0, fechas: [] } : sumarHorasTardanzaCliente(part.nombre, r.fechaInicio, r.fechaFin);
+  const tardanzaAutoHoras = tardanza.horas;
+  const usaTardManual = !(part.tardanzaHorasManual===''||part.tardanzaHorasManual===undefined||part.tardanzaHorasManual===null);
+  const tardanzaHoras = esExtra ? 0 : (usaTardManual ? Math.max(numOr(part.tardanzaHorasManual,0),0) : tardanzaAutoHoras);
   const tardanzaMonto = tardanzaHoras * salarioHora;
 
   const feriadosDelPeriodo = FERIADOS_CACHE.filter(f => {
@@ -991,7 +1001,7 @@ function calcularClientePreview(part) {
     incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, permisoDias, subsidioMonto,
     servicio10Monto, tipsMonto, servicio10Ids: servicio10Pendiente.ids, servicio10Fechas: servicio10Pendiente.fechas,
     diasNoTrabajadosAuto, diasNoTrabajadosManual, diasNoTrabajadosTotal, diasNoTrabajadosMonto,
-    tardanzaHoras, tardanzaMonto, tardanzaFechas: tardanza.fechas,
+    tardanzaHoras, tardanzaMonto, tardanzaFechas: tardanza.fechas, tardanzaAutoHoras, usaTardManual,
     totalIngresos, baseCCSSAuto, baseCCSSFinal, ccssObreraMonto, totalDeducciones, neto };
 }
 
@@ -1081,7 +1091,7 @@ function iniciarWizardNuevo() {
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '',
     incapInternaIni: '', incapInternaFin: '', incapInternaPct: 100, comentarioIncapInterna: '',
     subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '',
     dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '',
@@ -1280,7 +1290,7 @@ function agregarExtraExistente(nombre) {
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
     incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
   });
@@ -1303,7 +1313,7 @@ function agregarExtraManual() {
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
     incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
-    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '',
+    servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
   });
@@ -1398,7 +1408,9 @@ function renderPaso2() {
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra50Horas>0?`${prev.extra50Horas}h`:'—'}</td>
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra100Horas>0?`${prev.extra100Horas}h`:'—'}</td>
       <td class="hint">${prev.diasNoTrabajadosAuto>0?`${prev.diasNoTrabajadosAuto} día(s) auto`:'—'}</td>
-      <td class="hint" ${prev.tardanzaHoras>0?'style="color:var(--red)"':''} title="${prev.tardanzaFechas.length?'Amonestación(es): '+prev.tardanzaFechas.map(fechaBonita).join(', '):''}">${prev.tardanzaHoras>0?`−${prev.tardanzaHoras}h`:'—'}</td>
+      <td>${p.esExtra
+        ? '<span class="hint" title="La tardanza se rebaja solo en la planilla de su kiosko nativo, no cuando cubre como Extra">—</span>'
+        : `<input type="number" min="0" step="0.5" value="${prev.tardanzaHoras||0}" ${prev.tardanzaHoras>0?'style="color:var(--red)"':''} title="${prev.tardanzaFechas.length?'Amonestación(es): '+prev.tardanzaFechas.map(fechaBonita).join(', '):'Sin amonestaciones de llegada tardía en la quincena'}" oninput="actualizarCampoSilencioso(${i},'tardanzaHorasManual',this.value)"><div class="hint" style="white-space:nowrap;margin-top:2px">${prev.usaTardManual ? `auto ${prev.tardanzaAutoHoras}h · <a href="#" onclick="restaurarTardanzaAuto(${i});return false;">usar auto</a>` : 'de Amonestaciones'}</div>`}</td>
       <td><button class="detalle-toggle" onclick="togglePaso2Detalle(${i})">${detalleAbierto?'Cerrar':'Detalle ▾'}</button></td>
     </tr>
     <tr class="fila-detalle" style="display:${detalleAbierto?'':'none'}"><td colspan="7">${detalleAbierto?renderDetallePaso2(i, feriadosDelPeriodo, prev):''}</td></tr>
@@ -1558,6 +1570,12 @@ function actualizarServicio10Fecha(campo, valor) {
 }
 function actualizarServicio10Incluir(i, checked) {
   WIZARD_PARTICIPANTES[i].servicio10Incluir = checked;
+  renderPaso2();
+}
+// Vuelve la tardanza al valor automático de Amonestaciones (borra el override
+// manual del Paso 2). Vacío = usar el automático en calcularClientePreview().
+function restaurarTardanzaAuto(i) {
+  WIZARD_PARTICIPANTES[i].tardanzaHorasManual = '';
   renderPaso2();
 }
 // Sección consolidada de feriados dentro de Ingresos: en vez de marcar
@@ -2207,9 +2225,13 @@ function renderDetalleChecklistItem(i) {
           ? `${fmt(horasRegMonto - vacacionesMonto)}<div class="subtit">−${fmt(vacacionesMonto)} vacaciones</div>`
           : fmt(horasRegMonto);
         const tardanzaMonto = Number(d['Tardanza monto'])||0;
+        // Horas: del snapshot guardado ('Tardanza horas'), que ya refleja el
+        // override manual del Paso 2. Las fechas son solo contexto (de las
+        // amonestaciones de "Llegada tardía" de la quincena).
+        const tardanzaHorasGuardadas = Number(d['Tardanza horas'])||0;
         const tardanzaDet = sumarHorasTardanzaCliente(d['Colaborador'], r.fechaInicio, r.fechaFin);
         const tardanzaCelda = tardanzaMonto > 0
-          ? `−${fmt(tardanzaMonto)}<div class="subtit">${tardanzaDet.horas}h · ${tardanzaDet.fechas.map(fechaBonita).join(', ')}</div>`
+          ? `−${fmt(tardanzaMonto)}<div class="subtit">${tardanzaHorasGuardadas}h${tardanzaDet.fechas.length?' · '+tardanzaDet.fechas.map(fechaBonita).join(', '):''}</div>`
           : fmt(0);
         // Horas extra: 'Horas extra 50%/100%' quedaron guardadas en
         // PlanillasDetalle (snapshot) — ya no se leen de Incidencias ni de un
