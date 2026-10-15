@@ -73,6 +73,8 @@ tbody tr:last-child td{border-bottom:none}
 .si-bg{background:var(--inc-bg)!important;color:var(--inc-text)}
 .sp-bg{background:var(--per-bg)!important;color:var(--per-text)}
 .sl-bg{background:var(--lib-bg)!important;color:var(--lib-text)}
+.sc-bg{background:#e0f7fa!important;color:#0e6b73}
+.cob-hint{font-size:9px;font-weight:600;color:#0e6b73;background:#e0f7fa;border-radius:3px;padding:1px 4px;margin:1px 0;text-align:center}
 .auto-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-top:-2px}
 .cover-tag{font-size:10px;font-weight:600;color:var(--accent);margin-top:1px}
 .conflict-badge{font-size:10px;font-weight:700;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;padding:2px 5px;margin:2px 0 1px;line-height:1.25;display:block;cursor:help}
@@ -315,6 +317,7 @@ tbody tr:last-child td{border-bottom:none}
   <button type="button" onclick="aplicarExtra('incapacidad')">🏥 Incapacidad</button>
   <button type="button" onclick="aplicarExtra('permiso')">📋 Permiso sin goce</button>
   <button type="button" onclick="aplicarExtra('otro')">📌 Otro</button>
+  <button type="button" onclick="mostrarKioskosCubrir()" id="btn-cubre-otro">🔄 Cubre otro kiosko</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -399,6 +402,7 @@ const ST = {
   incapacidad:{label:'Incapacidad',     icon:'🏥', bgCls:'si-bg'},
   permiso:    {label:'Permiso sin goce',icon:'📋', bgCls:'sp-bg'},
   otro:       {label:'Otro',            icon:'📌', bgCls:'sl-bg'},
+  cubre:      {label:'Cubre otro kiosko', icon:'🔄', bgCls:'sc-bg'},
 };
 const HORAS_VACACIONES = 8;
 let extraTarget = null;
@@ -444,7 +448,7 @@ async function onWeekChange(){
   aplicarVacaciones();
   aplicarPermisos();
   await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); renderSched();
+  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
 }
 function shiftWeek(dir){const el=document.getElementById('week-start');const d=new Date(el.value+'T00:00:00');d.setDate(d.getDate()+dir*7);el.value=fmt(d);onWeekChange()}
 function goToday(){document.getElementById('week-start').value=fmt(getMondayOf(new Date()));onWeekChange()}
@@ -513,7 +517,7 @@ async function loadSheet(){
     aplicarPermisos();
     renderAll();
     await cargarEstadoSemana();
-    await cargarConflictosOtrosKioskos(); renderSched();
+    await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
 
     document.getElementById('header-status').textContent='Planilla actualizada ✓';
     toast('Planilla y vacaciones actualizadas');
@@ -605,6 +609,7 @@ async function cargarHorarioGuardado(){
         note:   r['Nota']||'',
         autoVac:false,
         otroLabel: r['Detalle']||'',
+        cubreKiosko:((r['Estado']||'')==='cubre'?(r['Detalle']||''):''),
         split: !!(in2||out2),
         in2, out2
       };
@@ -632,7 +637,7 @@ async function guardarSemanaDatos(){
         kiosko:(emp.kiosko||(emp.restoId!==ROTATIVO?emp.restoId:'')||''), puesto:emp.puesto||'',
         estado:s.status||'trabajo', entrada:s.in||'', salida:s.out||'',
         horas:calcH(emp.id,i), nota:s.note||'',
-        detalle:(s.status==='otro'?(s.otroLabel||''):''),
+        detalle:(s.status==='otro'?(s.otroLabel||''):(s.status==='cubre'?(s.cubreKiosko||''):'')),
         entrada2:(s.split?(s.in2||''):''), salida2:(s.split?(s.out2||''):'')
       });
     });
@@ -729,6 +734,7 @@ async function copiarSemanaAnterior(){
         autoVac:false,
         autoPerm:false,
         otroLabel: r['Detalle']||'',
+        cubreKiosko:((r['Estado']||'')==='cubre'?(r['Detalle']||''):''),
         split: !!(in2||out2),
         in2, out2
       };
@@ -791,6 +797,7 @@ async function copiarCeldaAnterior(empId,dayIdx){
       autoVac:false,
       autoPerm:false,
       otroLabel: r['Detalle']||'',
+      cubreKiosko:((r['Estado']||'')==='cubre'?(r['Detalle']||''):''),
       split: !!(in2||out2),
       in2, out2
     };
@@ -995,7 +1002,7 @@ async function switchResto(id){
   // El estado cerrado/abierto es por kiosko: al cambiar de pestaña hay que
   // volver a consultarlo (antes no hacía falta porque era global).
   await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); renderSched();
+  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
 }
 
 function normalizarVacaciones(regs){
@@ -1104,6 +1111,7 @@ function setStatus(empId,day,val){
   schedule[empId][day].autoVac=false; // override manual rompe el auto-marcado
   schedule[empId][day].autoPerm=false; // idem para permiso sin goce auto-marcado
   if(val!=='otro') schedule[empId][day].otroLabel='';
+  if(val!=='cubre') schedule[empId][day].cubreKiosko='';
   renderSched();
 }
 
@@ -1112,15 +1120,55 @@ function abrirExtra(empId,day,btnEl){
   if(semanaCerrada){toast('Semana cerrada — reabrila para editar');return}
   extraTarget={empId,day};
   const pop=document.getElementById('extra-popover');
+  pop.innerHTML=EXTRA_MENU_HTML;
   const r=btnEl.getBoundingClientRect();
   pop.style.display='flex';
   const left=Math.min(r.left,window.innerWidth-180);
   pop.style.top=(r.bottom+6)+'px';
   pop.style.left=Math.max(8,left)+'px';
 }
+const EXTRA_MENU_HTML='<button type="button" onclick="aplicarExtra(\'incapacidad\')">🏥 Incapacidad</button>'+
+  '<button type="button" onclick="aplicarExtra(\'permiso\')">📋 Permiso sin goce</button>'+
+  '<button type="button" onclick="aplicarExtra(\'otro\')">📌 Otro</button>'+
+  '<button type="button" onclick="mostrarKioskosCubrir()">🔄 Cubre otro kiosko</button>';
 function cerrarExtra(){
-  document.getElementById('extra-popover').style.display='none';
+  const pop=document.getElementById('extra-popover');
+  pop.style.display='none';
+  pop.innerHTML=EXTRA_MENU_HTML;
   extraTarget=null;
+}
+/* "Cubre otro kiosko": desde el kiosko de ORIGEN se marca el dia y se elige a
+   cual kiosko va la persona. Al guardar queda como Estado='cubre' con el kiosko
+   destino en la columna Detalle; el kiosko destino lo levanta como fila de
+   cobertura (ver cargarCoberturasEntrantes). */
+let _cubreOpciones=[];
+function mostrarKioskosCubrir(){
+  if(!extraTarget)return;
+  const pop=document.getElementById('extra-popover');
+  _cubreOpciones=restos.filter(r=>r.id!==activeResto && r.id!==ROTATIVO);
+  if(!_cubreOpciones.length){toast('No hay otros kioskos configurados');return;}
+  pop.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--text3);padding:5px 9px 3px">¿A cuál kiosko va a cubrir?</div>'+
+    _cubreOpciones.map((r,idx)=>'<button type="button" onclick="aplicarCubre('+idx+')">🔄 '+esc(r.name)+'</button>').join('')+
+    '<button type="button" onclick="volverExtraMenu()" style="color:var(--text3)">← Volver</button>';
+}
+function volverExtraMenu(){
+  const pop=document.getElementById('extra-popover');
+  if(pop) pop.innerHTML=EXTRA_MENU_HTML;
+}
+function aplicarCubre(idx){
+  if(!extraTarget)return;
+  const r=_cubreOpciones[idx];
+  const {empId,day}=extraTarget;
+  if(!r||!schedule[empId]){cerrarExtra();return;}
+  const cell=schedule[empId][day];
+  cell.status='cubre';
+  cell.cubreKiosko=r.id;
+  cell.otroLabel='';
+  cell.autoVac=false; cell.autoPerm=false;
+  cell.in=''; cell.out=''; cell.in2=''; cell.out2=''; cell.split=false;
+  cerrarExtra();
+  renderSched();
+  toast('Marcado para cubrir en '+r.name+' — recordá guardar');
 }
 function aplicarExtra(tipo){
   if(!extraTarget)return;
@@ -1244,6 +1292,58 @@ async function cargarConflictosOtrosKioskos(){
   }catch(e){ /* sin conexion: sin marcadores */ }
 }
 
+/* Coberturas entrantes: colaboradores de OTRO kiosko marcados en su kiosko de
+   origen con estado 'cubre' apuntando al kiosko activo. Se suman como filas de
+   cobertura (igual que addCoverEmp) para poder asignarles el horario del dia que
+   vienen a cubrir. Es el complemento "push" del boton "Colaborador de otro
+   kiosko" (que es el "pull" manual). Solo frontend, sin cambios de backend. */
+async function cargarCoberturasEntrantes(){
+  const activo=normTxt(activeResto);
+  if(!activo)return;
+  try{
+    const dates=getWeekDatesISO();
+    const semana=document.getElementById('week-start').value;
+    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
+    const data=await resp.json();
+    if(!data.ok||!Array.isArray(data.registros))return;
+    employees.forEach(e=>{ if(e.autoCobertura) e._vistaCob=false; });
+    data.registros.forEach(r=>{
+      if((r['Semana inicio']||'')!==semana)return;
+      if(normTxt(r['Estado'])!=='cubre')return;
+      if(normTxt(r['Detalle'])!==activo)return;
+      const origen=(r['Kiosko']||'').toString().trim();
+      if(!origen||normTxt(origen)===activo)return;
+      const fecha=r['Fecha']||'';
+      const dayIdx=dates.indexOf(fecha);
+      if(dayIdx<0)return;
+      const nombreOrig=(r['Colaborador']||'').toString().trim();
+      const nombre=normTxt(nombreOrig);
+      if(!nombre)return;
+      let emp=employees.find(e=>normTxt(e.name)===nombre && normTxt(e.kiosko||e.restoId)===activo);
+      if(!emp){
+        const id='AUTOCOVER-'+nombre.replace(/\s+/g,'-')+'-'+activo.replace(/\s+/g,'-');
+        emp={id, name:nombreOrig, restoId:activeResto, kiosko:activeResto,
+             area:r['Departamento']||'', puesto:r['Puesto']||'',
+             extra:true, cubre:true, autoCobertura:true, origenKiosko:origen, origenEmpId:null};
+        employees.push(emp);
+        initSchedule(emp);
+        DAYS.forEach((_,k)=>{ schedule[emp.id][k].status='libre'; });
+      }else if(emp.extra && !emp.cubre){
+        emp.cubre=true; if(!emp.origenKiosko)emp.origenKiosko=origen;
+      }
+      emp._vistaCob=true;
+      if(!schedule[emp.id])initSchedule(emp);
+      const cell=schedule[emp.id][dayIdx];
+      cell.coberturaProgramada=true;
+      cell.origenCobertura=origen;
+      if(cell.status==='libre')cell.status='trabajo';
+    });
+    const sobran=employees.filter(e=>e.autoCobertura && e._vistaCob===false &&
+      !DAYS.some((_,k)=>{const s=schedule[e.id]&&schedule[e.id][k]; return s&&(s.in||s.out||s.note);}));
+    sobran.forEach(e=>{ employees=employees.filter(x=>x.id!==e.id); delete schedule[e.id]; });
+  }catch(e){ /* sin conexion: sin coberturas entrantes */ }
+}
+
 /* Horas que el colaborador ya tiene ese dia en un horario CERRADO de otro
    kiosko (suma por si hay mas de un kiosko). 0 si no hay. */
 function horasBloqueadasDia(empId,i){
@@ -1280,7 +1380,7 @@ function buildDayCell(empId,i,dates){
   // Dia bloqueado: el colaborador ya tiene turno con horas en un horario
   // CERRADO de otro kiosko. Se bloquea aqui (no editable) para evitar la doble
   // asignacion; las horas se cuentan aparte en el total semanal.
-  if(esBloqueado(empId,i)){
+  if(esBloqueado(empId,i) && (schedule[empId]?.[i]?.status!=='cubre')){
     const empB=employees.find(e=>e.id===empId);
     const confB=(conflictosKiosko[normTxt(empB?empB.name:'')]||{})[i]||[];
     const detalle=confB.map(c=>esc(c.kiosko)+' \u00b7 '+(c.horas||0).toFixed(1)+'h').join('<br>');
@@ -1312,7 +1412,7 @@ function buildDayCell(empId,i,dates){
         '<input type="time" value="'+esc(s.out2)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out2\',this.value)"'+dis+'/>'+
         (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">Quitar tramo 2</button>')
       : (dis?'':'<button type="button" class="btn-quitar" onclick="toggleSplit(\''+empId+'\','+i+')">&#8646; Partir turno</button>');
-    return '<td><div class="day-cell">'+copyBtn+selEl+
+    return '<td><div class="day-cell">'+copyBtn+selEl+(s.coberturaProgramada?'<div class="cob-hint" title="Programado para cubrir aqui desde '+esc(s.origenCobertura||'otro kiosko')+'">↔ Cobertura</div>':'')+
       '<input type="time" value="'+esc(s.in)+'" onchange="setTimeField(\''+empId+'\','+i+',\'in\',this.value)"'+dis+'/>'+
       '<input type="time" value="'+esc(s.out)+'" onchange="setTimeField(\''+empId+'\','+i+',\'out\',this.value)"'+dis+'/>'+
       splitRow+
@@ -1324,7 +1424,7 @@ function buildDayCell(empId,i,dates){
   const info=ST[st]||{label:st,icon:'',bgCls:''};
   const autoTag=((st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))?'<div class="auto-tag">desde solicitud</div>':'';
   const horasTag=(st==='vacaciones')?'<div class="hours-lbl" style="font-size:11px;">'+HORAS_VACACIONES.toFixed(1)+'h</div>':'';
-  const lbl=info.label+(st==='otro'&&s.otroLabel?': '+esc(s.otroLabel):'');
+  const lbl=info.label+(st==='otro'&&s.otroLabel?': '+esc(s.otroLabel):'')+(st==='cubre'&&s.cubreKiosko?': '+esc(s.cubreKiosko):'');
   const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
@@ -1599,6 +1699,7 @@ function buildPDVHtml(resto,dates){
     permiso:{bg:'#f3e8ff',text:'#4c1d95',icon:'📋',label:'Permiso sin goce'},
     libre:{bg:'#f1f5f9',text:'#334155',icon:'🌙',label:'Día libre'},
     otro:{bg:'#f1f5f9',text:'#334155',icon:'📌',label:'Otro'},
+    cubre:{bg:'#e0f7fa',text:'#0e6b73',icon:'🔄',label:'Cubre otro kiosko'},
   };
   const emps=employees.filter(e=>e.restoId===resto.id||e.restoId===ROTATIVO);
   let tbl='<table><thead><tr><th>Empleado</th>';
@@ -1610,7 +1711,7 @@ function buildPDVHtml(resto,dates){
       const s=schedule[emp.id]?.[i];const st=s?.status||'trabajo';
       if(st!=='trabajo'){
         const info=STINFO[st]||{bg:'#f1f5f9',text:'#334155',icon:'',label:st};
-        const lbl=info.label+(st==='otro'&&s?.otroLabel?': '+esc(s.otroLabel):'');
+        const lbl=info.label+(st==='otro'&&s?.otroLabel?': '+esc(s.otroLabel):'')+(st==='cubre'&&s?.cubreKiosko?': '+esc(s.cubreKiosko):'');
         tbl+='<td style="background:'+info.bg+';color:'+info.text+';font-size:11px;text-align:center">'+info.icon+' '+lbl+(s?.note?'<br><em style="font-size:10px;opacity:.7">'+esc(s.note)+'</em>':'')+'</td>';
       }else{
         const tramo1=(s?.in&&s?.out)?s.in+'–'+s.out:'';
@@ -1884,7 +1985,7 @@ async function irAKioskoLocal(semana,kiosko){
   aplicarVacaciones();
   aplicarPermisos();
   await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); renderSched();
+  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
 }
 
 initWeek();
