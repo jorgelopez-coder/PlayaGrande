@@ -73,7 +73,7 @@ tbody tr:last-child td{border-bottom:none}
 .si-bg{background:var(--inc-bg)!important;color:var(--inc-text)}
 .sp-bg{background:var(--per-bg)!important;color:var(--per-text)}
 .sl-bg{background:var(--lib-bg)!important;color:var(--lib-text)}
-.sc-bg{background:#e0f7fa!important;color:#0e6b73}
+.sc-bg{background:#e0f7fa!important;color:#0e6b73;box-shadow:inset 3px 0 0 #0e6b73}
 .cob-hint{font-size:9px;font-weight:600;color:#0e6b73;background:#e0f7fa;border-radius:3px;padding:1px 4px;margin:1px 0;text-align:center}
 .auto-tag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-top:-2px}
 .cover-tag{font-size:10px;font-weight:600;color:var(--accent);margin-top:1px}
@@ -1498,7 +1498,8 @@ function buildDayCell(empId,i,dates){
   const quitarBtn=(semanaCerrada||(st==='vacaciones'&&s.autoVac)||(st==='permiso'&&s.autoPerm))
     ? ''
     : '<button type="button" class="btn-quitar" onclick="setStatus(\''+empId+'\','+i+',\'trabajo\')">Quitar</button>';
-  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
+  const lockTag=(st==='cubre')?'<div class="blocked-detail">🔒 Bloqueado aquí</div>':'';
+  return '<td class="'+info.bgCls+'"><div class="special-td">'+copyBtn+'<div class="sp-icon">'+info.icon+'</div><div class="sp-lbl">'+lbl+'</div>'+lockTag+autoTag+horasTag+quitarBtn+noteEl+'</div></td>';
 }
 
 function renderSched(){
