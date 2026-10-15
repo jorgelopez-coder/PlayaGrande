@@ -444,11 +444,15 @@ function updateWeekLabel(){
 async function onWeekChange(){
   updateWeekLabel();
   resetWeekCells();
-  await cargarHorarioGuardado();
+  const datos=await traerDatosSemana();
+  await cargarHorarioGuardado(datos.horarios);
   aplicarVacaciones();
   aplicarPermisos();
-  await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
+  await cargarEstadoSemana(datos.estado);
+  renderSched(); // render progresivo: el horario se ve de una; los marcadores de conflicto/cobertura se pintan enseguida
+  await cargarConflictosOtrosKioskos(datos.horarios, datos.estado);
+  await cargarCoberturasEntrantes(datos.horarios);
+  renderSched();
 }
 function shiftWeek(dir){const el=document.getElementById('week-start');const d=new Date(el.value+'T00:00:00');d.setDate(d.getDate()+dir*7);el.value=fmt(d);onWeekChange()}
 function goToday(){document.getElementById('week-start').value=fmt(getMondayOf(new Date()));onWeekChange()}
@@ -512,12 +516,16 @@ async function loadSheet(){
     buildFromPersonal(dP.registros||[]);
     vacaciones = normalizarVacaciones(dV.ok?dV.registros:[]);
     permisos = normalizarPermisos(dPerm.ok?dPerm.registros:[]);
-    await cargarHorarioGuardado();
+    const datos=await traerDatosSemana(true); // "Actualizar planilla" siempre trae datos frescos
+    await cargarHorarioGuardado(datos.horarios);
     aplicarVacaciones();
     aplicarPermisos();
     renderAll();
-    await cargarEstadoSemana();
-    await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
+    await cargarEstadoSemana(datos.estado);
+    renderSched();
+    await cargarConflictosOtrosKioskos(datos.horarios, datos.estado);
+    await cargarCoberturasEntrantes(datos.horarios);
+    renderSched();
 
     document.getElementById('header-status').textContent='Planilla actualizada ✓';
     toast('Planilla y vacaciones actualizadas');
@@ -548,20 +556,56 @@ function resetWeekCells(){
 }
 
 /* ── Guardar / cargar historial de horarios (hoja "Horarios" en RRHH) ── */
-async function cargarHorarioGuardado(){
+// ── Caché en memoria de los datos crudos de cada semana ──────────────────
+// Antes, cada cambio de semana o de pestaña de kiosko disparaba hasta 6
+// peticiones al Apps Script EN SERIE, y el rango de "Horarios" de la semana se
+// pedía 3 veces y "horarios_estado" 2 veces (mismos datos repetidos). Esto trae
+// cada cosa UNA sola vez, en paralelo, y la guarda por semana: cambiar de
+// kiosko ya no toca la red, y volver a una semana ya vista tampoco. Se invalida
+// al guardar/cerrar/reabrir esa semana; "Actualizar planilla" fuerza recarga.
+let _cacheSemana = {};
+function invalidarCacheSemana(semana){
+  if(semana) delete _cacheSemana[semana];
+  else _cacheSemana = {};
+}
+async function traerDatosSemana(force){
+  const semana=document.getElementById('week-start').value;
+  const dates=getWeekDatesISO();
+  if(!force && _cacheSemana[semana]) return _cacheSemana[semana];
+  let horarios=[], estado=[], huboError=false;
+  const [rHor,rEst]=await Promise.allSettled([
+    fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6])),
+    fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado')
+  ]);
+  if(rHor.status==='fulfilled' && rHor.value.ok){ try{ const d=await rHor.value.json(); if(d&&d.ok&&Array.isArray(d.registros)) horarios=d.registros; }catch(e){ huboError=true; } } else huboError=true;
+  if(rEst.status==='fulfilled' && rEst.value.ok){ try{ const d=await rEst.value.json(); if(d&&d.ok&&Array.isArray(d.registros)) estado=d.registros; }catch(e){ huboError=true; } } else huboError=true;
+  const datos={horarios,estado};
+  if(!huboError) _cacheSemana[semana]=datos; // no cachear una carga con fallo de red
+  return datos;
+}
+
+// Acepta opcionalmente los registros de "Horarios" ya traídos (ver
+// traerDatosSemana): si se pasan, no vuelve a pedir al backend; si no, hace el
+// fetch de siempre (compatibilidad hacia atrás).
+async function cargarHorarioGuardado(horariosRegs){
   try{
     const semana=document.getElementById('week-start').value;
     const dates=getWeekDatesISO();
-    // Solo se pide al servidor el rango de fechas de la semana visible
-    // (desde/hasta) en vez de todo el histórico de Horarios (~800 filas,
-    // >200KB). El backend filtra por 'Fecha' antes de responder, así que
-    // el navegador recibe solo las ~filas de esta semana.
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
-    if(!resp.ok)return;
-    const data=await resp.json();
-    if(!data.ok||!Array.isArray(data.registros))return;
+    let registrosTodos;
+    if(Array.isArray(horariosRegs)){
+      registrosTodos=horariosRegs;
+    }else{
+      // Solo se pide al servidor el rango de fechas de la semana visible
+      // (desde/hasta) en vez de todo el histórico de Horarios (~800 filas,
+      // >200KB). El backend filtra por 'Fecha' antes de responder.
+      const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
+      if(!resp.ok)return;
+      const data=await resp.json();
+      if(!data.ok||!Array.isArray(data.registros))return;
+      registrosTodos=data.registros;
+    }
 
-    const registros=data.registros.filter(r=>(r['Semana inicio']||'')===semana);
+    const registros=registrosTodos.filter(r=>(r['Semana inicio']||'')===semana);
     if(!registros.length)return;
 
     registros.forEach(r=>{
@@ -652,6 +696,7 @@ async function guardarSemanaDatos(){
     });
     const out=await resp.json();
     if(!out.ok) return {ok:false, error:out.error||'desconocido', dias};
+    invalidarCacheSemana(semana); // los datos de esta semana cambiaron en el backend
     return {ok:true, dias};
   }catch(e){
     return {ok:false, error:'sin_conexion', dias};
@@ -814,15 +859,21 @@ async function copiarCeldaAnterior(empId,dayIdx){
    Una semana cerrada bloquea toda edición y habilita exportar/enviar.
    Reabrir requiere el código de administrador. El cierre es por Semana +
    Kiosko (activeResto): cerrar el horario de un kiosko no afecta a los demás. */
-async function cargarEstadoSemana(){
+async function cargarEstadoSemana(estadoRegs){
   const semana=document.getElementById('week-start').value;
   horarioPdfUrl='';
   try{
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado');
-    const data=await resp.json();
+    let registros;
+    if(Array.isArray(estadoRegs)){
+      registros=estadoRegs;
+    }else{
+      const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado');
+      const data=await resp.json();
+      registros=data.ok?data.registros:[];
+    }
     // El cierre es por Semana + Kiosko: filas viejas sin "Kiosko" (antes de
     // este cambio) no matchean con ningún kiosko y quedan tratadas como abiertas.
-    const reg=(data.ok?data.registros:[]).find(r=>
+    const reg=registros.find(r=>
       (r['Semana inicio']||'')===semana &&
       (r['Kiosko']||'').toString().trim().toLowerCase()===(activeResto||'').toString().trim().toLowerCase()
     );
@@ -867,6 +918,7 @@ async function cerrarSemana(){
     const out=await resp.json();
     if(!out.ok){toast('Error al cerrar: '+(out.error||'desconocido'));return}
     semanaCerrada=true;
+    invalidarCacheSemana(semana); // el estado de cierre cambió
     horarioPdfUrl=(out.result&&out.result.pdf_url)||'';
     aplicarEstadoUI();
     toast('Horario guardado y cerrado 🔒 — copia guardada en Drive');
@@ -890,6 +942,7 @@ async function reabrirSemana(){
     const out=await resp.json();
     if(!out.ok){toast('Error al reabrir: '+(out.error||'desconocido'));return}
     semanaCerrada=false;
+    invalidarCacheSemana(semana); // el estado de cierre cambió
     horarioPdfUrl='';
     aplicarEstadoUI();
     toast('Horario reabierto 🔓');
@@ -1000,9 +1053,14 @@ async function switchResto(id){
   renderAll();
   mostrarConteoActivos();
   // El estado cerrado/abierto es por kiosko: al cambiar de pestaña hay que
-  // volver a consultarlo (antes no hacía falta porque era global).
-  await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
+  // volver a consultarlo. Los datos crudos de la semana (Horarios +
+  // horarios_estado) ya están en caché, así que cambiar de kiosko NO vuelve a
+  // pedir a la red: solo re-filtra y re-renderiza.
+  const datos=await traerDatosSemana();
+  await cargarEstadoSemana(datos.estado);
+  await cargarConflictosOtrosKioskos(datos.horarios, datos.estado);
+  await cargarCoberturasEntrantes(datos.horarios);
+  renderSched();
 }
 
 function normalizarVacaciones(regs){
@@ -1250,26 +1308,32 @@ function normTxt(x){return (x||'').toString().trim().toLowerCase();}
 /* Carga que dias de la semana visible ya tiene cada colaborador en el horario
    de OTRO kiosko que esta CERRADO, para avisar de doble asignacion. Solo
    lectura/aviso: no modifica el horario ni el backend. */
-async function cargarConflictosOtrosKioskos(){
+async function cargarConflictosOtrosKioskos(horariosRegs, estadoRegs){
   conflictosKiosko={};
   try{
     const semana=document.getElementById('week-start').value;
     const dates=getWeekDatesISO();
-    const [rEst,rHor]=await Promise.all([
-      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado'),
-      fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]))
-    ]);
-    const dEst=await rEst.json();
-    const dHor=await rHor.json();
-    if(!dHor.ok||!Array.isArray(dHor.registros))return;
+    let regHor, regEst;
+    if(Array.isArray(horariosRegs) && Array.isArray(estadoRegs)){
+      regHor=horariosRegs; regEst=estadoRegs;
+    }else{
+      const [rEst,rHor]=await Promise.all([
+        fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios_estado'),
+        fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]))
+      ]);
+      const dEst=await rEst.json();
+      const dHor=await rHor.json();
+      if(!dHor.ok||!Array.isArray(dHor.registros))return;
+      regHor=dHor.registros; regEst=dEst.ok?dEst.registros:[];
+    }
     const cerrados=new Set();
-    (dEst.ok?dEst.registros:[]).forEach(r=>{
+    regEst.forEach(r=>{
       if((r['Semana inicio']||'')!==semana)return;
       if(normTxt(r['Cerrado'])!=='sí' && normTxt(r['Cerrado'])!=='si')return;
       cerrados.add(normTxt(r['Kiosko']));
     });
     const activo=normTxt(activeResto);
-    dHor.registros.forEach(r=>{
+    regHor.forEach(r=>{
       if((r['Semana inicio']||'')!==semana)return;
       const kioskoReg=normTxt(r['Kiosko']);
       if(!kioskoReg||kioskoReg===activo)return;
@@ -1297,17 +1361,23 @@ async function cargarConflictosOtrosKioskos(){
    cobertura (igual que addCoverEmp) para poder asignarles el horario del dia que
    vienen a cubrir. Es el complemento "push" del boton "Colaborador de otro
    kiosko" (que es el "pull" manual). Solo frontend, sin cambios de backend. */
-async function cargarCoberturasEntrantes(){
+async function cargarCoberturasEntrantes(horariosRegs){
   const activo=normTxt(activeResto);
   if(!activo)return;
   try{
     const dates=getWeekDatesISO();
     const semana=document.getElementById('week-start').value;
-    const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
-    const data=await resp.json();
-    if(!data.ok||!Array.isArray(data.registros))return;
+    let registros;
+    if(Array.isArray(horariosRegs)){
+      registros=horariosRegs;
+    }else{
+      const resp=await fetchConTimeout(APPS_SCRIPT_URL+'?modulo=horarios&desde='+encodeURIComponent(dates[0])+'&hasta='+encodeURIComponent(dates[6]));
+      const data=await resp.json();
+      if(!data.ok||!Array.isArray(data.registros))return;
+      registros=data.registros;
+    }
     employees.forEach(e=>{ if(e.autoCobertura) e._vistaCob=false; });
-    data.registros.forEach(r=>{
+    registros.forEach(r=>{
       if((r['Semana inicio']||'')!==semana)return;
       if(normTxt(r['Estado'])!=='cubre')return;
       if(normTxt(r['Detalle'])!==activo)return;
@@ -1981,11 +2051,15 @@ async function irAKioskoLocal(semana,kiosko){
   renderAll();
   mostrarConteoActivos();
   resetWeekCells();
-  await cargarHorarioGuardado();
+  const datos=await traerDatosSemana();
+  await cargarHorarioGuardado(datos.horarios);
   aplicarVacaciones();
   aplicarPermisos();
-  await cargarEstadoSemana();
-  await cargarConflictosOtrosKioskos(); await cargarCoberturasEntrantes(); renderSched();
+  await cargarEstadoSemana(datos.estado);
+  renderSched();
+  await cargarConflictosOtrosKioskos(datos.horarios, datos.estado);
+  await cargarCoberturasEntrantes(datos.horarios);
+  renderSched();
 }
 
 initWeek();
