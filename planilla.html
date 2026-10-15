@@ -717,6 +717,7 @@ function incidenciaAParticipante(inc) {
     incapInternaPct: (inc['Incapacidad interna %']===''||inc['Incapacidad interna %']===undefined) ? 100 : Number(inc['Incapacidad interna %']),
     comentarioIncapInterna: inc['Comentario incapacidad interna']||'',
     subsidioMonto: numOr(inc['Subsidio monto por día'],0), subsidioDias: numOr(inc['Subsidio días'],0),
+    subsidioDiasManual: (inc['Subsidio días']===''||inc['Subsidio días']===undefined||inc['Subsidio días']===null) ? '' : Number(inc['Subsidio días']),
     subsidioTipo: inc['Subsidio tipo']||'', comentarioSubsidio: inc['Comentario subsidio']||'',
     servicio10Incluir: String(inc['Servicio 10% incluir']||'').trim().toLowerCase().indexOf('s') === 0,
     servicio10FechaIni: inc['Servicio 10% fecha inicio']||'', servicio10FechaFin: inc['Servicio 10% fecha fin']||'',
@@ -749,7 +750,7 @@ function participanteAPayload(r, kiosko, part) {
     incap_ins_inicio: part.incapInsIni, incap_ins_fin: part.incapInsFin, comentario_incap_ins: part.comentarioIncapIns,
     incap_interna_inicio: part.incapInternaIni, incap_interna_fin: part.incapInternaFin,
     incap_interna_porcentaje: part.incapInternaPct, comentario_incap_interna: part.comentarioIncapInterna,
-    subsidio_monto: part.subsidioMonto, subsidio_dias: part.subsidioDias, subsidio_tipo: part.subsidioTipo, comentario_subsidio: part.comentarioSubsidio,
+    subsidio_monto: part.subsidioMonto, subsidio_dias: subsidioDiasEfectivos(part), subsidio_tipo: part.subsidioTipo, comentario_subsidio: part.comentarioSubsidio,
     servicio10_incluir: part.servicio10Incluir ? 'Sí' : 'No',
     servicio10_fecha_inicio: part.servicio10FechaIni, servicio10_fecha_fin: part.servicio10FechaFin,
     comentario_servicio10: part.comentarioServicio10,
@@ -962,7 +963,8 @@ function calcularClientePreview(part) {
     // criterio que vacaciones (rrhh-vacaciones.html) y horarios.html (aplicarPermisos).
     .reduce((acc,v) => acc + (v['Fecha inicio'] && v['Fecha fin'] ? interseccionDias(v['Fecha inicio'], fechaMenosUnDia(v['Fecha fin']), r.fechaInicio, r.fechaFin) : 0), 0);
 
-  const subsidioMonto = numOr(part.subsidioMonto,0) * numOr(part.subsidioDias,0);
+  const subsidioDiasEfe = subsidioDiasEfectivos(part);
+  const subsidioMonto = numOr(part.subsidioMonto,0) * subsidioDiasEfe;
 
   // Servicio 10% y Tips (sección "Servicio 10% y Tips" del Paso 2):
   // automático desde ServicioRepartoDetalle (servicio-10.html) — solo lo
@@ -998,7 +1000,7 @@ function calcularClientePreview(part) {
     extra50Horas, extra50Monto, extra100Horas, extra100Monto,
     extraFechas: horasExtra.fechas, extraJustificaciones: horasExtra.justificaciones, pendientesTipo: horasExtra.pendientesTipo,
     feriadosMonto,
-    incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, permisoDias, subsidioMonto,
+    incapCCSSMonto, incapINSMonto, incapInternaMonto, vacacionesDias, vacacionesMonto, permisoDias, subsidioMonto, subsidioDias: subsidioDiasEfe,
     servicio10Monto, tipsMonto, servicio10Ids: servicio10Pendiente.ids, servicio10Fechas: servicio10Pendiente.fechas,
     diasNoTrabajadosAuto, diasNoTrabajadosManual, diasNoTrabajadosTotal, diasNoTrabajadosMonto,
     tardanzaHoras, tardanzaMonto, tardanzaFechas: tardanza.fechas, tardanzaAutoHoras, usaTardManual,
@@ -1090,7 +1092,7 @@ function iniciarWizardNuevo() {
     incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '',
     incapInternaIni: '', incapInternaFin: '', incapInternaPct: 100, comentarioIncapInterna: '',
-    subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    subsidioMonto: 0, subsidioDias: 0, subsidioDiasManual: '', subsidioTipo: '', comentarioSubsidio: '',
     servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '',
     dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
@@ -1289,7 +1291,7 @@ function agregarExtraExistente(nombre) {
     incluido: true, horasRegulares: 120, comentarioHorasRegulares: '', extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
-    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioDiasManual: '', subsidioTipo: '', comentarioSubsidio: '',
     servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
@@ -1312,7 +1314,7 @@ function agregarExtraManual() {
     incluido: true, horasRegulares: 120, comentarioHorasRegulares: '', extra50: 0, comentarioExtra50: '', extra100: 0, comentarioExtra100: '',
     feriadosTrabajados: [], incapCcssIni: '', incapCcssFin: '', comentarioIncapCcss: '',
     incapInsIni: '', incapInsFin: '', comentarioIncapIns: '', incapInternaIni: '', incapInternaFin: '',
-    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioTipo: '', comentarioSubsidio: '',
+    incapInternaPct: 100, comentarioIncapInterna: '', subsidioMonto: 0, subsidioDias: 0, subsidioDiasManual: '', subsidioTipo: '', comentarioSubsidio: '',
     servicio10Incluir: false, servicio10FechaIni: '', servicio10FechaFin: '', comentarioServicio10: '', tardanzaHorasManual: '',
     diasNoTrabajados: 0, comentarioDiasNoTrabajados: '', dedAdelanto: 0, comentarioAdelanto: '', dedCompras: 0, comentarioCompras: '',
     dedOtras: 0, comentarioOtras: '', dedEmbargo: 0, comentarioEmbargo: '', dedPension: 0, comentarioPension: '', ccssBaseAjustada: ''
@@ -1377,6 +1379,47 @@ function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
   });
   return resultado;
 }
+// --- Subsidio por dia trabajado (particularidad de Tamarindo) ---
+// El monto por dia se define una sola vez a nivel de planilla (Paso 2) y los
+// dias se precargan del horario de la quincena por persona, pero quedan
+// editables. Patron igual a la tardanza editable: subsidioDiasManual vacio =
+// usar el automatico del horario; un numero = override manual. 100% frontend:
+// monto/dia y dias efectivos se guardan en las columnas existentes
+// ('Subsidio monto por día' y 'Subsidio días') y el backend los multiplica igual.
+function esPlanillaTamarindo() {
+  const el = document.getElementById('pl-kiosko');
+  return el ? mismoKiosko(el.value, 'Tamarindo') : false;
+}
+function subsidioDiasAutoDe(part) {
+  const el = document.getElementById('pl-kiosko');
+  const kiosko = el ? el.value : '';
+  const r = rangoPeriodoActual();
+  return horasHorarioRegistradas(part.nombre, kiosko, r.fechaInicio, r.fechaFin).dias;
+}
+function subsidioDiasEfectivos(part) {
+  const m = part.subsidioDiasManual;
+  const tieneManual = !(m===''||m===undefined||m===null);
+  if (tieneManual) return Math.max(Number(m)||0, 0);
+  if (esPlanillaTamarindo()) return subsidioDiasAutoDe(part);
+  return 0;
+}
+function subsidioMontoPlanillaActual() {
+  const inc = WIZARD_PARTICIPANTES.filter(p => p.incluido !== false);
+  for (const p of inc) if (Number(p.subsidioMonto) > 0) return Number(p.subsidioMonto);
+  return '';
+}
+function aplicarSubsidioMontoTam(valor) {
+  const monto = Number(valor) || 0;
+  WIZARD_PARTICIPANTES.forEach(p => { if (p.incluido !== false) p.subsidioMonto = monto; });
+  renderPaso2();
+}
+function setSubsidioDiasManual(i, valor) {
+  WIZARD_PARTICIPANTES[i].subsidioDiasManual = (valor===''||valor===null||valor===undefined) ? '' : (Number(valor)||0);
+}
+function usarSubsidioDiasAuto(i) {
+  WIZARD_PARTICIPANTES[i].subsidioDiasManual = '';
+  renderPaso2();
+}
 let PASO2_EXPANDIDO = -1;
 // ¿La captura de incidencias está bloqueada? (ya se envió a aprobación / se
 // aprobó / se calculó). Para editar hay que reabrir la planilla.
@@ -1417,6 +1460,26 @@ function renderPaso2() {
     `;
   }).join('');
 
+  const esTam = mismoKiosko(kioskoPlanilla, 'Tamarindo');
+  const subsidioMontoActual = subsidioMontoPlanillaActual();
+  const incluidosSub = WIZARD_PARTICIPANTES.filter(p => p.incluido !== false);
+  const bannerSubsidioTam = esTam ? `
+    <div class="card" style="border-left:3px solid var(--green)">
+      <p class="card-title" style="margin:0 0 6px">🍽️ Subsidio por día trabajado (Tamarindo)</p>
+      <p class="hint" style="display:block;margin:0 0 10px">Definí el monto por día una sola vez — se aplica a todos los colaboradores incluidos. Los días se precargan del horario de la quincena y quedan editables en el "Detalle ▸ Subsidio" de cada persona.</p>
+      <div class="field" style="max-width:220px">
+        <label>Monto por día (₡)</label>
+        <input type="number" min="0" step="100" value="${subsidioMontoActual}" ${bloqueado?'disabled':''} onchange="aplicarSubsidioMontoTam(this.value)" placeholder="0">
+      </div>
+      ${Number(subsidioMontoActual)>0 ? `
+      <table class="calc-tabla" style="margin-top:10px">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Días (horario)</th><th style="text-align:right">₡/día</th><th style="text-align:right">Subsidio</th></tr></thead>
+        <tbody>${incluidosSub.map(pp => {
+          const pv = calcularClientePreview(pp);
+          return `<tr><td>${pp.nombre}${pp.esExtra?'<span class="tag-manual">Extra</span>':''}</td><td class="monto">${pv.subsidioDias||0}</td><td class="monto">${fmt(pp.subsidioMonto)}</td><td class="monto">${fmt(pv.subsidioMonto)}</td></tr>`;
+        }).join('')}</tbody>
+      </table>` : '<p class="hint" style="display:block;margin-top:4px">Poné un monto mayor a 0 para que se aplique el subsidio.</p>'}
+    </div>` : '';
   const bannerBloqueo = bloqueado ? `
     <div class="card" style="border-left:3px solid var(--amber);background:var(--amber-bg)">
       <p style="margin:0"><b>🔒 Incidencias ${PLANILLA_ACTUAL['Estado'] === 'Incidencias en revisión' ? 'enviadas a aprobación' : (PLANILLA_ACTUAL['Estado'] === 'Incidencias aprobadas' ? 'aprobadas' : 'ya calculadas')}.</b> Para modificarlas tenés que reabrir la planilla — eso anula la aprobación y hay que volver a aprobar antes de calcular.</p>
@@ -1437,7 +1500,7 @@ function renderPaso2() {
       </div>`;
 
   document.getElementById('wizard-paso').innerHTML = `
-    ${bannerBloqueo}${bannerRechazo}
+    ${bannerBloqueo}${bannerRechazo}${bannerSubsidioTam}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <p class="card-title" style="margin:0">Reporte de incidencias — horas de la quincena</p>
@@ -1611,7 +1674,7 @@ function renderFeriadosSeccion(feriadosDelPeriodo) {
 // Campos numéricos del participante — todo lo demás (comentarios, fechas,
 // tipo de subsidio) se guarda tal cual como texto. Sin esta lista,
 // Number(valor)||0 aplicado a un comentario o una fecha lo convertiría en 0.
-const CAMPOS_NUMERICOS_WIZARD = ['horasRegulares','extra50','extra100','subsidioMonto','subsidioDias','diasNoTrabajados','incapInternaPct','dedAdelanto','dedCompras','dedOtras','dedEmbargo','dedPension'];
+const CAMPOS_NUMERICOS_WIZARD = ['horasRegulares','extra50','extra100','subsidioMonto','diasNoTrabajados','incapInternaPct','dedAdelanto','dedCompras','dedOtras','dedEmbargo','dedPension'];
 function setCampoParticipante(i, campo, valor) {
   WIZARD_PARTICIPANTES[i][campo] = CAMPOS_NUMERICOS_WIZARD.indexOf(campo) !== -1 ? (Number(valor) || 0) : valor;
 }
@@ -1657,6 +1720,10 @@ function subcardColapsable(id, titulo, contenidoHtml) {
 function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
   const p = WIZARD_PARTICIPANTES[i];
   const r = rangoPeriodoActual();
+  const esTamSub = esPlanillaTamarindo();
+  const subUsaManual = !(p.subsidioDiasManual===''||p.subsidioDiasManual===undefined||p.subsidioDiasManual===null);
+  const subDiasAuto = esTamSub ? subsidioDiasAutoDe(p) : 0;
+  const subDiasEfe = subUsaManual ? (Number(p.subsidioDiasManual)||0) : subDiasAuto;
   const vacacionesDelColaborador = VACACIONES_CACHE.filter(v => (v['Colaborador']||'')===p.nombre && (v['Estado']||'').toLowerCase()==='aprobado');
   const solicitudesPendientes = VACACIONES_CACHE.filter(v => (v['Colaborador']||'')===p.nombre && (v['Estado']||'').toLowerCase()==='pendiente');
   const permisosDelColaborador = PERMISOS_CACHE.filter(v => (v['Colaborador']||'')===p.nombre && (v['Estado']||'').toLowerCase()==='aprobado');
@@ -1739,10 +1806,11 @@ function renderDetallePaso2(i, feriadosDelPeriodo, prev) {
       ` : '<p class="hint" style="display:block">Sin permisos sin goce aprobados registrados para este colaborador.</p>'}
       ${permisosPendientes.length ? `<p class="hint" style="display:block;margin-top:6px;color:var(--red)">Tiene ${permisosPendientes.length} solicitud(es) pendiente(s) de aprobar — no se cuentan hasta que se aprueben. Usá "🔄 Refrescar cálculo" arriba después de aprobarlas.</p>` : ''}
       <div class="info-box" style="margin-top:8px">Se calculan solos desde las solicitudes aprobadas — no se ingresan acá. <a href="rrhh-permiso-sin-goce.html" target="_blank">Pedir permiso sin goce para ${p.nombre.split(' ')[0]} →</a></div>
-  `) + subcardColapsable(scId(2,i,'subsidio'), 'Subsidio de alimentación/transporte', `
+  `) + subcardColapsable(scId(2,i,'subsidio'), `Subsidio${prev.subsidioMonto>0?` (${fmt(prev.subsidioMonto)})`:''}`, `
+      ${esTamSub ? '<p class="hint" style="display:block;margin-bottom:8px;color:var(--green)">Tamarindo — subsidio por día trabajado. El monto por día se define arriba para toda la planilla; los días vienen del horario de la quincena y podés ajustarlos acá.</p>' : ''}
       <div class="field-row3">
         <div class="field"><label>₡/día</label><input type="number" min="0" step="100" value="${p.subsidioMonto}" oninput="actualizarCampoSilencioso(${i},'subsidioMonto',this.value)"></div>
-        <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${p.subsidioDias}" oninput="actualizarCampoSilencioso(${i},'subsidioDias',this.value)"></div>
+        <div class="field"><label>Días</label><input type="number" min="0" step="1" value="${subDiasEfe}" oninput="setSubsidioDiasManual(${i},this.value)">${esTamSub?`<div class="hint" style="white-space:nowrap;margin-top:2px">${subUsaManual ? `del horario: ${subDiasAuto} · <a href="#" onclick="usarSubsidioDiasAuto(${i});return false;">usar del horario</a>` : `auto del horario (${subDiasAuto} día${subDiasAuto===1?'':'s'})`}</div>`:''}</div>
         <div class="field"><label>Tipo</label>
           <select onchange="actualizarCampoSilencioso(${i},'subsidioTipo',this.value)">
             <option value="" ${!p.subsidioTipo?'selected':''}>—</option>
