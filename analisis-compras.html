@@ -1778,50 +1778,63 @@ function renderProductos(c) {
   const el = document.getElementById('tab-productos');
   const g = AC.sum(c.cur, l => l.netoCRC);
   const imp = {}; AC.impactoPrecios(c.cur, c.prev).forEach(x => { imp[x.unidadKey] = x; });
-  let filas = Object.entries(AC.agruparPor(c.cur, l => l.unidadKey)).map(([k, ls]) => {
-    const s = AC.statsUnidad(ls);
-    return { k, producto: ls[0].producto, mag: ls[0].magnitud, homologado: ls.every(l => l.homologado), conv: ls.some(l => l.convFuente === 'maestro'), s, imp: imp[k] || {}, categoria: ls[0].categoria };
+  let filas = Object.entries(AC.agruparPor(c.cur, l => l.producto)).map(([producto, ls]) => {
+    // Una fila por Nombre Estándar. La unidad es solo de referencia: si el
+    // producto se compró en unidades que no se pueden convertir entre sí, los
+    // montos (gasto, # compras, prov., impacto) suman TODAS las unidades y las
+    // columnas de precio/cantidad usan la unidad principal (la de mayor gasto).
+    const mags = Object.entries(AC.agruparPor(ls, l => l.magnitud)).sort((a, b) => AC.sum(b[1], l => l.netoCRC) - AC.sum(a[1], l => l.netoCRC));
+    const domLs = mags[0][1];
+    const s = AC.statsUnidad(domLs);
+    let impacto = null;
+    mags.forEach(([, mls]) => { const e = imp[mls[0].unidadKey]; if (e && e.impacto != null) impacto = (impacto || 0) + e.impacto; });
+    return {
+      k: domLs[0].unidadKey, producto, mag: domLs[0].magnitud, nMags: mags.length,
+      homologado: ls.every(l => l.homologado), conv: ls.some(l => l.convFuente === 'maestro'), s,
+      gastoTot: AC.sum(ls, l => l.netoCRC), nComprasTot: new Set(ls.map(l => l.facturaKey)).size,
+      nProvTot: new Set(ls.map(l => l.proveedor)).size, impacto, categoria: ls[0].categoria
+    };
   });
   if (PROD.q) { const q = AC.normTxt(PROD.q); filas = filas.filter(f => AC.normTxt(f.producto).includes(q)); }
   if (PROD.cat) filas = filas.filter(f => f.categoria === PROD.cat);
   const ord = {
-    gasto: (a, b) => b.s.gasto - a.s.gasto, cantidad: (a, b) => b.s.qtyBase - a.s.qtyBase,
+    gasto: (a, b) => b.gastoTot - a.gastoTot, cantidad: (a, b) => b.s.qtyBase - a.s.qtyBase,
     aumento: (a, b) => (b.s.varPct ?? -1e9) - (a.s.varPct ?? -1e9), variacion: (a, b) => (b.s.cv ?? -1) - (a.s.cv ?? -1),
-    frecuencia: (a, b) => b.s.nCompras - a.s.nCompras, impacto: (a, b) => (b.imp.impacto ?? -1e15) - (a.imp.impacto ?? -1e15),
+    frecuencia: (a, b) => b.nComprasTot - a.nComprasTot, impacto: (a, b) => (b.impacto ?? -1e15) - (a.impacto ?? -1e15),
     nombre: (a, b) => a.producto.localeCompare(b.producto, 'es')
   }[PROD.orden];
   filas.sort(ord);
   EXPORTS.productos = () => ({ nombre: 'productos_' + c.rango.desde + '_' + c.rango.hasta + '.csv', csv: AC.csv(filas, [
-    { titulo: 'Producto', valor: 'producto' }, { titulo: 'Unidad', valor: f => unidadDe(f.mag).u }, { titulo: 'Categoría', valor: 'categoria' },
-    { titulo: 'Gasto neto CRC', valor: f => Math.round(f.s.gasto) }, { titulo: '% gasto', valor: f => g ? (f.s.gasto / g * 100).toFixed(2) : '' },
-    { titulo: 'Cantidad', valor: f => (f.s.qtyBase / unidadDe(f.mag).f).toFixed(3) }, { titulo: 'PPP CRC/unidad', valor: f => f.s.wap == null ? '' : (f.s.wap * unidadDe(f.mag).f).toFixed(2) },
+    { titulo: 'Producto', valor: 'producto' }, { titulo: 'Unidad (ref.)', valor: f => unidadDe(f.mag).u + (f.nMags > 1 ? ' (+' + (f.nMags - 1) + ')' : '') }, { titulo: 'Categoría', valor: 'categoria' },
+    { titulo: 'Gasto neto CRC', valor: f => Math.round(f.gastoTot) }, { titulo: '% gasto', valor: f => g ? (f.gastoTot / g * 100).toFixed(2) : '' },
+    { titulo: 'Cantidad (unidad principal)', valor: f => (f.s.qtyBase / unidadDe(f.mag).f).toFixed(3) }, { titulo: 'PPP CRC/unidad', valor: f => f.s.wap == null ? '' : (f.s.wap * unidadDe(f.mag).f).toFixed(2) },
     { titulo: 'Último precio', valor: f => f.s.ultimo ? (f.s.ultimo.precioBase * unidadDe(f.mag).f).toFixed(2) : '' }, { titulo: 'Var % período', valor: f => f.s.varPct == null ? '' : f.s.varPct.toFixed(2) },
-    { titulo: 'CV %', valor: f => f.s.cv == null ? '' : f.s.cv.toFixed(2) }, { titulo: '# compras', valor: f => f.s.nCompras }, { titulo: '# proveedores', valor: f => f.s.nProveedores },
-    { titulo: 'Impacto vs referencia CRC', valor: f => f.imp.impacto == null ? '' : Math.round(f.imp.impacto) }, { titulo: 'Homologado', valor: f => f.homologado ? 'Sí' : 'No' }]) });
+    { titulo: 'CV %', valor: f => f.s.cv == null ? '' : f.s.cv.toFixed(2) }, { titulo: '# compras', valor: f => f.nComprasTot }, { titulo: '# proveedores', valor: f => f.nProvTot },
+    { titulo: 'Impacto vs referencia CRC', valor: f => f.impacto == null ? '' : Math.round(f.impacto) }, { titulo: 'Homologado', valor: f => f.homologado ? 'Sí' : 'No' }]) });
   const POR = 100, tot = filas.length, pag = Math.min(PROD.pagina, Math.max(0, Math.ceil(tot / POR) - 1)); PROD.pagina = pag;
   const vista = filas.slice(pag * POR, pag * POR + POR);
   const rows = vista.map(f => {
     const u = unidadDe(f.mag);
     return '<tr class="click" onclick="abrirProducto(\'' + ukId(f.k) + '\')"><td class="nm-cell"><span class="b">' + esc(f.producto) + '</span> ' + (f.homologado ? '' : '<span class="tag amber">sin homologar</span>') + (f.conv ? ' <span class="tag green">conv.</span>' : '') + '<div class="sub">' + esc(f.categoria) + '</div></td>'
-      + '<td>' + esc(u.u) + '</td><td class="num mono b">' + fmtCRC(f.s.gasto) + '</td><td class="num mono">' + (g ? fmtN(f.s.gasto / g * 100, 1) + ' %' : '—') + '</td>'
+      + '<td>' + esc(u.u) + (f.nMags > 1 ? '<div class="sub" title="También se compró en otra unidad que no se puede convertir; las columnas de precio y cantidad usan la unidad de mayor gasto.">+' + (f.nMags - 1) + ' unidad' + (f.nMags - 1 === 1 ? '' : 'es') + '</div>' : '') + '</td><td class="num mono b">' + fmtCRC(f.gastoTot) + '</td><td class="num mono">' + (g ? fmtN(f.gastoTot / g * 100, 1) + ' %' : '—') + '</td>'
       + '<td class="num mono">' + fmtN(f.s.qtyBase / u.f, 2) + '</td><td class="num mono">' + fmtPrecio(f.s.wap, f.mag) + '</td><td class="num mono">' + (f.s.ultimo ? fmtPrecio(f.s.ultimo.precioBase, f.mag) : '—') + '</td>'
       + '<td class="num">' + varHtml(f.s.varPct) + '</td><td class="num mono">' + (f.s.cv == null ? '<span class="dash">—</span>' : fmtN(f.s.cv, 0) + ' %') + '</td>'
-      + '<td class="num mono">' + f.s.nCompras + '</td><td class="num mono">' + f.s.nProveedores + '</td>'
-      + '<td class="num mono">' + (f.imp.impacto == null ? '<span class="dash" title="Sin compras en el ' + c.compTxt + '">—</span>' : '<span class="' + clsVar(f.imp.impacto) + '">' + fmtCRC(f.imp.impacto) + '</span>') + '</td></tr>';
+      + '<td class="num mono">' + f.nComprasTot + '</td><td class="num mono">' + f.nProvTot + '</td>'
+      + '<td class="num mono">' + (f.impacto == null ? '<span class="dash" title="Sin compras en el ' + c.compTxt + '">—</span>' : '<span class="' + clsVar(f.impacto) + '">' + fmtCRC(f.impacto) + '</span>') + '</td></tr>';
   }).join('');
   const porCat = AC.agruparPor(c.cur, l => l.categoria);
   const cats = Object.entries(porCat).map(([cat, ls]) => ({ cat, gasto: AC.sum(ls, l => l.netoCRC), nProd: new Set(ls.map(l => l.producto)).size })).sort((a, b) => b.gasto - a.gasto);
   PROD_CATS = cats.map(x => x.cat);
   const nTotProd = new Set(c.cur.map(l => l.producto)).size;
   const kpiCatHtml = cats.length ? '<div class="card flush" style="margin-bottom:1rem"><div class="card-head"><div><p class="card-title">Compras por categor\u00eda</p><p class="card-sub">Total del per\u00edodo por categor\u00eda (respeta los filtros de arriba). Click en una categor\u00eda para filtrar el ranking.</p></div>' + (PROD.cat ? '<button class="btn" onclick="PROD.cat=null;PROD.pagina=0;render()">Ver todas</button>' : '') + '</div><div class="kpis" style="margin:.2rem .9rem 1rem">' + '<div class="kpi hero click-kpi' + (PROD.cat ? '' : ' sel-kpi') + '" onclick="PROD.cat=null;PROD.pagina=0;render()"><div class="kpi-lbl">Total general</div><div class="kpi-val">' + fmtCRCc(g) + '</div><div class="kpi-sub">' + cats.length + ' categor\u00edas \u00b7 ' + nTotProd + ' productos</div></div>' + cats.map((x, i) => '<div class="kpi click-kpi' + (PROD.cat === x.cat ? ' sel-kpi' : '') + '" onclick="selCatProd(' + i + ')"><div class="kpi-lbl">' + esc(x.cat) + '</div><div class="kpi-val">' + fmtCRCc(x.gasto) + '</div><div class="kpi-sub">' + (g ? fmtN(x.gasto / g * 100, 1) + ' % del total \u00b7 ' : '') + x.nProd + ' producto' + (x.nProd === 1 ? '' : 's') + '</div></div>').join('') + '</div></div>' : '';
-  el.innerHTML = kpiCatHtml + '<div class="card flush"><div class="card-head"><div><p class="card-title">Ranking de productos</p><p class="card-sub">Una fila por producto y unidad comparable. Click para ver su historial, precios y proveedores.</p></div>'
+  el.innerHTML = kpiCatHtml + '<div class="card flush"><div class="card-head"><div><p class="card-title">Ranking de productos</p><p class="card-sub">Una fila por producto (Nombre Estándar). La unidad es solo de referencia. Click para ver su historial, precios y proveedores.</p></div>'
     + '<div class="toolbar"><div><label class="lbl">Ordenar por</label><select onchange="PROD.orden=this.value;PROD.pagina=0;render()">'
-    + [['gasto', 'Mayor gasto'], ['cantidad', 'Mayor cantidad (dentro de cada unidad)'], ['aumento', 'Mayor aumento de precio'], ['variacion', 'Mayor variación de precio (CV)'], ['frecuencia', 'Mayor frecuencia de compra'], ['impacto', 'Mayor impacto económico'], ['nombre', 'Nombre']].map(o => '<option value="' + o[0] + '"' + (PROD.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('')
+    + [['gasto', 'Mayor gasto'], ['cantidad', 'Mayor cantidad (unidad principal)'], ['aumento', 'Mayor aumento de precio'], ['variacion', 'Mayor variación de precio (CV)'], ['frecuencia', 'Mayor frecuencia de compra'], ['impacto', 'Mayor impacto económico'], ['nombre', 'Nombre']].map(o => '<option value="' + o[0] + '"' + (PROD.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('')
     + '</select></div><div><label class="lbl">Buscar</label><input type="search" value="' + attr(PROD.q) + '" placeholder="Producto…" oninput="clearTimeout(window._pq);window._pq=setTimeout(()=>{PROD.q=this.value;PROD.pagina=0;render()},250)"></div>' + btnExport('productos') + '</div></div>'
-    + '<div class="tw"><table class="t"><thead><tr><th>Producto</th><th>Unidad</th><th class="num">Gasto</th><th class="num">% gasto</th><th class="num">Cantidad</th><th class="num">PPP</th><th class="num">Último precio</th><th class="num">Var. período<span class="info-i"' + ttAttr('Primer vs último precio dentro del período.') + '>i</span></th><th class="num">Variación<span class="info-i"' + ttAttr('Coeficiente de variación del precio (desvío / promedio): qué tan inestable es.') + '>i</span></th><th class="num"># compras</th><th class="num">Prov.</th><th class="num">Impacto<span class="info-i"' + ttAttr('(PPP del período − PPP del ' + c.compTxt + ') × cantidad comprada. Muestra cuánto costó (o ahorró) el cambio de precio. Vacío si no hubo compras en el período de referencia.') + '>i</span></th></tr></thead><tbody>'
+    + '<div class="tw"><table class="t"><thead><tr><th>Producto</th><th>Unidad (ref.)</th><th class="num">Gasto</th><th class="num">% gasto</th><th class="num">Cantidad</th><th class="num">PPP</th><th class="num">Último precio</th><th class="num">Var. período<span class="info-i"' + ttAttr('Primer vs último precio dentro del período.') + '>i</span></th><th class="num">Variación<span class="info-i"' + ttAttr('Coeficiente de variación del precio (desvío / promedio): qué tan inestable es.') + '>i</span></th><th class="num"># compras</th><th class="num">Prov.</th><th class="num">Impacto<span class="info-i"' + ttAttr('(PPP del período − PPP del ' + c.compTxt + ') × cantidad comprada. Muestra cuánto costó (o ahorró) el cambio de precio. Vacío si no hubo compras en el período de referencia.') + '>i</span></th></tr></thead><tbody>'
     + (rows || '<tr><td colspan="12"><div class="empty">Sin compras con los filtros actuales.</div></td></tr>') + '</tbody></table></div>'
     + (tot > POR ? '<div class="pager">' + (pag * POR + 1) + '–' + Math.min(tot, pag * POR + POR) + ' de ' + tot + ' <button class="btn" ' + (pag ? '' : 'disabled') + ' onclick="PROD.pagina--;render()">←</button><button class="btn" ' + ((pag + 1) * POR < tot ? '' : 'disabled') + ' onclick="PROD.pagina++;render()">→</button></div>' : '')
-    + '<div class="card-foot">Precios en ₡ sin IVA, netos de descuento, por unidad de medida convertida (kg, L, unidad…). Un mismo producto puede aparecer en dos filas si se compró en unidades que no se pueden convertir entre sí (ej. kg y caja sin contenido definido en la ficha del Maestro).</div></div>';
+    + '<div class="card-foot">Una fila por Nombre Estándar. Gasto, % , # compras, proveedores e impacto suman todas las unidades. Precios y cantidad (en ₡ sin IVA, netos de descuento, por unidad convertida: kg, L, unidad…) usan la unidad de mayor gasto; si hay otra unidad que no se puede convertir se marca "+N unidades" como referencia. Para unirlas en una sola unidad, completá Unidad receta y Conversión en la ficha del Maestro.</div></div>';
 }
 
 function coloresProveedor(lineas) {
