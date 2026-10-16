@@ -105,6 +105,9 @@ select:focus{border-color:var(--green)}
 .kpi-val{font-family:var(--font-m);font-size:21px;font-weight:700;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-sub{font-size:11px;margin-top:5px;color:var(--muted);line-height:1.4}
 .kpi.hero{background:var(--green-bg);border-color:var(--green-lt)}
+.click-kpi{cursor:pointer;transition:border-color .15s,background .15s}
+.click-kpi:hover{border-color:var(--green-lt)}
+.kpi.sel-kpi{background:var(--green-bg);border-color:var(--green)}
 .up{color:var(--red);font-weight:600}.down{color:var(--green);font-weight:600}.flat{color:var(--muted);font-weight:600}
 .info-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--subtle);color:var(--muted);font-size:9px;font-weight:700;cursor:help;margin-left:4px;vertical-align:1px;text-transform:none;letter-spacing:0}
 
@@ -1767,7 +1770,9 @@ function kpi(lbl, val, sub, info, hero) {
 }
 
 // ═══════════════════════ PRODUCTOS ═══════════════════════
-const PROD = { orden: 'gasto', q: '', pagina: 0 };
+const PROD = { orden: 'gasto', q: '', pagina: 0, cat: null };
+let PROD_CATS = [];
+function selCatProd(i) { const cat = PROD_CATS[i]; PROD.cat = (PROD.cat === cat ? null : cat); PROD.pagina = 0; render(); }
 function renderProductos(c) {
   if (SEL_UNIDAD) return renderFicha(c, SEL_UNIDAD);
   const el = document.getElementById('tab-productos');
@@ -1778,6 +1783,7 @@ function renderProductos(c) {
     return { k, producto: ls[0].producto, mag: ls[0].magnitud, homologado: ls.every(l => l.homologado), conv: ls.some(l => l.convFuente === 'maestro'), s, imp: imp[k] || {}, categoria: ls[0].categoria };
   });
   if (PROD.q) { const q = AC.normTxt(PROD.q); filas = filas.filter(f => AC.normTxt(f.producto).includes(q)); }
+  if (PROD.cat) filas = filas.filter(f => f.categoria === PROD.cat);
   const ord = {
     gasto: (a, b) => b.s.gasto - a.s.gasto, cantidad: (a, b) => b.s.qtyBase - a.s.qtyBase,
     aumento: (a, b) => (b.s.varPct ?? -1e9) - (a.s.varPct ?? -1e9), variacion: (a, b) => (b.s.cv ?? -1) - (a.s.cv ?? -1),
@@ -1803,7 +1809,11 @@ function renderProductos(c) {
       + '<td class="num mono">' + f.s.nCompras + '</td><td class="num mono">' + f.s.nProveedores + '</td>'
       + '<td class="num mono">' + (f.imp.impacto == null ? '<span class="dash" title="Sin compras en el ' + c.compTxt + '">—</span>' : '<span class="' + clsVar(f.imp.impacto) + '">' + fmtCRC(f.imp.impacto) + '</span>') + '</td></tr>';
   }).join('');
-  el.innerHTML = '<div class="card flush"><div class="card-head"><div><p class="card-title">Ranking de productos</p><p class="card-sub">Una fila por producto y unidad comparable. Click para ver su historial, precios y proveedores.</p></div>'
+  const porCat = AC.agruparPor(c.cur, l => l.categoria);
+  const cats = Object.entries(porCat).map(([cat, ls]) => ({ cat, gasto: AC.sum(ls, l => l.netoCRC), nProd: new Set(ls.map(l => l.producto)).size })).sort((a, b) => b.gasto - a.gasto);
+  PROD_CATS = cats.map(x => x.cat);
+  const kpiCatHtml = cats.length ? '<div class="card flush" style="margin-bottom:1rem"><div class="card-head"><div><p class="card-title">Compras por categor\u00eda</p><p class="card-sub">Total del per\u00edodo por categor\u00eda (respeta los filtros de arriba). Click en una categor\u00eda para filtrar el ranking.</p></div>' + (PROD.cat ? '<button class="btn" onclick="PROD.cat=null;PROD.pagina=0;render()">Ver todas</button>' : '') + '</div><div class="kpis" style="margin:.2rem .9rem 1rem">' + cats.map((x, i) => '<div class="kpi click-kpi' + (PROD.cat === x.cat ? ' sel-kpi' : '') + '" onclick="selCatProd(' + i + ')"><div class="kpi-lbl">' + esc(x.cat) + '</div><div class="kpi-val">' + fmtCRCc(x.gasto) + '</div><div class="kpi-sub">' + (g ? fmtN(x.gasto / g * 100, 1) + ' % del total \u00b7 ' : '') + x.nProd + ' producto' + (x.nProd === 1 ? '' : 's') + '</div></div>').join('') + '</div></div>' : '';
+  el.innerHTML = kpiCatHtml + '<div class="card flush"><div class="card-head"><div><p class="card-title">Ranking de productos</p><p class="card-sub">Una fila por producto y unidad comparable. Click para ver su historial, precios y proveedores.</p></div>'
     + '<div class="toolbar"><div><label class="lbl">Ordenar por</label><select onchange="PROD.orden=this.value;PROD.pagina=0;render()">'
     + [['gasto', 'Mayor gasto'], ['cantidad', 'Mayor cantidad (dentro de cada unidad)'], ['aumento', 'Mayor aumento de precio'], ['variacion', 'Mayor variación de precio (CV)'], ['frecuencia', 'Mayor frecuencia de compra'], ['impacto', 'Mayor impacto económico'], ['nombre', 'Nombre']].map(o => '<option value="' + o[0] + '"' + (PROD.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('')
     + '</select></div><div><label class="lbl">Buscar</label><input type="search" value="' + attr(PROD.q) + '" placeholder="Producto…" oninput="clearTimeout(window._pq);window._pq=setTimeout(()=>{PROD.q=this.value;PROD.pagina=0;render()},250)"></div>' + btnExport('productos') + '</div></div>'
