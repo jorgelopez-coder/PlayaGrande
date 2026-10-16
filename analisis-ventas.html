@@ -339,6 +339,7 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
     <div class="card" style="padding:0;overflow:hidden;">
       <div style="padding:1.1rem 1.25rem .5rem;">
         <p class="card-title" style="margin-bottom:0;">Top productos</p>
+        <span style="font-size:11px;color:var(--subtle);">Haga clic en un producto para ver su venta por fecha en el rango filtrado.</span>
       </div>
       <div class="compare-wrap">
         <table class="compare-table">
@@ -1258,6 +1259,7 @@ function renderAnalisisProducto() {
   const filas = hayFiltroProductoActivo ? filasCat.filter(r => setSelProd.has(r.producto)) : filasCat;
 
   const porProducto = {};
+  const detProducto = {}; // producto -> { fecha -> {fecha,cantidad,monto} } para el detalle expandible
   let totalMonto = 0, totalUnidades = 0;
   filas.forEach(r => {
     totalMonto += r.totalLinea;
@@ -1265,6 +1267,11 @@ function renderAnalisisProducto() {
     if (!porProducto[r.producto]) porProducto[r.producto] = { producto: r.producto, categoria: r.categoria, monto: 0, cantidad: 0 };
     porProducto[r.producto].monto += r.totalLinea;
     porProducto[r.producto].cantidad += r.cantidad;
+    if (!detProducto[r.producto]) detProducto[r.producto] = {};
+    const _d = detProducto[r.producto];
+    if (!_d[r.fecha]) _d[r.fecha] = { fecha: r.fecha, cantidad: 0, monto: 0 };
+    _d[r.fecha].cantidad += r.cantidad;
+    _d[r.fecha].monto += r.totalLinea;
   });
 
   if (hayFiltroProductoActivo && !filas.length) {
@@ -1299,14 +1306,27 @@ function renderAnalisisProducto() {
   bodyProd.innerHTML = topPorMonto.slice(0,20).map((p,i) => {
     const pct = totalMonto > 0 ? (p.monto / totalMonto * 100) : 0;
     const precioProm = p.cantidad > 0 ? p.monto / p.cantidad : 0;
-    return `<tr>
+    const rowId = 'prodrow-' + i;
+    const dias = Object.values(detProducto[p.producto] || {}).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    const detalleHtml = dias.length ? `
+      <div class="compare-detail-title">Venta por fecha — ${p.producto}</div>
+      <div style="max-height:240px;overflow-y:auto;">
+        <table class="compare-table" style="min-width:0;">
+          <thead><tr><th>Fecha</th><th>Cantidad</th><th>Monto</th><th>Precio prom.</th></tr></thead>
+          <tbody>${dias.map(d => `<tr><td>${d.fecha}</td><td>${d.cantidad.toLocaleString('es-CR')}</td><td class="compare-val">${fmtCRC(d.monto)}</td><td>${fmtCRC(d.cantidad > 0 ? d.monto / d.cantidad : 0)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="compare-sub" style="margin-top:.4rem;">${dias.length} día(s) con venta en el rango filtrado.</div>` : '<div class="no-alerts">Sin ventas en el rango filtrado.</div>';
+    const filaPrincipal = `<tr class="compare-row clickable" onclick="toggleProdDetail('${rowId}')" data-row="${rowId}">
       <td>${i+1}</td>
-      <td>${p.producto}<div class="compare-sub">${p.categoria}</div></td>
+      <td>${p.producto}<span class="compare-chevron"><svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="compare-sub">${p.categoria}</div></td>
       <td>${p.cantidad.toLocaleString('es-CR')}</td>
       <td class="compare-val">${fmtCRC(p.monto)}</td>
       <td>${fmtCRC(precioProm)}</td>
       <td>${pct.toFixed(1)}%</td>
     </tr>`;
+    const filaDetalle = `<tr class="compare-detail-row closed" id="${rowId}"><td colspan="6"><div class="compare-detail-inner"><div class="compare-detail-block">${detalleHtml}</div></div></td></tr>`;
+    return filaPrincipal + filaDetalle;
   }).join('');
 
   const catOrdenadas = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
@@ -1320,6 +1340,20 @@ function renderAnalisisProducto() {
       <td>${pct.toFixed(1)}%</td>
     </tr>`;
   }).join('');
+}
+
+// ── Detalle expandible de "Top productos": venta por fecha del producto ──
+function toggleProdDetail(rowId) {
+  const fila = document.getElementById(rowId);
+  if (!fila) return;
+  const abriendo = fila.classList.contains('closed');
+  document.querySelectorAll('#prod-top-body .compare-detail-row').forEach(r => r.classList.add('closed'));
+  document.querySelectorAll('#prod-top-body .compare-row.open').forEach(r => r.classList.remove('open'));
+  if (abriendo) {
+    fila.classList.remove('closed');
+    const trigger = document.querySelector(`#prod-top-body .compare-row[data-row="${rowId}"]`);
+    if (trigger) trigger.classList.add('open');
+  }
 }
 
 // ── GRÁFICO LINEAL: descuentos por día, una línea por kiosko (SVG a mano,
