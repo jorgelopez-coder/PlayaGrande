@@ -55,6 +55,18 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
 .chk-pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:6px 11px;border-radius:20px;border:1px solid var(--border);background:var(--surface);cursor:pointer;white-space:nowrap}
 .chk-pill input{cursor:pointer}
 .chk-wrap{display:flex;flex-wrap:wrap;gap:7px}
+/* ── MULTISELECT DROPDOWN (categorías / productos) ── */
+.ms-dd{position:relative;display:inline-block;min-width:260px;max-width:100%}
+.ms-dd-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--font-b);font-size:13px;padding:9px 12px;cursor:pointer;text-align:left}
+.ms-dd-toggle:hover{border-color:var(--border-h)}
+.ms-dd.open .ms-dd-toggle{border-color:var(--green)}
+.ms-dd-sum{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-dd-arrow{flex-shrink:0;transition:transform .15s;color:var(--subtle)}
+.ms-dd.open .ms-dd-arrow{transform:rotate(180deg);color:var(--text)}
+.ms-dd-panel{display:none;position:absolute;top:calc(100% + 5px);left:0;z-index:40;min-width:100%;max-width:380px;background:var(--card);border:1px solid var(--border-h);border-radius:11px;box-shadow:0 10px 28px rgba(0,0,0,.12);padding:11px}
+.ms-dd.open .ms-dd-panel{display:block}
+.ms-dd-panel-head{display:flex;gap:6px;margin-bottom:9px}
+.ms-dd-panel .chk-wrap{max-height:240px;overflow-y:auto}
 .filtro-resumen{font-size:11.5px;color:var(--subtle);border-top:1px solid var(--border);padding-top:.85rem;margin-top:.25rem}
 
 /* ── KPIs ────────────────────────────────────────────────── */
@@ -281,23 +293,41 @@ main{max-width:1080px;margin:0 auto;padding:2rem 2rem 5rem}
       </div>
       <div class="prod-selector">
         <div class="filtro-group" style="flex:1;min-width:280px;">
-          <label class="grp-lbl">Categorías
-            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
-            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
-          </label>
-          <div class="chk-wrap" id="filtro-categoria-body">
-            <span class="compare-dash">Cargando…</span>
+          <label class="grp-lbl">Categorías</label>
+          <div class="ms-dd" id="dd-categoria">
+            <button type="button" class="ms-dd-toggle" onclick="toggleMsDd('dd-categoria')">
+              <span class="ms-dd-sum" id="cat-dd-sum">Cargando…</span>
+              <svg class="ms-dd-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ms-dd-panel">
+              <div class="ms-dd-panel-head">
+                <button type="button" class="preset-btn" style="padding:4px 10px;font-size:11px;" onclick="catFiltroSeleccionarTodas(true)">Todas</button>
+                <button type="button" class="preset-btn" style="padding:4px 10px;font-size:11px;" onclick="catFiltroSeleccionarTodas(false)">Ninguna</button>
+              </div>
+              <div class="chk-wrap" id="filtro-categoria-body">
+                <span class="compare-dash">Cargando…</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       <div class="prod-selector">
         <div class="filtro-group" style="flex:1;min-width:280px;">
-          <label class="grp-lbl">Productos
-            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;margin-left:6px;" onclick="prodFiltroSeleccionarTodos(true)">Todos</button>
-            <button type="button" class="preset-btn" style="padding:2px 8px;font-size:10.5px;" onclick="prodFiltroSeleccionarTodos(false)">Ninguno</button>
-          </label>
-          <div class="chk-wrap" id="filtro-producto-body" style="max-height:150px;overflow-y:auto;">
-            <span class="compare-dash">Cargando…</span>
+          <label class="grp-lbl">Productos</label>
+          <div class="ms-dd" id="dd-producto">
+            <button type="button" class="ms-dd-toggle" onclick="toggleMsDd('dd-producto')">
+              <span class="ms-dd-sum" id="prod-dd-sum">Cargando…</span>
+              <svg class="ms-dd-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ms-dd-panel">
+              <div class="ms-dd-panel-head">
+                <button type="button" class="preset-btn" style="padding:4px 10px;font-size:11px;" onclick="prodFiltroSeleccionarTodos(true)">Todos</button>
+                <button type="button" class="preset-btn" style="padding:4px 10px;font-size:11px;" onclick="prodFiltroSeleccionarTodos(false)">Ninguno</button>
+              </div>
+              <div class="chk-wrap" id="filtro-producto-body">
+                <span class="compare-dash">Cargando…</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1096,6 +1126,30 @@ function prodFiltroSeleccionarTodos(marcarTodos) {
   renderAnalisisProducto();
 }
 
+/* ── Menús desplegables multi-selección (categorías / productos) ── */
+function toggleMsDd(id){
+  const dd = document.getElementById(id);
+  if(!dd) return;
+  const abierto = dd.classList.contains('open');
+  document.querySelectorAll('.ms-dd.open').forEach(el => el.classList.remove('open'));
+  if(!abierto) dd.classList.add('open');
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.ms-dd')) document.querySelectorAll('.ms-dd.open').forEach(el => el.classList.remove('open'));
+});
+function actualizarResumenMsDd(sumId, disponibles, desmarcadas, l){
+  const el = document.getElementById(sumId);
+  if(!el) return;
+  const total = disponibles.length;
+  if(!total){ el.textContent = l.vacio; return; }
+  const sel = disponibles.filter(v => !desmarcadas.has(v)).length;
+  if(sel === total) el.textContent = l.todas + ' (' + total + ')';
+  else if(sel === 0) el.textContent = l.ninguna;
+  else el.textContent = sel + ' de ' + total + ' seleccionad' + l.g;
+}
+const MSDD_CAT_LBL = {todas:'Todas las categorías', ninguna:'Ninguna categoría', vacio:'Sin categorías', g:'as'};
+const MSDD_PROD_LBL = {todas:'Todos los productos', ninguna:'Ningún producto', vacio:'Sin productos', g:'os'};
+
 function renderAnalisisProducto() {
   const kpis = document.getElementById('prod-kpis');
   const bodyProd = document.getElementById('prod-top-body');
@@ -1140,12 +1194,14 @@ function renderAnalisisProducto() {
   }
   const categoriasSeleccionadas = categoriasDisponibles.filter(c => !CATEGORIAS_DESMARCADAS.has(c));
   const hayFiltroActivo = categoriasSeleccionadas.length < categoriasDisponibles.length;
+  actualizarResumenMsDd('cat-dd-sum', categoriasDisponibles, CATEGORIAS_DESMARCADAS, MSDD_CAT_LBL);
 
   if (!filasBase.length) {
     kpis.innerHTML = '<div class="no-alerts">Sin datos de Square para los kioskos y el rango filtrados.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos.</div></td></tr>';
     bodyCat.innerHTML = '<tr><td colspan="5"><div class="no-alerts">Sin datos.</div></td></tr>';
     if (prodBody) prodBody.innerHTML = '<span class="compare-dash">Sin productos en el rango filtrado.</span>';
+    { const _ps = document.getElementById('prod-dd-sum'); if(_ps) _ps.textContent = 'Sin productos'; }
     return;
   }
 
@@ -1167,6 +1223,7 @@ function renderAnalisisProducto() {
     kpis.innerHTML = '<div class="no-alerts">Sin datos para las categorías seleccionadas en el rango filtrado.</div>';
     bodyProd.innerHTML = '<tr><td colspan="6"><div class="no-alerts">Sin datos para las categorías seleccionadas.</div></td></tr>';
     if (prodBody) prodBody.innerHTML = '<span class="compare-dash">Sin productos disponibles.</span>';
+    { const _ps = document.getElementById('prod-dd-sum'); if(_ps) _ps.textContent = 'Sin productos'; }
     const catOrdenadasVacio = Object.entries(porCategoria).sort((a,b) => b[1].monto - a[1].monto);
     bodyCat.innerHTML = catOrdenadasVacio.map(([cat,o]) => {
       const pct = totalMontoCategorias > 0 ? (o.monto / totalMontoCategorias * 100) : 0;
@@ -1196,6 +1253,7 @@ function renderAnalisisProducto() {
   }
   const productosSeleccionados = productosDisponibles.filter(p => !PRODUCTOS_DESMARCADOS.has(p));
   const hayFiltroProductoActivo = productosSeleccionados.length < productosDisponibles.length;
+  actualizarResumenMsDd('prod-dd-sum', productosDisponibles, PRODUCTOS_DESMARCADOS, MSDD_PROD_LBL);
   const setSelProd = new Set(productosSeleccionados);
   const filas = hayFiltroProductoActivo ? filasCat.filter(r => setSelProd.has(r.producto)) : filasCat;
 
