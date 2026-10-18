@@ -667,7 +667,7 @@ const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
@@ -820,6 +820,7 @@ async function cargarMaestro() {
       taraDefectoG: (r['Tara por Defecto (g)'] !== '' && r['Tara por Defecto (g)'] != null) ? Number(r['Tara por Defecto (g)']) : ''
     }));
     renderTodo();
+    abrirFichaPendiente();
   } catch (e) {
     document.getElementById('mp-lista').innerHTML = `<div class="empty-state">No se pudo cargar (${escHtml(e.message)}).</div>`;
   }
@@ -1843,6 +1844,23 @@ function usarSugerenciaCosto() {
   actualizarCostoFichaPreview();
 }
 
+// Abre automaticamente la ficha de un producto cuando se llega con
+// ?ficha=<Nombre Estandar> (ej. desde "Abrir ficha en Maestro" en
+// Analisis de Compras). Corre al terminar de cargar el Maestro.
+function abrirFichaPendiente() {
+  const nombre = window.__fichaPendiente;
+  if (!nombre) return;
+  window.__fichaPendiente = null;
+  switchTab('fichas');
+  const inp = document.getElementById('pf-buscar');
+  if (inp) { inp.value = nombre; renderFichas(); }
+  const objetivo = claveAgrupacion_(nombre);
+  const m = MAESTRO.find(x => x.aplica === 'Sí' &&
+    claveAgrupacion_(x.nombreEstandar || x.nombreFactura) === objetivo);
+  if (m) { abrirFicha(m.clave); }
+  else { showToast('No se encontró la ficha de "' + nombre + '". Puede que el producto aún no esté homologado con Aplica: Sí.', 'error'); }
+}
+
 function abrirFicha(clave) {
   const m = MAESTRO.find(x => x.clave === clave);
   if (!m) return;
@@ -2037,6 +2055,8 @@ function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
       if (inp) inp.value = q;
       if (est) est.value = '';
     }
+    var f = new URLSearchParams(location.search).get('ficha');
+    if (f) window.__fichaPendiente = f;
   } catch (e) {}
 })();
 
