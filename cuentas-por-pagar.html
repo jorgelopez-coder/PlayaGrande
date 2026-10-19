@@ -827,7 +827,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 }
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────
@@ -891,7 +891,7 @@ let kioskosSeleccionados = new Set();
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
-const hoyISO = hoy.toISOString().slice(0,10);
+const hoyISO = hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
 
 const fmt  = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const fmtN = n => Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -1025,6 +1025,20 @@ function kioskosSeleccionadosTiene(valor) {
   return false;
 }
 
+// Control de acceso por rol (independiente del filtro del header): qué kioskos
+// tiene permitido ver el usuario logueado, según PORTAL_SESION.kioskos. Un rol
+// sin restricción (kioskos === 'todos' o sin sesión) ve todos. Se usa para
+// recortar los datasets en la FUENTE, de modo que "Todos los kioskos" del
+// header signifique "todos los que este rol puede ver", nunca todos de verdad.
+function rolVeTodosKioskos() {
+  return !PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos';
+}
+function kioskoPermitidoRol(valor) {
+  if (rolVeTodosKioskos()) return true;
+  const norm = normalizarTexto(valor);
+  return PORTAL_SESION.kioskos.some(p => normalizarTexto(p) === norm);
+}
+
 // Dataset visible según los kioskos marcados en el encabezado (vacío = todos).
 function datasetActual() {
   return kioskosSeleccionados.size ? facturasAP.filter(f => kioskosSeleccionadosTiene(f.kiosko)) : facturasAP;
@@ -1142,9 +1156,9 @@ async function cargarDatos() {
 
     dataFacturas   = dF;
     proveedores    = dP.filter(r => r['ID']).map(filaAProveedor);
-    dataAbonos     = dAb;
+    dataAbonos     = dAb.filter(a => kioskoPermitidoRol(a['Kiosko']));
     dataDesglose   = dDes;
-    dataLogCambios = dLog;
+    dataLogCambios = dLog.filter(r => kioskoPermitidoRol(r['Kiosko anterior']) || kioskoPermitidoRol(r['Kiosko nuevo']));
 
     document.getElementById('conn-dot').classList.remove('off');
     document.getElementById('conn-label').textContent = 'Conectado · Google Sheets';
@@ -1377,6 +1391,12 @@ function construirFacturasAP() {
       saldoPendiente, estado, duplicada: esDuplicada(p), duplicadaMonto: esDuplicadaPorMonto(p), duplicadaSinProveedor: esDuplicadaSinProveedor(p), ordinal: contadorOrdinal[claveOrdinal]
     };
   });
+
+  // Control de acceso por rol: un rol restringido a ciertos kioskos nunca debe
+  // ver facturas de otros, ni siquiera con el filtro del header en "Todos los
+  // kioskos". Se recorta aquí, en la fuente, para que TODAS las vistas (KPIs,
+  // tabla, proyección, duplicados, historial, WhatsApp) queden cubiertas.
+  facturasAP = facturasAP.filter(f => kioskoPermitidoRol(f.kiosko));
 
   // Nombre "canónico" por proveedor: la variante de mayúsculas/espacios más
   // vista entre todas sus facturas, para no partir un mismo proveedor en
@@ -2902,7 +2922,7 @@ function switchTab(tab, el) {
 async function postAP(payload) {
   const resp = await fetch(APPS_SCRIPT_AP, {
     method: 'POST',
-    body: new URLSearchParams({ data: JSON.stringify(payload) })
+    body: new URLSearchParams({ data: JSON.stringify(Object.assign({ rol_id: (PORTAL_SESION && PORTAL_SESION.rol_id) || '' }, payload)) })
   });
   const json = await resp.json();
   if (!json.ok) throw new Error(json.error || 'Error al guardar');
