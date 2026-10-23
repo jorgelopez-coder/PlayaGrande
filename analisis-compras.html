@@ -1436,11 +1436,20 @@ const ttAttr = html => ' data-tt="' + attr(html) + '"';
 // ── GRÁFICOS SVG (sin librerías) ────────────────────────────────────
 const SERIES = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)'];
 function niceTicks(min, max, n) {
+  // Blindado contra datos con valores extremos (p. ej. un precio por unidad
+  // base disparado por una cantidad ~0 en factura o una conversión del Maestro):
+  // se arma por índice (lo + i*step), nunca acumulando v += step —que con
+  // números enormes deja de avanzar por precisión y llenaba el arreglo hasta
+  // reventar (RangeError: Invalid array length)— y con tope de marcas.
+  if (!isFinite(min) || !isFinite(max)) { min = 0; max = 1; }
   if (!(max > min)) { max = min + 1; }
   const span = max - min, step0 = span / (n || 4), mag = Math.pow(10, Math.floor(Math.log10(step0)));
-  const step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(x => x >= step0) || step0;
-  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step; const out = [];
-  for (let v = lo; v <= hi + step / 2; v += step) out.push(+v.toFixed(10));
+  let step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(x => x >= step0) || step0;
+  if (!isFinite(step) || step <= 0) step = span / (n || 4) || 1;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const cnt = Math.min(1000, Math.max(1, Math.round((hi - lo) / step)));
+  const out = [];
+  for (let i = 0; i <= cnt; i++) out.push(+(lo + i * step).toFixed(10));
   return out;
 }
 function ejesY(ticks, yAt, W, mL, mR, fmt) {
