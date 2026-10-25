@@ -283,6 +283,22 @@
   </div>
 </div>
 
+<!-- MODAL RECHAZAR SOLICITUD (pide motivo del cambio) -->
+<div class="modal-overlay" id="modal-rechazo">
+  <div class="modal-box">
+    <h3>Rechazar solicitud</h3>
+    <p class="modal-sub" id="rech-sub">—</p>
+    <div class="field">
+      <label for="rech-motivo">Motivo del cambio</label>
+      <textarea id="rech-motivo" placeholder="Explicá por qué se rechaza esta solicitud…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-clear" onclick="cerrarModalRechazo()">Cancelar</button>
+      <button type="button" class="btn-submit" id="btn-confirmar-rechazo" onclick="confirmarRechazo()">Rechazar solicitud</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -303,7 +319,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec'; // URL de tu Apps Script
 const EMAIL_GERENCIA   = ''; // Correo de gerencia para notificaciones
@@ -651,8 +667,14 @@ function pintarHistorial() {
         ${s.estado==='Pendiente' ? `
         <div class="action-btns">
           <button class="btn-aprobar" onclick="cambiarEstado(${i},'Aprobado')">Aprobar</button>
-          <button class="btn-rechazar" onclick="cambiarEstado(${i},'Rechazado')">Rechazar</button>
-        </div>` : (esModificable(s) ? `<button class="btn-modificar" onclick="abrirModalModificar(${i})">Modificar</button>` : '—')}
+          <button class="btn-rechazar" onclick="abrirModalRechazo(${i})">Rechazar</button>
+        </div>`
+        : s.estado==='Aprobado' ? `
+        <div class="action-btns">
+          ${esModificable(s) ? `<button class="btn-modificar" onclick="abrirModalModificar(${i})">Modificar</button>` : ''}
+          <button class="btn-rechazar" onclick="abrirModalRechazo(${i})">Rechazar</button>
+        </div>`
+        : '—'}
       </td>
     </tr>
   `).join('');
@@ -773,10 +795,47 @@ function guardarModificacion() {
   pintarHistorial();
 }
 
-function cambiarEstado(idx, estado) {
+// ── Rechazar solicitud (pide Motivo del cambio; sirve para Pendiente y Aprobada) ──
+let rechazoEditIdx = null;
+
+function abrirModalRechazo(idx) {
+  const s = solicitudesCache[idx];
+  if (!s) return;
+  rechazoEditIdx = idx;
+  document.getElementById('rech-sub').textContent =
+    `${s.colaborador} · ${s.fecha_inicio} → ${s.fecha_fin} (${s.dias} días) · actualmente ${s.estado}`;
+  document.getElementById('rech-motivo').value = '';
+  document.getElementById('modal-rechazo').classList.add('show');
+}
+
+function cerrarModalRechazo() {
+  document.getElementById('modal-rechazo').classList.remove('show');
+  rechazoEditIdx = null;
+}
+
+function confirmarRechazo() {
+  if (rechazoEditIdx === null) { cerrarModalRechazo(); return; }
+  const motivo = document.getElementById('rech-motivo').value.trim();
+  if (!motivo) { showToast('Indicá el motivo del cambio.', 'error'); return; }
+  const idx = rechazoEditIdx;
+  cerrarModalRechazo();
+  cambiarEstado(idx, 'Rechazado', motivo);
+}
+
+function cambiarEstado(idx, estado, motivo) {
   const item = solicitudesCache[idx];
   if (!item) return;
+  const estadoAnterior = item.estado;
   item.estado = estado;
+
+  // Si hay motivo del cambio, dejar rastro en Observaciones (igual que el backend).
+  motivo = (motivo || '').trim();
+  if (motivo) {
+    const pad2 = n => String(n).padStart(2,'0');
+    const f = `${pad2(hoy.getDate())}/${pad2(hoy.getMonth()+1)}/${hoy.getFullYear()}`;
+    const nota = `[${estado} el ${f} — Motivo: ${motivo}]`;
+    item.observaciones = item.observaciones ? (item.observaciones + '\n' + nota) : nota;
+  }
 
   const locales = getSolicitudes();
   const i = locales.findIndex(s => String(s.id) === String(item.id));
@@ -787,7 +846,7 @@ function cambiarEstado(idx, estado) {
     fetch(APPS_SCRIPT_URL, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ modulo:'vacaciones_estado', id: item.id, estado })
+      body: JSON.stringify({ modulo:'vacaciones_estado', id: item.id, estado, motivo, estado_anterior: estadoAnterior })
     }).catch(()=>{});
   }
 
