@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Control de Limpieza - Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#c87820;--amber-bg:#fdf6e3;--amber-lt:#f0d890;
+  --blue:#185fa5;--blue-bg:#eef4fb;--blue-lt:#c0d4f0;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;line-height:1.6}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.nav-left{display:flex;align-items:center;gap:10px}
+.back-btn{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--border-h)}
+.back-btn svg{width:13px;height:13px}
+.page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
+.nav-right{display:flex;align-items:center;gap:10px}
+.date-chip{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+
+main{max-width:900px;margin:0 auto;padding:1.25rem 2rem 5rem}
+
+/* ── Selector de kiosko ── */
+.kiosko-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.kiosko-bar label{font-size:13px;font-weight:600;color:var(--muted)}
+.kiosko-bar select{width:auto;min-width:200px}
+
+/* ── Pestañas ── */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:1.25rem}
+.tab{padding:9px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--green);border-bottom-color:var(--green)}
+.tab .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;font-size:10px;line-height:16px;text-align:center;border-radius:9px;background:var(--amber-bg);color:var(--amber);font-weight:700;vertical-align:middle}
+.pane{display:none}
+.pane.on{display:block}
+
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
+.field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.req{color:var(--red);margin-left:2px}
+input[type=text],input[type=date],input[type=time],input[type=number],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
+  outline:none;appearance:none;transition:border-color .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+input::placeholder,textarea::placeholder{color:var(--subtle)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a8a6a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;cursor:pointer}
+.hint{font-size:11.5px;color:var(--subtle);margin-top:4px}
+
+.dow-select{display:flex;flex-wrap:wrap;gap:6px}
+.dow-opt{width:42px;height:38px;border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface);transition:all .12s;user-select:none}
+.dow-opt:hover{border-color:var(--border-h)}
+.dow-opt.on{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+
+.mom-select{display:flex;gap:8px;flex-wrap:wrap}
+.mom-opt{flex:1;min-width:110px;border:1.5px solid var(--border);border-radius:9px;padding:9px 10px;cursor:pointer;text-align:center;font-size:12.5px;font-weight:600;background:var(--surface);transition:all .12s}
+.mom-opt:hover{border-color:var(--border-h)}
+.mom-opt.on{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+
+.btn-primary{flex:1;min-width:140px;background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:15px;font-weight:700;padding:12px 24px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{padding:12px 16px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-secondary:hover{color:var(--text);border-color:var(--border-h)}
+.btn-sm{font-size:12px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sm:hover{border-color:var(--border-h)}
+.btn-add{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;transition:opacity .15s}
+.btn-add:hover{opacity:.9}
+.btn-add svg{width:15px;height:15px}
+
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+.banner{background:var(--amber-bg);border:1px solid var(--amber-lt);color:var(--amber);border-radius:10px;padding:10px 16px;font-size:12.5px;margin-bottom:1rem}
+.empty{font-size:12.5px;color:var(--subtle);padding:1.5rem;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+
+/* ── Control: lista de tareas del día ── */
+.ctl-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.ctl-head input[type=date]{width:auto}
+.task-row{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:12px 14px;margin-bottom:9px}
+.task-row.pendiente{border-left-color:var(--amber)}
+.task-row.completada{border-left-color:var(--green)}
+.task-row.vencida{border-left-color:var(--red)}
+.task-ico{font-size:20px;line-height:1.3;flex-shrink:0}
+.task-body{flex:1;min-width:0}
+.task-name{font-family:var(--font-d);font-size:15px;font-weight:700;margin-bottom:2px}
+.task-meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px}
+.task-meta b{color:var(--text);font-weight:600}
+.task-side{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;min-width:150px}
+.task-side select{font-size:12px;padding:6px 10px}
+.estado-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:20px;padding:2px 10px}
+.estado-tag.pendiente{background:var(--amber-bg);color:var(--amber)}
+.estado-tag.completada{background:var(--green-bg);color:var(--green)}
+.estado-tag.vencida{background:var(--red-bg);color:var(--red)}
+.mom-tag{font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+.thumb-ref{width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;cursor:pointer;background:var(--surface)}
+.thumb-ev{width:46px;height:46px;border-radius:8px;object-fit:cover;border:2px solid var(--green);flex-shrink:0;cursor:pointer}
+
+/* ── Configuración: tarjetas de tarea ── */
+.cfg-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start}
+.cfg-card.off{opacity:.55}
+.cfg-body{flex:1;min-width:0}
+.cfg-name{font-family:var(--font-d);font-size:15px;font-weight:700}
+.cfg-instr{font-size:12.5px;color:var(--muted);margin-top:3px;white-space:pre-wrap}
+.cfg-rec{font-size:11.5px;color:var(--blue);background:var(--blue-bg);border-radius:6px;padding:1px 8px;display:inline-block;margin-top:5px;font-weight:600}
+.cfg-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+
+/* ── Calendario mensual ── */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cal-month{font-family:var(--font-d);font-size:18px;font-weight:700;text-transform:capitalize}
+.cal-nav{display:flex;gap:6px}
+.cal-nav button{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.cal-nav button:hover{border-color:var(--border-h)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-bottom:1rem}
+.legend .lg{display:flex;align-items:center;gap:6px}
+.legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+.dot-pendiente{background:var(--amber)} .dot-completada{background:var(--green)} .dot-vencida{background:var(--red)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.cal-dow{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0}
+.cal-cell{min-height:92px;border:1px solid var(--border);border-radius:8px;padding:5px;background:var(--surface);display:flex;flex-direction:column;gap:3px;overflow:hidden;cursor:pointer;transition:border-color .15s,background .15s}
+.cal-cell:not(.other):hover{border-color:var(--green);background:var(--green-bg)}
+.cal-cell.other{opacity:.4;cursor:default}
+.cal-cell.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.cal-daynum{font-size:11.5px;font-weight:600;color:var(--muted);text-align:right;flex-shrink:0}
+.cal-cell.today .cal-daynum{color:var(--green)}
+.cal-ev{font-size:10.5px;line-height:1.3;border-radius:5px;padding:2px 5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;border-left:3px solid}
+.cal-ev.pendiente{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}
+.cal-ev.completada{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.cal-ev.vencida{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.cal-more{font-size:10px;color:var(--muted);cursor:pointer;padding-left:5px}
+
+/* ── Modales ── */
+.modal-bg{position:fixed;inset:0;background:rgba(28,58,40,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border-radius:14px;max-width:460px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal.wide{max-width:540px}
+.modal-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.modal-head h3{font-family:var(--font-d);font-size:18px;font-weight:700}
+.modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
+.modal-body{padding:1.25rem 1.5rem}
+.modal-body .mrow{display:flex;gap:10px;font-size:13px;margin-bottom:10px}
+.modal-body .mrow .mk{color:var(--muted);min-width:90px;flex-shrink:0}
+.modal-body .mrow .mv{font-weight:500}
+.modal-foto{width:100%;max-height:260px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin-top:8px}
+.modal-foot{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+
+.foto-upload{border:2px dashed var(--border);border-radius:10px;padding:1.1rem;text-align:center;cursor:pointer;color:var(--muted);font-size:12.5px;transition:border-color .15s;position:relative}
+.foto-upload:hover{border-color:var(--green);color:var(--green)}
+.foto-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.foto-preview-wrap{position:relative;margin-top:.5rem;width:100%;display:none}
+.foto-preview-wrap img{width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
+.foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+
+@media(max-width:700px){
+  header{padding:0 1rem}main{padding:1rem 1rem 3rem}
+  .field-row-2{grid-template-columns:1fr}
+  .cal-cell{min-height:60px}
+  .cal-ev{font-size:9px;padding:1px 3px}
+  .cal-grid{gap:2px;padding:5px}
+  .page-title{font-size:13px}
+  .task-row{flex-wrap:wrap}.task-side{min-width:0;width:100%;align-items:stretch}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-left">
+    <a href="index.html" class="back-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
+      Inicio
+    </a>
+    <span class="page-title">🧼 Control de Limpieza</span>
+  </div>
+  <div class="nav-right">
+    <span class="date-chip" id="date-chip"></span>
+  </div>
+</header>
+
+<main>
+  <div id="banner-holder"></div>
+
+  <div class="kiosko-bar">
+    <label for="kiosko-sel">Kiosko</label>
+    <select id="kiosko-sel" onchange="onKioskoChange()"><option value="">Cargando…</option></select>
+    <button class="btn-sm" onclick="recargarTodo()" style="margin-left:auto">↻ Actualizar</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="control" onclick="irTab('control')">Control</button>
+    <button class="tab" data-tab="calendario" onclick="irTab('calendario')">Calendario</button>
+    <button class="tab" data-tab="config" onclick="irTab('config')">Configuración</button>
+  </div>
+
+  <!-- ══ PANE CONTROL ══ -->
+  <section class="pane on" id="pane-control">
+    <div class="ctl-head">
+      <label style="font-weight:600;color:var(--muted)">Día:</label>
+      <input type="date" id="ctl-fecha" onchange="renderControl()"/>
+      <button class="btn-sm" onclick="ctlHoy()">Hoy</button>
+    </div>
+    <div id="ctl-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
+  </section>
+
+  <!-- ══ PANE CALENDARIO ══ -->
+  <section class="pane" id="pane-calendario">
+    <div class="legend">
+      <span class="lg"><span class="dot dot-pendiente"></span>Pendiente</span>
+      <span class="lg"><span class="dot dot-completada"></span>Completada</span>
+      <span class="lg"><span class="dot dot-vencida"></span>Vencida</span>
+      <span class="hint" style="margin-left:auto">Tocá un día para ver y gestionar sus tareas</span>
+    </div>
+    <div class="cal-head">
+      <div class="cal-month" id="cal-month">—</div>
+      <div class="cal-nav">
+        <button onclick="cambiarMes(-1)" title="Mes anterior">‹</button>
+        <button onclick="irMesHoy()" title="Hoy" style="width:auto;padding:0 12px;font-size:12px;font-weight:600">Hoy</button>
+        <button onclick="cambiarMes(1)" title="Mes siguiente">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="cal-grid"><div class="empty" style="grid-column:1/-1">Elegí un kiosko.</div></div>
+  </section>
+
+  <!-- ══ PANE CONFIGURACIÓN ══ -->
+  <section class="pane" id="pane-config">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+      <div class="hint" style="font-size:12.5px">Tareas de limpieza definidas para este kiosko.</div>
+      <button class="btn-add" onclick="abrirFormTarea()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+        Nueva tarea
+      </button>
+    </div>
+    <div id="cfg-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
+  </section>
+</main>
+
+<!-- Modal FORMULARIO TAREA (config) -->
+<div class="modal-bg" id="form-tarea" onclick="if(event.target===this)cerrarFormTarea()">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3 id="form-tarea-title">Nueva tarea</h3>
+      <button class="modal-close" onclick="cerrarFormTarea()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="t-nombre">Nombre de la tarea <span class="req">*</span></label>
+        <input type="text" id="t-nombre" placeholder="Ej. Limpieza profunda de cámara de frío"/>
+      </div>
+      <div class="field">
+        <label for="t-instr">Instrucciones</label>
+        <textarea id="t-instr" rows="3" placeholder="Paso a paso de cómo hacerla y cómo debe quedar…"></textarea>
+      </div>
+      <div class="field">
+        <label>Momento del día</label>
+        <div class="mom-select" id="mom-select">
+          <div class="mom-opt on" data-mom="durante" onclick="elegirMomento('durante')">🕐 Durante el día</div>
+          <div class="mom-opt" data-mom="apertura" onclick="elegirMomento('apertura')">🌅 Apertura</div>
+          <div class="mom-opt" data-mom="cierre" onclick="elegirMomento('cierre')">🌙 Cierre</div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="t-rec-tipo">Recurrencia <span class="req">*</span></label>
+        <select id="t-rec-tipo" onchange="onRecTipoChange()">
+          <option value="diaria">Diaria (todos los días)</option>
+          <option value="semanal">Semanal (días de la semana)</option>
+          <option value="mensual">Mensual (días del mes)</option>
+          <option value="unica">Una sola fecha</option>
+        </select>
+      </div>
+      <div class="field" id="rec-semanal" style="display:none">
+        <label>¿Qué días? <span class="req">*</span></label>
+        <div class="dow-select" id="dow-select">
+          <div class="dow-opt" data-dow="Lun" onclick="toggleDow(this)">Lun</div>
+          <div class="dow-opt" data-dow="Mar" onclick="toggleDow(this)">Mar</div>
+          <div class="dow-opt" data-dow="Mié" onclick="toggleDow(this)">Mié</div>
+          <div class="dow-opt" data-dow="Jue" onclick="toggleDow(this)">Jue</div>
+          <div class="dow-opt" data-dow="Vie" onclick="toggleDow(this)">Vie</div>
+          <div class="dow-opt" data-dow="Sáb" onclick="toggleDow(this)">Sáb</div>
+          <div class="dow-opt" data-dow="Dom" onclick="toggleDow(this)">Dom</div>
+        </div>
+      </div>
+      <div class="field" id="rec-mensual" style="display:none">
+        <label for="t-rec-mes">Días del mes <span class="req">*</span></label>
+        <input type="text" id="t-rec-mes" placeholder="Ej. 1,15 (día 1 y día 15 de cada mes)"/>
+        <p class="hint">Separá los días con coma. Si ponés 31, en meses más cortos cae el último día.</p>
+      </div>
+      <div class="field" id="rec-unica" style="display:none">
+        <label for="t-rec-fecha">Fecha <span class="req">*</span></label>
+        <input type="date" id="t-rec-fecha"/>
+      </div>
+      <div class="field">
+        <label>Foto de referencia (opcional)</label>
+        <div class="foto-upload" id="ref-upload-area">
+          <input type="file" id="t-foto" accept="image/*" onchange="onFotoRefSelected(event)"/>
+          <div id="ref-placeholder"><div style="font-size:22px;margin-bottom:2px">🖼️</div><div>Subir foto de cómo debe quedar (galería o cámara)</div></div>
+        </div>
+        <div class="foto-preview-wrap" id="ref-preview-wrap">
+          <img id="ref-preview-img" src="" alt="Vista previa"/>
+          <button class="foto-remove" onclick="quitarFotoRef(event)">×</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="cerrarFormTarea()">Cancelar</button>
+      <button class="btn-primary" id="btn-guardar-tarea" onclick="guardarTarea()">Guardar tarea</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal EVIDENCIA (completar) -->
+<div class="modal-bg" id="form-evid" onclick="if(event.target===this)cerrarEvidencia()">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="evid-title">Marcar como completada</h3><div class="hint" id="evid-sub" style="margin-top:4px"></div></div>
+      <button class="modal-close" onclick="cerrarEvidencia()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="banner" style="background:var(--green-bg);border-color:var(--green-lt);color:var(--green)">📷 Para dar por hecha la tarea hay que <b>tomar una foto</b> de evidencia. Se abre la cámara directamente.</div>
+      <div class="field">
+        <label>Foto de evidencia <span class="req">*</span></label>
+        <div class="foto-upload" id="evid-upload-area">
+          <input type="file" id="evid-foto" accept="image/*" capture="environment" onchange="onFotoEvidSelected(event)"/>
+          <div id="evid-placeholder"><div style="font-size:26px;margin-bottom:4px">📷</div><div>Tocá para tomar la foto</div></div>
+        </div>
+        <div class="foto-preview-wrap" id="evid-preview-wrap">
+          <img id="evid-preview-img" src="" alt="Evidencia"/>
+          <button class="foto-remove" onclick="quitarFotoEvid(event)">×</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="evid-nota">Nota (opcional)</label>
+        <input type="text" id="evid-nota" placeholder="Algo que reportar sobre esta limpieza…"/>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="cerrarEvidencia()">Cancelar</button>
+      <button class="btn-primary" id="btn-completar" onclick="completarTarea()">Marcar completada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal DETALLE DÍA (calendario) -->
+<div class="modal-bg" id="modal-dia" onclick="if(event.target===this)cerrarDia()">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="dia-title">—</h3><div class="hint" id="dia-sub" style="margin-top:4px"></div></div>
+      <button class="modal-close" onclick="cerrarDia()">×</button>
+    </div>
+    <div class="modal-body" id="dia-body"></div>
+    <div class="modal-foot"><button class="btn-sm" onclick="cerrarDia()" style="margin-left:auto">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- Modal VER FOTO -->
+<div class="modal-bg" id="modal-foto" onclick="cerrarFoto()">
+  <div class="modal"><div class="modal-body" style="padding:1rem"><img id="foto-grande" src="" style="width:100%;border-radius:10px" alt="Foto"/></div></div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" id="toast-icon"></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── CONTROL DE ACCESO (igual que el resto del portal) ──────────────────
+const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('limpieza')) {
+  document.body.innerHTML = '<div style="max-width:420px;margin:4rem auto;text-align:center;font-family:sans-serif;color:#1c3a28"><h2>Sin acceso</h2><p>Tu rol no tiene habilitado el módulo de Limpieza.</p><a href="index.html">Volver al inicio</a></div>';
+  throw new Error('sin acceso');
+}
+function sesionNombre(){ return (PORTAL_SESION && PORTAL_SESION.nombre) || ''; }
+function kioskosPermitidos(lista){
+  if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
+  const _n = s => String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
+  return (lista||[]).filter(k => { const _k=_n(k); return PORTAL_SESION.kioskos.some(p => _n(p)===_k); });
+}
+
+// ── CONFIG ─────────────────────────────────────────────────────────────
+const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+const LIMPIEZA_URL = 'https://script.google.com/macros/s/AKfycbzwY34EePdqV6yunYEdblREbhlurNgFAZZs4-NPeAf4A4OVVFlgKdz4da7pNDxPc85Dhg/exec';
+
+const MOMENTOS = { durante:{nombre:'Durante el día',ico:'🕐'}, apertura:{nombre:'Apertura',ico:'🌅'}, cierre:{nombre:'Cierre',ico:'🌙'} };
+const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']; // índice = Date.getDay()
+
+let kioskoSel = '';
+let TAREAS = [];                 // tareas del kiosko seleccionado (todas, activas e inactivas)
+let ASIGN = {};                  // mapa "tareaId|fecha" -> fila de Asignaciones
+let personalData = [];           // colaboradores (para autocompletar responsable)
+let calRef = new Date();
+let tabActual = 'control';
+// estado de edición de formularios
+let editandoTareaId = null, momentoSel = 'durante', fotoRefDataUrl = null;
+let evidCtx = null, fotoEvidDataUrl = null; // evidCtx = {tareaId, fecha, nombre}
+
+document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+document.getElementById('ctl-fecha').value = hoy();
+
+if (LIMPIEZA_URL.includes('TODO_PEGAR')) {
+  document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-limpieza-backend.gs sin desplegar). Pegá la URL /exec en la constante LIMPIEZA_URL.</div>';
+}
+
+init();
+async function init(){
+  await Promise.all([cargarKioskos(), cargarPersonal()]);
+}
+
+// ── CARGA DE KIOSKOS Y PERSONAL (backend RRHH compartido) ──────────────
+async function cargarKioskos(){
+  const sel = document.getElementById('kiosko-sel');
+  try{
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH+'?modulo=kioskos', {}, 20000);
+    const data = await resp.json();
+    const regs = (data.registros||[]).filter(k => String(k['Activo']||'').toLowerCase().charAt(0)==='s');
+    const nombres = kioskosPermitidos(regs.map(k=>k['Kiosko']).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
+    if (!nombres.length){ sel.innerHTML = '<option value="">No hay kioskos disponibles</option>'; return; }
+    sel.innerHTML = '<option value="">Seleccioná un kiosko…</option>' + nombres.map(n=>`<option>${escapeAttr(n)}</option>`).join('');
+    if (nombres.length === 1){ sel.value = nombres[0]; onKioskoChange(); }
+  }catch(e){ sel.innerHTML = '<option value="">Error al cargar kioskos</option>'; }
+}
+async function cargarPersonal(){
+  try{
+    const resp = await fetchConTimeout(APPS_SCRIPT_RRHH+'?modulo=personal', {}, 20000);
+    const data = await resp.json();
+    if (data.ok) personalData = data.registros||[];
+  }catch(e){ personalData = []; }
+}
+function colaboradoresDe(kiosko){
+  const activos = personalData.filter(p => String(p['Estado']||'').toUpperCase()==='ACTIVO');
+  let lista = activos.filter(p => normNom(p['Kiosko'])===normNom(kiosko)).map(p=>p['Nombre completo']).filter(Boolean);
+  if (!lista.length) lista = activos.map(p=>p['Nombre completo']).filter(Boolean);
+  return lista.sort((a,b)=>a.localeCompare(b));
+}
+
+// ── CAMBIO DE KIOSKO: recarga tareas + asignaciones del mes y del día ──
+async function onKioskoChange(){
+  kioskoSel = document.getElementById('kiosko-sel').value;
+  if (!kioskoSel){ TAREAS=[]; ASIGN={}; pintarTodo(); return; }
+  await recargarTodo();
+}
+async function recargarTodo(){
+  if (!kioskoSel || LIMPIEZA_URL.includes('TODO_PEGAR')){ pintarTodo(); return; }
+  document.getElementById('ctl-list').innerHTML = '<div class="empty">Cargando…</div>';
+  await cargarTareas();
+  await cargarAsignacionesRango(rangoVisible());
+  pintarTodo();
+}
+function pintarTodo(){ renderControl(); renderCalendario(); renderConfig(); }
+
+async function cargarTareas(){
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL+'?modulo=tareas&kiosko='+encodeURIComponent(kioskoSel), {}, 25000);
+    const data = await resp.json();
+    TAREAS = (data.ok && Array.isArray(data.tareas)) ? data.tareas : [];
+  }catch(e){ TAREAS = []; showToast('No se pudieron cargar las tareas — '+e.message,'error'); }
+}
+async function cargarAsignacionesRango({desde,hasta}){
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL+`?modulo=asignaciones&kiosko=${encodeURIComponent(kioskoSel)}&desde=${desde}&hasta=${hasta}`, {}, 25000);
+    const data = await resp.json();
+    (data.ok && Array.isArray(data.asignaciones) ? data.asignaciones : []).forEach(a => {
+      ASIGN[claveAsign(a['Tarea ID'], a['Fecha'])] = a;
+    });
+  }catch(e){ /* se deja lo que haya en ASIGN */ }
+}
+// rango que cubre el mes del calendario y el día del control, con margen
+function rangoVisible(){
+  const y=calRef.getFullYear(), m=calRef.getMonth();
+  const desde = isoDe(new Date(y, m-1, 1));
+  const hasta = isoDe(new Date(y, m+2, 0));
+  return {desde, hasta};
+}
+function claveAsign(tareaId, fecha){ return String(tareaId)+'|'+String(fecha); }
+function asignDe(tareaId, fecha){ return ASIGN[claveAsign(tareaId, fecha)] || null; }
+
+// ── RECURRENCIA: ¿esta tarea toca en esta fecha? ───────────────────────
+function tareaTocaEn(t, iso){
+  if (String(t['Activa']||'Sí').toLowerCase().charAt(0) === 'n') return false;
+  const tipo = String(t['Recurrencia Tipo']||'diaria').toLowerCase();
+  const det = String(t['Recurrencia Detalle']||'');
+  const d = fechaDe(iso);
+  if (tipo === 'diaria') return true;
+  if (tipo === 'semanal'){ return det.split(',').map(s=>s.trim()).includes(DOW[d.getDay()]); }
+  if (tipo === 'mensual'){
+    const dias = det.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>n>=1&&n<=31);
+    const diaMes = d.getDate();
+    const ultimoDia = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    return dias.some(n => n === diaMes || (n > ultimoDia && diaMes === ultimoDia));
+  }
+  if (tipo === 'unica') return det === iso;
+  return false;
+}
+function tareasDelDia(iso){
+  return TAREAS.filter(t => tareaTocaEn(t, iso))
+    .sort((a,b)=> ordenMomento(a['Momento']) - ordenMomento(b['Momento']) || String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')));
+}
+function ordenMomento(m){ m=String(m||'durante').toLowerCase(); return m==='apertura'?0:m==='cierre'?2:1; }
+// estado efectivo de una tarea en una fecha (deriva "vencida")
+function estadoEn(t, iso){
+  const a = asignDe(t['ID'], iso);
+  if (a && String(a['Estado']||'').toLowerCase()==='completada') return 'completada';
+  if (iso < hoy()) return 'vencida';
+  return 'pendiente';
+}
+
+// ── PESTAÑAS ───────────────────────────────────────────────────────────
+function irTab(tab){
+  tabActual = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===tab));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+tab).classList.add('on');
+}
+
+// ══ CONTROL ══════════════════════════════════════════════════════════
+function ctlHoy(){ document.getElementById('ctl-fecha').value = hoy(); renderControl(); }
+function renderControl(){
+  const cont = document.getElementById('ctl-list');
+  if (!kioskoSel){ cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus tareas.</div>'; return; }
+  const iso = document.getElementById('ctl-fecha').value || hoy();
+  const tareas = tareasDelDia(iso);
+  if (!tareas.length){ cont.innerHTML = '<div class="empty">No hay tareas programadas para este día en '+escapeAttr(kioskoSel)+'.</div>'; return; }
+  const colabs = colaboradoresDe(kioskoSel);
+  cont.innerHTML = tareas.map(t => {
+    const est = estadoEn(t, iso);
+    const a = asignDe(t['ID'], iso) || {};
+    const mom = String(t['Momento']||'durante').toLowerCase();
+    const refFoto = t['Foto Referencia URL'] ? `<img class="thumb-ref" src="${escapeAttr(t['Foto Referencia URL'])}" title="Foto de referencia" onclick="verFoto('${escapeAttr(t['Foto Referencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+    const responsable = a['Responsable'] || '';
+    const opc = ['<option value="">— responsable —</option>'].concat(colabs.map(n=>`<option ${n===responsable?'selected':''}>${escapeAttr(n)}</option>`)).join('');
+    let side;
+    if (est === 'completada'){
+      const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" src="${escapeAttr(a['Foto Evidencia URL'])}" title="Ver evidencia" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+      side = `<span class="estado-tag completada">✓ Completada</span>${evFoto}`;
+    } else {
+      side = `<select onchange="asignarResponsable('${t['ID']}','${iso}', this.value)">${opc}</select>
+        <button class="btn-add" style="justify-content:center;width:100%" onclick="abrirEvidencia('${t['ID']}','${iso}')">📷 Marcar hecha</button>`;
+    }
+    const metaResp = (est==='completada' && (a['Completada por']||a['Responsable'])) ? `<span>👤 <b>${escapeAttr(a['Completada por']||a['Responsable'])}</b></span>` : (responsable?`<span>👤 <b>${escapeAttr(responsable)}</b></span>`:'');
+    const metaHora = a['Completada'] ? `<span>🕒 ${escapeAttr(a['Completada'])}</span>` : '';
+    const nota = a['Nota'] ? `<span>📝 ${escapeAttr(a['Nota'])}</span>` : '';
+    return `<div class="task-row ${est}">
+      ${refFoto}
+      <div class="task-body">
+        <div class="task-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:'Durante el día'}</span></div>
+        ${t['Instrucciones']?`<div class="task-meta"><span>${escapeAttr(t['Instrucciones'])}</span></div>`:''}
+        <div class="task-meta">${metaResp}${metaHora}${nota}</div>
+      </div>
+      <div class="task-side"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'':'● Pendiente'}</span>${side}</div>
+    </div>`;
+  }).join('');
+}
+async function asignarResponsable(tareaId, iso, responsable){
+  if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL, post({accion:'asignar', tareaId, kiosko:kioskoSel, fecha:iso, responsable}), 60000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error||'Error');
+    ASIGN[claveAsign(tareaId, iso)] = out.asignacion || Object.assign(asignDe(tareaId,iso)||{}, {'Tarea ID':tareaId,'Fecha':iso,'Responsable':responsable,'Estado':'pendiente'});
+    showToast('Responsable asignado ✓');
+  }catch(e){ showToast('No se pudo asignar — '+e.message,'error'); }
+}
+
+// ══ EVIDENCIA (completar con foto) ═══════════════════════════════════
+function abrirEvidencia(tareaId, iso){
+  const t = TAREAS.find(x=>String(x['ID'])===String(tareaId)); if (!t) return;
+  evidCtx = { tareaId, fecha:iso, nombre:t['Nombre']||'' };
+  fotoEvidDataUrl = null; quitarFotoEvidVista();
+  document.getElementById('evid-nota').value = '';
+  const a = asignDe(tareaId, iso) || {};
+  document.getElementById('evid-title').textContent = t['Nombre']||'Tarea';
+  document.getElementById('evid-sub').textContent = fechaLarga(iso) + (a['Responsable']?' · '+a['Responsable']:'');
+  document.getElementById('form-evid').classList.add('show');
+}
+function cerrarEvidencia(){ document.getElementById('form-evid').classList.remove('show'); }
+async function completarTarea(){
+  if (!evidCtx) return;
+  if (!fotoEvidDataUrl){ showToast('Tenés que tomar la foto de evidencia','error'); return; }
+  if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
+  const a = asignDe(evidCtx.tareaId, evidCtx.fecha) || {};
+  const btn = document.getElementById('btn-completar'); const txt = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL, post({
+      accion:'completar', tareaId:evidCtx.tareaId, kiosko:kioskoSel, fecha:evidCtx.fecha,
+      responsable: a['Responsable']||'', completada_por: sesionNombre()||a['Responsable']||'',
+      nota: document.getElementById('evid-nota').value.trim(), foto: fotoEvidDataUrl
+    }), 120000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error||'Error al guardar');
+    if (out.asignacion) ASIGN[claveAsign(evidCtx.tareaId, evidCtx.fecha)] = out.asignacion;
+    showToast('Tarea completada ✓');
+    cerrarEvidencia();
+    pintarTodo();
+  }catch(e){ showToast('No se pudo completar — '+(e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message),'error'); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+
+// ══ CALENDARIO ═══════════════════════════════════════════════════════
+async function cambiarMes(delta){ calRef.setMonth(calRef.getMonth()+delta); await cargarAsignacionesRango(rangoVisible()); renderCalendario(); }
+async function irMesHoy(){ calRef = new Date(); await cargarAsignacionesRango(rangoVisible()); renderCalendario(); }
+function renderCalendario(){
+  const grid = document.getElementById('cal-grid');
+  if (!kioskoSel){ grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Elegí un kiosko.</div>'; return; }
+  const y = calRef.getFullYear(), m = calRef.getMonth();
+  document.getElementById('cal-month').textContent = calRef.toLocaleDateString('es-CR',{month:'long',year:'numeric'});
+  const primero = new Date(y, m, 1);
+  const inicioSemana = new Date(primero); inicioSemana.setDate(1 - ((primero.getDay()+6)%7));
+  const hoyISO = hoy();
+  const dows = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for (let i=0;i<42;i++){
+    const cur = new Date(inicioSemana); cur.setDate(inicioSemana.getDate()+i);
+    const iso = isoDe(cur);
+    const otro = cur.getMonth() !== m;
+    const esHoy = iso === hoyISO;
+    const tareas = otro ? [] : tareasDelDia(iso);
+    const visibles = tareas.slice(0,3);
+    let evHtml = visibles.map(t => {
+      const est = estadoEn(t, iso);
+      return `<div class="cal-ev ${est}" onclick="event.stopPropagation();abrirDia('${iso}')" title="${escapeAttr(t['Nombre']||'')}">${escapeAttr(t['Nombre']||'')}</div>`;
+    }).join('');
+    if (tareas.length > 3) evHtml += `<div class="cal-more" onclick="event.stopPropagation();abrirDia('${iso}')">+${tareas.length-3} más</div>`;
+    const click = otro ? '' : `onclick="abrirDia('${iso}')"`;
+    html += `<div class="cal-cell ${otro?'other':''} ${esHoy?'today':''}" ${click}><div class="cal-daynum">${cur.getDate()}</div>${evHtml}</div>`;
+  }
+  grid.innerHTML = html;
+}
+function abrirDia(iso){
+  const tareas = tareasDelDia(iso);
+  document.getElementById('dia-title').textContent = fechaLarga(iso);
+  const hechas = tareas.filter(t=>estadoEn(t,iso)==='completada').length;
+  document.getElementById('dia-sub').innerHTML = `${hechas}/${tareas.length} completadas · <a onclick="cerrarDia();document.getElementById('ctl-fecha').value='${iso}';irTab('control');renderControl();" style="color:var(--green);cursor:pointer">abrir en Control</a>`;
+  if (!tareas.length){ document.getElementById('dia-body').innerHTML = '<div class="empty">Sin tareas este día.</div>'; }
+  else document.getElementById('dia-body').innerHTML = tareas.map(t => {
+    const est = estadoEn(t, iso); const a = asignDe(t['ID'], iso) || {};
+    const mom = String(t['Momento']||'durante').toLowerCase();
+    const quien = a['Completada por']||a['Responsable']||'';
+    const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" style="margin-top:6px" src="${escapeAttr(a['Foto Evidencia URL'])}" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+    return `<div class="task-row ${est}" style="margin-bottom:8px">
+      <div class="task-body">
+        <div class="task-name" style="font-size:14px">${escapeAttr(t['Nombre']||'')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico:''}</span></div>
+        <div class="task-meta"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'✓ Completada':'● Pendiente'}</span>${quien?`<span>👤 <b>${escapeAttr(quien)}</b></span>`:''}</div>
+        ${evFoto}
+      </div></div>`;
+  }).join('');
+  document.getElementById('modal-dia').classList.add('show');
+}
+function cerrarDia(){ document.getElementById('modal-dia').classList.remove('show'); }
+
+// ══ CONFIGURACIÓN ════════════════════════════════════════════════════
+function renderConfig(){
+  const cont = document.getElementById('cfg-list');
+  if (!kioskoSel){ cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus tareas.</div>'; return; }
+  if (!TAREAS.length){ cont.innerHTML = '<div class="empty">Todavía no hay tareas para '+escapeAttr(kioskoSel)+'. Tocá "Nueva tarea".</div>'; return; }
+  cont.innerHTML = TAREAS.slice().sort((a,b)=>String(a['Nombre']||'').localeCompare(String(b['Nombre']||''))).map(t => {
+    const activa = String(t['Activa']||'Sí').toLowerCase().charAt(0) !== 'n';
+    const mom = String(t['Momento']||'durante').toLowerCase();
+    const refFoto = t['Foto Referencia URL'] ? `<img class="thumb-ref" src="${escapeAttr(t['Foto Referencia URL'])}" onclick="verFoto('${escapeAttr(t['Foto Referencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+    return `<div class="cfg-card ${activa?'':'off'}">
+      ${refFoto}
+      <div class="cfg-body">
+        <div class="cfg-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span>${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
+        ${t['Instrucciones']?`<div class="cfg-instr">${escapeAttr(t['Instrucciones'])}</div>`:''}
+        <span class="cfg-rec">🔁 ${textoRecurrencia(t)}</span>
+      </div>
+      <div class="cfg-actions">
+        <button class="btn-sm" onclick="editarTarea('${t['ID']}')">✏️ Editar</button>
+        <button class="btn-sm" onclick="toggleTarea('${t['ID']}', ${activa?'false':'true'})">${activa?'Desactivar':'Activar'}</button>
+        <button class="btn-sm" style="color:var(--red)" onclick="eliminarTarea('${t['ID']}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function textoRecurrencia(t){
+  const tipo = String(t['Recurrencia Tipo']||'diaria').toLowerCase(); const det = String(t['Recurrencia Detalle']||'');
+  if (tipo==='diaria') return 'Todos los días';
+  if (tipo==='semanal') return 'Semanal: '+(det||'—');
+  if (tipo==='mensual') return 'Mensual: día(s) '+(det||'—');
+  if (tipo==='unica') return 'Única: '+fechaLarga(det);
+  return tipo;
+}
+function abrirFormTarea(){
+  if (!kioskoSel){ showToast('Elegí primero un kiosko','error'); return; }
+  limpiarFormTarea();
+  document.getElementById('form-tarea-title').textContent = 'Nueva tarea · '+kioskoSel;
+  document.getElementById('btn-guardar-tarea').textContent = 'Guardar tarea';
+  document.getElementById('form-tarea').classList.add('show');
+  setTimeout(()=>document.getElementById('t-nombre').focus(),50);
+}
+function cerrarFormTarea(){ document.getElementById('form-tarea').classList.remove('show'); }
+function elegirMomento(m){ momentoSel=m; document.querySelectorAll('.mom-opt').forEach(o=>o.classList.toggle('on',o.dataset.mom===m)); }
+function onRecTipoChange(){
+  const tipo = document.getElementById('t-rec-tipo').value;
+  document.getElementById('rec-semanal').style.display = tipo==='semanal'?'block':'none';
+  document.getElementById('rec-mensual').style.display = tipo==='mensual'?'block':'none';
+  document.getElementById('rec-unica').style.display   = tipo==='unica'?'block':'none';
+}
+function toggleDow(el){ el.classList.toggle('on'); }
+function dowSeleccionados(){ return Array.from(document.querySelectorAll('#dow-select .dow-opt.on')).map(e=>e.dataset.dow); }
+function limpiarFormTarea(){
+  editandoTareaId=null; momentoSel='durante'; fotoRefDataUrl=null;
+  document.getElementById('t-nombre').value='';
+  document.getElementById('t-instr').value='';
+  document.getElementById('t-rec-tipo').value='diaria';
+  document.getElementById('t-rec-mes').value='';
+  document.getElementById('t-rec-fecha').value='';
+  document.querySelectorAll('#dow-select .dow-opt').forEach(e=>e.classList.remove('on'));
+  elegirMomento('durante'); onRecTipoChange(); quitarFotoRefVista();
+}
+function editarTarea(id){
+  const t = TAREAS.find(x=>String(x['ID'])===String(id)); if (!t) return;
+  limpiarFormTarea();
+  editandoTareaId = t['ID'];
+  document.getElementById('t-nombre').value = t['Nombre']||'';
+  document.getElementById('t-instr').value = t['Instrucciones']||'';
+  elegirMomento(String(t['Momento']||'durante').toLowerCase());
+  const tipo = String(t['Recurrencia Tipo']||'diaria').toLowerCase();
+  document.getElementById('t-rec-tipo').value = tipo; onRecTipoChange();
+  const det = String(t['Recurrencia Detalle']||'');
+  if (tipo==='semanal') det.split(',').map(s=>s.trim()).forEach(tok=>{ const el=document.querySelector(`#dow-select .dow-opt[data-dow="${tok}"]`); if (el) el.classList.add('on'); });
+  if (tipo==='mensual') document.getElementById('t-rec-mes').value = det;
+  if (tipo==='unica') document.getElementById('t-rec-fecha').value = det;
+  if (t['Foto Referencia URL']){ fotoRefDataUrl=null; document.getElementById('ref-placeholder').style.display='none'; document.getElementById('ref-preview-wrap').style.display='block'; document.getElementById('ref-preview-img').src = t['Foto Referencia URL']; }
+  document.getElementById('form-tarea-title').textContent = 'Editar tarea · '+kioskoSel;
+  document.getElementById('btn-guardar-tarea').textContent = 'Guardar cambios';
+  document.getElementById('form-tarea').classList.add('show');
+}
+async function guardarTarea(){
+  if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
+  const nombre = document.getElementById('t-nombre').value.trim();
+  const tipo = document.getElementById('t-rec-tipo').value;
+  if (!nombre){ showToast('Escribí el nombre de la tarea','error'); return; }
+  let detalle = '';
+  if (tipo==='semanal'){ const d=dowSeleccionados(); if(!d.length){ showToast('Elegí al menos un día de la semana','error'); return; } detalle=d.join(','); }
+  else if (tipo==='mensual'){ const dias=document.getElementById('t-rec-mes').value.split(',').map(s=>parseInt(s.trim(),10)).filter(n=>n>=1&&n<=31); if(!dias.length){ showToast('Escribí al menos un día del mes (1-31)','error'); return; } detalle=dias.join(','); }
+  else if (tipo==='unica'){ detalle=document.getElementById('t-rec-fecha').value; if(!detalle){ showToast('Elegí la fecha','error'); return; } }
+  const btn = document.getElementById('btn-guardar-tarea'); const txt = btn.textContent;
+  btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL, post({
+      accion:'tarea_guardar', id: editandoTareaId||'', kiosko:kioskoSel, nombre,
+      instrucciones: document.getElementById('t-instr').value.trim(),
+      momento: momentoSel, recurrenciaTipo: tipo, recurrenciaDetalle: detalle,
+      foto: fotoRefDataUrl || '', registrado_por: sesionNombre()
+    }), 120000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error||'Error al guardar');
+    showToast(editandoTareaId?'Tarea actualizada ✓':'Tarea creada ✓');
+    cerrarFormTarea();
+    await cargarTareas(); pintarTodo();
+  }catch(e){ showToast('No se pudo guardar — '+(e.message==='Tiempo de espera agotado'?'la conexión tardó demasiado':e.message),'error'); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+async function toggleTarea(id, activar){
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL, post({accion:'tarea_estado', id, activa: activar?'Sí':'No'}), 60000);
+    const out = await resp.json(); if (!out.ok) throw new Error(out.error||'Error');
+    const t = TAREAS.find(x=>String(x['ID'])===String(id)); if (t) t['Activa'] = activar?'Sí':'No';
+    showToast(activar?'Tarea activada':'Tarea desactivada'); pintarTodo();
+  }catch(e){ showToast('No se pudo actualizar — '+e.message,'error'); }
+}
+async function eliminarTarea(id){
+  if (!confirm('¿Eliminar esta tarea? No se puede deshacer (las ejecuciones ya registradas quedan en el historial).')) return;
+  try{
+    const resp = await fetchConTimeout(LIMPIEZA_URL, post({accion:'tarea_eliminar', id}), 60000);
+    const out = await resp.json(); if (!out.ok) throw new Error(out.error||'Error');
+    TAREAS = TAREAS.filter(x=>String(x['ID'])!==String(id));
+    showToast('Tarea eliminada'); pintarTodo();
+  }catch(e){ showToast('No se pudo eliminar — '+e.message,'error'); }
+}
+
+// ══ FOTOS (compresión robusta — mismo patrón que activos.html) ═══════
+function decodificarImagen(file){
+  return new Promise((resolve,reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen (formato no soportado)')); };
+    img.src = url;
+  });
+}
+function comprimirDesdeImagen(img, maxDim, calidad){
+  let { width, height } = img;
+  if (width>maxDim || height>maxDim){ if (width>height){ height=Math.round(height*maxDim/width); width=maxDim; } else { width=Math.round(width*maxDim/height); height=maxDim; } }
+  const canvas = document.createElement('canvas'); canvas.width=width; canvas.height=height;
+  canvas.getContext('2d').drawImage(img,0,0,width,height);
+  return canvas.toDataURL('image/jpeg', calidad);
+}
+function tamanoDataUrl(dataUrl){ const b=(dataUrl.split(',')[1]||''); return Math.round(b.length*3/4); }
+const FOTO_LIMITE_BYTES = 3.5*1024*1024;
+const FOTO_MAX_ARCHIVO_ORIGINAL = 30*1024*1024;
+async function comprimirFotoConLimite(file){
+  const img = await decodificarImagen(file);
+  const pasadas = [{maxDim:1600,calidad:0.75},{maxDim:1280,calidad:0.6},{maxDim:1000,calidad:0.5},{maxDim:800,calidad:0.45}];
+  let ultimo=null;
+  for (const p of pasadas){ ultimo=comprimirDesdeImagen(img,p.maxDim,p.calidad); if (tamanoDataUrl(ultimo)<=FOTO_LIMITE_BYTES) return ultimo; }
+  return ultimo;
+}
+// — foto de referencia (config): galería o cámara —
+function onFotoRefSelected(event){
+  const file = event.target.files[0]; if (!file) return;
+  if (file.size>FOTO_MAX_ARCHIVO_ORIGINAL){ showToast('El archivo es demasiado grande (máx. 30 MB)','error'); return; }
+  const ph = document.getElementById('ref-placeholder'); ph.innerHTML = '<div>⏳ Procesando foto…</div>';
+  comprimirFotoConLimite(file).then(dataUrl=>{
+    fotoRefDataUrl = dataUrl;
+    ph.style.display='none';
+    document.getElementById('ref-preview-wrap').style.display='block';
+    document.getElementById('ref-preview-img').src = dataUrl;
+  }).catch(e=>{ ph.innerHTML='<div style="font-size:22px;margin-bottom:2px">🖼️</div><div>Subir foto de cómo debe quedar (galería o cámara)</div>'; showToast(e.message||'No se pudo procesar la imagen','error'); });
+}
+function quitarFotoRef(event){ event.preventDefault(); event.stopPropagation(); fotoRefDataUrl=null; quitarFotoRefVista(); }
+function quitarFotoRefVista(){
+  const inp=document.getElementById('t-foto'); if (inp) inp.value='';
+  document.getElementById('ref-placeholder').style.display='block';
+  document.getElementById('ref-placeholder').innerHTML='<div style="font-size:22px;margin-bottom:2px">🖼️</div><div>Subir foto de cómo debe quedar (galería o cámara)</div>';
+  document.getElementById('ref-preview-wrap').style.display='none';
+}
+// — foto de evidencia (control): SOLO cámara —
+function onFotoEvidSelected(event){
+  const file = event.target.files[0]; if (!file) return;
+  if (file.size>FOTO_MAX_ARCHIVO_ORIGINAL){ showToast('El archivo es demasiado grande (máx. 30 MB)','error'); return; }
+  const ph = document.getElementById('evid-placeholder'); ph.innerHTML = '<div>⏳ Procesando foto…</div>';
+  comprimirFotoConLimite(file).then(dataUrl=>{
+    fotoEvidDataUrl = dataUrl;
+    ph.style.display='none';
+    document.getElementById('evid-preview-wrap').style.display='block';
+    document.getElementById('evid-preview-img').src = dataUrl;
+  }).catch(e=>{ ph.innerHTML='<div style="font-size:26px;margin-bottom:4px">📷</div><div>Tocá para tomar la foto</div>'; showToast(e.message||'No se pudo procesar la foto','error'); });
+}
+function quitarFotoEvid(event){ event.preventDefault(); event.stopPropagation(); fotoEvidDataUrl=null; quitarFotoEvidVista(); }
+function quitarFotoEvidVista(){
+  const inp=document.getElementById('evid-foto'); if (inp) inp.value='';
+  const ph=document.getElementById('evid-placeholder'); ph.style.display='block';
+  ph.innerHTML='<div style="font-size:26px;margin-bottom:4px">📷</div><div>Tocá para tomar la foto</div>';
+  document.getElementById('evid-preview-wrap').style.display='none';
+}
+function verFoto(url){ document.getElementById('foto-grande').src = url; document.getElementById('modal-foto').classList.add('show'); }
+function cerrarFoto(){ document.getElementById('modal-foto').classList.remove('show'); }
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function post(payload){ return { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) }; }
+async function fetchConTimeout(url, options={}, timeoutMs=20000){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), timeoutMs);
+  try{ return await fetch(url, {...options, signal:controller.signal}); }
+  catch(err){ if (err.name==='AbortError') throw new Error('Tiempo de espera agotado'); throw err; }
+  finally{ clearTimeout(timer); }
+}
+function showToast(msg, type='success'){
+  const t = document.getElementById('toast');
+  document.getElementById('toast-icon').innerHTML = type==='success' ? '<polyline points="3 8 7 12 13 4"/>' : '<line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>';
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `toast ${type}`;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+function hoy(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fechaDe(iso){ const p=String(iso||'').split('-'); return new Date(Number(p[0]), Number(p[1])-1, Number(p[2])); }
+function fechaLarga(iso){ const p=String(iso||'').split('-'); if (p.length!==3) return iso; return fechaDe(iso).toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'}); }
+function normNom(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
+function escapeAttr(str){ return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ cerrarFormTarea(); cerrarEvidencia(); cerrarDia(); cerrarFoto(); } });
+</script>
+</body>
+</html>
