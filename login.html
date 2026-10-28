@@ -34,7 +34,7 @@
     p  { font-size:13px; color:var(--muted); margin-bottom:2rem; }
     label { font-size:13px; font-weight:500; color:var(--text); display:block; margin-bottom:6px; }
     .pin-wrap { position:relative; margin-bottom:1.25rem; }
-    input[type="password"] {
+    input[type="password"], input[type="text"].pin {
       width:100%; background:var(--bg); border:1.5px solid var(--border);
       border-radius:10px; color:var(--text); font-family:var(--font-b);
       font-size:20px; letter-spacing:.3em; padding:12px 40px 12px 16px;
@@ -67,6 +67,13 @@
       border:1px solid #f0c0a8; border-radius:8px; padding:9px 12px;
       margin-top:12px; display:none; text-align:center;
     }
+    .pin-link {
+      display:block; width:100%; text-align:center; margin-top:1.25rem;
+      background:none; border:none; color:var(--muted); font-size:12px;
+      font-family:var(--font-b); cursor:pointer; text-decoration:underline;
+    }
+    .pin-link:hover { color:var(--text); }
+    #pin-section { display:none; margin-top:1.25rem; }
   </style>
   <script src="https://accounts.google.com/gsi/client"></script>
 </head>
@@ -83,53 +90,50 @@
   </div>
 
   <h1>Bienvenido</h1>
-  <p>Ingresá tu código de acceso para continuar.</p>
+  <p>Entrá con tu correo registrado para continuar.</p>
 
-  <label for="pin">Código de acceso</label>
-  <div class="pin-wrap">
-    <input type="password" id="pin" maxlength="10" placeholder="••••" autocomplete="off"
-      onkeydown="if(event.key==='Enter')ingresar()">
-    <button class="toggle-vis" onclick="toggleVis()" type="button" title="Mostrar código">👁</button>
-  </div>
-
-  <button class="btn" id="btn-ingresar" onclick="ingresar()">Ingresar</button>
-  <div class="error" id="error-msg">Código incorrecto. Intentá nuevamente.</div>
-
+  <!-- Método principal: correo individual (Google) -->
   <div id="google-section" style="display:none;">
-    <div class="divider">o</div>
     <div class="google-wrap" id="g_id_button"></div>
     <div class="google-error" id="google-error-msg"></div>
+  </div>
+  <div class="error" id="google-unavailable" style="display:none;">
+    El acceso con correo no está disponible en este momento. Usá el código de acceso.
+  </div>
+
+  <!-- Respaldo: código de acceso (PIN) por rol, oculto por defecto -->
+  <button class="pin-link" id="pin-toggle" onclick="togglePin()" type="button">¿Problemas para entrar? Usar código de acceso</button>
+  <div id="pin-section">
+    <label for="pin">Código de acceso</label>
+    <div class="pin-wrap">
+      <input type="password" id="pin" maxlength="10" placeholder="••••" autocomplete="off"
+        onkeydown="if(event.key==='Enter')ingresar()">
+      <button class="toggle-vis" onclick="toggleVis()" type="button" title="Mostrar código">👁</button>
+    </div>
+    <button class="btn" id="btn-ingresar" onclick="ingresar()">Ingresar</button>
+    <div class="error" id="error-msg">Código incorrecto. Intentá nuevamente.</div>
   </div>
 
   <div class="footer">Playa Grande Brew House · Portal interno de kioskos</div>
 </div>
 
 <script>
-// Iniciar sesión con Google (además del PIN por rol) — cada correo debe
-// estar dado de alta en admin-accesos.html > Usuarios individuales, con un
-// Rol asignado; ese Rol es quien define módulos y kioskos, igual que con el
-// login por PIN. Pegar acá el Client ID de Google Cloud (APIs & Services >
-// Credentials > OAuth 2.0 Client ID, tipo "Web application", con este mismo
-// origen en "Authorized JavaScript origins"). Mientras esté vacío, el botón
-// de Google queda oculto y el portal sigue funcionando solo con PIN.
+// Login principal: correo individual con Google. Cada correo debe estar dado
+// de alta en admin-accesos.html → Asignación de personal, con un Rol y un
+// kiosko asignados. El Rol define los módulos; el kiosko del usuario define
+// a qué kiosko(s) se limita la sesión. El PIN por rol queda como respaldo
+// (link "Usar código de acceso") para terminales compartidas o si Google no
+// estuviera disponible.
 const GOOGLE_CLIENT_ID = '853957823193-fncpv7krc70cd4okguamathqr44ld6ka.apps.googleusercontent.com';
 
-// Misma URL /exec del backend de RRHH que usan cierres.html, configuracion.html
-// y admin-accesos.html — ahí vive la pestaña "Roles" (nombre, PIN, color,
-// módulos y kioskos permitidos por rol).
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
-// Rol de respaldo — se usa si todavía no se desplegó el backend con la
-// pestaña "Roles" (ver admin-accesos.html), o si por algún motivo no hay
-// conexión: sin esto, un problema de red dejaría a todo el mundo afuera del
-// portal. En cuanto haya conexión, ROLES se reemplaza por lo que devuelva el
-// backend (incluye siempre un rol "admin"/"admin" sembrado automáticamente
-// la primera vez que se corre configurarHojas()).
+// Rol de respaldo — solo para el acceso por PIN si todavía no se desplegó el
+// backend con la pestaña "Roles", o si no hay conexión.
 const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos', kioskos:'todos' };
 
-let ROLES = null; // null = todavía cargando
+let ROLES = null;
 
-// Convierte "todos" | "a,b,c" (tal cual viene del Sheet) a 'todos' | ['a','b','c'].
 function parseLista(v) {
   const s = String(v == null ? 'todos' : v).trim();
   if (!s || s.toLowerCase() === 'todos') return 'todos';
@@ -147,14 +151,22 @@ async function cargarRoles() {
       color: r['Color'] || '#1a7a4a',
       modulos: parseLista(r['Modulos']), kioskos: parseLista(r['Kioskos'])
     })) : [ADMIN_DEFAULT];
-    // Cache local por si la próxima carga no tiene conexión.
     localStorage.setItem('portal_roles_cache', JSON.stringify(ROLES));
   } catch (e) {
     try { ROLES = JSON.parse(localStorage.getItem('portal_roles_cache')||'null') || [ADMIN_DEFAULT]; }
     catch { ROLES = [ADMIN_DEFAULT]; }
   }
-  document.getElementById('pin').disabled = false;
-  document.getElementById('btn-ingresar').disabled = false;
+  const pin = document.getElementById('pin');
+  const btn = document.getElementById('btn-ingresar');
+  if (pin) pin.disabled = false;
+  if (btn) btn.disabled = false;
+}
+
+function togglePin() {
+  const sec = document.getElementById('pin-section');
+  const show = sec.style.display !== 'block';
+  sec.style.display = show ? 'block' : 'none';
+  if (show) document.getElementById('pin').focus();
 }
 
 function toggleVis() {
@@ -187,18 +199,12 @@ if (sesion && (Date.now() - sesion.ts) < 8 * 60 * 60 * 1000) {
   window.location.href = 'index.html';
 }
 
-document.getElementById('pin').disabled = true;
-document.getElementById('btn-ingresar').disabled = true;
+// El PIN arranca deshabilitado hasta cargar roles (igual que antes).
+if (document.getElementById('pin')) document.getElementById('pin').disabled = true;
+if (document.getElementById('btn-ingresar')) document.getElementById('btn-ingresar').disabled = true;
 cargarRoles();
-document.getElementById('pin').focus();
 
 // ── LOGIN CON GOOGLE ──────────────────────────────────────────────
-// El token que entrega Google (response.credential, un ID token firmado) se
-// manda tal cual al backend — es el backend (resolverLoginGoogle) quien lo
-// valida contra Google y recién ahí busca el correo en Usuarios. Acá nunca
-// se confía en el email "a simple vista": si alguien manipulara este JS en
-// su propio navegador, igual necesitaría un token real y válido de Google
-// para conseguir una sesión, porque el backend es quien decide.
 async function handleGoogleCredential(response) {
   const errBox = document.getElementById('google-error-msg');
   errBox.style.display = 'none';
@@ -236,6 +242,10 @@ if (GOOGLE_CLIENT_ID && window.google && google.accounts && google.accounts.id) 
   google.accounts.id.renderButton(document.getElementById('g_id_button'), {
     theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 300
   });
+} else {
+  // Sin Google disponible: mostramos el aviso y abrimos el PIN como respaldo.
+  document.getElementById('google-unavailable').style.display = 'block';
+  document.getElementById('pin-section').style.display = 'block';
 }
 </script>
 </body>

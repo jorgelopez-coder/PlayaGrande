@@ -14,7 +14,7 @@
   --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
   --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
   --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
-  --blue:#185fa5;--blue-bg:#eef4fb;
+  --blue:#185fa5;--blue-bg:#eef4fb;--amber:#b7791f;--amber-bg:#fdf6e3;
   --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
 }
 body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
@@ -25,13 +25,19 @@ header{height:56px;border-bottom:1px solid var(--border);padding:0 2rem;display:
 .back-btn svg{width:13px;height:13px}
 .page-title{font-family:var(--font-d);font-size:14px;font-weight:700}
 
-main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
+main{max-width:880px;margin:0 auto;padding:2rem 2rem 5rem}
 
-.intro{margin-bottom:1.5rem}
+.intro{margin-bottom:1.25rem}
 .intro h1{font-family:var(--font-d);font-size:20px;font-weight:800}
 .intro p{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
 
-.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.tab{padding:9px 16px;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:var(--font-b);margin-bottom:-1px}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.pane{display:none}
+.pane.active{display:block}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;gap:10px;flex-wrap:wrap}
 .section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 
 .btn-primary{background:var(--green);color:#fff;border:none;border-radius:9px;font-family:var(--font-d);font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;transition:opacity .15s}
@@ -56,11 +62,12 @@ main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
 .badge-ok{background:var(--green-bg);color:var(--green)}
 .badge-off{background:var(--red-bg);color:var(--red)}
 .badge-mono{font-family:var(--font-m);background:var(--surface);color:var(--muted)}
+.badge-count{background:var(--blue-bg);color:var(--blue)}
+.badge-warn{background:var(--amber-bg);color:var(--amber)}
 .rc-actions{display:flex;gap:4px;margin-left:auto}
 .rc-detail{display:flex;flex-direction:column;gap:4px;margin-top:.75rem;font-size:12px}
 .rc-detail-item{display:flex;gap:8px;color:var(--muted)}
 .rc-detail-item .v{color:var(--text);font-weight:500}
-.rc-empty{font-size:12px;color:var(--subtle);margin-top:.5rem}
 
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
 
@@ -73,7 +80,7 @@ main{max-width:760px;margin:0 auto;padding:2rem 2rem 5rem}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-hint{font-size:11px;color:var(--muted);margin-top:4px}
 .req{color:var(--red);margin-left:2px}
-input[type=text],input[type=password],select{
+input[type=text],input[type=email],select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
   outline:none;appearance:none;transition:border-color .15s
@@ -90,18 +97,43 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
 
 .toggle-todos{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:500;cursor:pointer;margin-bottom:.6rem;user-select:none}
 .toggle-todos input{width:auto;cursor:pointer}
-.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface)}
+.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface)}
 .check-grid.disabled{opacity:.45;pointer-events:none}
 .check-grid-group{grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);margin-top:6px}
 .check-grid-group:first-child{margin-top:0}
 .check-item{display:flex;align-items:center;gap:7px;font-size:13px;padding:3px 0;cursor:pointer}
 .check-item input{width:auto;cursor:pointer;flex-shrink:0}
-.kiosko-check-list{display:flex;flex-wrap:wrap;gap:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--surface)}
-.kiosko-check-list.disabled{opacity:.45;pointer-events:none}
-.kiosko-chip{display:flex;align-items:center;gap:6px;font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 8px;cursor:pointer}
-.kiosko-chip input{width:auto;cursor:pointer}
+
+/* ── Asignación de personal ── */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.filter-bar input[type=text]{max-width:220px}
+.filter-bar select{max-width:200px}
+.assign-list{display:flex;flex-direction:column;gap:8px}
+.assign-row{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;display:grid;grid-template-columns:1.4fr 1fr 1fr 110px auto;gap:10px;align-items:center}
+.assign-row.unassigned{border-left:3px solid var(--amber)}
+.assign-row.assigned{border-left:3px solid var(--green)}
+.ar-person{min-width:0}
+.ar-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar-email{font-size:11px;color:var(--muted);font-family:var(--font-m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ar-email.missing{color:var(--amber)}
+.assign-row select,.assign-row input[type=email]{padding:7px 10px;font-size:13px}
+.assign-row select{padding-right:30px}
+.ar-save{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.ar-dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;display:none}
+.assign-row.dirty .ar-dirty-dot{display:block}
+.ar-head{display:grid;grid-template-columns:1.4fr 1fr 1fr 110px auto;gap:10px;padding:0 1rem .4rem;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--subtle)}
+.group-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 .5rem}
+.group-label:first-child{margin-top:0}
+@media(max-width:720px){
+  .ar-head{display:none}
+  .assign-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+  .ar-person{grid-column:1/-1}
+}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
+
+.banner{background:var(--blue-bg);border:1px solid #bcd4ee;border-radius:10px;padding:.9rem 1.1rem;font-size:12.5px;color:var(--text);margin-bottom:1.25rem;line-height:1.5}
+.banner strong{font-weight:700}
 
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -133,120 +165,139 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
 
   <div class="intro">
     <h1>Roles y accesos</h1>
-    <p>Cada rol es un código de acceso (PIN) que entra por <code>login.html</code>. Definí a qué módulos y a qué kiosko(s) puede ver cada uno — el resto del sistema respeta esto automáticamente: los módulos no permitidos ni siquiera aparecen en el menú, y los selectores de kiosko de cada pantalla se limitan a los kioskos permitidos.</p>
+    <p>Dos pasos: <strong>1)</strong> cada <em>rol</em> es un paquete de permisos (a qué módulos entra). <strong>2)</strong> a cada colaborador del staff le asignás un rol y un kiosko con su correo registrado — entra al portal con ese correo (Google) y ve solo lo que su rol permite, limitado a su kiosko.</p>
   </div>
 
-  <div class="section-head">
-    <span class="section-title" id="rol-count">Cargando…</span>
-    <button class="btn-primary" onclick="abrirForm()">+ Agregar rol</button>
+  <div class="tabs">
+    <button class="tab active" id="tab-roles" onclick="mostrarPane('roles')">Roles · paquetes de permisos</button>
+    <button class="tab" id="tab-asignacion" onclick="mostrarPane('asignacion')">Asignación de personal</button>
   </div>
 
-  <div class="rol-list" id="rol-list">
-    <div class="empty-state">Cargando roles…</div>
-  </div>
+  <!-- ══════════════════ PANE: ROLES ══════════════════ -->
+  <div class="pane active" id="pane-roles">
 
-  <div class="card" id="form-card">
-    <p class="card-title" id="form-title">Nuevo rol</p>
+    <div class="banner" id="seed-banner" style="display:none">
+      Todavía no están creados los 4 roles estándar (Usuario, Supervisor, Contabilidad, Gerencia).
+      <button class="btn-primary" style="margin-left:8px;padding:6px 12px" onclick="sembrarRolesEstandar()">Crear los 4 roles estándar</button>
+    </div>
 
-    <div class="field-row">
-      <div class="field">
-        <label for="f-nombre">Nombre <span class="req">*</span></label>
-        <input type="text" id="f-nombre" placeholder="Ej: Encargado Nosara"/>
+    <div class="section-head">
+      <span class="section-title" id="rol-count">Cargando…</span>
+      <button class="btn-primary" onclick="abrirForm()">+ Agregar rol</button>
+    </div>
+
+    <div class="rol-list" id="rol-list">
+      <div class="empty-state">Cargando roles…</div>
+    </div>
+
+    <div class="card" id="form-card">
+      <p class="card-title" id="form-title">Nuevo rol</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-nombre">Nombre del rol <span class="req">*</span></label>
+          <input type="text" id="f-nombre" placeholder="Ej: Supervisor"/>
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <div class="color-row">
+            <input type="color" id="f-color" value="#1a7a4a"/>
+            <div class="color-presets" id="color-presets"></div>
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label for="f-pin">Código de acceso (PIN) <span class="req">*</span></label>
-        <input type="text" id="f-pin" placeholder="Ej: 4821" maxlength="10"/>
-        <p class="field-hint">Es lo que la persona escribe en la pantalla de acceso — puede ser numérico o alfanumérico.</p>
-      </div>
-    </div>
 
-    <div class="field">
-      <label>Color</label>
-      <div class="color-row">
-        <input type="color" id="f-color" value="#1a7a4a"/>
-        <div class="color-presets" id="color-presets"></div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Estado</label>
-      <select id="f-activo">
-        <option value="Sí">Activo</option>
-        <option value="No">Inactivo</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label>Módulos permitidos</label>
-      <label class="toggle-todos">
-        <input type="checkbox" id="f-modulos-todos" onchange="toggleTodosModulos()"/> Acceso a todos los módulos (incluye los que se agreguen después)
-      </label>
-      <div class="check-grid" id="check-modulos"></div>
-    </div>
-
-    <div class="field">
-      <label>Kioskos permitidos</label>
-      <label class="toggle-todos">
-        <input type="checkbox" id="f-kioskos-todos" onchange="toggleTodosKioskos()"/> Acceso a todos los kioskos (incluye los que se agreguen después)
-      </label>
-      <div class="kiosko-check-list" id="check-kioskos"></div>
-      <p class="field-hint">Aplica dentro de cada módulo permitido: por ejemplo, si el rol solo ve "Nosara", el selector de kiosko de Cierre de Caja o Mermas va a mostrar solo Nosara.</p>
-    </div>
-
-    <div class="submit-area">
-      <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
-      <button class="btn-primary" id="btn-guardar" onclick="guardarRol()">Guardar rol ✓</button>
-    </div>
-  </div>
-
-  <div class="intro" style="margin-top:2.5rem;">
-    <h1 style="font-size:17px;">Usuarios individuales (Google)</h1>
-    <p>Cada usuario entra con su cuenta de Google (personal o corporativa) desde <code>login.html</code>, en vez de un PIN compartido. Se le asigna un Rol de la lista de arriba — ese Rol sigue siendo quien define qué módulos y kioskos puede ver.</p>
-  </div>
-
-  <div class="section-head">
-    <span class="section-title" id="usr-count">Cargando…</span>
-    <button class="btn-primary" onclick="abrirFormUsuario()">+ Agregar usuario</button>
-  </div>
-
-  <div class="rol-list" id="usr-list">
-    <div class="empty-state">Cargando usuarios…</div>
-  </div>
-
-  <div class="card" id="form-card-usuario">
-    <p class="card-title" id="form-title-usuario">Nuevo usuario</p>
-
-    <div class="field-row">
-      <div class="field">
-        <label for="u-nombre">Nombre <span class="req">*</span></label>
-        <input type="text" id="u-nombre" placeholder="Ej: María Rodríguez"/>
-      </div>
-      <div class="field">
-        <label for="u-email">Correo (Google) <span class="req">*</span></label>
-        <input type="text" id="u-email" placeholder="Ej: maria@gmail.com"/>
-        <p class="field-hint">Puede ser un correo personal (Gmail) o corporativo — con esa cuenta va a entrar.</p>
-      </div>
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label for="u-rol">Rol asignado <span class="req">*</span></label>
-        <select id="u-rol"></select>
-        <p class="field-hint">Define qué módulos y kioskos va a ver.</p>
-      </div>
       <div class="field">
         <label>Estado</label>
-        <select id="u-activo">
+        <select id="f-activo">
           <option value="Sí">Activo</option>
           <option value="No">Inactivo</option>
         </select>
       </div>
+
+      <div class="field">
+        <label>Módulos del paquete</label>
+        <label class="toggle-todos">
+          <input type="checkbox" id="f-modulos-todos" onchange="toggleTodosModulos()"/> Acceso a todos los módulos (incluye los que se agreguen después) — usalo para Gerencia
+        </label>
+        <div class="check-grid" id="check-modulos"></div>
+      </div>
+
+      <p class="field-hint" style="margin-top:.75rem">El kiosko ya no se define en el rol — se asigna por persona en la pestaña «Asignación de personal».</p>
+
+      <div class="submit-area">
+        <button class="btn-secondary" onclick="cerrarForm()">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar" onclick="guardarRol()">Guardar rol ✓</button>
+      </div>
     </div>
 
-    <div class="submit-area">
-      <button class="btn-secondary" onclick="cerrarFormUsuario()">Cancelar</button>
-      <button class="btn-primary" id="btn-guardar-usuario" onclick="guardarUsuario()">Guardar usuario ✓</button>
+  </div>
+
+  <!-- ══════════════════ PANE: ASIGNACIÓN ══════════════════ -->
+  <div class="pane" id="pane-asignacion">
+
+    <div class="banner">
+      Cada colaborador <strong>activo</strong> aparece abajo con su correo registrado en la Base de Personal.
+      Elegí su <strong>rol</strong> y su <strong>kiosko</strong> y tocá <strong>Guardar</strong> — con eso queda habilitado para entrar con ese correo.
+      Si a alguien le falta el correo, escribilo en la fila (no cambia la Base de Personal, solo habilita su acceso).
     </div>
+
+    <div class="filter-bar">
+      <input type="text" id="filtro-nombre" placeholder="Buscar por nombre…" oninput="renderAsignacion()"/>
+      <select id="filtro-kiosko" onchange="renderAsignacion()"><option value="">Todos los kioskos</option></select>
+      <select id="filtro-estado" onchange="renderAsignacion()">
+        <option value="">Asignados y sin asignar</option>
+        <option value="sin">Solo sin asignar</option>
+        <option value="con">Solo asignados</option>
+      </select>
+      <button class="btn-secondary" onclick="recargarAsignacion()">↻ Recargar</button>
+    </div>
+
+    <div class="section-head">
+      <span class="section-title" id="asg-count">Cargando…</span>
+      <button class="btn-primary" onclick="abrirFormManual()">+ Usuario externo</button>
+    </div>
+
+    <div class="ar-head">
+      <span>Colaborador</span><span>Correo</span><span>Rol</span><span>Kiosko</span><span></span>
+    </div>
+    <div class="assign-list" id="assign-list">
+      <div class="empty-state">Cargando personal…</div>
+    </div>
+
+    <!-- Form usuario externo (no está en Personal: Jorge, contador externo, etc.) -->
+    <div class="card" id="form-card-manual">
+      <p class="card-title" id="form-title-manual">Usuario externo</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="m-nombre">Nombre <span class="req">*</span></label>
+          <input type="text" id="m-nombre" placeholder="Ej: Jorge López"/>
+        </div>
+        <div class="field">
+          <label for="m-email">Correo (Google) <span class="req">*</span></label>
+          <input type="email" id="m-email" placeholder="Ej: jorge@casaaguizotes.com"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="m-rol">Rol <span class="req">*</span></label>
+          <select id="m-rol"></select>
+        </div>
+        <div class="field">
+          <label for="m-kiosko">Kiosko</label>
+          <select id="m-kiosko"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="m-activo"><option value="Sí">Activo</option><option value="No">Inactivo</option></select>
+      </div>
+      <div class="submit-area">
+        <button class="btn-secondary" onclick="cerrarFormManual()">Cancelar</button>
+        <button class="btn-primary" id="btn-guardar-manual" onclick="guardarUsuarioManual()">Guardar usuario ✓</button>
+      </div>
+    </div>
+
   </div>
 
 </main>
@@ -257,14 +308,11 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
 </div>
 
 <div class="status-bar">
-  <span id="status-msg">v1.0 · Accesos · Ecosistema Kioskos</span>
+  <span id="status-msg">v2.0 · Accesos · Ecosistema Kioskos</span>
 </div>
 
 <script>
 // ── CONTROL DE ACCESO ────────────────────────────────────────────────
-// Esta misma pantalla administra los roles, así que se protege a sí misma
-// con el mismo mecanismo: sin sesión válida, redirige a login; con sesión
-// pero sin permiso sobre "accesos", redirige a Inicio.
 const PORTAL_SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
   localStorage.removeItem('portal_sesion');
@@ -276,13 +324,9 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 }
 
 // ── CONFIG ────────────────────────────────────────────────────────
-// Misma URL /exec del backend de RRHH que usan cierres.html, rrhh.html,
-// configuracion.html y horarios.html — acá vive la pestaña nueva "Roles".
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
 // Catálogo de módulos del sistema — mismas claves "data-mod" que index.html.
-// Si se agrega un módulo nuevo al portal, sumarlo acá para que se pueda
-// asignar por rol (y a la lista de index.html con su tile correspondiente).
 const MODULOS = [
   { grupo: 'Operaciones', clave: 'cierres', nombre: 'Cierre de Caja' },
   { grupo: 'Operaciones', clave: 'depositos', nombre: 'Depósitos' },
@@ -331,13 +375,46 @@ const MODULOS = [
   { grupo: 'Sistema', clave: 'accesos', nombre: 'Accesos (esta pantalla)' }
 ];
 
+// Paquetes por defecto de los 4 roles estándar — se usan al "Crear los 4
+// roles estándar" desde esta pantalla (o si el backend los siembra). Después
+// se pueden ajustar con los checkboxes de cada rol.
+const PAQUETES_ESTANDAR = [
+  { id:'rol_usuario', nombre:'Usuario', color:'#185fa5', modulos:[
+    'cierres','depositos','caja-chica','control-tips','mermas','inventario',
+    'pesos-sifones','balance-barriles','marcacion','horarios','eventos','limpieza','compras'
+  ]},
+  { id:'rol_supervisor', nombre:'Supervisor', color:'#2a9d8f', modulos:[
+    'cierres','depositos','caja-chica','control-tips','mermas','inventario',
+    'pesos-sifones','balance-barriles','marcacion','horarios','eventos','limpieza','compras',
+    'horarios-historial','servicio-10','tardias','activos','mantenimiento','configuracion',
+    'produccion','recetas','maestro-productos','analisis-ventas','rrhh-amonestaciones'
+  ]},
+  { id:'rol_contabilidad', nombre:'Contabilidad', color:'#c87820', modulos:[
+    'cuentas-por-pagar','reportes-cierres','analisis-compras','analisis-ventas','indicadores',
+    'planilla','planilla-aprobar','rrhh-aguinaldo','rrhh-liquidaciones','rrhh-acciones',
+    'rrhh-personal','rrhh-nuevo-ingreso','rrhh-vacaciones','rrhh-control-vacaciones',
+    'rrhh-permiso-sin-goce','rrhh-horas-extra','rrhh-cambio-salario','rrhh-amonestaciones',
+    'rrhh-terminacion','rrhh'
+  ]},
+  { id:'rol_gerencia', nombre:'Gerencia', color:'#6a3a9a', modulos:'todos' }
+];
+
 const COLOR_PRESETS = ['#1a7a4a', '#185fa5', '#c87820', '#6a3a9a', '#c84a20', '#2a9d8f', '#5a8a6a'];
 
-let roles = []; // filas completas (activos e inactivos), tal cual vienen del Sheet
-let kioskosDisponibles = []; // nombres de kioskos (todos, activos e inactivos, para poder editar roles viejos)
-let editando = null; // ID del rol en edición, o null si es nuevo
+let roles = [];
+let kioskosDisponibles = [];
+let editando = null;
 
-// ── CARGA DE KIOSKOS (para armar el check-list) ──────────────────────
+// ── TABS ──────────────────────────────────────────────────────────
+function mostrarPane(cual) {
+  document.getElementById('tab-roles').classList.toggle('active', cual === 'roles');
+  document.getElementById('tab-asignacion').classList.toggle('active', cual === 'asignacion');
+  document.getElementById('pane-roles').classList.toggle('active', cual === 'roles');
+  document.getElementById('pane-asignacion').classList.toggle('active', cual === 'asignacion');
+  if (cual === 'asignacion' && !asignacionCargada) recargarAsignacion();
+}
+
+// ── CARGA DE KIOSKOS ──────────────────────────────────────────────
 async function cargarKioskosDisponibles() {
   try {
     const resp = await fetch(APPS_SCRIPT_URL + '?modulo=kioskos');
@@ -348,20 +425,11 @@ async function cargarKioskosDisponibles() {
         ? registros.map(r => r['Kiosko']).filter(Boolean)
         : (data.kioskos || []);
     }
-  } catch (e) { /* el check-list de kioskos queda vacío hasta reintentar */ }
-  construirCheckKioskos();
-}
-
-function construirCheckKioskos() {
-  const cont = document.getElementById('check-kioskos');
-  if (!kioskosDisponibles.length) {
-    cont.innerHTML = '<span class="field-hint">No se pudo cargar la lista de kioskos — revisá Configuración.</span>';
-    return;
-  }
-  cont.innerHTML = kioskosDisponibles.map(k => `
-    <label class="kiosko-chip">
-      <input type="checkbox" class="chk-kiosko" value="${k}"/> ${k}
-    </label>`).join('');
+  } catch (e) { /* queda vacío hasta reintentar */ }
+  // Poblar el filtro de kiosko (value "" = todos)
+  const fk = document.getElementById('filtro-kiosko');
+  if (fk) fk.innerHTML = '<option value="">Todos los kioskos</option>'
+    + kioskosDisponibles.map(k => `<option value="${escAttr(k)}">${escHtml(k)}</option>`).join('');
 }
 
 function construirCheckModulos() {
@@ -385,10 +453,6 @@ function toggleTodosModulos() {
   const todos = document.getElementById('f-modulos-todos').checked;
   document.getElementById('check-modulos').classList.toggle('disabled', todos);
 }
-function toggleTodosKioskos() {
-  const todos = document.getElementById('f-kioskos-todos').checked;
-  document.getElementById('check-kioskos').classList.toggle('disabled', todos);
-}
 
 // ── CARGA DE ROLES ────────────────────────────────────────────────
 async function cargarRoles() {
@@ -400,11 +464,17 @@ async function cargarRoles() {
     if (!data.ok) throw new Error(data.error || 'Sin datos');
     roles = data.registros || [];
     renderLista();
+    chequearSeedBanner();
   } catch (e) {
     lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
       + '<a href="javascript:void(0)" onclick="cargarRoles()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
     document.getElementById('rol-count').textContent = 'Sin conexión';
   }
+}
+
+function chequearSeedBanner() {
+  const falta = PAQUETES_ESTANDAR.some(p => !roles.some(r => String(r['ID']) === p.id));
+  document.getElementById('seed-banner').style.display = falta ? 'block' : 'none';
 }
 
 function nombreModulo(clave) {
@@ -418,31 +488,30 @@ function renderLista() {
     roles.length + ' rol' + (roles.length === 1 ? '' : 'es') + ' registrado' + (roles.length === 1 ? '' : 's');
 
   if (!roles.length) {
-    lista.innerHTML = '<div class="empty-state">Todavía no hay roles — agregá el primero con el botón de arriba.</div>';
+    lista.innerHTML = '<div class="empty-state">Todavía no hay roles — creá los 4 estándar con el botón de arriba, o agregá uno.</div>';
     return;
   }
 
   lista.innerHTML = roles.map(r => {
     const id = r['ID'] || '';
     const nombre = r['Nombre'] || '';
-    const pin = r['PIN'] || '';
     const color = r['Color'] || '#1a7a4a';
     const activo = String(r['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
     const modulosStr = String(r['Modulos'] || 'todos').trim();
-    const kioskosStr = String(r['Kioskos'] || 'todos').trim();
 
-    const modulosTxt = modulosStr === 'todos'
+    const esTodos = modulosStr === 'todos' || !modulosStr;
+    const nMods = esTodos ? 0 : modulosStr.split(',').filter(Boolean).length;
+    const modulosTxt = esTodos
       ? 'Todos los módulos'
-      : (modulosStr ? modulosStr.split(',').map(nombreModulo).join(', ') : 'Ninguno');
-    const kioskosTxt = kioskosStr === 'todos' ? 'Todos los kioskos' : (kioskosStr || 'Ninguno');
+      : (nMods ? modulosStr.split(',').map(nombreModulo).join(', ') : 'Ninguno');
 
     return `
     <div class="rol-card ${activo ? '' : 'inactive'}">
       <div class="rc-head">
         <div class="rc-name-wrap">
           <span class="rc-swatch" style="background:${color}"></span>
-          <span class="rc-name">${nombre}</span>
-          <span class="badge badge-mono">PIN ${pin}</span>
+          <span class="rc-name">${escHtml(nombre)}</span>
+          <span class="badge badge-count">${esTodos ? 'Todos' : nMods + ' módulo' + (nMods===1?'':'s')}</span>
         </div>
         <div class="rc-badges">
           <span class="badge ${activo ? 'badge-ok' : 'badge-off'}">${activo ? 'Activo' : 'Inactivo'}</span>
@@ -453,27 +522,22 @@ function renderLista() {
         </div>
       </div>
       <div class="rc-detail">
-        <div class="rc-detail-item"><span>Módulos:</span><span class="v">${modulosTxt}</span></div>
-        <div class="rc-detail-item"><span>Kioskos:</span><span class="v">${kioskosTxt}</span></div>
+        <div class="rc-detail-item"><span>Módulos:</span><span class="v">${escHtml(modulosTxt)}</span></div>
       </div>
     </div>`;
   }).join('');
 }
 
-// ── FORMULARIO (agregar / editar) ────────────────────────────────
+// ── FORMULARIO DE ROL ─────────────────────────────────────────────
 function abrirForm() {
   editando = null;
   document.getElementById('form-title').textContent = 'Nuevo rol';
   document.getElementById('f-nombre').value = '';
-  document.getElementById('f-pin').value = '';
   document.getElementById('f-color').value = '#1a7a4a';
   document.getElementById('f-activo').value = 'Sí';
   document.getElementById('f-modulos-todos').checked = false;
-  document.getElementById('f-kioskos-todos').checked = false;
   document.querySelectorAll('.chk-modulo').forEach(c => c.checked = false);
-  document.querySelectorAll('.chk-kiosko').forEach(c => c.checked = false);
   document.getElementById('check-modulos').classList.remove('disabled');
-  document.getElementById('check-kioskos').classList.remove('disabled');
   marcarColorActivo('#1a7a4a');
   document.getElementById('form-card').classList.add('open');
   document.getElementById('f-nombre').focus();
@@ -486,7 +550,6 @@ function editarRol(id) {
   editando = id;
   document.getElementById('form-title').textContent = 'Editar rol';
   document.getElementById('f-nombre').value = r['Nombre'] || '';
-  document.getElementById('f-pin').value = r['PIN'] || '';
   const color = r['Color'] || '#1a7a4a';
   document.getElementById('f-color').value = color;
   marcarColorActivo(color);
@@ -498,13 +561,6 @@ function editarRol(id) {
   document.getElementById('check-modulos').classList.toggle('disabled', esTodosModulos);
   const modulosSet = esTodosModulos ? [] : modulosStr.split(',').map(s => s.trim());
   document.querySelectorAll('.chk-modulo').forEach(c => c.checked = modulosSet.includes(c.value));
-
-  const kioskosStr = String(r['Kioskos'] || 'todos').trim();
-  const esTodosKioskos = kioskosStr === 'todos' || !kioskosStr;
-  document.getElementById('f-kioskos-todos').checked = esTodosKioskos;
-  document.getElementById('check-kioskos').classList.toggle('disabled', esTodosKioskos);
-  const kioskosSet = esTodosKioskos ? [] : kioskosStr.split(',').map(s => s.trim());
-  document.querySelectorAll('.chk-kiosko').forEach(c => c.checked = kioskosSet.includes(c.value));
 
   document.getElementById('form-card').classList.add('open');
   window.scrollTo({ top: document.getElementById('form-card').offsetTop - 80, behavior: 'smooth' });
@@ -521,40 +577,41 @@ function marcarColorActivo(color) {
   });
 }
 
+function pinParaRol(r) {
+  // El login ya no usa PIN (es por correo), pero la hoja Roles tiene la
+  // columna PIN y el backend la exige. Conservamos el PIN existente al
+  // editar, o generamos uno único e invisible para un rol nuevo.
+  if (r && r['PIN']) return String(r['PIN']);
+  return 'r' + Date.now().toString().slice(-7);
+}
+
 async function guardarRol() {
   const nombre = document.getElementById('f-nombre').value.trim();
-  const pin = document.getElementById('f-pin').value.trim();
   if (!nombre) { showToast('Falta el nombre del rol', 'error'); return; }
-  if (!pin) { showToast('Falta el código de acceso (PIN)', 'error'); return; }
 
   const modulosTodos = document.getElementById('f-modulos-todos').checked;
   const modulos = modulosTodos ? 'todos' : Array.from(document.querySelectorAll('.chk-modulo:checked')).map(c => c.value);
-  const kioskosTodos = document.getElementById('f-kioskos-todos').checked;
-  const kioskosSel = kioskosTodos ? 'todos' : Array.from(document.querySelectorAll('.chk-kiosko:checked')).map(c => c.value);
-
   if (!modulosTodos && !modulos.length) { showToast('Marcá al menos un módulo (o "Todos")', 'error'); return; }
-  if (!kioskosTodos && !kioskosSel.length) { showToast('Marcá al menos un kiosko (o "Todos")', 'error'); return; }
+
+  const rolActual = editando ? roles.find(x => String(x['ID']) === String(editando)) : null;
 
   const payload = {
     modulo: 'rol_guardar',
     id: editando || '',
     nombre: nombre,
-    pin: pin,
+    pin: pinParaRol(rolActual),
     color: document.getElementById('f-color').value,
     activo: document.getElementById('f-activo').value,
     modulos: modulos,
-    kioskos: kioskosSel,
+    kioskos: 'todos',   // el kiosko se asigna por persona, no por rol
     registrado_en: new Date().toISOString()
   };
 
   const btn = document.getElementById('btn-guardar');
-  btn.disabled = true;
-  btn.textContent = 'Guardando…';
+  btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload)
     });
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error al guardar');
@@ -564,8 +621,7 @@ async function guardarRol() {
   } catch (e) {
     showToast('Error: ' + e.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Guardar rol ✓';
+    btn.disabled = false; btn.textContent = 'Guardar rol ✓';
   }
 }
 
@@ -573,8 +629,7 @@ async function toggleActivoRol(id, activoActual) {
   const nuevoEstado = activoActual ? 'No' : 'Sí';
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ modulo: 'rol_estado', id: id, activo: nuevoEstado })
     });
     const data = await resp.json();
@@ -586,167 +641,272 @@ async function toggleActivoRol(id, activoActual) {
   }
 }
 
-// ── USUARIOS INDIVIDUALES (login con Google) ────────────────────────
-let usuarios = [];       // filas completas (activos e inactivos)
-let editandoUsuario = null;
+// Crea los 4 roles estándar que falten (idempotente por ID fijo).
+async function sembrarRolesEstandar() {
+  const faltan = PAQUETES_ESTANDAR.filter(p => !roles.some(r => String(r['ID']) === p.id));
+  if (!faltan.length) { showToast('Los 4 roles ya existen', 'error'); return; }
+  showToast('Creando ' + faltan.length + ' rol(es)…');
+  for (const p of faltan) {
+    const payload = {
+      modulo: 'rol_guardar',
+      id: p.id,
+      nombre: p.nombre,
+      pin: 'r' + p.id,
+      color: p.color,
+      activo: 'Sí',
+      modulos: p.modulos,
+      kioskos: 'todos',
+      registrado_en: new Date().toISOString()
+    };
+    try {
+      await fetch(APPS_SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+    } catch (e) { /* seguimos con el resto */ }
+  }
+  await cargarRoles();
+  showToast('Roles estándar creados ✓');
+}
 
-async function cargarUsuarios() {
-  const lista = document.getElementById('usr-list');
+// ══════════════════ ASIGNACIÓN DE PERSONAL ══════════════════
+let personal = [];     // staff activo (de la Base de Personal)
+let usuarios = [];      // filas de la hoja Usuarios (login por correo)
+let asignacionCargada = false;
+
+async function recargarAsignacion() {
+  asignacionCargada = true;
+  const lista = document.getElementById('assign-list');
+  lista.innerHTML = '<div class="empty-state">Cargando personal…</div>';
   try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=usuarios');
-    if (!resp.ok) throw new Error('Error ' + resp.status);
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Sin datos');
-    usuarios = data.registros || [];
-    renderListaUsuarios();
+    const [rP, rU] = await Promise.all([
+      fetch(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json()),
+      fetch(APPS_SCRIPT_URL + '?modulo=usuarios').then(r => r.json())
+    ]);
+    const todoPersonal = (rP && rP.ok && rP.registros) ? rP.registros : [];
+    personal = todoPersonal.filter(p => String(p['Estado'] || '').trim().toUpperCase() === 'ACTIVO');
+    usuarios = (rU && rU.ok && rU.registros) ? rU.registros : [];
+    renderAsignacion();
   } catch (e) {
     lista.innerHTML = '<div class="empty-state">No se pudo conectar (' + e.message + '). '
-      + '<a href="javascript:void(0)" onclick="cargarUsuarios()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
-    document.getElementById('usr-count').textContent = 'Sin conexión';
+      + '<a href="javascript:void(0)" onclick="recargarAsignacion()" style="color:var(--green);font-weight:600;">Reintentar</a></div>';
+    document.getElementById('asg-count').textContent = 'Sin conexión';
   }
 }
 
-function nombreRolUsuario(id) {
-  const r = roles.find(x => String(x['ID']) === String(id));
-  return r ? r['Nombre'] : (id || '—');
+function rolesActivos() {
+  return roles.filter(r => String(r['Activo']||'Sí').trim().toLowerCase() !== 'no');
 }
 
-function renderListaUsuarios() {
-  const lista = document.getElementById('usr-list');
-  document.getElementById('usr-count').textContent =
-    usuarios.length + ' usuario' + (usuarios.length === 1 ? '' : 's') + ' registrado' + (usuarios.length === 1 ? '' : 's');
+function usuarioPorEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return null;
+  return usuarios.find(u => String(u['Email'] || '').trim().toLowerCase() === e) || null;
+}
 
-  if (!usuarios.length) {
-    lista.innerHTML = '<div class="empty-state">Todavía no hay usuarios individuales — agregá el primero con el botón de arriba.</div>';
+function optsRol(sel) {
+  const activos = rolesActivos();
+  return ['<option value="">— elegir rol —</option>']
+    .concat(activos.map(r => `<option value="${escAttr(r['ID'])}" ${String(r['ID'])===String(sel)?'selected':''}>${escHtml(r['Nombre'])}</option>`))
+    .join('');
+}
+
+function optsKiosko(sel) {
+  const s = String(sel || '').trim();
+  const esTodos = !s || s.toLowerCase() === 'todos';
+  return [`<option value="todos" ${esTodos?'selected':''}>Todos los kioskos</option>`]
+    .concat(kioskosDisponibles.map(k => `<option value="${escAttr(k)}" ${k===s?'selected':''}>${escHtml(k)}</option>`))
+    .join('');
+}
+
+function renderAsignacion() {
+  const cont = document.getElementById('assign-list');
+  const fNombre = document.getElementById('filtro-nombre').value.trim().toLowerCase();
+  const fKiosko = document.getElementById('filtro-kiosko').value;
+  const fEstado = document.getElementById('filtro-estado').value;
+
+  // 1) Staff activo de Personal
+  let filas = personal.map(p => {
+    const nombre = p['Nombre completo'] || '';
+    const email = String(p['Email'] || '').trim();
+    const kioskoPersonal = String(p['Kiosko'] || '').trim();
+    const u = usuarioPorEmail(email);
+    return {
+      tipo: 'staff', nombre, email,
+      emailFalta: !email,
+      usuarioId: u ? u['ID'] : '',
+      rolId: u ? (u['RolID'] || '') : '',
+      kiosko: u ? (u['Kiosko'] || kioskoPersonal) : kioskoPersonal,
+      activo: u ? String(u['Activo']||'Sí').trim().toLowerCase() !== 'no' : true,
+      asignado: !!(u && u['RolID'])
+    };
+  });
+
+  // Filtros
+  if (fNombre) filas = filas.filter(f => f.nombre.toLowerCase().includes(fNombre));
+  if (fKiosko) filas = filas.filter(f => String(f.kiosko) === fKiosko);
+  if (fEstado === 'sin') filas = filas.filter(f => !f.asignado);
+  if (fEstado === 'con') filas = filas.filter(f => f.asignado);
+
+  const nAsig = personal.filter(p => { const u = usuarioPorEmail(p['Email']); return u && u['RolID']; }).length;
+  document.getElementById('asg-count').textContent =
+    personal.length + ' activo' + (personal.length===1?'':'s') + ' · ' + nAsig + ' con rol asignado';
+
+  // 2) Usuarios externos (no están en Personal activo)
+  const emailsPersonal = new Set(personal.map(p => String(p['Email']||'').trim().toLowerCase()).filter(Boolean));
+  const externos = usuarios.filter(u => {
+    const e = String(u['Email']||'').trim().toLowerCase();
+    return e && !emailsPersonal.has(e);
+  }).filter(u => {
+    if (fNombre && !String(u['Nombre']||'').toLowerCase().includes(fNombre)) return false;
+    if (fKiosko && String(u['Kiosko']||'todos') !== fKiosko) return false;
+    if (fEstado === 'sin' && u['RolID']) return false;
+    if (fEstado === 'con' && !u['RolID']) return false;
+    return true;
+  });
+
+  if (!filas.length && !externos.length) {
+    cont.innerHTML = '<div class="empty-state">No hay personal que coincida con el filtro.</div>';
     return;
   }
 
-  lista.innerHTML = usuarios.map(u => {
-    const id = u['ID'] || '';
-    const nombre = u['Nombre'] || '';
-    const email = u['Email'] || '';
-    const rolId = u['RolID'] || '';
-    const activo = String(u['Activo'] || 'Sí').trim().toLowerCase() !== 'no';
-
-    return `
-    <div class="rol-card ${activo ? '' : 'inactive'}">
-      <div class="rc-head">
-        <div class="rc-name-wrap">
-          <span class="rc-name">${nombre}</span>
-          <span class="badge badge-mono">${email}</span>
-        </div>
-        <div class="rc-badges">
-          <span class="badge ${activo ? 'badge-ok' : 'badge-off'}">${activo ? 'Activo' : 'Inactivo'}</span>
-        </div>
-        <div class="rc-actions">
-          <button class="btn-text" onclick='editarUsuario(${JSON.stringify(id)})'>Editar</button>
-          <button class="${activo ? 'btn-danger-text' : 'btn-text'}" onclick='toggleActivoUsuario(${JSON.stringify(id)}, ${activo})'>${activo ? 'Desactivar' : 'Activar'}</button>
-        </div>
-      </div>
-      <div class="rc-detail">
-        <div class="rc-detail-item"><span>Rol:</span><span class="v">${nombreRolUsuario(rolId)}</span></div>
-      </div>
-    </div>`;
-  }).join('');
+  let html = '';
+  if (filas.length) {
+    html += '<div class="group-label">Staff activo (Base de Personal)</div>';
+    html += filas.map(f => filaAsignacionHtml(f)).join('');
+  }
+  if (externos.length) {
+    html += '<div class="group-label">Usuarios externos (no están en Personal)</div>';
+    html += externos.map(u => filaAsignacionHtml({
+      tipo:'externo', nombre: u['Nombre']||'', email: String(u['Email']||'').trim(), emailFalta:false,
+      usuarioId: u['ID']||'', rolId: u['RolID']||'', kiosko: u['Kiosko']||'todos',
+      activo: String(u['Activo']||'Sí').trim().toLowerCase() !== 'no', asignado: !!u['RolID']
+    })).join('');
+  }
+  cont.innerHTML = html;
 }
 
-function poblarSelectRoles() {
-  const sel = document.getElementById('u-rol');
-  const activos = roles.filter(r => String(r['Activo']||'Sí').trim().toLowerCase() !== 'no');
-  sel.innerHTML = activos.length
-    ? activos.map(r => `<option value="${r['ID']}">${r['Nombre']}</option>`).join('')
-    : '<option value="">No hay roles activos — creá uno arriba primero</option>';
+function filaAsignacionHtml(f) {
+  const key = f.usuarioId || ('new_' + (f.email || f.nombre).replace(/[^a-z0-9]/gi,'_'));
+  const emailCell = f.emailFalta
+    ? `<input type="email" placeholder="correo para habilitar acceso" class="ar-email-input"/>`
+    : `<span class="ar-email ${f.email?'':'missing'}" title="${escAttr(f.email)}">${escHtml(f.email)||'—'}</span>`;
+  return `
+  <div class="assign-row ${f.asignado && f.activo ? 'assigned':'unassigned'}" data-key="${key}"
+       data-uid="${escAttr(f.usuarioId)}" data-email="${escAttr(f.email)}" data-nombre="${escAttr(f.nombre)}">
+    <div class="ar-person">
+      <div class="ar-name">${escHtml(f.nombre)} ${f.asignado?'':'<span class="badge badge-warn" style="margin-left:4px">sin asignar</span>'} ${f.activo?'':'<span class="badge badge-off" style="margin-left:4px">inactivo</span>'}</div>
+    </div>
+    <div>${emailCell}</div>
+    <select class="ar-rol" onchange="marcarDirty('${key}')">${optsRol(f.rolId)}</select>
+    <select class="ar-kiosko" onchange="marcarDirty('${key}')">${optsKiosko(f.kiosko)}</select>
+    <div class="ar-save">
+      <span class="ar-dirty-dot"></span>
+      <button class="btn-primary" style="padding:7px 12px" onclick="guardarAsignacion('${key}')">Guardar</button>
+    </div>
+  </div>`;
 }
 
-function abrirFormUsuario() {
-  editandoUsuario = null;
-  document.getElementById('form-title-usuario').textContent = 'Nuevo usuario';
-  document.getElementById('u-nombre').value = '';
-  document.getElementById('u-email').value = '';
-  document.getElementById('u-activo').value = 'Sí';
-  poblarSelectRoles();
-  document.getElementById('form-card-usuario').classList.add('open');
-  document.getElementById('u-nombre').focus();
-  window.scrollTo({ top: document.getElementById('form-card-usuario').offsetTop - 80, behavior: 'smooth' });
+function marcarDirty(key) {
+  const row = document.querySelector(`.assign-row[data-key="${CSS.escape(key)}"]`);
+  if (row) row.classList.add('dirty');
 }
 
-function editarUsuario(id) {
-  const u = usuarios.find(x => String(x['ID']) === String(id));
-  if (!u) return;
-  editandoUsuario = id;
-  document.getElementById('form-title-usuario').textContent = 'Editar usuario';
-  document.getElementById('u-nombre').value = u['Nombre'] || '';
-  document.getElementById('u-email').value = u['Email'] || '';
-  document.getElementById('u-activo').value = String(u['Activo'] || 'Sí').trim().toLowerCase() === 'no' ? 'No' : 'Sí';
-  poblarSelectRoles();
-  document.getElementById('u-rol').value = u['RolID'] || '';
-  document.getElementById('form-card-usuario').classList.add('open');
-  window.scrollTo({ top: document.getElementById('form-card-usuario').offsetTop - 80, behavior: 'smooth' });
-}
+async function guardarAsignacion(key) {
+  const row = document.querySelector(`.assign-row[data-key="${CSS.escape(key)}"]`);
+  if (!row) return;
+  const nombre = row.getAttribute('data-nombre');
+  let email = row.getAttribute('data-email');
+  const inputEmail = row.querySelector('.ar-email-input');
+  if (inputEmail) email = inputEmail.value.trim();
+  const rolId = row.querySelector('.ar-rol').value;
+  const kiosko = row.querySelector('.ar-kiosko').value;
+  const uid = row.getAttribute('data-uid');
 
-function cerrarFormUsuario() {
-  document.getElementById('form-card-usuario').classList.remove('open');
-  editandoUsuario = null;
-}
-
-async function guardarUsuario() {
-  const nombre = document.getElementById('u-nombre').value.trim();
-  const email = document.getElementById('u-email').value.trim();
-  const rolId = document.getElementById('u-rol').value;
-  if (!nombre) { showToast('Falta el nombre', 'error'); return; }
-  if (!email) { showToast('Falta el correo', 'error'); return; }
-  if (!rolId) { showToast('Falta asignar un rol', 'error'); return; }
+  if (!email) { showToast('Falta el correo de ' + nombre, 'error'); return; }
+  if (!rolId) { showToast('Elegí un rol para ' + nombre, 'error'); return; }
 
   const payload = {
     modulo: 'usuario_guardar',
-    id: editandoUsuario || '',
+    id: uid || '',
     nombre: nombre,
     email: email,
     rol_id: rolId,
-    activo: document.getElementById('u-activo').value,
+    kiosko: kiosko,
+    activo: 'Sí',
     registrado_en: new Date().toISOString()
   };
 
-  const btn = document.getElementById('btn-guardar-usuario');
-  btn.disabled = true;
-  btn.textContent = 'Guardando…';
+  const btn = row.querySelector('.btn-primary');
+  btn.disabled = true; btn.textContent = '…';
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
+      method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload)
     });
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error al guardar');
+    showToast(nombre + ' asignado ✓');
+    // Actualizar la lista local de usuarios para que el estado se refleje sin recargar todo
+    const idGuardado = (data.result && data.result.id) || uid || ('usr_' + Date.now());
+    const idx = usuarios.findIndex(u => String(u['ID']) === String(idGuardado)
+      || String(u['Email']||'').trim().toLowerCase() === email.toLowerCase());
+    const filaU = { 'ID': idGuardado, 'Nombre': nombre, 'Email': email, 'RolID': rolId, 'Kiosko': kiosko, 'Activo': 'Sí' };
+    if (idx >= 0) usuarios[idx] = Object.assign({}, usuarios[idx], filaU); else usuarios.push(filaU);
+    renderAsignacion();
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+// ── USUARIO EXTERNO (no está en Personal) ─────────────────────────
+let editandoManual = null;
+function abrirFormManual() {
+  editandoManual = null;
+  document.getElementById('form-title-manual').textContent = 'Usuario externo';
+  document.getElementById('m-nombre').value = '';
+  document.getElementById('m-email').value = '';
+  document.getElementById('m-activo').value = 'Sí';
+  document.getElementById('m-rol').innerHTML = optsRol('');
+  document.getElementById('m-kiosko').innerHTML = optsKiosko('todos');
+  document.getElementById('form-card-manual').classList.add('open');
+  document.getElementById('m-nombre').focus();
+  window.scrollTo({ top: document.getElementById('form-card-manual').offsetTop - 80, behavior: 'smooth' });
+}
+function cerrarFormManual() {
+  document.getElementById('form-card-manual').classList.remove('open');
+  editandoManual = null;
+}
+async function guardarUsuarioManual() {
+  const nombre = document.getElementById('m-nombre').value.trim();
+  const email = document.getElementById('m-email').value.trim();
+  const rolId = document.getElementById('m-rol').value;
+  const kiosko = document.getElementById('m-kiosko').value;
+  if (!nombre) { showToast('Falta el nombre', 'error'); return; }
+  if (!email) { showToast('Falta el correo', 'error'); return; }
+  if (!rolId) { showToast('Falta el rol', 'error'); return; }
+
+  const payload = {
+    modulo: 'usuario_guardar', id: '', nombre, email, rol_id: rolId, kiosko,
+    activo: document.getElementById('m-activo').value, registrado_en: new Date().toISOString()
+  };
+  const btn = document.getElementById('btn-guardar-manual');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Error al guardar');
     showToast('Usuario guardado ✓');
-    cerrarFormUsuario();
-    await cargarUsuarios();
+    cerrarFormManual();
+    await recargarAsignacion();
   } catch (e) {
     showToast('Error: ' + e.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Guardar usuario ✓';
+    btn.disabled = false; btn.textContent = 'Guardar usuario ✓';
   }
 }
 
-async function toggleActivoUsuario(id, activoActual) {
-  const nuevoEstado = activoActual ? 'No' : 'Sí';
-  try {
-    const resp = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ modulo: 'usuario_estado', id: id, activo: nuevoEstado })
-    });
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
-    showToast(nuevoEstado === 'Sí' ? 'Usuario activado ✓' : 'Usuario desactivado ✓');
-    await cargarUsuarios();
-  } catch (e) {
-    showToast('Error: ' + e.message, 'error');
-  }
-}
+// ── HELPERS ───────────────────────────────────────────────────────
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function escAttr(s){return escHtml(s).replace(/'/g,'&#39;');}
 
-// ── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
   document.getElementById('toast-icon').innerHTML = type === 'success'
@@ -755,7 +915,7 @@ function showToast(msg, type='success') {
   document.getElementById('toast-msg').textContent = msg;
   t.className = `toast ${type}`;
   requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => t.classList.remove('show'), 3500);
+  setTimeout(() => t.classList.remove('show'), 3200);
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
@@ -765,7 +925,7 @@ document.getElementById('color-presets').innerHTML = COLOR_PRESETS.map(c =>
 document.getElementById('f-color').addEventListener('input', e => marcarColorActivo(e.target.value));
 construirCheckModulos();
 cargarKioskosDisponibles();
-cargarRoles().then(cargarUsuarios);
+cargarRoles();
 </script>
 </body>
 </html>
