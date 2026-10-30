@@ -129,6 +129,16 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
   .assign-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
   .ar-person{grid-column:1/-1}
 }
+/* multiselect de kioskos */
+.km{position:relative}
+.km>summary{list-style:none;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.km>summary::-webkit-details-marker{display:none}
+.km[open]>summary{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,122,74,.08)}
+.km-pop{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;box-shadow:0 6px 24px rgba(0,0,0,.12);max-height:230px;overflow:auto}
+.km-pop label{display:flex;align-items:center;gap:7px;font-size:13px;padding:4px 2px;cursor:pointer;margin:0;font-weight:400;color:var(--text)}
+.km-pop label.dis{opacity:.4;cursor:not-allowed}
+.km-pop input{width:auto;cursor:pointer}
+.km-sep{height:1px;background:var(--border);margin:5px 0}
 
 .submit-area{display:flex;gap:10px;margin-top:1.5rem;flex-wrap:wrap}
 
@@ -238,7 +248,7 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
 
     <div class="banner">
       Cada colaborador <strong>activo</strong> aparece abajo con su correo registrado en la Base de Personal.
-      Elegí su <strong>rol</strong> y su <strong>kiosko</strong> y tocá <strong>Guardar</strong> — con eso queda habilitado para entrar con ese correo.
+      Elegí su <strong>rol</strong> y uno o varios <strong>kioskos</strong> y tocá <strong>Guardar</strong> — con eso queda habilitado para entrar con ese correo.
       Si a alguien le falta el correo, escribilo en la fila (no cambia la Base de Personal, solo habilita su acceso).
     </div>
 
@@ -259,7 +269,7 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
     </div>
 
     <div class="ar-head">
-      <span>Colaborador</span><span>Correo</span><span>Rol</span><span>Kiosko</span><span></span>
+      <span>Colaborador</span><span>Correo</span><span>Rol</span><span>Kiosko(s)</span><span></span>
     </div>
     <div class="assign-list" id="assign-list">
       <div class="empty-state">Cargando personal…</div>
@@ -284,8 +294,8 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:5px}
           <select id="m-rol"></select>
         </div>
         <div class="field">
-          <label for="m-kiosko">Kiosko</label>
-          <select id="m-kiosko"></select>
+          <label>Kiosko(s)</label>
+          <div id="m-kiosko-wrap"></div>
         </div>
       </div>
       <div class="field">
@@ -708,12 +718,77 @@ function optsRol(sel) {
     .join('');
 }
 
-function optsKiosko(sel) {
-  const s = String(sel || '').trim();
-  const esTodos = !s || s.toLowerCase() === 'todos';
-  return [`<option value="todos" ${esTodos?'selected':''}>Todos los kioskos</option>`]
-    .concat(kioskosDisponibles.map(k => `<option value="${escAttr(k)}" ${k===s?'selected':''}>${escHtml(k)}</option>`))
-    .join('');
+// El kiosko de un usuario se guarda como 'todos' o una lista separada por
+// comas ("Playa Grande,Nosara"). parseKioskoList lo convierte a 'todos' o
+// a un arreglo de nombres.
+function parseKioskoList(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s || s.toLowerCase() === 'todos') return 'todos';
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+// Multiselect de kioskos (checkboxes con opción "Todos"). selList es 'todos'
+// o un arreglo de nombres.
+function kioskoMulti(selList) {
+  const esTodos = selList === 'todos' || !selList || (Array.isArray(selList) && !selList.length);
+  const arr = Array.isArray(selList) ? selList : [];
+  let opts = `<label><input type="checkbox" class="km-todos" ${esTodos?'checked':''} onchange="kmToggleTodos(this)"> Todos los kioskos</label><div class="km-sep"></div>`;
+  opts += kioskosDisponibles.map(k =>
+    `<label class="${esTodos?'dis':''}"><input type="checkbox" class="km-k" value="${escAttr(k)}" ${(!esTodos&&arr.includes(k))?'checked':''} ${esTodos?'disabled':''} onchange="kmSync(this)"> ${escHtml(k)}</label>`
+  ).join('');
+  return `<details class="km"><summary class="km-sum">${escHtml(kmResumen(esTodos, arr))}</summary><div class="km-pop">${opts}</div></details>`;
+}
+
+function kmResumen(esTodos, arr) {
+  if (esTodos) return 'Todos los kioskos';
+  if (!arr.length) return 'Sin kiosko';
+  return arr.length <= 2 ? arr.join(', ') : (arr.length + ' kioskos');
+}
+
+function kmEstado(km) {
+  const todos = km.querySelector('.km-todos').checked;
+  const arr = Array.from(km.querySelectorAll('.km-k:checked')).map(x => x.value);
+  return { todos, arr };
+}
+
+function kmActualizarResumen(km) {
+  const { todos, arr } = kmEstado(km);
+  km.querySelector('.km-sum').textContent = kmResumen(todos, arr);
+}
+
+function kmToggleTodos(cb) {
+  const km = cb.closest('.km');
+  km.querySelectorAll('.km-k').forEach(x => {
+    if (cb.checked) { x.checked = false; x.disabled = true; x.closest('label').classList.add('dis'); }
+    else { x.disabled = false; x.closest('label').classList.remove('dis'); }
+  });
+  kmActualizarResumen(km);
+  marcarDirtyEl(cb);
+}
+
+function kmSync(cb) {
+  const km = cb.closest('.km');
+  const anyK = Array.from(km.querySelectorAll('.km-k')).some(x => x.checked);
+  if (anyK) {
+    const todos = km.querySelector('.km-todos');
+    todos.checked = false;
+    km.querySelectorAll('.km-k').forEach(x => { x.disabled = false; x.closest('label').classList.remove('dis'); });
+  }
+  kmActualizarResumen(km);
+  marcarDirtyEl(cb);
+}
+
+// Devuelve 'todos' o la lista separada por comas, lista para guardar.
+function kmValor(km) {
+  if (!km) return 'todos';
+  const { todos, arr } = kmEstado(km);
+  if (todos || !arr.length) return 'todos';
+  return arr.join(',');
+}
+
+function marcarDirtyEl(el) {
+  const r = el.closest('.assign-row');
+  if (r) r.classList.add('dirty');
 }
 
 function renderAsignacion() {
@@ -741,7 +816,7 @@ function renderAsignacion() {
 
   // Filtros
   if (fNombre) filas = filas.filter(f => f.nombre.toLowerCase().includes(fNombre));
-  if (fKiosko) filas = filas.filter(f => String(f.kiosko) === fKiosko);
+  if (fKiosko) filas = filas.filter(f => { const L = parseKioskoList(f.kiosko); return L === 'todos' || L.includes(fKiosko); });
   if (fEstado === 'sin') filas = filas.filter(f => !f.asignado);
   if (fEstado === 'con') filas = filas.filter(f => f.asignado);
 
@@ -756,7 +831,7 @@ function renderAsignacion() {
     return e && !emailsPersonal.has(e);
   }).filter(u => {
     if (fNombre && !String(u['Nombre']||'').toLowerCase().includes(fNombre)) return false;
-    if (fKiosko && String(u['Kiosko']||'todos') !== fKiosko) return false;
+    if (fKiosko) { const L = parseKioskoList(u['Kiosko']); if (L !== 'todos' && !L.includes(fKiosko)) return false; }
     if (fEstado === 'sin' && u['RolID']) return false;
     if (fEstado === 'con' && !u['RolID']) return false;
     return true;
@@ -796,7 +871,7 @@ function filaAsignacionHtml(f) {
     </div>
     <div>${emailCell}</div>
     <select class="ar-rol" onchange="marcarDirty('${key}')">${optsRol(f.rolId)}</select>
-    <select class="ar-kiosko" onchange="marcarDirty('${key}')">${optsKiosko(f.kiosko)}</select>
+    ${kioskoMulti(parseKioskoList(f.kiosko))}
     <div class="ar-save">
       <span class="ar-dirty-dot"></span>
       <button class="btn-primary" style="padding:7px 12px" onclick="guardarAsignacion('${key}')">Guardar</button>
@@ -817,7 +892,7 @@ async function guardarAsignacion(key) {
   const inputEmail = row.querySelector('.ar-email-input');
   if (inputEmail) email = inputEmail.value.trim();
   const rolId = row.querySelector('.ar-rol').value;
-  const kiosko = row.querySelector('.ar-kiosko').value;
+  const kiosko = kmValor(row.querySelector('.km'));
   const uid = row.getAttribute('data-uid');
 
   if (!email) { showToast('Falta el correo de ' + nombre, 'error'); return; }
@@ -865,7 +940,7 @@ function abrirFormManual() {
   document.getElementById('m-email').value = '';
   document.getElementById('m-activo').value = 'Sí';
   document.getElementById('m-rol').innerHTML = optsRol('');
-  document.getElementById('m-kiosko').innerHTML = optsKiosko('todos');
+  document.getElementById('m-kiosko-wrap').innerHTML = kioskoMulti('todos');
   document.getElementById('form-card-manual').classList.add('open');
   document.getElementById('m-nombre').focus();
   window.scrollTo({ top: document.getElementById('form-card-manual').offsetTop - 80, behavior: 'smooth' });
@@ -878,7 +953,7 @@ async function guardarUsuarioManual() {
   const nombre = document.getElementById('m-nombre').value.trim();
   const email = document.getElementById('m-email').value.trim();
   const rolId = document.getElementById('m-rol').value;
-  const kiosko = document.getElementById('m-kiosko').value;
+  const kiosko = kmValor(document.querySelector('#m-kiosko-wrap .km'));
   if (!nombre) { showToast('Falta el nombre', 'error'); return; }
   if (!email) { showToast('Falta el correo', 'error'); return; }
   if (!rolId) { showToast('Falta el rol', 'error'); return; }
