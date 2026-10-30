@@ -541,7 +541,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 // Comparación insensible a mayúsculas/espacios: el campo Kiosko de la
 // hoja "Cierres" (historialData) a veces se guardó en mayúsculas mientras
@@ -1247,7 +1247,7 @@ async function submitCierre() {
     await fetch(SHEETS_URL, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify(payload)
+      body: JSON.stringify(Object.assign({ rol_id: (PORTAL_SESION && PORTAL_SESION.rol_id) || '' }, payload))
     });
     showToast('Cierre guardado correctamente — ya podés enviarlo por WhatsApp');
     btn.textContent = 'Cierre guardado ✓';
@@ -1464,7 +1464,7 @@ function renderDashboardMensual() {
     if (!r.anio || !r.mes) return;
     const key = r.anio + '-' + String(r.mes).padStart(2,'0');
     if (!grupos[key]) grupos[key] = { balance: 0, count: 0, anio: r.anio, mes: r.mes };
-    grupos[key].balance += (r.diferenciaTarjeta || 0) + (r.diferenciaCaja || 0);
+    grupos[key].balance += (r.diferenciaCaja || 0);
     grupos[key].count += 1;
   });
   const keys = Object.keys(grupos).sort((a,b) => b.localeCompare(a));
@@ -1491,8 +1491,8 @@ function renderHistorial() {
     return;
   }
   document.getElementById('hist-lista').innerHTML = lista.map((r, i) => {
-    const balanceFinal = (r.diferenciaTarjeta || 0) + (r.diferenciaCaja || 0);
-    const balanceCuadra = Math.abs(balanceFinal) <= 500;
+    const balanceFinal = (r.diferenciaCaja || 0);
+    const balanceCuadra = Math.abs(balanceFinal) <= toleranciaCuadre(r.kiosko);
     const fechaLbl = r.fecha
       ? new Date(r.fecha+'T12:00:00').toLocaleDateString('es-CR',{weekday:'short',day:'2-digit',month:'short'})
       : '—';
