@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- Rol Usuario: la pagina de inicio es el Portal del Empleado, no el control tower. Rebote temprano para que "Inicio" siempre vuelva al portal. -->
+<script>(function(){try{var s=JSON.parse(localStorage.getItem('portal_sesion')||'null');if(s&&(Date.now()-s.ts)<8*60*60*1000&&String(s.rol_id)==='rol_usuario'){location.replace('portal.html');}}catch(e){}})();</script>
 <title>Portal · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
