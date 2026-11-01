@@ -528,7 +528,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // Lista de kioskos activos — se carga siempre desde la pestaña "Configuracion"
@@ -639,6 +639,20 @@ function toggleAmonDetalle(i) {
     if (motivo)    filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Detalle</span><span class="amon-detalle-valor">${escHtml(motivo)}</span></div>`;
     if (observaciones) filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Observaciones</span><span class="amon-detalle-valor">${escHtml(observaciones)}</span></div>`;
     if (suspDesde || suspHasta) filas += `<div class="amon-detalle-row"><span class="amon-detalle-label">Suspensión</span><span class="amon-detalle-valor">${escHtml(suspDesde)} → ${escHtml(suspHasta)}</span></div>`;
+
+    const fotoUrl = a['Foto firmada (URL)'] || a.foto_firmada || '';
+    if (fotoUrl) {
+      const m = String(fotoUrl).match(/[-\w]{25,}/);
+      const thumb = m ? `https://drive.google.com/thumbnail?id=${m[0]}&sz=w1000` : '';
+      filas += `<div class="amon-detalle-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+        <span class="amon-detalle-label">Documento firmado</span>
+        <a href="${escHtml(fotoUrl)}" target="_blank" onclick="event.stopPropagation()" style="display:inline-block;max-width:100%;">
+          ${thumb ? `<img src="${thumb}" alt="Documento firmado" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--border);display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">` : ''}
+          <span style="color:var(--blue);font-weight:500;${thumb ? 'display:none;' : ''}">Ver documento firmado ↗</span>
+        </a>
+      </div>`;
+    }
+
     if (!filas) filas = `<div class="amon-detalle-row"><span class="amon-detalle-valor" style="color:var(--subtle);">Sin más detalle disponible.</span></div>`;
 
     det.innerHTML = filas;
@@ -695,6 +709,7 @@ async function cargarDatos() {
       susp_hasta:       a['Suspensión hasta']  || a.susp_hasta       || '',
       motivo_categoria: a['Motivo categoría']  || a.motivo_categoria || '',
       horas_tardanza:   a['Horas tardanza']    || a.horas_tardanza   || '',
+      foto_firmada:     a['Foto firmada (URL)']|| a.foto_firmada      || '',
       registrado_en:    a['Registrado']        || a.registrado_en    || '',
     }));
     const idsAmonSheet = new Set(amonNorm.map(a => String(a.registrado_en || '')).filter(Boolean));

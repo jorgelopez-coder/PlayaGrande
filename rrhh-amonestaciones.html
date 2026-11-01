@@ -51,6 +51,17 @@
     .tipo-btn[data-tipo="Suspensión sin goce de salario"].selected { border-color:var(--purple); background:var(--purple-bg); }
     .tipo-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
     .tipo-label { font-size:13px; font-weight:500; color:var(--text); }
+    /* FOTO DOCUMENTO FIRMADO */
+    .foto-card { display:none; }
+    .foto-label { font-size:12.5px; font-weight:500; color:var(--text); margin-bottom:6px; display:block; }
+    .foto-box { border:2px dashed var(--border); border-radius:10px; padding:.85rem; text-align:center; cursor:pointer; transition:border-color .15s; position:relative; min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:var(--card); }
+    .foto-box:hover { border-color:var(--border-h); }
+    .foto-box.has-img { border-style:solid; border-color:var(--green-lt); padding:0; overflow:hidden; min-height:160px; }
+    .foto-box.has-img img { width:100%; max-height:260px; object-fit:contain; display:block; background:#000; }
+    .foto-icon { width:26px; height:26px; color:var(--muted); }
+    .foto-hint { font-size:11.5px; color:var(--muted); line-height:1.4; max-width:260px; }
+    .foto-remove { position:absolute; top:7px; right:7px; width:24px; height:24px; border-radius:50%; background:rgba(20,30,25,.6); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; line-height:1; z-index:2; }
+    .foto-remove:hover { background:rgba(20,30,25,.85); }
 
     /* CARD */
     .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:1.4rem 1.5rem; margin-bottom:12px; }
@@ -182,6 +193,15 @@
       <input type="hidden" id="tipo-selected">
     </div>
 
+    <!-- Foto del documento firmado (solo Amonestación escrita) -->
+    <div class="card foto-card" id="foto-card">
+      <p class="card-title">Documento firmado</p>
+      <span class="foto-label">Foto de la amonestación firmada por el colaborador</span>
+      <div class="foto-box" id="foto-box" onclick="document.getElementById('foto-input').click()"></div>
+      <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="onFotoAmonSelected(this)">
+      <p class="hint" style="font-size:12px;color:var(--muted);margin:.6rem 0 0;">Podés tomar una foto o subir una imagen/escaneo. Se comprime antes de guardarse y queda en el expediente del colaborador.</p>
+    </div>
+
     <!-- Datos -->
     <div class="card">
       <p class="card-title">Datos del registro</p>
@@ -305,7 +325,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // ─────────────────────────────────────────────────────────────────
@@ -352,6 +372,87 @@ function selectTipo(btn) {
   document.getElementById('tipo-selected').value = btn.dataset.tipo;
   const esSusp = btn.dataset.tipo === 'Suspensión sin goce de salario';
   document.getElementById('susp-extra').classList.toggle('visible', esSusp);
+  toggleFotoCard();
+}
+
+// ── FOTO DEL DOCUMENTO FIRMADO ────────────────────────────────────
+let fotoAmon = null; // { base64, mime }
+
+function toggleFotoCard() {
+  const esEscrita = document.getElementById('tipo-selected').value === 'Amonestación escrita';
+  document.getElementById('foto-card').style.display = esEscrita ? 'block' : 'none';
+  if (!esEscrita) quitarFotoAmon();
+}
+
+function renderFotoBox() {
+  const box = document.getElementById('foto-box');
+  if (fotoAmon) {
+    box.classList.add('has-img');
+    box.innerHTML = '<img src="data:' + fotoAmon.mime + ';base64,' + fotoAmon.base64 + '" alt="Documento firmado">' +
+      '<button type="button" class="foto-remove" onclick="event.stopPropagation(); quitarFotoAmon()">✕</button>';
+  } else {
+    box.classList.remove('has-img');
+    box.innerHTML = '<svg class="foto-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-2h6l2 2h3v12H4V7z"/><circle cx="12" cy="13" r="3.5"/></svg>' +
+      '<span class="foto-hint">Tocá para tomar o subir una foto del documento firmado</span>';
+  }
+}
+
+function quitarFotoAmon() {
+  fotoAmon = null;
+  const inp = document.getElementById('foto-input');
+  if (inp) inp.value = '';
+  renderFotoBox();
+}
+
+async function onFotoAmonSelected(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) {
+    showToast('La imagen es demasiado grande (máx 30 MB).', 'error');
+    input.value = ''; return;
+  }
+  const box = document.getElementById('foto-box');
+  box.classList.remove('has-img');
+  box.innerHTML = '<span class="foto-hint">⏳ Procesando foto…</span>';
+  try {
+    const img = await decodificarImagen(file);
+    const base64 = await comprimirConLimite(img, 3.5 * 1024 * 1024);
+    fotoAmon = { base64: base64, mime: 'image/jpeg' };
+  } catch (e) {
+    console.error(e);
+    showToast('No se pudo procesar la imagen.', 'error');
+    fotoAmon = null;
+  }
+  renderFotoBox();
+}
+
+function decodificarImagen(file) {
+  return new Promise(function (res, rej) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function () { URL.revokeObjectURL(url); res(img); };
+    img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('No se pudo leer la imagen')); };
+    img.src = url;
+  });
+}
+
+function tamanoDataUrl(b64) { return Math.floor(b64.length * 3 / 4); }
+
+function comprimirConLimite(img, maxBytes) {
+  return new Promise(function (res) {
+    let maxDim = 1600, calidad = 0.82, intentos = 0, b64 = '';
+    do {
+      const escala = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * escala), h = Math.round(img.height * escala);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      b64 = c.toDataURL('image/jpeg', calidad).split(',')[1];
+      intentos++;
+      if (tamanoDataUrl(b64) <= maxBytes) break;
+      maxDim = Math.round(maxDim * 0.8); calidad = Math.max(0.5, calidad - 0.1);
+    } while (intentos < 4);
+    res(b64);
+  });
 }
 
 // ── MOTIVO (categoría) ───────────────────────────────────────────
@@ -395,7 +496,8 @@ async function fetchAmonestacionesServidor() {
       susp_hasta: r['Suspensión hasta'] || r.susp_hasta || '',
       registrado_en: r['Registrado'] || r.registrado_en || '',
       motivo_categoria: r['Motivo categoría'] || r.motivo_categoria || '',
-      horas_tardanza: r['Horas tardanza'] || r.horas_tardanza || ''
+      horas_tardanza: r['Horas tardanza'] || r.horas_tardanza || '',
+      foto_firmada: r['Foto firmada (URL)'] || r.foto_firmada || ''
     }));
   } catch (err) {
     console.error('Error cargando amonestaciones del servidor:', err);
@@ -451,7 +553,7 @@ function renderHistorial() {
       <td style="font-weight:500;">${r.colaborador}</td>
       <td><span class="badge ${badgeClass(r.tipo)}"><span class="badge-dot"></span>${r.tipo}</span></td>
       <td style="font-size:12px;white-space:nowrap;">${r.motivo_categoria || '—'}${r.horas_tardanza ? ` (${r.horas_tardanza}h)` : ''}</td>
-      <td style="max-width:220px;font-size:13px;">${r.motivo}</td>
+      <td style="max-width:220px;font-size:13px;">${r.motivo}${r.foto_firmada ? ` <a href="${r.foto_firmada}" target="_blank" style="color:var(--blue);font-weight:500;white-space:nowrap;">\ud83d\udcce Firmada ↗</a>` : ''}</td>
       <td style="color:var(--muted);font-size:12px;">${r.observaciones || '—'}</td>
       ${r.susp_desde ? `<td style="font-size:12px;color:var(--muted);">${r.susp_desde} → ${r.susp_hasta}</td>` : '<td style="color:var(--subtle);font-size:12px;">—</td>'}
     </tr>`).join('');
@@ -501,7 +603,9 @@ async function guardar() {
     susp_hasta: esSusp ? suspHasta : '',
     registrado_en: new Date().toISOString(),
     motivo_categoria: motivoCategoria,
-    horas_tardanza: esTardia ? horasTardanza : ''
+    horas_tardanza: esTardia ? horasTardanza : '',
+    imagen_base64: fotoAmon ? fotoAmon.base64 : '',
+    mime: fotoAmon ? fotoAmon.mime : ''
   };
 
   const btn = document.getElementById('btn-guardar');
@@ -516,9 +620,11 @@ async function guardar() {
     } catch { showToast('Sin conexión — guardado localmente.', 'error'); }
   }
 
-  // Guardar local
+  // Guardar local (sin la imagen base64, para no inflar localStorage)
+  const registroLocal = Object.assign({}, registro);
+  delete registroLocal.imagen_base64;
   const lista = getRegistros();
-  lista.push(registro);
+  lista.push(registroLocal);
   localStorage.setItem('amonestaciones', JSON.stringify(lista));
 
   showToast(`Amonestación registrada — ${colab}`, 'success');
@@ -540,6 +646,8 @@ function limpiar() {
   document.getElementById('motivo-categoria').value = '';
   document.getElementById('horas-tardanza').value = '';
   document.getElementById('horas-tardanza-wrap').style.display = 'none';
+  quitarFotoAmon();
+  document.getElementById('foto-card').style.display = 'none';
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────
