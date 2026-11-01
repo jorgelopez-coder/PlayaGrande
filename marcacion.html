@@ -38,6 +38,8 @@ main{max-width:640px;margin:0 auto;padding:1.5rem 2rem 5rem}
 .field label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:5px}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.ident-tag{font-weight:400;color:var(--muted);font-size:11px}
+select:disabled{opacity:.9;cursor:default;background-image:none;padding-right:12px;color:var(--text)}
 select{
   width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;
   color:var(--text);font-family:var(--font-b);font-size:14px;padding:9px 12px;
@@ -148,7 +150,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="resultado-head">
         <span id="res-icono">&#9989;</span>
         <span id="res-titulo">Entrada registrada</span>
-        <span class="estado-badge" id="res-badge"></span>
       </div>
       <div class="resultado-detalle" id="res-detalle"></div>
       <div style="margin-top:1rem;display:flex;gap:10px;flex-wrap:wrap">
@@ -163,7 +164,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </main>
 
 <div class="toast" id="toast"></div>
-<div class="status-bar"><span id="status-msg">v1.0 &middot; Marca de entrada &middot; Ecosistema Kioskos</span></div>
+<div class="status-bar"><span id="status-msg">v1.1 &middot; Marca de entrada &middot; Ecosistema Kioskos</span></div>
 
 <script>
 // CONFIG
@@ -193,6 +194,23 @@ let kioskosRegs = [];
 let personalData = [];
 let coordsKioskoSel = null;
 let ultimaMarca = null;
+
+// IDENTIDAD DESDE EL ACCESO (datos de la sesion de login)
+// Con login individual por correo, la sesion ya trae el correo de la persona
+// y el kiosko que tiene asignado; con eso identificamos colaborador + kiosko
+// sin que lo elijan a mano. Si la sesion no alcanza para identificar (p.ej.
+// terminal compartida con PIN por rol, o rol con 'todos' los kioskos), se
+// mantiene la seleccion manual de siempre.
+const SES_EMAIL = (PORTAL_SESION && PORTAL_SESION.email) ? String(PORTAL_SESION.email).trim().toLowerCase() : '';
+function kioskoDeSesion(){
+  const k = PORTAL_SESION && PORTAL_SESION.kioskos;
+  if (!k || k === 'todos') return null;
+  if (Array.isArray(k)) return k.length === 1 ? String(k[0]).trim() : null;
+  return String(k).trim();
+}
+const SES_KIOSKO = kioskoDeSesion();
+let colaboradorFijo = null;        // Nombre completo identificado desde el acceso
+let kioskoDelColaborador = null;   // Kiosko del colaborador segun Personal (respaldo)
 
 // RELOJ VIVO EN EL BOTON
 function tick(){
@@ -235,6 +253,31 @@ function distanciaM(a,b){
 // CARGA INICIAL
 async function init(){
   await Promise.all([cargarKioskos(), cargarPersonal()]);
+  aplicarIdentidadAcceso();
+}
+
+// Con kioskos y personal ya cargados, fija kiosko + colaborador desde el acceso.
+function aplicarIdentidadAcceso(){
+  const selM = document.getElementById('m-kiosko');
+  const nombres = Array.from(selM.options).map(o=>o.value).filter(Boolean);
+  let kioskoElegido = null;
+  if (SES_KIOSKO) kioskoElegido = nombres.find(n => normNom(n)===normNom(SES_KIOSKO)) || null;
+  if (!kioskoElegido && kioskoDelColaborador) kioskoElegido = nombres.find(n => normNom(n)===normNom(kioskoDelColaborador)) || null;
+  if (!kioskoElegido && nombres.length === 1) kioskoElegido = nombres[0];
+  if (kioskoElegido){
+    selM.value = kioskoElegido;
+    // Bloquear el kiosko solo cuando viene fijado por el acceso de la persona.
+    if (SES_KIOSKO && normNom(kioskoElegido)===normNom(SES_KIOSKO)){
+      selM.disabled = true;
+      const lbl = document.querySelector('label[for="m-kiosko"]');
+      if (lbl && !lbl.querySelector('.ident-tag')) lbl.insertAdjacentHTML('beforeend',' <span class="ident-tag">&middot; tu kiosko</span>');
+    }
+    onKioskoChange();
+  } else if (colaboradorFijo){
+    // Persona identificada pero sin kiosko resuelto: dejar el colaborador fijo.
+    poblarColaboradores('');
+    actualizarBoton();
+  }
 }
 async function cargarKioskos(){
   try{
@@ -245,7 +288,6 @@ async function cargarKioskos(){
   const nombres = kioskosPermitidos(kioskosRegs.map(k=>k['Kiosko']).filter(Boolean));
   const selM = document.getElementById('m-kiosko');
   selM.innerHTML = '<option value="">Seleccion&aacute; un kiosko&hellip;</option>' + nombres.map(n=>'<option>'+n+'</option>').join('');
-  if (nombres.length === 1){ selM.value = nombres[0]; onKioskoChange(); }
 }
 async function cargarPersonal(){
   try{
@@ -253,9 +295,30 @@ async function cargarPersonal(){
     const data = await resp.json();
     if (data.ok) personalData = data.registros||[];
   }catch(e){ personalData = []; }
+  // Identificar al colaborador por el correo de la sesion (mismo enlace que
+  // usa Accesos: Personal.Email <-> Usuarios.Email).
+  if (SES_EMAIL){
+    const yo = personalData.find(p =>
+      String(p['Email']||'').trim().toLowerCase()===SES_EMAIL &&
+      String(p['Estado']||'').toUpperCase()==='ACTIVO');
+    if (yo){
+      colaboradorFijo = String(yo['Nombre completo']||'').trim() || null;
+      kioskoDelColaborador = String(yo['Kiosko']||'').trim() || null;
+    }
+  }
 }
 function poblarColaboradores(kiosko){
   const sel = document.getElementById('m-colaborador');
+  // Si el acceso ya identifica a la persona, se fija y se bloquea (cada quien
+  // marca su propia entrada).
+  if (colaboradorFijo){
+    sel.innerHTML = '<option>'+colaboradorFijo+'</option>';
+    sel.value = colaboradorFijo;
+    sel.disabled = true;
+    const lbl = document.querySelector('label[for="m-colaborador"]');
+    if (lbl && !lbl.querySelector('.ident-tag')) lbl.insertAdjacentHTML('beforeend',' <span class="ident-tag">&middot; identificado desde tu acceso</span>');
+    return;
+  }
   const activos = personalData.filter(p => String(p['Estado']||'').toUpperCase()==='ACTIVO');
   let delKiosko = activos.filter(p => normNom(p['Kiosko'])===normNom(kiosko)).map(p=>p['Nombre completo']).filter(Boolean);
   if (!delKiosko.length) delKiosko = activos.map(p=>p['Nombre completo']).filter(Boolean);
@@ -336,27 +399,21 @@ function marcarEntrada(){
 }
 
 function mostrarResultado(colaborador, kiosko, res, mi, dist){
-  const tarde = res.estado === 'Tarde';
+  // La hoja de registro no muestra el veredicto de tardanza (eso vive solo en
+  // la pantalla de Control de tardias, de administracion). El backend igual lo
+  // calcula y lo guarda. Aca solo se confirma la marca de forma neutral.
   const panel = document.getElementById('resultado');
-  panel.className = 'resultado show ' + (tarde?'tarde':'ok');
-  document.getElementById('res-icono').innerHTML = tarde ? '&#9888;&#65039;' : '&#9989;';
+  panel.className = 'resultado show ok';
+  document.getElementById('res-icono').innerHTML = '&#9989;';
   document.getElementById('res-titulo').textContent = 'Entrada registrada';
-  const badge = document.getElementById('res-badge');
-  if (res.estado==='Tarde'){ badge.className='estado-badge e-tarde'; badge.textContent='Tarde · '+res.minutosTarde+' min'; }
-  else if (res.estado==='A tiempo'){ badge.className='estado-badge e-ok'; badge.textContent='A tiempo'; }
-  else { badge.className='estado-badge e-sin'; badge.textContent='Sin horario'; }
 
-  const prog = res.horaProgramada ? res.horaProgramada : '—';
   document.getElementById('res-detalle').innerHTML =
     '<div><span class="k">Colaborador:</span> <b>'+colaborador+'</b></div>'+
     '<div><span class="k">Kiosko:</span> '+kiosko+'</div>'+
-    '<div><span class="k">Hora marcada:</span> <b>'+res.hora+'</b> &nbsp;&middot;&nbsp; <span class="k">Programada:</span> '+prog+'</div>'+
+    '<div><span class="k">Hora marcada:</span> <b>'+res.hora+'</b></div>'+
     '<div><span class="k">Fecha:</span> '+res.fecha+' &nbsp;&middot;&nbsp; <span class="k">A '+Math.round(dist)+' m del kiosko</span></div>';
 
-  ultimaMarca = {
-    colaborador:colaborador, kiosko:kiosko, hora:res.hora, fecha:res.fecha, estado:res.estado,
-    minutosTarde:res.minutosTarde, horaProgramada:res.horaProgramada, lat:mi.lat, lng:mi.lng
-  };
+  ultimaMarca = { colaborador:colaborador, kiosko:kiosko, hora:res.hora, fecha:res.fecha, lat:mi.lat, lng:mi.lng };
   document.getElementById('res-icono').scrollIntoView({behavior:'smooth', block:'center'});
 }
 
@@ -371,9 +428,6 @@ function nuevaMarca(){
 function enviarWhatsApp(){
   if (!ultimaMarca){ toast('No hay una marca para enviar','error'); return; }
   const m = ultimaMarca;
-  let estadoTxt = m.estado==='Tarde' ? ('⚠️ TARDE · '+m.minutosTarde+' min (programada '+m.horaProgramada+')')
-               : m.estado==='A tiempo' ? '✅ A tiempo'
-               : 'Sin horario de referencia';
   const mapa = 'https://www.google.com/maps/search/?api=1&query='+m.lat+','+m.lng;
   const texto =
     '🕐 *Marca de entrada*\n'+
@@ -381,7 +435,6 @@ function enviarWhatsApp(){
     'Kiosko: '+m.kiosko+'\n'+
     'Fecha: '+m.fecha+'\n'+
     'Hora: '+m.hora+'\n'+
-    'Estado: '+estadoTxt+'\n'+
     'Ubicación: '+mapa;
   const reg = kioskosRegs.find(k => normNom(k['Kiosko'])===normNom(m.kiosko));
   let numero = reg ? String(reg['WhatsApp']||'').replace(/[^0-9]/g,'') : '';
