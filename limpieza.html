@@ -144,6 +144,21 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .cal-ev.vencida{background:var(--red-bg);color:var(--red);border-color:var(--red)}
 .cal-more{font-size:10px;color:var(--muted);cursor:pointer;padding-left:5px}
 
+/* ── Tareas (listado + asignar) ── */
+.tsk-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start}
+.tsk-card.off{opacity:.55}
+.tsk-body{flex:1;min-width:0}
+.tsk-name{font-family:var(--font-d);font-size:15px;font-weight:700}
+.tsk-asg{margin-top:7px;display:flex;flex-wrap:wrap}
+.asg-chip{font-size:11.5px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 8px;display:inline-flex;gap:6px;align-items:center;margin:0 5px 5px 0}
+.asg-chip.completada{background:var(--green-bg);border-color:var(--green-lt);color:var(--green)}
+.asg-chip.vencida{background:var(--red-bg);border-color:var(--red-lt);color:var(--red)}
+.resp-list{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;padding:8px;background:var(--surface)}
+.resp-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px;transition:background .12s;user-select:none}
+.resp-opt:hover{background:var(--green-bg)}
+.resp-opt input{width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+.resp-opt.on{background:var(--green-bg);color:var(--green);font-weight:600}
+
 /* ── Modales ── */
 .modal-bg{position:fixed;inset:0;background:rgba(28,58,40,.45);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
 .modal-bg.show{display:flex}
@@ -203,6 +218,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   <div class="tabs">
     <button class="tab on" data-tab="control" onclick="irTab('control')">Control</button>
+    <button class="tab" data-tab="tareas" onclick="irTab('tareas')">Tareas</button>
     <button class="tab" data-tab="calendario" onclick="irTab('calendario')">Calendario</button>
     <button class="tab" data-tab="config" onclick="irTab('config')">Configuración</button>
   </div>
@@ -215,6 +231,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="btn-sm" onclick="ctlHoy()">Hoy</button>
     </div>
     <div id="ctl-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
+  </section>
+
+  <!-- ══ PANE TAREAS (listado + asignar) ══ -->
+  <section class="pane" id="pane-tareas">
+    <div class="hint" style="font-size:12.5px;margin-bottom:1rem">Todas las tareas ingresadas para este kiosko. Tocá <b>Asignar</b> para elegir uno o más responsables y una fecha de cumplimiento.</div>
+    <div id="tsk-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
   </section>
 
   <!-- ══ PANE CALENDARIO ══ -->
@@ -322,6 +344,31 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<!-- Modal ASIGNAR (responsables + fecha de cumplimiento) -->
+<div class="modal-bg" id="form-asignar" onclick="if(event.target===this)cerrarAsignar()">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="asg-title">Asignar tarea</h3><div class="hint" id="asg-sub" style="margin-top:4px"></div></div>
+      <button class="modal-close" onclick="cerrarAsignar()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="asg-fecha">Fecha de cumplimiento <span class="req">*</span></label>
+        <input type="date" id="asg-fecha" onchange="refrescarAsignarChecks()"/>
+      </div>
+      <div class="field">
+        <label>Responsable(s) <span class="req">*</span></label>
+        <div class="resp-list" id="asg-resp-list"></div>
+        <p class="hint">Podés marcar uno o más colaboradores.</p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="cerrarAsignar()">Cancelar</button>
+      <button class="btn-primary" id="btn-asignar" onclick="guardarAsignacion()">Asignar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal EVIDENCIA (completar) -->
 <div class="modal-bg" id="form-evid" onclick="if(event.target===this)cerrarEvidencia()">
   <div class="modal">
@@ -410,6 +457,8 @@ let tabActual = 'control';
 // estado de edición de formularios
 let editandoTareaId = null, momentoSel = 'durante', fotoRefDataUrl = null;
 let evidCtx = null, fotoEvidDataUrl = null; // evidCtx = {tareaId, fecha, nombre}
+let asignCtx = null; // asignCtx = {tareaId, nombre}
+let evidVolverDia = null; // si la evidencia se abrió desde el calendario, día al que volver
 
 document.getElementById('date-chip').textContent = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
 document.getElementById('ctl-fecha').value = hoy();
@@ -463,7 +512,7 @@ async function recargarTodo(){
   await cargarAsignacionesRango(rangoVisible());
   pintarTodo();
 }
-function pintarTodo(){ renderControl(); renderCalendario(); renderConfig(); }
+function pintarTodo(){ renderControl(); renderTareas(); renderCalendario(); renderConfig(); }
 
 async function cargarTareas(){
   try{
@@ -509,8 +558,16 @@ function tareaTocaEn(t, iso){
   return false;
 }
 function tareasDelDia(iso){
-  return TAREAS.filter(t => tareaTocaEn(t, iso))
-    .sort((a,b)=> ordenMomento(a['Momento']) - ordenMomento(b['Momento']) || String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')));
+  // una tarea entra si la recurrencia la toca, o si tiene una asignación explícita (fecha de cumplimiento) ese día
+  const idsAsignados = new Set(
+    Object.values(ASIGN)
+      .filter(a => String(a['Fecha']||'') === iso && normNom(a['Kiosko'])===normNom(kioskoSel))
+      .map(a => String(a['Tarea ID']))
+  );
+  return TAREAS.filter(t => {
+    const activa = String(t['Activa']||'Sí').toLowerCase().charAt(0) !== 'n';
+    return tareaTocaEn(t, iso) || (activa && idsAsignados.has(String(t['ID'])));
+  }).sort((a,b)=> ordenMomento(a['Momento']) - ordenMomento(b['Momento']) || String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')));
 }
 function ordenMomento(m){ m=String(m||'durante').toLowerCase(); return m==='apertura'?0:m==='cierre'?2:1; }
 // estado efectivo de una tarea en una fecha (deriva "vencida")
@@ -578,6 +635,99 @@ async function asignarResponsable(tareaId, iso, responsable){
   }catch(e){ showToast('No se pudo asignar — '+e.message,'error'); }
 }
 
+// ══ TAREAS (listado + asignar responsables y fecha) ══════════════════
+function renderTareas(){
+  const cont = document.getElementById('tsk-list');
+  if (!kioskoSel){ cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus tareas.</div>'; return; }
+  if (!TAREAS.length){ cont.innerHTML = '<div class="empty">Todavía no hay tareas para '+escapeAttr(kioskoSel)+'. Agregalas en la pestaña Configuración.</div>'; return; }
+  cont.innerHTML = TAREAS.slice()
+    .sort((a,b)=>String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')))
+    .map(t => {
+      const activa = String(t['Activa']||'Sí').toLowerCase().charAt(0) !== 'n';
+      const mom = String(t['Momento']||'durante').toLowerCase();
+      // asignaciones de hoy en adelante para esta tarea
+      const asigs = Object.values(ASIGN)
+        .filter(a => String(a['Tarea ID'])===String(t['ID']) && String(a['Fecha']||'')>=hoy())
+        .sort((a,b)=>String(a['Fecha']).localeCompare(String(b['Fecha']))).slice(0,6);
+      const chips = asigs.map(a=>{
+        const comp = String(a['Estado']||'').toLowerCase()==='completada';
+        const est = comp?'completada':(String(a['Fecha'])<hoy()?'vencida':'pendiente');
+        const quien = a['Responsable']||a['Completada por']||'sin responsable';
+        return `<span class="asg-chip ${est}">📅 ${escapeAttr(fechaCorta(a['Fecha']))} · ${escapeAttr(quien)}${comp?' ✓':''}</span>`;
+      }).join('');
+      return `<div class="tsk-card ${activa?'':'off'}">
+        <div class="tsk-body">
+          <div class="tsk-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span>${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
+          <span class="cfg-rec">🔁 ${textoRecurrencia(t)}</span>
+          ${chips?`<div class="tsk-asg">${chips}</div>`:'<div class="hint" style="margin-top:6px">Sin asignaciones próximas.</div>'}
+        </div>
+        <div class="cfg-actions">
+          ${activa?`<button class="btn-add" onclick="abrirAsignar('${t['ID']}')">👤 Asignar</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+}
+function abrirAsignar(tareaId){
+  const t = TAREAS.find(x=>String(x['ID'])===String(tareaId)); if (!t) return;
+  asignCtx = { tareaId:String(tareaId), nombre:t['Nombre']||'' };
+  document.getElementById('asg-title').textContent = t['Nombre']||'Asignar tarea';
+  document.getElementById('asg-sub').textContent = kioskoSel;
+  const def = proximaFechaTarea(t);
+  document.getElementById('asg-fecha').value = def;
+  pintarRespLista();
+  refrescarAsignarChecks();
+  document.getElementById('form-asignar').classList.add('show');
+}
+function cerrarAsignar(){ document.getElementById('form-asignar').classList.remove('show'); asignCtx=null; }
+function pintarRespLista(){
+  const colabs = colaboradoresDe(kioskoSel);
+  const cont = document.getElementById('asg-resp-list');
+  if (!colabs.length){ cont.innerHTML = '<div class="hint" style="padding:6px">No hay colaboradores activos para este kiosko.</div>'; return; }
+  cont.innerHTML = colabs.map(n=>`<label class="resp-opt"><input type="checkbox" value="${escapeAttr(n)}" onchange="this.closest('.resp-opt').classList.toggle('on',this.checked)"/><span>${escapeAttr(n)}</span></label>`).join('');
+}
+// pre-marca los responsables que ya tenga la asignación de la fecha elegida
+function refrescarAsignarChecks(){
+  if (!asignCtx) return;
+  const iso = document.getElementById('asg-fecha').value;
+  const a = asignDe(asignCtx.tareaId, iso) || {};
+  const yaAsig = String(a['Responsable']||'').split(',').map(s=>normNom(s)).filter(Boolean);
+  document.querySelectorAll('#asg-resp-list .resp-opt').forEach(opt=>{
+    const inp = opt.querySelector('input');
+    const marcar = yaAsig.includes(normNom(inp.value));
+    inp.checked = marcar; opt.classList.toggle('on', marcar);
+  });
+}
+function respSeleccionados(){ return Array.from(document.querySelectorAll('#asg-resp-list input:checked')).map(i=>i.value); }
+async function guardarAsignacion(){
+  if (!asignCtx) return;
+  if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
+  const iso = document.getElementById('asg-fecha').value;
+  if (!iso){ showToast('Elegí la fecha de cumplimiento','error'); return; }
+  const resp = respSeleccionados();
+  if (!resp.length){ showToast('Marcá al menos un responsable','error'); return; }
+  const btn = document.getElementById('btn-asignar'); const txt = btn.textContent;
+  btn.disabled=true; btn.textContent='Asignando…';
+  try{
+    const out = await (await fetchConTimeout(LIMPIEZA_URL, post({
+      accion:'asignar', tareaId:asignCtx.tareaId, kiosko:kioskoSel, fecha:iso, responsable:resp.join(', ')
+    }), 60000)).json();
+    if (!out.ok) throw new Error(out.error||'Error');
+    ASIGN[claveAsign(asignCtx.tareaId, iso)] = out.asignacion || Object.assign(asignDe(asignCtx.tareaId,iso)||{}, {'Tarea ID':asignCtx.tareaId,'Fecha':iso,'Kiosko':kioskoSel,'Responsable':resp.join(', '),'Estado':'pendiente'});
+    showToast('Tarea asignada ✓');
+    cerrarAsignar();
+    pintarTodo();
+  }catch(e){ showToast('No se pudo asignar — '+e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
+}
+function proximaFechaTarea(t){
+  const tipo = String(t['Recurrencia Tipo']||'diaria').toLowerCase();
+  if (tipo==='unica'){ const d=String(t['Recurrencia Detalle']||''); return d||hoy(); }
+  // busca la próxima fecha (hasta 90 días) en que toca la recurrencia
+  const base = fechaDe(hoy());
+  for (let i=0;i<90;i++){ const cur=new Date(base); cur.setDate(base.getDate()+i); const iso=isoDe(cur); if (tareaTocaEn(t,iso)) return iso; }
+  return hoy();
+}
+
 // ══ EVIDENCIA (completar con foto) ═══════════════════════════════════
 function abrirEvidencia(tareaId, iso){
   const t = TAREAS.find(x=>String(x['ID'])===String(tareaId)); if (!t) return;
@@ -589,7 +739,10 @@ function abrirEvidencia(tareaId, iso){
   document.getElementById('evid-sub').textContent = fechaLarga(iso) + (a['Responsable']?' · '+a['Responsable']:'');
   document.getElementById('form-evid').classList.add('show');
 }
-function cerrarEvidencia(){ document.getElementById('form-evid').classList.remove('show'); }
+function cerrarEvidencia(){
+  document.getElementById('form-evid').classList.remove('show');
+  if (evidVolverDia){ const d=evidVolverDia; evidVolverDia=null; abrirDia(d); }
+}
 async function completarTarea(){
   if (!evidCtx) return;
   if (!fotoEvidDataUrl){ showToast('Tenés que tomar la foto de evidencia','error'); return; }
@@ -654,16 +807,20 @@ function abrirDia(iso){
     const mom = String(t['Momento']||'durante').toLowerCase();
     const quien = a['Completada por']||a['Responsable']||'';
     const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" style="margin-top:6px" src="${escapeAttr(a['Foto Evidencia URL'])}" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+    const accion = (est!=='completada')
+      ? `<button class="btn-add" style="margin-top:8px" onclick="completarDesdeDia('${t['ID']}','${iso}')">📷 Marcar hecha</button>` : '';
     return `<div class="task-row ${est}" style="margin-bottom:8px">
       <div class="task-body">
         <div class="task-name" style="font-size:14px">${escapeAttr(t['Nombre']||'')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico:''}</span></div>
         <div class="task-meta"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'✓ Completada':'● Pendiente'}</span>${quien?`<span>👤 <b>${escapeAttr(quien)}</b></span>`:''}</div>
         ${evFoto}
+        ${accion}
       </div></div>`;
   }).join('');
   document.getElementById('modal-dia').classList.add('show');
 }
 function cerrarDia(){ document.getElementById('modal-dia').classList.remove('show'); }
+function completarDesdeDia(id, iso){ evidVolverDia = iso; cerrarDia(); abrirEvidencia(id, iso); }
 
 // ══ CONFIGURACIÓN ════════════════════════════════════════════════════
 function renderConfig(){
@@ -876,10 +1033,11 @@ function hoy(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth
 function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fechaDe(iso){ const p=String(iso||'').split('-'); return new Date(Number(p[0]), Number(p[1])-1, Number(p[2])); }
 function fechaLarga(iso){ const p=String(iso||'').split('-'); if (p.length!==3) return iso; return fechaDe(iso).toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'}); }
+function fechaCorta(iso){ const p=String(iso||'').split('-'); if (p.length!==3) return iso; return fechaDe(iso).toLocaleDateString('es-CR',{day:'numeric',month:'short'}); }
 function normNom(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
 function escapeAttr(str){ return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ cerrarFormTarea(); cerrarEvidencia(); cerrarDia(); cerrarFoto(); } });
+document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ cerrarFormTarea(); cerrarAsignar(); cerrarDia(); cerrarEvidencia(); cerrarFoto(); } });
 </script>
 </body>
 </html>

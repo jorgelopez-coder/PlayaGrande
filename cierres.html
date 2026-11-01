@@ -1284,22 +1284,15 @@ const WA_NUMERO_DEFAULT = '';
 
 function buildWAMessage(r) {
   const fecha = new Date((r.fecha||hoy())+'T12:00:00').toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'});
-  const diff = r.diferenciaCaja || 0;
-  const cuadra = !!r.cajaCuadra;
-  const emoji = cuadra ? '✅' : '⚠️';
   const m = v => fmtMoneda(v, r.kiosko);
 
   return `📊 *Cierre de Caja*
 🏖️ Kiosko: ${r.kiosko || '—'}
 📅 Fecha: ${fecha}
 
-💰 *Ventas Netas Square: ${m(r.efectivoEsperado||0)}*
-• Base tarjeta (datáfono): ${m(r.tarjeta||0)}
-• Efectivo de ventas: ${m(r.efectivo||0)}${r.sinpe?`\n• SINPE: ${m(r.sinpe)}`:''}
-• Total declarado: ${m(r.cajaTotalContada||0)}
-
-📊 *Cuadre General:* ${emoji} ${cuadra ? 'Cuadra' : 'No cuadra'} (dif. ${m(Math.abs(diff))})
-${r.tips?`\n💵 Propina del día: ${m(r.tips)} (informativo)`:''}
+💳 Venta en datáfono: ${m(r.tarjeta||0)}
+💵 Efectivo de ventas: ${m(r.efectivo||0)}
+🧾 Total declarado: ${m(r.cajaTotalContada||0)}${r.tips?`\n💰 Propina del día: ${m(r.tips)}`:''}
 ${r.obs?`\n📝 *Observaciones:* ${r.obs}`:''}
 ${r.fotoDatafonoUrl?`\n📎 Foto del cierre de tarjeta: ${r.fotoDatafonoUrl}`:''}`;
 }
