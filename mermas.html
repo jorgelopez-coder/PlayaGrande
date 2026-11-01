@@ -379,7 +379,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
@@ -942,8 +942,8 @@ function aplicarAtajoFecha(tipo) {
     desde = new Date(ahora.getFullYear(), 0, 1);
   }
   // 'hoy' deja desde = hasta = hoy tal cual
-  document.getElementById('an-desde').value = desde.toISOString().slice(0,10);
-  document.getElementById('an-hasta').value = hasta.toISOString().slice(0,10);
+  document.getElementById('an-desde').value = desde.getFullYear()+'-'+String(desde.getMonth()+1).padStart(2,'0')+'-'+String(desde.getDate()).padStart(2,'0');
+  document.getElementById('an-hasta').value = hasta.getFullYear()+'-'+String(hasta.getMonth()+1).padStart(2,'0')+'-'+String(hasta.getDate()).padStart(2,'0');
   marcarAtajoActivo(tipo);
   // Si ya hay datos cargados, solo se re-filtra en el cliente (rápido). Si es
   // la primera vez que se entra a la pestaña, se hace el fetch completo.
@@ -1338,11 +1338,11 @@ function renderLineChart(containerId, points) {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
-function hoy() { return new Date().toISOString().slice(0,10); }
+function hoy() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function haceNDias(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0,10);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
