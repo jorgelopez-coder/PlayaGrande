@@ -1267,13 +1267,26 @@ async function submitCierre() {
 // reporte de WhatsApp.
 let fotoDatafonoUrlGuardada = '';
 async function recuperarFotoUrlGuardada(id) {
+  // Si en este cierre se subió foto del datáfono, el backend la sube a Drive y
+  // escribe la URL (columna 41) dentro del mismo doPost. Aun así, la relectura
+  // por GET a veces llega antes de que esa URL quede visible, y el reporte de
+  // WhatsApp salía sin la foto. Por eso, cuando SÍ se adjuntó foto, reintentamos
+  // la relectura hasta que aparezca la URL (o se agoten los intentos).
+  const esperaFoto = !!(typeof fotos !== 'undefined' && fotos && fotos.datafono);
+  const maxIntentos = esperaFoto ? 6 : 1;
   try {
-    const resp = await fetch(SHEETS_URL + '?action=read');
-    const data = await resp.json();
-    const fila = (data.records || []).find(r => String(r[0]) === String(id));
-    fotoDatafonoUrlGuardada = (fila && fila[41]) || '';
-  } catch(e) {
-    fotoDatafonoUrlGuardada = '';
+    for (let n = 0; n < maxIntentos; n++) {
+      try {
+        const resp = await fetch(SHEETS_URL + '?action=read');
+        const data = await resp.json();
+        const fila = (data.records || []).find(r => String(r[0]) === String(id));
+        fotoDatafonoUrlGuardada = (fila && fila[41]) || '';
+      } catch(e) {
+        fotoDatafonoUrlGuardada = '';
+      }
+      if (fotoDatafonoUrlGuardada || !esperaFoto) break;
+      await new Promise(res => setTimeout(res, 1500));
+    }
   } finally {
     actualizarWhatsAppBtn();
   }
