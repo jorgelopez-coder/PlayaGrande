@@ -128,6 +128,9 @@ const GOOGLE_CLIENT_ID = '853957823193-fncpv7krc70cd4okguamathqr44ld6ka.apps.goo
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 
+// Destino segun rol: el rol 'Usuario' abre el Portal del Empleado; el resto, el control tower.
+function destinoPortal(rolId){ return String(rolId)==='rol_usuario' ? 'portal.html' : 'index.html'; }
+
 // Rol de respaldo — solo para el acceso por PIN si todavía no se desplegó el
 // backend con la pestaña "Roles", o si no hay conexión.
 const ADMIN_DEFAULT = { id:'admin', nombre:'Administrador', pin:'admin', color:'#1a7a4a', modulos:'todos', kioskos:'todos' };
@@ -191,12 +194,12 @@ function ingresar() {
     kioskos:  rol.kioskos,
     ts:       Date.now()
   }));
-  window.location.href = 'index.html';
+  window.location.href = destinoPortal(rol.id);
 }
 
 const sesion = JSON.parse(localStorage.getItem('portal_sesion')||'null');
 if (sesion && (Date.now() - sesion.ts) < 8 * 60 * 60 * 1000) {
-  window.location.href = 'index.html';
+  window.location.href = destinoPortal(sesion.rol_id);
 }
 
 // El PIN arranca deshabilitado hasta cargar roles (igual que antes).
@@ -229,7 +232,7 @@ async function handleGoogleCredential(response) {
       usuario_id: r.usuario_id,
       ts:         Date.now()
     }));
-    window.location.href = 'index.html';
+    window.location.href = destinoPortal(r.rol_id);
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';

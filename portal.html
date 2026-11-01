@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mi portal · Ecosistema Kioskos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf7f0;--surface:#f2ede2;--card:#ffffff;
+  --border:#c8ddd0;--border-h:#8ab89e;
+  --text:#1c3a28;--muted:#5a8a6a;--subtle:#a0c8b0;
+  --green:#1a7a4a;--green-bg:#eef8f2;--green-lt:#d0eedd;
+  --red:#c84a20;--red-bg:#fdf0eb;--red-lt:#f0c0a8;
+  --amber:#b7791f;--amber-bg:#fdf6e3;
+  --blue:#185fa5;--blue-bg:#eef4fb;
+  --radius:12px;--font-d:'Inter Tight',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+header{height:56px;border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mark{width:34px;height:34px;border-radius:9px;background:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand .mark svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand .t{font-family:var(--font-d);font-size:14px;font-weight:700;line-height:1.1}
+.brand .s{font-size:11px;color:var(--muted)}
+.salir{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);transition:color .15s,border-color .15s;cursor:pointer}
+.salir:hover{color:var(--text);border-color:var(--border-h)}
+
+main{max-width:720px;margin:0 auto;padding:1.5rem 1.5rem 5rem}
+
+.hero{background:var(--text);color:#fff;border-radius:16px;padding:1.5rem 1.6rem;margin-bottom:1.1rem}
+.hero .hello{font-size:13px;color:#bfe3cd;font-weight:500}
+.hero h1{font-family:var(--font-d);font-size:24px;font-weight:800;margin:3px 0 10px;line-height:1.15}
+.hero .chips{display:flex;flex-wrap:wrap;gap:8px}
+.hero .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:4px 11px;font-size:12px;font-weight:500}
+.hero .chip.warn{background:rgba(224,120,30,.28);border-color:rgba(224,120,30,.5)}
+
+.section-h{font-family:var(--font-d);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.6rem 0 .7rem;display:flex;align-items:center;gap:8px}
+.section-h svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:.9rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+
+/* MARCA */
+.marca-card{display:flex;flex-direction:column;align-items:center;gap:12px;padding:1.5rem 1.25rem}
+.geo{display:flex;align-items:center;gap:10px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.geo .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--subtle)}
+.geo.ok .dot{background:var(--green)}.geo.bad .dot{background:var(--red)}
+.geo.wait .dot{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.btn-marca{width:200px;height:200px;border-radius:50%;border:none;cursor:pointer;background:var(--green);color:#fff;font-family:var(--font-d);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 8px 28px rgba(26,122,74,.35);transition:transform .12s,opacity .15s,background .15s}
+.btn-marca:hover{transform:scale(1.03)}.btn-marca:active{transform:scale(.97)}
+.btn-marca:disabled{background:var(--subtle);box-shadow:none;cursor:not-allowed;opacity:.85;transform:none}
+.btn-marca .reloj{font-family:var(--font-m);font-size:34px;font-weight:600;letter-spacing:.5px}
+.btn-marca .lbl{font-size:14px;text-transform:uppercase;letter-spacing:.09em}
+.marca-ok{display:none;width:100%;background:var(--green-bg);border:1px solid var(--green-lt);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6}
+.marca-ok.show{display:block}
+.marca-ok .k{color:var(--muted)}
+
+/* HISTORIAL / listas */
+.hist{list-style:none;display:flex;flex-direction:column}
+.hist li{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--surface);font-size:13px}
+.hist li:last-child{border-bottom:none}
+.hist .hora{font-family:var(--font-m);font-weight:600;font-size:15px;min-width:52px}
+.hist .meta{color:var(--muted);font-size:12px}
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-tarde{background:var(--amber-bg);color:var(--amber)}
+.b-sin{background:var(--surface);color:var(--muted)}
+.b-pend{background:var(--amber-bg);color:var(--amber)}
+.b-apro{background:var(--green-bg);color:var(--green)}
+.b-rech{background:var(--red-bg);color:var(--red)}
+.empty{color:var(--subtle);font-size:13px;text-align:center;padding:14px 0}
+
+/* VACACIONES */
+.vac{display:flex;align-items:center;gap:1rem}
+.vac .num{font-family:var(--font-d);font-size:40px;font-weight:800;color:var(--green);line-height:1}
+.vac .lbl{font-size:12.5px;color:var(--muted);line-height:1.4}
+.estado-sol{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--surface);font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* HORARIO */
+.week{list-style:none;display:flex;flex-direction:column}
+.week li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--surface);font-size:13px}
+.week li:last-child{border-bottom:none}
+.week li.hoy{background:var(--green-bg);border-radius:8px;padding-left:8px;padding-right:8px;border-bottom:1px solid var(--green-lt)}
+.week .dia{font-weight:600;min-width:74px}
+.week .dia small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+.week .turno{font-family:var(--font-m);font-size:13px}
+.week .libre{color:var(--subtle)}
+
+/* INFO / eventos */
+.ev{display:flex;gap:12px;padding:10px 2px;border-bottom:1px solid var(--surface)}
+.ev:last-child{border-bottom:none}
+.ev .fecha{text-align:center;min-width:48px}
+.ev .fecha .d{font-family:var(--font-d);font-size:20px;font-weight:800;line-height:1}
+.ev .fecha .m{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em}
+.ev .cuerpo{flex:1}
+.ev .cuerpo .ti{font-weight:600}
+.ev .cuerpo .de{font-size:12px;color:var(--muted);margin-top:2px}
+.ev .cat{align-self:flex-start;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:var(--blue-bg);color:var(--blue);white-space:nowrap}
+
+/* BOTONES ACCION */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--font-d);font-size:14px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;text-decoration:none;width:100%}
+.btn:hover{border-color:var(--border-h)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn.solid{background:var(--text);color:#fff;border:none}
+.btn.solid:hover{opacity:.9}
+.btn.solid svg{stroke:#fff}
+.btn-sub{font-size:11px;color:var(--muted);font-weight:500;display:block}
+.act-cell{display:flex;flex-direction:column;gap:3px;align-items:center}
+
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border-h);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.skel{color:var(--subtle);font-size:13px;padding:6px 0}
+
+@media(max-width:560px){
+  header{padding:0 1rem}main{padding:1.25rem 1rem 5rem}
+  .grid2{grid-template-columns:1fr}
+  .hero h1{font-size:21px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark"><svg viewBox="0 0 24 24"><path d="M3 22h18M5 22V9a1 1 0 011-1h12a1 1 0 011 1v13M8 8V4h8v4M12 12v6"/></svg></div>
+    <div>
+      <div class="t">Mi portal</div>
+      <div class="s">Ecosistema Kioskos</div>
+    </div>
+  </div>
+  <a class="salir" onclick="cerrarSesion()">Salir</a>
+</header>
+
+<main>
+  <!-- BIENVENIDA -->
+  <div class="hero">
+    <div class="hello" id="hero-saludo">Hola</div>
+    <h1 id="hero-nombre">…</h1>
+    <div class="chips" id="hero-chips"></div>
+  </div>
+
+  <!-- MARCAR ENTRADA -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Marca de entrada</div>
+  <div class="card marca-card">
+    <div class="geo wait" id="geo"><span class="dot"></span><span class="txt" id="geo-txt">Preparando tu marca…</span></div>
+    <button type="button" class="btn-marca" id="btn-marca" onclick="marcar()" disabled>
+      <span class="reloj" id="reloj">--:--</span>
+      <span class="lbl">Marcar entrada</span>
+    </button>
+    <div class="marca-ok" id="marca-ok"></div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg> Mis últimas marcas</div>
+  <div class="card"><ul class="hist" id="hist"><li class="skel">Cargando…</li></ul></div>
+
+  <!-- INFORMATIVO -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg> Informativo · próximas fechas</div>
+  <div class="card" id="info-card"><div class="skel">Cargando eventos…</div></div>
+
+  <!-- ACCIONES DE PERSONAL -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M8 7V3h8v4M3 7h18v13a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M12 11v4"/></svg> Acciones de personal</div>
+  <div class="card">
+    <div class="vac">
+      <div class="num" id="vac-num">—</div>
+      <div class="lbl"><b>Días de vacaciones disponibles</b><br>Se calcula por tu antigüedad, menos lo ya aprobado.</div>
+    </div>
+    <div class="estado-sol" id="vac-estado" style="display:none"></div>
+  </div>
+  <div class="grid2">
+    <a class="btn" href="rrhh-vacaciones.html">
+      <span class="act-cell"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z"/></svg>
+      <span>Solicitar vacaciones</span></span>
+    </a>
+    <a class="btn" href="rrhh-horas-extra.html">
+      <span class="act-cell"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Reportar horas extra</span></span>
+    </a>
+  </div>
+
+  <!-- HORARIO SEMANA -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 6h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z"/></svg> Mi horario de esta semana</div>
+  <div class="card"><ul class="week" id="week"><li class="skel">Cargando…</li></ul></div>
+
+  <!-- TAREAS DIARIAS -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Tareas diarias</div>
+  <div class="grid2">
+    <a class="btn solid" href="cierres.html">
+      <span class="act-cell"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg>
+      <span>Subir cierre de caja</span></span>
+    </a>
+    <a class="btn solid" href="mermas.html">
+      <span class="act-cell"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      <span>Subir mermas</span></span>
+    </a>
+  </div>
+
+  <!-- LIMPIEZA -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M3 21l6-6M14 4l6 6-9 9-6-1-1-6z"/></svg> Tareas de limpieza asignadas</div>
+  <div class="card"><ul class="hist" id="limp"><li class="skel">Cargando…</li></ul></div>
+
+  <!-- MANTENIMIENTO -->
+  <div class="section-h"><svg viewBox="0 0 24 24"><path d="M14 7l3 3M3 21l9-9M14 7a4 4 0 115 5l-2-1-2 2 1 2a4 4 0 01-5-5z"/></svg> Mantenimiento</div>
+  <a class="btn" href="mantenimiento.html" style="margin-bottom:.9rem">
+    <span class="act-cell"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3.1l-8-14a2 2 0 00-3.4 0z"/></svg>
+    <span>Reportar una tarea de mantenimiento</span></span>
+  </a>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────── CONFIG ─────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec'; // RRHH / portal
+const LIMPIEZA_URL    = 'https://script.google.com/macros/s/AKfycbzwY34EePdqV6yunYEdblREbhlurNgFAZZs4-NPeAf4A4OVVFlgKdz4da7pNDxPc85Dhg/exec';
+const EVENTOS_URL     = 'https://script.google.com/macros/s/AKfycbw3GYSEI7GHT_8Uyj1ojfAW4hFCMDAtQ-u8e2N9-Pn31a35hj1e0tyQ986uv4Yhi7XtKA/exec';
+const RADIO_GEOCERCA_M = 150;
+
+// ───────── SESIÓN ─────────
+const SESION = JSON.parse(localStorage.getItem('portal_sesion')||'null');
+if (!SESION || (Date.now() - SESION.ts) >= 8*60*60*1000){
+  localStorage.removeItem('portal_sesion');
+  window.location.href = 'login.html';
+}
+function cerrarSesion(){ localStorage.removeItem('portal_sesion'); window.location.href='login.html'; }
+
+// ───────── UTILIDADES ─────────
+function normNom(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function getMondayOf(d){const day=d.getDay(),diff=day===0?-6:1-day;const m=new Date(d);m.setDate(d.getDate()+diff);m.setHours(0,0,0,0);return m;}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function parseHHMM(s){const m=String(s||'').match(/(\d{1,2}):(\d{2})/);return m?(+m[1]*60+ +m[2]):null;}
+function extraerCoordenadas(u){if(!u)return null;const d=u.match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);if(d)return{lat:+d[1],lng:+d[2]};const l=u.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);if(l)return{lat:+l[1],lng:+l[2]};return null;}
+async function geocodificar(dir){
+  const cache=JSON.parse(localStorage.getItem('geocode_cache')||'{}');
+  if(dir in cache)return cache[dir];
+  try{
+    const q=dir+(/costa rica/i.test(dir)?'':', Costa Rica');
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cr&q='+encodeURIComponent(q));
+    const data=await r.json();
+    const res=(data&&data[0])?{lat:+data[0].lat,lng:+data[0].lon}:null;
+    cache[dir]=res;localStorage.setItem('geocode_cache',JSON.stringify(cache));return res;
+  }catch(e){return null;}
+}
+function distanciaM(a,b){const R=6371000,t=x=>x*Math.PI/180;const dLat=t(b.lat-a.lat),dLng=t(b.lng-a.lng);const s=Math.sin(dLat/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+let toastT;
+function toast(msg,tipo){const el=document.getElementById('toast');el.className='toast show'+(tipo?' '+tipo:'');el.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>el.className='toast',3000);}
+async function getJSON(url){const r=await fetch(url);return r.json();}
+
+// ───────── ESTADO ─────────
+let YO = { nombre:SESION.nombre||'', kiosko:'', puesto:'', ingreso:'', saldoRaw:0, venceCarnet:'' };
+let coordsKiosko = null;
+let kioskosRegs = [];
+
+// reloj vivo
+function tick(){const d=new Date();document.getElementById('reloj').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+setInterval(()=>{ if(!document.getElementById('marca-ok').classList.contains('show')) tick(); },1000); tick();
+
+// ───────── CARGA ─────────
+async function init(){
+  const [personal, kioskos, vac] = await Promise.all([
+    getJSON(APPS_SCRIPT_URL+'?modulo=personal').catch(()=>({})),
+    getJSON(APPS_SCRIPT_URL+'?modulo=kioskos').catch(()=>({})),
+    getJSON(APPS_SCRIPT_URL+'?modulo=vacaciones').catch(()=>({}))
+  ]);
+
+  // Resolver mi ficha: por correo primero, si no por nombre
+  const regs = (personal && personal.registros) ? personal.registros : [];
+  const correo = normNom(SESION.email||'');
+  let mi = correo ? regs.find(p=>normNom(p['Email'])===correo) : null;
+  if(!mi) mi = regs.find(p=>normNom(p['Nombre completo'])===normNom(SESION.nombre));
+  if(mi){
+    YO.nombre = mi['Nombre completo'] || YO.nombre;
+    YO.kiosko = (mi['Kiosko']||'').toString().trim();
+    YO.puesto = mi['Puesto']||'';
+    YO.ingreso = mi['Fecha ingreso']||'';
+    YO.saldoRaw = mi['Saldo vacaciones']||0;
+    YO.venceCarnet = mi['Vence carnet']||'';
+  }
+  if(!YO.kiosko){
+    const k = SESION.kioskos;
+    YO.kiosko = (Array.isArray(k) && k.length) ? k[0] : (typeof k==='string' && k!=='todos' ? k : '');
+  }
+  renderHero();
+
+  // Geocerca del kiosko
+  kioskosRegs = (kioskos && kioskos.registros) ? kioskos.registros : [];
+  await resolverGeocerca();
+
+  // Saldo + estado de solicitud
+  renderVacaciones((vac && vac.registros) ? vac.registros : []);
+
+  // Resto en paralelo (no bloquean la marca)
+  cargarMarcas();
+  cargarHorario();
+  cargarEventos();
+  cargarLimpieza();
+}
+
+function renderHero(){
+  const hora = new Date().getHours();
+  document.getElementById('hero-saludo').textContent = hora<12?'Buenos días':hora<18?'Buenas tardes':'Buenas noches';
+  const primer = (YO.nombre||'').split(' ')[0] || YO.nombre || 'Colaborador';
+  document.getElementById('hero-nombre').textContent = primer;
+  const chips = [];
+  if(YO.puesto) chips.push('<span class="chip">💼 '+esc(YO.puesto)+'</span>');
+  if(YO.kiosko) chips.push('<span class="chip">📍 '+esc(YO.kiosko)+'</span>');
+  // Carnet de manipulación de alimentos (info importante / operativa)
+  const vc = parseFecha(YO.venceCarnet);
+  if(vc){
+    const dias = Math.round((vc - hoy0())/86400000);
+    if(dias<0) chips.push('<span class="chip warn">⚠️ Carnet vencido</span>');
+    else if(dias<=30) chips.push('<span class="chip warn">⚠️ Carnet vence en '+dias+' d</span>');
+  }
+  document.getElementById('hero-chips').innerHTML = chips.join('');
+}
+function hoy0(){const d=new Date();d.setHours(0,0,0,0);return d;}
+function parseFecha(v){if(!v)return null;const s=String(v).trim().substring(0,10).split('-');if(s.length<3)return null;const d=new Date(+s[0],+s[1]-1,+s[2]);return isNaN(d)?null:d;}
+
+// ───────── GEOCERCA ─────────
+async function resolverGeocerca(){
+  if(!YO.kiosko){ setGeo('bad','No tenés un kiosko asignado. Avisale a un administrador.'); return; }
+  const reg = kioskosRegs.find(k=>normNom(k['Kiosko'])===normNom(YO.kiosko));
+  const ubic = reg ? String(reg['Ubicación']||'').trim() : '';
+  if(!ubic){ setGeo('bad','Tu kiosko no tiene ubicación registrada — no se puede validar la marca.'); return; }
+  setGeo('wait','Resolviendo la ubicación del kiosko…');
+  coordsKiosko = extraerCoordenadas(ubic) || await geocodificar(ubic);
+  if(!coordsKiosko){ setGeo('bad','No se pudo ubicar el kiosko. Revisá su "Ubicación" en Configuración.'); return; }
+  setGeo('wait','Listo. Al marcar se confirmará que estás a menos de '+RADIO_GEOCERCA_M+' m del kiosko.');
+  document.getElementById('btn-marca').disabled = false;
+}
+function setGeo(cls,txt){const g=document.getElementById('geo');g.className='geo '+cls;document.getElementById('geo-txt').innerHTML=txt;}
+
+// ───────── MARCAR ─────────
+function marcar(){
+  if(!coordsKiosko){ toast('Tu kiosko no tiene ubicación válida','error'); return; }
+  if(!navigator.geolocation){ toast('Este dispositivo no permite geolocalización','error'); return; }
+  const btn=document.getElementById('btn-marca'); btn.disabled=true;
+  setGeo('wait','Obteniendo tu ubicación…');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const mi={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    const dist=distanciaM(mi,coordsKiosko);
+    if(dist>RADIO_GEOCERCA_M){
+      setGeo('bad','Estás a <b>'+Math.round(dist)+' m</b> del kiosko (máximo '+RADIO_GEOCERCA_M+' m). Acercate e intentá de nuevo.');
+      btn.disabled=false; toast('Fuera del área del kiosko','error'); return;
+    }
+    setGeo('ok','Ubicación confirmada ('+Math.round(dist)+' m). Registrando…');
+    try{
+      const payload={modulo:'marcacion_registrar',rol_id:SESION.rol_id,colaborador:YO.nombre,kiosko:YO.kiosko,tipo:'Entrada',lat:mi.lat,lng:mi.lng,distancia:dist,dentro_geocerca:'Sí',origen:'Portal'};
+      const r=await fetch(APPS_SCRIPT_URL,{method:'POST',body:new URLSearchParams({data:JSON.stringify(payload)})});
+      const data=await r.json();
+      if(!data.ok) throw new Error(data.error||'No se pudo registrar');
+      const res=data.result;
+      const ok=document.getElementById('marca-ok');
+      ok.className='marca-ok show';
+      ok.innerHTML='✅ <b>Entrada registrada</b><br><span class="k">Hora:</span> <b>'+esc(res.hora)+'</b> &nbsp;·&nbsp; <span class="k">'+esc(res.fecha)+'</span> &nbsp;·&nbsp; <span class="k">a '+Math.round(dist)+' m del kiosko</span>';
+      toast('Entrada registrada','success');
+      cargarMarcas();
+    }catch(e){ setGeo('bad','Error al guardar: '+esc(e.message)); btn.disabled=false; toast('Error al registrar','error'); }
+  },err=>{
+    setGeo('bad','No se pudo obtener tu ubicación ('+(err.code===1?'permiso denegado':'señal débil')+'). Activá el GPS y permití la ubicación.');
+    btn.disabled=false; toast('Sin acceso a la ubicación','error');
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+
+// ───────── HISTORIAL DE MARCAS ─────────
+async function cargarMarcas(){
+  const ul=document.getElementById('hist');
+  try{
+    const data=await getJSON(APPS_SCRIPT_URL+'?modulo=marcaciones');
+    const regs=(data.registros||[]).filter(m=>normNom(m['Colaborador'])===normNom(YO.nombre));
+    regs.sort((a,b)=>String(b['Fecha']+' '+b['Hora']).localeCompare(String(a['Fecha']+' '+a['Hora'])));
+    const top=regs.slice(0,8);
+    if(!top.length){ ul.innerHTML='<li class="empty">Todavía no tenés marcas registradas.</li>'; return; }
+    ul.innerHTML=top.map(m=>{
+      const est=String(m['Estado']||'');
+      const cls=est==='A tiempo'?'b-ok':est==='Tarde'?'b-tarde':'b-sin';
+      const badge=est?'<span class="badge '+cls+'">'+esc(est)+(est==='Tarde'&&m['Minutos tarde']?' '+m['Minutos tarde']+'m':'')+'</span>':'';
+      return '<li><span class="hora">'+esc(m['Hora'])+'</span><span style="flex:1"><div>'+esc(m['Tipo']||'Entrada')+'</div><div class="meta">'+esc(m['Fecha'])+'</div></span>'+badge+'</li>';
+    }).join('');
+  }catch(e){ ul.innerHTML='<li class="empty">No se pudo cargar el historial.</li>'; }
+}
+
+// ───────── VACACIONES ─────────
+function parsearFechaVac(v){return parseFecha(v);}
+function calcularSaldo(nombre,ingresoStr,saldoRaw,solicitudes){
+  const diasTomados=solicitudes.filter(s=>normNom(s['Colaborador'])===normNom(nombre)&&String(s['Estado']||'').toLowerCase()==='aprobado')
+    .reduce((a,s)=>{const d=parseFloat(s['Días']||0);return a+(isNaN(d)?0:d);},0);
+  const dIng=parsearFechaVac(ingresoStr), hoy=hoy0();
+  if(dIng){
+    let anios=hoy.getFullYear()-dIng.getFullYear(), meses=hoy.getMonth()-dIng.getMonth(), dias=hoy.getDate()-dIng.getDate();
+    if(dias<0)meses--; if(meses<0){anios--;meses+=12;}
+    const mesesComp=Math.max(0,anios*12+meses);
+    let diasMes; if(dias>=0){diasMes=dias;}else{const prev=new Date(hoy.getFullYear(),hoy.getMonth(),0).getDate();diasMes=prev+dias;}
+    const extra=diasMes>20?1:0;
+    return Math.max(0,mesesComp+extra-diasTomados);
+  }
+  const n=parseFloat(saldoRaw); const base=(!isNaN(n)&&n>0&&n<=365)?n:0;
+  return Math.max(0,base-diasTomados);
+}
+function renderVacaciones(solicitudes){
+  const saldo=calcularSaldo(YO.nombre,YO.ingreso,YO.saldoRaw,solicitudes);
+  document.getElementById('vac-num').textContent=saldo;
+  // última solicitud mía
+  const mias=solicitudes.filter(s=>normNom(s['Colaborador'])===normNom(YO.nombre));
+  mias.sort((a,b)=>String(b['Registrado']||b['Fecha inicio']||'').localeCompare(String(a['Registrado']||a['Fecha inicio']||'')));
+  const box=document.getElementById('vac-estado');
+  if(mias.length){
+    const s=mias[0], est=String(s['Estado']||'Pendiente');
+    const cls=/aprob/i.test(est)?'b-apro':/rechaz/i.test(est)?'b-rech':'b-pend';
+    box.style.display='flex';
+    box.innerHTML='<span>Última solicitud: <b>'+esc((s['Fecha inicio']||'').substring(0,10))+'</b> → <b>'+esc((s['Fecha fin']||'').substring(0,10))+'</b> ('+esc(s['Días']||'?')+' d)</span><span class="badge '+cls+'">'+esc(est)+'</span>';
+  } else { box.style.display='none'; }
+}
+
+// ───────── HORARIO SEMANA ─────────
+async function cargarHorario(){
+  const ul=document.getElementById('week');
+  const lunes=getMondayOf(new Date());
+  const dias=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  try{
+    const data=await getJSON(APPS_SCRIPT_URL+'?modulo=horarios');
+    const regs=(data.registros||[]).filter(r=>normNom(r['Colaborador'])===normNom(YO.nombre));
+    const porFecha={}; regs.forEach(r=>{porFecha[String(r['Fecha']||'').substring(0,10)]=r;});
+    const hoyStr=ymd(new Date());
+    let html='';
+    for(let i=0;i<7;i++){
+      const d=new Date(lunes); d.setDate(lunes.getDate()+i); const f=ymd(d);
+      const r=porFecha[f];
+      let turno='<span class="libre">Libre</span>';
+      if(r){
+        const e1=r['Hora entrada'],s1=r['Hora salida'],e2=r['Hora entrada 2'],s2=r['Hora salida 2'];
+        const est=String(r['Estado']||'');
+        if(e1&&s1){ turno='<span class="turno">'+esc(e1)+'–'+esc(s1)+(e2&&s2?' · '+esc(e2)+'–'+esc(s2):'')+'</span>'; }
+        else if(est && !/trabaj|activo/i.test(est)){ turno='<span class="meta">'+esc(est)+'</span>'; }
+      }
+      html+='<li'+(f===hoyStr?' class="hoy"':'')+'><span class="dia">'+dias[i]+'<small>'+(d.getDate())+'/'+(d.getMonth()+1)+'</small></span><span>'+turno+'</span><span></span></li>';
+    }
+    ul.innerHTML=html;
+  }catch(e){ ul.innerHTML='<li class="empty">No se pudo cargar el horario.</li>'; }
+}
+
+// ───────── EVENTOS (informativo) ─────────
+async function cargarEventos(){
+  const box=document.getElementById('info-card');
+  try{
+    const data=await getJSON(EVENTOS_URL+'?modulo=eventos');
+    const evs=(data.eventos||[]).filter(e=>String(e['Estado']||'').toLowerCase()!=='cancelado');
+    const hoy=hoy0();
+    const prox=evs.map(e=>({e,f:parseFecha(e['Fecha'])})).filter(x=>x.f&&x.f>=hoy).sort((a,b)=>a.f-b.f).slice(0,5);
+    if(!prox.length){ box.innerHTML='<div class="empty">No hay eventos próximos.</div>'; return; }
+    const M=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+    box.innerHTML=prox.map(x=>{
+      const e=x.e;
+      return '<div class="ev"><div class="fecha"><div class="d">'+x.f.getDate()+'</div><div class="m">'+M[x.f.getMonth()]+'</div></div>'+
+        '<div class="cuerpo"><div class="ti">'+esc(e['Titulo'])+'</div><div class="de">'+(e['Hora']?esc(e['Hora'])+' · ':'')+esc(e['Descripcion']||'')+'</div></div>'+
+        (e['Categoria']?'<span class="cat">'+esc(e['Categoria'])+'</span>':'')+'</div>';
+    }).join('');
+  }catch(e){ box.innerHTML='<div class="empty">No se pudieron cargar los eventos.</div>'; }
+}
+
+// ───────── LIMPIEZA ─────────
+async function cargarLimpieza(){
+  const ul=document.getElementById('limp');
+  if(!YO.kiosko){ ul.innerHTML='<li class="empty">Sin kiosko asignado.</li>'; return; }
+  const hoy=new Date(); const desde=ymd(hoy); const h7=new Date(hoy); h7.setDate(hoy.getDate()+7); const hasta=ymd(h7);
+  try{
+    const [ta,asi]=await Promise.all([
+      getJSON(LIMPIEZA_URL+'?modulo=tareas&kiosko='+encodeURIComponent(YO.kiosko)).catch(()=>({})),
+      getJSON(LIMPIEZA_URL+'?modulo=asignaciones&kiosko='+encodeURIComponent(YO.kiosko)+'&desde='+desde+'&hasta='+hasta).catch(()=>({}))
+    ]);
+    const tareas={}; (ta.tareas||[]).forEach(t=>{tareas[String(t['ID'])]=t;});
+    const asigns=(asi.asignaciones||[]).filter(a=>{
+      const resp=String(a['Responsable']||'').split(',').map(x=>normNom(x));
+      const mia=resp.includes(normNom(YO.nombre));
+      const pend=String(a['Estado']||'').toLowerCase()!=='completada';
+      return mia && pend;
+    });
+    asigns.sort((a,b)=>String(a['Fecha']).localeCompare(String(b['Fecha'])));
+    if(!asigns.length){ ul.innerHTML='<li class="empty">No tenés tareas de limpieza pendientes esta semana.</li>'; return; }
+    ul.innerHTML=asigns.map(a=>{
+      const t=tareas[String(a['Tarea ID'])]||{};
+      const nom=t['Nombre']||'Tarea de limpieza';
+      const mom=t['Momento']?' · '+esc(t['Momento']):'';
+      return '<li><span style="flex:1"><div><b>'+esc(nom)+'</b></div><div class="meta">'+esc(a['Fecha'])+mom+'</div></span><a class="badge b-pend" href="limpieza.html" style="text-decoration:none">Completar →</a></li>';
+    }).join('');
+  }catch(e){ ul.innerHTML='<li class="empty">No se pudieron cargar las tareas de limpieza.</li>'; }
+}
+
+init();
+</script>
+</body>
+</html>
