@@ -1208,6 +1208,51 @@ document.addEventListener('keydown', e => {
 // horarios.html (ver README.md).
 const APPS_SCRIPT_URL     = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 const SHEETS_URL_CIERRES  = 'https://script.google.com/macros/s/AKfycbzegddEwvSBsQ-z5RbmL8vevqjZmcgIEltb3BKAvpcwGTYNWTuwNxweN-LYKOcMKLq2Dg/exec';
+
+// ── Carga resiliente (2026-11-01) ───────────────────────────────────
+// Las fuentes del tablero se piden en paralelo, pero sin control se
+// disparaban las ~14 a la vez y, SIN timeout, si una respuesta de Apps
+// Script se quedaba colgada ("pending"), el Promise.all nunca resolvía y
+// el tablero quedaba en "Calculando…" (parecía que no conectaba).
+//  • fetchConTimeout: fetch con límite de concurrencia global + aborto por
+//    tiempo (no reintenta).
+//  • fetchLim: igual, con 1 reintento ante timeout/red (lecturas GET
+//    idempotentes).
+// Así nunca se cuelga y no se saturan ni el navegador (~6 conexiones por
+// host) ni Apps Script (serializa ejecuciones simultáneas del mismo
+// usuario).
+const MAX_CONCURRENCIA_FETCH = 5;
+const FETCH_TIMEOUT_MS = 20000;
+let _fetchEnVuelo = 0;
+const _fetchCola = [];
+function _adquirirSlotFetch() {
+  if (_fetchEnVuelo < MAX_CONCURRENCIA_FETCH) { _fetchEnVuelo++; return Promise.resolve(); }
+  return new Promise(res => _fetchCola.push(res));
+}
+function _liberarSlotFetch() {
+  const sig = _fetchCola.shift();
+  if (sig) sig(); else _fetchEnVuelo = Math.max(0, _fetchEnVuelo - 1);
+}
+async function fetchConTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
+  await _adquirirSlotFetch();
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+    _liberarSlotFetch();
+  }
+}
+async function fetchLim(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
+  try {
+    return await fetchConTimeout(url, opts, ms);
+  } catch (e) {
+    await new Promise(r => setTimeout(r, 700));
+    return await fetchConTimeout(url, opts, ms);
+  }
+}
+
 // Hojas "Square - <kiosko>" propias de cada kiosko (ver nota en README sobre
 // copiar sheet+script de Square por kiosko: se edita el Location ID y el
 // nombre del kiosko, el resto queda igual). Cada una trae varias pestañas,
@@ -1276,7 +1321,7 @@ let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBa
 // nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
 // lista queda vacía (nunca se usan nombres fijos de kioskos como respaldo).
 async function cargarKioskosDesdeBackend(url, conTimeout) {
-  const fetcher = (conTimeout && typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
+  const fetcher = (typeof fetchConTimeout === 'function') ? fetchConTimeout : fetch;
   let ultimoError;
   for (let intento = 1; intento <= 3; intento++) {
     try {
@@ -1533,10 +1578,10 @@ async function cargarKPIs() {
   // con la respuesta de kioskos), pero para entonces el resto ya viene
   // resuelto o resolviéndose en paralelo, no atrás.
   const kioskosPromise = cargarKioskosDesdeBackend(APPS_SCRIPT_URL + '?modulo=kioskos');
-  const personalPromise = fetch(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json());
+  const personalPromise = fetchLim(APPS_SCRIPT_URL + '?modulo=personal').then(r => r.json());
   const cierresPromise = Promise.all([
-    fetch(SHEETS_URL_CIERRES + '?action=read'),
-    fetch(SHEETS_URL_CIERRES + '?action=pendientes'),
+    fetchLim(SHEETS_URL_CIERRES + '?action=read'),
+    fetchLim(SHEETS_URL_CIERRES + '?action=pendientes'),
     ...squareEntries.map(([, cfg]) => fetchSquareVentas(cfg))
   ]);
 
@@ -1545,7 +1590,7 @@ async function cargarKPIs() {
   // Mermas de hoy y saldo de Caja chica: mismas fuentes que mermas.html y
   // caja-chica.html, leídas en paralelo con lo de arriba (independientes
   // entre sí, no bloquean ni son bloqueadas por Cierres/Square).
-  const mermasPromise = fetch(MERMAS_URL + '?modulo=mermas').then(r => r.json()).catch(() => ({ registros: [] }));
+  const mermasPromise = fetchLim(MERMAS_URL + '?modulo=mermas').then(r => r.json()).catch(() => ({ registros: [] }));
   const cajaChicaPromise = Promise.all([
     fetchGvizSheet(SHEET_ID_CAJA_CHICA, 'CajaChica_Periodos'),
     fetchGvizSheet(COMPRAS_SHEET_ID, 'Registro Facturas')
@@ -1561,13 +1606,13 @@ async function cargarKPIs() {
   let desdeLaboral = (desde && hasta) ? fechaComparable(desde, desde, hasta) : desde;
   [sumarDiasIso(finL, -34), sumarDiasIso(hoyIsoL, -34)].forEach(f => { if (!desdeLaboral || f < desdeLaboral) desdeLaboral = f; });
   const laboralPromise = Promise.all([
-    fetch(APPS_SCRIPT_URL + '?modulo=horarios&desde=' + encodeURIComponent(desdeLaboral) + '&hasta=' + encodeURIComponent(hastaLaboral))
+    fetchLim(APPS_SCRIPT_URL + '?modulo=horarios&desde=' + encodeURIComponent(desdeLaboral) + '&hasta=' + encodeURIComponent(hastaLaboral))
       .then(r => r.json()).catch(() => ({ registros: [] })),
-    fetch(APPS_SCRIPT_URL + '?modulo=feriados').then(r => r.json()).catch(() => ({ registros: [] }))
+    fetchLim(APPS_SCRIPT_URL + '?modulo=feriados').then(r => r.json()).catch(() => ({ registros: [] }))
   ]);
   // Aprobaciones pendientes y planillas (RRHH) para alertas.
   const rrhhPromise = Promise.all(['horas_extra', 'vacaciones', 'permisos_sin_goce', 'planillas']
-    .map(m => fetch(APPS_SCRIPT_URL + '?modulo=' + m).then(r => r.json()).catch(() => ({ registros: [] }))));
+    .map(m => fetchLim(APPS_SCRIPT_URL + '?modulo=' + m).then(r => r.json()).catch(() => ({ registros: [] }))));
 
   // 1. KIOSKOS
   try {
@@ -1880,7 +1925,7 @@ function tcRespaldoDe(cierres) {
 async function fetchVentasSquareConsolidado() {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${SQUARE_CONSOLIDADO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SQUARE_CONSOLIDADO_RESUMEN_TAB)}&headers=1&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
+    const resp = await fetchLim(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const cols = (json.table.cols || []).map(c => String(c.label || '').trim());
@@ -1914,7 +1959,7 @@ async function fetchVentasSquareConsolidado() {
 async function fetchSquareVentas(cfg) {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(cfg.ventasTab)}&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
+    const resp = await fetchLim(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const porDia = {};
@@ -3369,7 +3414,7 @@ function calcularSaldosCajaChica(periodosRows, facturasRows, hasta) {
 async function fetchGvizSheet(sheetId, hoja) {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(hoja)}&headers=1&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
+    const resp = await fetchLim(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const cols = (json.table.cols || []).map(c => c.label || '');
@@ -3420,7 +3465,7 @@ function parseGvizDateStr(cell) {
 async function fetchInventarioHistorial() {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${INVENTARIO_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(INVENTARIO_HIST_TAB)}&headers=1&_=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
+    const resp = await fetchLim(url, { cache: 'no-store' });
     const texto = await resp.text();
     const json = JSON.parse(texto.substring(texto.indexOf('{'), texto.lastIndexOf('}') + 1));
     const cols = (json.table.cols || []).map(c => c.label || '');
@@ -3455,9 +3500,9 @@ async function cargarMatrizCumplimiento(listaKioskos) {
 
   try {
     const [respCierres, respMermas, respHorEstado, invRows] = await Promise.all([
-      fetch(SHEETS_URL_CIERRES + '?action=read'),
-      fetch(MERMAS_URL + '?modulo=mermas'),
-      fetch(APPS_SCRIPT_URL + '?modulo=horarios_estado'),
+      fetchLim(SHEETS_URL_CIERRES + '?action=read'),
+      fetchLim(MERMAS_URL + '?modulo=mermas'),
+      fetchLim(APPS_SCRIPT_URL + '?modulo=horarios_estado'),
       fetchInventarioHistorial()
     ]);
     const dataCierres = await respCierres.json();
