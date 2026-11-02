@@ -1430,7 +1430,7 @@ function renderSinAsociar(){
   capped.forEach(m=>{
     const i = SA_ROWS.push(m.clave) - 1;
     const sug = sugerirPe(m);
-    const precio = m.precioSinIva || m.costoSugerido || '';
+    const precio = m.costoSugerido || m.precioSinIva || '';  // precio = última compra real (Desglose), no el valor estático del Maestro
     const cant = m.cantidadPresentacion || '';
     const conv = m.conversionEstandar || '';
     const r = _calcCosto(precio||0, cant||null, conv||null);
@@ -1496,7 +1496,7 @@ function renderAsociacion(){
     if (abierto && items.length){
       items.forEach(it=>{
         const j = AS_ROWS.push(it.clave) - 1;
-        const precio = it.precioSinIva || it.costoSugerido || '';
+        const precio = it.costoSugerido || it.precioSinIva || '';  // precio = última compra real (Desglose)
         const cant = it.cantidadPresentacion || '';
         const conv = it.conversionEstandar || '';
         const r = _calcCosto(precio||0, cant||null, conv||null);
