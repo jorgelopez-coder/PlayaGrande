@@ -197,7 +197,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </main>
 
 <div class="toast" id="toast"></div>
-<div class="status-bar"><span id="status-msg">v1.1 &middot; Marca de entrada &middot; Ecosistema Kioskos</span></div>
+<div class="status-bar"><span id="status-msg">v1.2 &middot; Marca de entrada &middot; Ecosistema Kioskos</span></div>
 
 <script>
 // CONFIG
@@ -227,6 +227,9 @@ let kioskosRegs = [];
 let personalData = [];
 let coordsKioskoSel = null;
 let ultimaMarca = null;
+let marcaHoy = null;          // Marca de ENTRADA ya registrada hoy por el colaborador seleccionado
+let marcaHoyColab = null;     // Nombre normalizado del colaborador que ya marcó hoy
+let verificandoHoy = false;   // true mientras se consulta si ya marcó hoy
 
 // IDENTIDAD DESDE EL ACCESO (datos de la sesion de login)
 // Con login individual por correo, la sesion ya trae el correo de la persona
@@ -373,6 +376,7 @@ async function onKioskoChange(){
   if (!coordsKioskoSel){ setGeo('bad','No se pudo ubicar el kiosko &mdash; revis&aacute; su "Ubicaci&oacute;n" en Configuraci&oacute;n (coordenadas exactas).'); }
   else { setGeo('wait','Listo. Al marcar se confirmar&aacute; que est&aacute;s a menos de '+RADIO_GEOCERCA_M+' m del kiosko.'); }
   actualizarBoton();
+  verificarMarcaHoy();
 }
 function setGeo(cls, txt){
   const g = document.getElementById('geo-estado');
@@ -382,9 +386,56 @@ function setGeo(cls, txt){
 function actualizarBoton(){
   const k = document.getElementById('m-kiosko').value;
   const c = document.getElementById('m-colaborador').value;
-  document.getElementById('btn-marca').disabled = !(k && c && coordsKioskoSel);
+  const yaMarco = !!(marcaHoyColab && c && normNom(c)===marcaHoyColab);
+  document.getElementById('btn-marca').disabled =
+    verificandoHoy || yaMarco || !(k && c && coordsKioskoSel);
 }
-document.getElementById('m-colaborador').addEventListener('change', actualizarBoton);
+
+// Consulta al backend si el colaborador seleccionado YA marcó entrada hoy.
+// Es la fuente de verdad para "una marca por día": si ya marcó, se muestra la
+// marca previa y el botón queda deshabilitado hasta el día siguiente. (El
+// backend igual rechaza una segunda entrada, aunque falle esta consulta.)
+async function verificarMarcaHoy(){
+  const colaborador = document.getElementById('m-colaborador').value;
+  marcaHoy = null; marcaHoyColab = null;
+  if (!colaborador){ actualizarBoton(); return; }
+  verificandoHoy = true; actualizarBoton();
+  try{
+    const resp = await fetch(APPS_SCRIPT_URL+'?modulo=marcacion_hoy&colaborador='+encodeURIComponent(colaborador));
+    const data = await resp.json();
+    if (data.ok && data.marca){ marcaHoy = data.marca; marcaHoyColab = normNom(colaborador); }
+  }catch(e){ /* sin bloquear: el backend evita el duplicado de todos modos */ }
+  verificandoHoy = false;
+  if (marcaHoy) mostrarYaMarco(colaborador, marcaHoy);
+  actualizarBoton();
+}
+
+// Muestra el panel con una marca YA registrada hoy (consulta previa o segundo
+// intento). Deja el botón bloqueado y permite reenviar por WhatsApp.
+function mostrarYaMarco(colaborador, m){
+  const panel = document.getElementById('resultado');
+  panel.className = 'resultado show ok';
+  document.getElementById('res-icono').innerHTML = '&#9989;';
+  document.getElementById('res-titulo').textContent = 'Ya marcaste hoy';
+  document.getElementById('res-detalle').innerHTML =
+    '<div><span class="k">Colaborador:</span> <b>'+colaborador+'</b></div>'+
+    '<div><span class="k">Kiosko:</span> '+(m.Kiosko||document.getElementById('m-kiosko').value||'')+'</div>'+
+    '<div><span class="k">Hora marcada:</span> <b>'+(m.Hora||'')+'</b></div>'+
+    '<div><span class="k">Fecha:</span> '+(m.Fecha||'')+'</div>';
+  ultimaMarca = { colaborador:colaborador, kiosko:(m.Kiosko||document.getElementById('m-kiosko').value||''),
+                  hora:(m.Hora||''), fecha:(m.Fecha||''), lat:(m.Latitud||''), lng:(m.Longitud||'') };
+  setGeo('ok','Ya registraste tu entrada hoy a las <b>'+(m.Hora||'')+'</b>. Pod&eacute;s marcar de nuevo ma&ntilde;ana.');
+  document.getElementById('marca-hint').innerHTML = 'Solo se permite una marca de entrada por d&iacute;a.';
+}
+
+// Cambio manual de colaborador (terminal compartida): limpiar y re-chequear.
+function onColaboradorChange(){
+  document.getElementById('resultado').className = 'resultado';
+  ultimaMarca = null;
+  document.getElementById('marca-hint').innerHTML = 'Al marcar se pedir&aacute; tu ubicaci&oacute;n para confirmar que est&aacute;s en el kiosko.';
+  verificarMarcaHoy();
+}
+document.getElementById('m-colaborador').addEventListener('change', onColaboradorChange);
 
 // MARCAR ENTRADA
 function marcarEntrada(){
@@ -417,7 +468,19 @@ function marcarEntrada(){
       const resp = await fetch(APPS_SCRIPT_URL, {method:'POST', body:new URLSearchParams({data:JSON.stringify(payload)})});
       const data = await resp.json();
       if (!data.ok) throw new Error(data.error||'No se pudo registrar');
+      marcaHoyColab = normNom(colaborador);
+      // El backend avisa si ya existía una marca de hoy (otro dispositivo o
+      // doble toque): se muestra la previa y NO se re-habilita el botón.
+      if (data.result && data.result.yaMarco){
+        marcaHoy = {Hora:data.result.hora, Fecha:data.result.fecha, Kiosko:kiosko, Latitud:mi.lat, Longitud:mi.lng};
+        mostrarYaMarco(colaborador, marcaHoy);
+        actualizarBoton();
+        toast('Ya habías marcado hoy','error');
+        return;
+      }
+      marcaHoy = {Hora:data.result.hora, Fecha:data.result.fecha, Kiosko:kiosko, Latitud:mi.lat, Longitud:mi.lng};
       mostrarResultado(colaborador, kiosko, data.result, mi, dist);
+      actualizarBoton();
       toast('Entrada registrada','success');
     }catch(err){
       setGeo('bad','Error al guardar: '+err.message);
@@ -451,10 +514,22 @@ function mostrarResultado(colaborador, kiosko, res, mi, dist){
 }
 
 function nuevaMarca(){
+  // Terminal compartida (sin colaborador fijo por acceso): preparar la
+  // pantalla para el SIGUIENTE colaborador — limpiar selección y estado.
+  if (!colaboradorFijo){
+    const sel = document.getElementById('m-colaborador');
+    if (sel && !sel.disabled) sel.value = '';
+    marcaHoy = null; marcaHoyColab = null;
+    document.getElementById('resultado').className = 'resultado';
+    document.getElementById('marca-hint').innerHTML = 'Al marcar se pedir&aacute; tu ubicaci&oacute;n para confirmar que est&aacute;s en el kiosko.';
+    ultimaMarca = null; tick(); actualizarBoton();
+    return;
+  }
+  // Persona identificada que ya marcó hoy: no puede marcar otra vez; se deja
+  // la marca del día a la vista.
+  if (marcaHoy){ mostrarYaMarco(colaboradorFijo, marcaHoy); actualizarBoton(); return; }
   document.getElementById('resultado').className = 'resultado';
-  ultimaMarca = null;
-  tick();
-  actualizarBoton();
+  ultimaMarca = null; tick(); actualizarBoton();
 }
 
 // WHATSAPP

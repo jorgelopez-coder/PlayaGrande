@@ -261,6 +261,28 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 }
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 // ────────────────────────────────────────────────────────────────
+// ── VISTA LIMITADA PARA EL ROL "USUARIO" (rol_usuario) ──
+// El rol Usuario (portal del empleado) solo ve y reporta SUS propios registros,
+// y no puede aprobar/rechazar. Los demás roles no cambian.
+const ES_USUARIO_LIMITADO = !!(PORTAL_SESION && PORTAL_SESION.rol_id === 'rol_usuario');
+const normNom = s => String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+let MI_NOMBRE = '';
+async function resolverMiNombre(){
+  if (!ES_USUARIO_LIMITADO) return '';
+  if (MI_NOMBRE) return MI_NOMBRE;
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
+    const data = await resp.json();
+    const regs = (data.ok && data.registros) ? data.registros : [];
+    const correo = normNom(PORTAL_SESION.email||'');
+    let mi = correo ? regs.find(p=>normNom(p['Email'])===correo) : null;
+    if(!mi) mi = regs.find(p=>normNom(p['Nombre completo'])===normNom(PORTAL_SESION.nombre));
+    MI_NOMBRE = mi ? (mi['Nombre completo']||'') : (PORTAL_SESION.nombre||'');
+  } catch(e){ MI_NOMBRE = PORTAL_SESION.nombre||''; }
+  return MI_NOMBRE;
+}
+const MI_NOMBRE_LISTO = resolverMiNombre();
+
 
 const hoy = new Date();
 document.getElementById('date-chip').textContent =
@@ -308,6 +330,17 @@ async function cargarColaboradores() {
 
       if (!sel.querySelector('option[value]:not([value=""])')) {
         sel.innerHTML = '<option value="" disabled selected>No hay colaboradores activos</option>';
+      }
+
+      if (ES_USUARIO_LIMITADO) {
+        await MI_NOMBRE_LISTO;
+        Array.from(sel.querySelectorAll('option[value]:not([value=""])')).forEach(o => {
+          if (normNom(o.value) !== normNom(MI_NOMBRE)) o.remove();
+        });
+        const propia = sel.querySelector('option[value]:not([value=""])');
+        if (propia) { sel.value = propia.value; }
+        else { sel.innerHTML = '<option value="" selected>'+(MI_NOMBRE||'Tu usuario')+'</option>'; }
+        sel.disabled = true;
       }
     } else {
       sel.innerHTML = '<option value="" disabled selected>Sin colaboradores registrados</option>';
@@ -377,6 +410,7 @@ async function cargarSolicitudes() {
   const cont = document.getElementById('solicitudes-container');
   cont.innerHTML = '<div class="empty-state">Cargando solicitudes…</div>';
 
+  if (ES_USUARIO_LIMITADO) await MI_NOMBRE_LISTO;
   const servidor = await fetchSolicitudesServidor();
   const locales = getSolicitudesLocal();
   const porId = new Map();
@@ -389,9 +423,16 @@ async function cargarSolicitudes() {
   pintarResumen();
 }
 
+function solicitudesVisibles() {
+  return ES_USUARIO_LIMITADO
+    ? SOLICITUDES_CACHE.filter(s => normNom(s.colaborador) === normNom(MI_NOMBRE))
+    : SOLICITUDES_CACHE;
+}
+
 function pintarResumen() {
-  const pendientes = SOLICITUDES_CACHE.filter(s => s.estado === 'Pendiente').length;
-  const aprobadas = SOLICITUDES_CACHE.filter(s => s.estado === 'Aprobada');
+  const base = solicitudesVisibles();
+  const pendientes = base.filter(s => s.estado === 'Pendiente').length;
+  const aprobadas = base.filter(s => s.estado === 'Aprobada');
   const horas = aprobadas.reduce((acc,s) => acc + (s.horas||0), 0);
   document.getElementById('resumen-pendientes').textContent = pendientes;
   document.getElementById('resumen-aprobadas').textContent = `${horas}h`;
@@ -410,7 +451,8 @@ function badgeClase(estado) {
 
 function pintarSolicitudes() {
   const cont = document.getElementById('solicitudes-container');
-  const lista = FILTRO_ACTUAL === 'todas' ? SOLICITUDES_CACHE : SOLICITUDES_CACHE.filter(s => s.estado === FILTRO_ACTUAL);
+  const base = solicitudesVisibles();
+  const lista = FILTRO_ACTUAL === 'todas' ? base : base.filter(s => s.estado === FILTRO_ACTUAL);
 
   if (!lista.length) { cont.innerHTML = '<div class="empty-state">No hay solicitudes en esta vista.</div>'; return; }
 
@@ -429,7 +471,7 @@ function pintarSolicitudes() {
       <td class="justificacion-celda">${s.justificacion||'—'}</td>
       <td><span class="badge ${badgeClase(s.estado)}">${s.estado}</span>${s.aprobado_por?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">por ${s.aprobado_por}</div>`:''}</td>
       <td>
-        ${s.estado==='Pendiente' ? `
+        ${(!ES_USUARIO_LIMITADO && s.estado==='Pendiente') ? `
         <div class="action-btns">
           <button class="btn-aprobar" onclick="cambiarEstado(${idxReal},'Aprobada')">Aprobar</button>
           <button class="btn-rechazar" onclick="cambiarEstado(${idxReal},'Rechazada')">Rechazar</button>

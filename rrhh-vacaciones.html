@@ -357,6 +357,28 @@ function kioskosPermitidos(lista) {
 const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec'; // URL de tu Apps Script
 const EMAIL_GERENCIA   = ''; // Correo de gerencia para notificaciones
 // ────────────────────────────────────────────────────────────────
+// ── VISTA LIMITADA PARA EL ROL "USUARIO" (rol_usuario) ──
+// El rol Usuario (portal del empleado) solo ve y solicita SUS propias
+// vacaciones, y no puede aprobar/rechazar/modificar. Los demás roles no cambian.
+const ES_USUARIO_LIMITADO = !!(PORTAL_SESION && PORTAL_SESION.rol_id === 'rol_usuario');
+const normNom = s => String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+let MI_NOMBRE = '';
+async function resolverMiNombre(){
+  if (!ES_USUARIO_LIMITADO) return '';
+  if (MI_NOMBRE) return MI_NOMBRE;
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?modulo=personal');
+    const data = await resp.json();
+    const regs = (data.ok && data.registros) ? data.registros : [];
+    const correo = normNom(PORTAL_SESION.email||'');
+    let mi = correo ? regs.find(p=>normNom(p['Email'])===correo) : null;
+    if(!mi) mi = regs.find(p=>normNom(p['Nombre completo'])===normNom(PORTAL_SESION.nombre));
+    MI_NOMBRE = mi ? (mi['Nombre completo']||'') : (PORTAL_SESION.nombre||'');
+  } catch(e){ MI_NOMBRE = PORTAL_SESION.nombre||''; }
+  return MI_NOMBRE;
+}
+const MI_NOMBRE_LISTO = resolverMiNombre();
+
 
 const hoy = new Date();
 const pad = n => String(n).padStart(2,'0');
@@ -577,6 +599,16 @@ async function cargarColaboradores() {
       if (activos.length === 0) {
         sel.innerHTML = '<option value="" disabled selected>No hay colaboradores activos</option>';
       }
+
+      if (ES_USUARIO_LIMITADO) {
+        await MI_NOMBRE_LISTO;
+        Array.from(sel.querySelectorAll('option[value]:not([value=""])')).forEach(o => {
+          if (normNom(o.value) !== normNom(MI_NOMBRE)) o.remove();
+        });
+        const propia = sel.querySelector('option[value]:not([value=""])');
+        if (propia) { sel.value = propia.value; sel.disabled = true; cargarBalance(); }
+        else { sel.innerHTML = '<option value="" selected>'+(MI_NOMBRE||'Tu usuario')+'</option>'; sel.disabled = true; }
+      }
     } else {
       sel.innerHTML = '<option value="" disabled selected>Sin colaboradores registrados</option>';
     }
@@ -674,6 +706,7 @@ async function renderHistorial() {
   const cont = document.getElementById('historial-container');
   cont.innerHTML = '<div class="empty-state">Cargando solicitudes…</div>';
 
+  if (ES_USUARIO_LIMITADO) await MI_NOMBRE_LISTO;
   const servidor = await fetchSolicitudesServidor();
   const locales  = getSolicitudes();
   const porId = new Map();
@@ -687,9 +720,12 @@ async function renderHistorial() {
 
 function pintarHistorial() {
   const cont = document.getElementById('historial-container');
-  if (!solicitudesCache.length) { cont.innerHTML='<div class="empty-state">No hay solicitudes registradas.</div>'; return; }
+  const visibles = ES_USUARIO_LIMITADO
+    ? solicitudesCache.filter(s => normNom(s.colaborador) === normNom(MI_NOMBRE))
+    : solicitudesCache;
+  if (!visibles.length) { cont.innerHTML='<div class="empty-state">No hay solicitudes registradas.</div>'; return; }
 
-  const filas = solicitudesCache.map((s,i) => `
+  const filas = visibles.map((s,i) => `
     <tr>
       <td style="font-weight:500">${s.colaborador}</td>
       <td>${s.fecha_inicio}</td>
@@ -697,12 +733,12 @@ function pintarHistorial() {
       <td>${s.dias} días</td>
       <td><span class="badge badge-${s.estado==='Aprobado'?'approved':s.estado==='Rechazado'?'rejected':'pending'}">${s.estado}</span></td>
       <td>
-        ${s.estado==='Pendiente' ? `
+        ${(!ES_USUARIO_LIMITADO && s.estado==='Pendiente') ? `
         <div class="action-btns">
           <button class="btn-aprobar" onclick="cambiarEstado(${i},'Aprobado')">Aprobar</button>
           <button class="btn-rechazar" onclick="abrirModalRechazo(${i})">Rechazar</button>
         </div>`
-        : s.estado==='Aprobado' ? `
+        : (!ES_USUARIO_LIMITADO && s.estado==='Aprobado') ? `
         <div class="action-btns">
           ${esModificable(s) ? `<button class="btn-modificar" onclick="abrirModalModificar(${i})">Modificar</button>` : ''}
           <button class="btn-rechazar" onclick="abrirModalRechazo(${i})">Rechazar</button>
