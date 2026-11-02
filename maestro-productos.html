@@ -247,6 +247,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div class="mp-tabs">
   <button class="mp-tab active" id="tab-btn-homologacion" onclick="switchTab('homologacion')">Homologación</button>
+  <button class="mp-tab" id="tab-btn-estandar" onclick="switchTab('estandar')">📦 Productos estándar</button>
   <button class="mp-tab" id="tab-btn-fichas" onclick="switchTab('fichas')">Fichas de producto</button>
   <button class="mp-tab" id="tab-btn-matriz" onclick="switchTab('matriz')">🏪 Matriz de kioskos</button>
   <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
@@ -331,6 +332,56 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn-sm" onclick="limpiarSeleccion()">Deseleccionar todo</button>
   </div>
   <div class="stock-table-wrap"><div id="mp-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
+
+</div>
+
+<div id="tab-estandar" style="display:none">
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Catálogo de productos estándar</p>
+    <button class="btn-sm" id="btn-pe-toggle" onclick="togglePeForm()">+ Producto estándar</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Esta es la <b>base curada a mano</b>: cada producto se define una sola vez con su <b>nombre</b> y su
+    <b>unidad estándar de receta</b> (ml, g, unidad…). Es la fuente única para Recetas, Inventario, Órdenes y
+    Análisis. Después se le asocian las líneas de factura que le correspondan para traer su costo.
+  </p>
+  <div id="pe-form" style="display:none">
+    <div class="field-row-3">
+      <div class="field"><label>Nombre *</label><input type="text" id="pe-nombre" placeholder="ej: Ron blanco"/></div>
+      <div class="field"><label>Unidad estándar de receta *</label>
+        <select id="pe-unidad"><option value="">—</option></select>
+      </div>
+      <div class="field"><label>Activo</label>
+        <select id="pe-activo"><option value="Sí" selected>Sí</option><option value="No">No</option></select>
+      </div>
+    </div>
+    <div class="field-row-3">
+      <div class="field"><label>Categoría de producto</label>
+        <select id="pe-categoria"><option value="">—</option></select>
+      </div>
+      <div class="field"><label>Área de negocio</label>
+        <select id="pe-area"><option value="">—</option></select>
+      </div>
+      <div class="field"></div>
+    </div>
+    <input type="hidden" id="pe-edit-id"/>
+    <button class="btn-sm" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
+    <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
+  </div>
+  <div class="mp-counts" style="margin-top:1rem">
+    <span>Activos: <b id="pe-count-activos" style="color:var(--green)">0</b></span>
+    <span>Inactivos: <b id="pe-count-inactivos" style="color:var(--muted)">0</b></span>
+    <span>Total: <b id="pe-count-total">0</b></span>
+  </div>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar</label><input type="text" id="pe-buscar" placeholder="nombre…" oninput="renderProductosEstandar()"/></div>
+    <div class="field"><label>Categoría</label><select id="pe-filtro-cat" onchange="renderProductosEstandar()"><option value="" selected>Todas</option></select></div>
+    <div class="field"><label>Estado</label><select id="pe-filtro-activo" onchange="renderProductosEstandar()"><option value="" selected>Todos</option><option value="Sí">Activos</option><option value="No">Inactivos</option></select></div>
+  </div>
+  <div class="stock-table-wrap"><div id="pe-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
 
 </div>
@@ -897,6 +948,7 @@ async function cargarConfiguracion() {
     CONFIG = { areas, categorias, familias, subfamiliasPorFamilia: subPorFam, presentaciones, unidadesReceta };
   } catch (e) { /* si falla, se sigue con listas vacías (datalists libres) */ }
   renderConfiguracion();
+  poblarSelectsPe();
   poblarDatalistsFicha();
 }
 
@@ -1119,17 +1171,146 @@ async function cfgEliminarSub(familia, sub){
 // Cerrar el modal al hacer click fuera de la tarjeta.
 (function(){ const ov = document.getElementById('cfg-ov'); if (ov) ov.addEventListener('click', function(e){ if (e.target === ov) cfgCerrar(); }); })();
 
+// ── PRODUCTOS ESTÁNDAR (Nivel 1, catálogo manual) — 2026-11-02 ──────────
+let PRODUCTOS_ESTANDAR = [];
+
+async function cargarProductosEstandar() {
+  try {
+    const datos = await gvizLoad('Productos_Estandar', 'Nombre');
+    PRODUCTOS_ESTANDAR = datos.map(r => ({
+      id: r['ID'] || '',
+      nombre: r['Nombre'] || '',
+      unidadEstandar: r['Unidad estándar'] || '',
+      categoria: r['Categoría de producto'] || '',
+      area: r['Área de negocio'] || '',
+      activo: String(r['Activo']) === 'No' ? 'No' : 'Sí'
+    })).filter(p => p.id || p.nombre);
+  } catch (e) { PRODUCTOS_ESTANDAR = []; }
+  poblarSelectsPe();
+  renderProductosEstandar();
+}
+
+function poblarSelectsPe() {
+  const opt = (arr) => '<option value="">—</option>' + (arr || []).map(x => `<option value="${escapeAttr(x)}">${escHtml(x)}</option>`).join('');
+  const set = (id, html) => { const el = document.getElementById(id); if (el) { const v = el.value; el.innerHTML = html; el.value = v; } };
+  set('pe-unidad', opt(CONFIG.unidadesReceta));
+  set('pe-categoria', opt(CONFIG.categorias));
+  set('pe-area', opt(CONFIG.areas));
+  const fc = document.getElementById('pe-filtro-cat');
+  if (fc) { const v = fc.value; fc.innerHTML = '<option value="">Todas</option>' + (CONFIG.categorias || []).map(c => `<option value="${escapeAttr(c)}">${escHtml(c)}</option>`).join(''); fc.value = v; }
+}
+
+function togglePeForm() {
+  const f = document.getElementById('pe-form');
+  if (f.style.display !== 'none') { cancelarPe(); return; }
+  f.style.display = '';
+  poblarSelectsPe();
+  document.getElementById('pe-nombre').focus();
+}
+
+function cancelarPe() {
+  document.getElementById('pe-form').style.display = 'none';
+  document.getElementById('pe-edit-id').value = '';
+  document.getElementById('pe-nombre').value = '';
+  document.getElementById('pe-unidad').value = '';
+  document.getElementById('pe-categoria').value = '';
+  document.getElementById('pe-area').value = '';
+  document.getElementById('pe-activo').value = 'Sí';
+  document.getElementById('btn-pe-guardar').textContent = 'Guardar producto';
+}
+
+function editarPe(id) {
+  const p = PRODUCTOS_ESTANDAR.find(x => String(x.id) === String(id));
+  if (!p) return;
+  document.getElementById('pe-form').style.display = '';
+  poblarSelectsPe();
+  document.getElementById('pe-edit-id').value = p.id;
+  document.getElementById('pe-nombre').value = p.nombre;
+  document.getElementById('pe-unidad').value = p.unidadEstandar;
+  document.getElementById('pe-categoria').value = p.categoria;
+  document.getElementById('pe-area').value = p.area;
+  document.getElementById('pe-activo').value = p.activo;
+  document.getElementById('btn-pe-guardar').textContent = 'Guardar cambios';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function guardarPe() {
+  const id = document.getElementById('pe-edit-id').value;
+  const nombre = document.getElementById('pe-nombre').value.trim();
+  const unidad = document.getElementById('pe-unidad').value;
+  const categoria = document.getElementById('pe-categoria').value;
+  const area = document.getElementById('pe-area').value;
+  const activo = document.getElementById('pe-activo').value;
+  if (!nombre) { showToast('Escribí el nombre del producto', 'error'); return; }
+  if (!unidad) { showToast('Elegí la unidad estándar de receta', 'error'); return; }
+  try {
+    if (id) await postAP({ modulo: 'pe_editar', id: id, nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
+    else await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
+    showToast(id ? 'Producto actualizado ✓' : 'Producto creado ✓');
+    cancelarPe();
+    await cargarProductosEstandar();
+  } catch (e) { showToast('No se pudo guardar — ' + e.message, 'error'); }
+}
+
+async function eliminarPe(id) {
+  const p = PRODUCTOS_ESTANDAR.find(x => String(x.id) === String(id));
+  if (!p) return;
+  if (!confirm('¿Eliminar el producto estándar "' + p.nombre + '"? Esta acción no se puede deshacer.')) return;
+  try {
+    await postAP({ modulo: 'pe_eliminar', id: id });
+    showToast('Producto eliminado ✓');
+    await cargarProductosEstandar();
+  } catch (e) { showToast('No se pudo eliminar — ' + e.message, 'error'); }
+}
+
+function renderProductosEstandar() {
+  const cont = document.getElementById('pe-lista');
+  if (!cont) return;
+  const q = (document.getElementById('pe-buscar').value || '').trim().toLowerCase();
+  const fcat = document.getElementById('pe-filtro-cat').value;
+  const factivo = document.getElementById('pe-filtro-activo').value;
+  const lista = PRODUCTOS_ESTANDAR.filter(p => {
+    if (q && p.nombre.toLowerCase().indexOf(q) === -1) return false;
+    if (fcat && p.categoria !== fcat) return false;
+    if (factivo && p.activo !== factivo) return false;
+    return true;
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const activos = PRODUCTOS_ESTANDAR.filter(p => p.activo === 'Sí').length;
+  document.getElementById('pe-count-activos').textContent = activos;
+  document.getElementById('pe-count-inactivos').textContent = PRODUCTOS_ESTANDAR.length - activos;
+  document.getElementById('pe-count-total').textContent = PRODUCTOS_ESTANDAR.length;
+  if (!lista.length) { cont.innerHTML = '<div class="empty-state">Sin productos estándar todavía. Agregá el primero con “+ Producto estándar”.</div>'; return; }
+  let html = '<table class="stock-table"><thead><tr><th>Nombre</th><th>Unidad estándar</th><th>Categoría</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody>';
+  lista.forEach(p => {
+    html += `<tr${p.activo === 'No' ? ' style="opacity:.55"' : ''}>
+      <td><b>${escHtml(p.nombre)}</b></td>
+      <td>${escHtml(p.unidadEstandar)}</td>
+      <td>${escHtml(p.categoria || '—')}</td>
+      <td>${escHtml(p.area || '—')}</td>
+      <td>${p.activo === 'Sí' ? '<span style="color:var(--green)">Activo</span>' : '<span style="color:var(--muted)">Inactivo</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm" onclick="editarPe('${escapeAttr(p.id)}')">Editar</button>
+        <button class="btn-sm" onclick="eliminarPe('${escapeAttr(p.id)}')">Eliminar</button>
+      </td></tr>`;
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
 function switchTab(nombre) {
+  document.getElementById('tab-estandar').style.display = nombre === 'estandar' ? '' : 'none';
   document.getElementById('tab-homologacion').style.display = nombre === 'homologacion' ? '' : 'none';
   document.getElementById('tab-fichas').style.display = nombre === 'fichas' ? '' : 'none';
   document.getElementById('tab-matriz').style.display = nombre === 'matriz' ? '' : 'none';
   document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
+  document.getElementById('tab-btn-estandar').classList.toggle('active', nombre === 'estandar');
   document.getElementById('tab-btn-homologacion').classList.toggle('active', nombre === 'homologacion');
   document.getElementById('tab-btn-fichas').classList.toggle('active', nombre === 'fichas');
   document.getElementById('tab-btn-matriz').classList.toggle('active', nombre === 'matriz');
   document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
   if (nombre === 'matriz') { if (!KIOSKOS.length && !CARGANDO_KIOSKOS) cargarKioskosDisponibles(); renderMatriz(); }
   if (nombre === 'config') renderConfiguracion();
+  if (nombre === 'estandar') renderProductosEstandar();
 }
 
 function renderMaestro() {
@@ -2096,6 +2277,7 @@ function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
 cargarMaestro();
 cargarKioskosDisponibles();
 cargarConfiguracion();
+cargarProductosEstandar();
 </script>
 </body>
 </html>
