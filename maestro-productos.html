@@ -915,6 +915,7 @@ async function cargarMaestro() {
       estado: r['Estado'] || 'Pendiente',
       productoEstandarId: r['Producto Estándar ID'] || '',
       conversionEstandar: (r['Conversión a unidad estándar'] !== '' && r['Conversión a unidad estándar'] != null) ? Number(r['Conversión a unidad estándar']) : '',
+      costoEstandar: Number(r['Costo por unidad estándar']) || 0,
       aplica: r['Aplica'] === 'No' ? 'No' : 'Sí',
       // ── Ficha de producto (ex Base de Productos, fusionado acá) ──
       costoSugerido: Number(r['Costo sugerido (última compra)']) || 0,
@@ -1370,6 +1371,72 @@ function peOptions(sel){
 }
 function itemsAsociados(peId){ return MAESTRO.filter(m => m.productoEstandarId && String(m.productoEstandarId) === String(peId)); }
 
+function _money(n){ if(n==null||!isFinite(n)||n===0) return '—'; const abs=Math.abs(n); const md = abs<10?3:(abs<100?2:0); return '₡'+n.toLocaleString('es-CR',{maximumFractionDigits:md}); }
+function _vnum(id){ const el=document.getElementById(id); return (el && String(el.value).trim()!=='') ? Number(el.value) : null; }
+function _calcCosto(precio, cant, conv){
+  const p = precio||0; const c = (cant!=null && cant!==0) ? cant : null;
+  const cu = c ? p/c : p;
+  const f = (conv!=null && conv!==0) ? conv : 1;
+  return { cu: cu, ce: cu/f };
+}
+
+// ── Lista "sin asociar" ──
+function renderSinAsociar(){
+  const cont = document.getElementById('sa-lista');
+  if (!cont) return;
+  SA_ROWS = [];
+  let lista = MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId);
+  const total = lista.length;
+  const cEl = document.getElementById('sa-count'); if (cEl) cEl.textContent = total;
+  const q = (document.getElementById('sa-buscar').value||'').trim().toLowerCase();
+  if (q) lista = lista.filter(m => (m.proveedor+' '+m.nombreFactura).toLowerCase().indexOf(q)!==-1);
+  if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
+  if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
+  const capped = lista.slice(0, 200);
+  let html = '<table class="stock-table"><thead><tr><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th><th>Producto estándar</th><th>Conversión</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>';
+  capped.forEach(m=>{
+    const i = SA_ROWS.push(m.clave) - 1;
+    const sug = sugerirPe(m);
+    const precio = m.precioSinIva || m.costoSugerido || '';
+    const cant = m.cantidadPresentacion || '';
+    const conv = m.conversionEstandar || '';
+    const r = _calcCosto(precio||0, cant||null, conv||null);
+    html += `<tr>
+      <td>${escHtml(m.proveedor||'—')}</td>
+      <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
+      <td><input type="number" step="any" id="sa-pr-${i}" value="${precio}" oninput="recalcSA(${i})" style="width:92px"/></td>
+      <td><input type="number" step="any" id="sa-cn-${i}" value="${cant}" oninput="recalcSA(${i})" style="width:64px"/></td>
+      <td><b id="sa-cu-${i}">${_money(r.cu)}</b></td>
+      <td><select id="sa-pe-${i}" style="min-width:170px">${peOptions(sug?sug.id:'')}</select></td>
+      <td><input type="number" step="any" id="sa-cv-${i}" value="${conv}" placeholder="1" oninput="recalcSA(${i})" style="width:72px"/></td>
+      <td><b id="sa-ce-${i}" style="color:var(--green)">${_money(r.ce)}</b></td>
+      <td><button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  if (total > capped.length) html += `<p style="font-size:12px;color:var(--muted);margin-top:8px">Mostrando ${capped.length} de ${total}. Afiná con el buscador.</p>`;
+  cont.innerHTML = html;
+}
+function recalcSA(i){
+  const r = _calcCosto(_vnum('sa-pr-'+i)||0, _vnum('sa-cn-'+i), _vnum('sa-cv-'+i));
+  const cu = document.getElementById('sa-cu-'+i); if (cu) cu.textContent = _money(r.cu);
+  const ce = document.getElementById('sa-ce-'+i); if (ce) ce.textContent = _money(r.ce);
+}
+async function asociarItem(i){
+  const clave = SA_ROWS[i]; if (clave == null) return;
+  const sel = document.getElementById('sa-pe-'+i);
+  const peId = sel ? sel.value : '';
+  if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
+  const precio = _vnum('sa-pr-'+i); const cantidad = _vnum('sa-cn-'+i); const conv = _vnum('sa-cv-'+i);
+  try {
+    await postAP({ modulo:'maestro_asociar_pe', clave: clave, pe_id: peId,
+      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv });
+    showToast('Asociado ✓');
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
+}
+
+// ── Grupos: producto estándar → sus facturas (editable) ──
 function renderAsociacion(){
   const cont = document.getElementById('as-lista');
   if (!cont) return;
@@ -1383,21 +1450,35 @@ function renderAsociacion(){
   if (filtro==='con') lista = lista.filter(x=>x.items.length);
   else if (filtro==='sin') lista = lista.filter(x=>!x.items.length);
   if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados.</div>'; return; }
-  let html = '<table class="stock-table"><thead><tr><th></th><th>Producto estándar</th><th>Unidad</th><th>Facturas</th></tr></thead><tbody>';
+  let html = '<table class="stock-table"><thead><tr><th></th><th>Producto estándar</th><th>Unidad</th><th>Facturas</th><th>Costo/u. estándar (prom.)</th></tr></thead><tbody>';
   lista.forEach(({p,items})=>{
     const abierto = PE_EXP.has(p.id);
+    const costos = items.map(it=>it.costoEstandar).filter(x=>x>0);
+    const prom = costos.length ? costos.reduce((a,c)=>a+c,0)/costos.length : null;
     html += `<tr style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
       <td>${items.length?(abierto?'▾':'▸'):''}</td>
       <td><b>${escHtml(p.nombre)}</b></td>
       <td>${escHtml(p.unidadEstandar)}</td>
-      <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td></tr>`;
+      <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td>
+      <td><b style="color:var(--green)">${_money(prom)}</b>${prom!=null?` <span style="color:var(--muted)">/${escHtml(p.unidadEstandar)}</span>`:''}</td></tr>`;
     if (abierto && items.length){
       items.forEach(it=>{
         const j = AS_ROWS.push(it.clave) - 1;
-        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="3" style="font-size:12.5px">
-          <b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}
-          <span style="color:var(--muted)"> — ${it.conversionEstandar!==''?it.conversionEstandar:'1'} ${escHtml(p.unidadEstandar)}/unidad compra</span>
-          <button class="btn-sm" style="margin-left:8px" onclick="event.stopPropagation();desasociarItem(${j})">Quitar</button>
+        const precio = it.precioSinIva || it.costoSugerido || '';
+        const cant = it.cantidadPresentacion || '';
+        const conv = it.conversionEstandar || '';
+        const r = _calcCosto(precio||0, cant||null, conv||null);
+        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
+            <span style="min-width:180px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
+            <label>Precio <input type="number" step="any" id="as-pr-${j}" value="${precio}" oninput="recalcAS(${j})" style="width:90px"/></label>
+            <label>Cant. <input type="number" step="any" id="as-cn-${j}" value="${cant}" oninput="recalcAS(${j})" style="width:60px"/></label>
+            <span>Costo u: <b id="as-cu-${j}">${_money(r.cu)}</b></span>
+            <label>Conversión <input type="number" step="any" id="as-cv-${j}" value="${conv}" placeholder="1" oninput="recalcAS(${j})" style="width:70px"/></label>
+            <span>Costo/u. estándar: <b id="as-ce-${j}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
+            <button class="btn-sm" onclick="event.stopPropagation();guardarCostoItem(${j})">Guardar</button>
+            <button class="btn-sm" onclick="event.stopPropagation();desasociarItem(${j})">Quitar</button>
+          </div>
         </td></tr>`;
       });
     }
@@ -1406,48 +1487,21 @@ function renderAsociacion(){
   cont.innerHTML = html;
 }
 function togglePeExp(id){ if(PE_EXP.has(id)) PE_EXP.delete(id); else PE_EXP.add(id); renderAsociacion(); }
-
-function renderSinAsociar(){
-  const cont = document.getElementById('sa-lista');
-  if (!cont) return;
-  SA_ROWS = [];
-  let lista = MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId);
-  const total = lista.length;
-  const cEl = document.getElementById('sa-count'); if (cEl) cEl.textContent = total;
-  const q = (document.getElementById('sa-buscar').value||'').trim().toLowerCase();
-  if (q) lista = lista.filter(m => (m.proveedor+' '+m.nombreFactura).toLowerCase().indexOf(q)!==-1);
-  if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
-  if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
-  const capped = lista.slice(0, 300);
-  let html = '<table class="stock-table"><thead><tr><th>Proveedor</th><th>Producto en factura</th><th>Producto estándar</th><th>Conversión</th><th></th></tr></thead><tbody>';
-  capped.forEach(m=>{
-    const i = SA_ROWS.push(m.clave) - 1;
-    const sug = sugerirPe(m);
-    html += `<tr>
-      <td>${escHtml(m.proveedor||'—')}</td>
-      <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
-      <td><select id="sa-pe-${i}" style="min-width:180px">${peOptions(sug?sug.id:'')}</select></td>
-      <td><input type="number" step="any" id="sa-cv-${i}" placeholder="1" style="width:78px"/></td>
-      <td><button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
-  });
-  html += '</tbody></table>';
-  if (total > capped.length) html += `<p style="font-size:12px;color:var(--muted);margin-top:8px">Mostrando ${capped.length} de ${total}. Afiná con el buscador.</p>`;
-  cont.innerHTML = html;
+function recalcAS(j){
+  const r = _calcCosto(_vnum('as-pr-'+j)||0, _vnum('as-cn-'+j), _vnum('as-cv-'+j));
+  const cu = document.getElementById('as-cu-'+j); if (cu) cu.textContent = _money(r.cu);
+  const ce = document.getElementById('as-ce-'+j); if (ce) ce.textContent = _money(r.ce);
 }
-
-async function asociarItem(i){
-  const clave = SA_ROWS[i]; if (clave == null) return;
-  const sel = document.getElementById('sa-pe-'+i);
-  const cv = document.getElementById('sa-cv-'+i);
-  const peId = sel ? sel.value : '';
-  if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
-  const conv = (cv && cv.value.trim() !== '') ? Number(cv.value) : '';
+async function guardarCostoItem(j){
+  const clave = AS_ROWS[j]; if (clave == null) return;
+  const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j); const conv = _vnum('as-cv-'+j);
   try {
-    await postAP({ modulo:'maestro_asociar_pe', clave: clave, pe_id: peId, conversion: conv });
-    showToast('Asociado ✓');
+    await postAP({ modulo:'maestro_guardar_costo_item', clave: clave,
+      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv });
+    showToast('Costo guardado ✓');
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
-  } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
+  } catch (e){ showToast('No se pudo guardar — ' + e.message, 'error'); }
 }
 async function desasociarItem(j){
   const clave = AS_ROWS[j]; if (clave == null) return;
