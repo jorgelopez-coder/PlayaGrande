@@ -1568,8 +1568,10 @@ function renderAsociacion(){
       <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td>
       <td><b style="color:var(--green)">${_money(prom)}</b>${prom!=null?` <span style="color:var(--muted)">/${escHtml(p.unidadEstandar)}</span>`:''}</td></tr>`;
     if (abierto && items.length){
+      const grupoJs = [];
       items.forEach(it=>{
         const j = AS_ROWS.push(it.clave) - 1;
+        grupoJs.push(j);
         const precio = it.costoSugerido || it.precioSinIva || '';  // precio = última compra real (Desglose)
         const cant = it.cantidadPresentacion || '';
         const conv = it.conversionEstandar || '';
@@ -1588,6 +1590,9 @@ function renderAsociacion(){
           </div>
         </td></tr>`;
       });
+      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4" style="text-align:right;padding:6px 8px">
+        <button class="btn-sm" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad/conversión de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>
+      </td></tr>`;
     }
   });
   html += '</tbody></table>';
@@ -1606,6 +1611,32 @@ async function guardarCostoItem(j){
     await postAP({ modulo:'maestro_guardar_costo_item', clave: clave,
       precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv });
     showToast('Costo guardado ✓');
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo guardar — ' + e.message, 'error'); }
+}
+async function guardarCostosGrupo(js){
+  const items = (js||[]).map(j => {
+    const clave = AS_ROWS[j]; if (clave == null) return null;
+    const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j); const conv = _vnum('as-cv-'+j);
+    return { clave: clave, precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv };
+  }).filter(Boolean);
+  if (!items.length){ showToast('No hay líneas para guardar', 'error'); return; }
+  try {
+    let guardados = 0;
+    try {
+      // Vía rápida: una sola llamada (requiere backend con 'maestro_guardar_costo_item_lote').
+      const r = await postAP({ modulo:'maestro_guardar_costo_item_lote', items: items });
+      guardados = (r && r.guardados) || items.length;
+    } catch (eLote){
+      // Backend viejo sin lote: guardar una por una con la acción desplegada.
+      for (const it of items){
+        try { await postAP({ modulo:'maestro_guardar_costo_item', clave: it.clave, precio: it.precio, cantidad: it.cantidad, conversion: it.conversion }); guardados++; }
+        catch (e1){}
+      }
+      if (!guardados) throw eLote;
+    }
+    showToast('Guardados ' + guardados + ' de ' + items.length + ' ✓');
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
   } catch (e){ showToast('No se pudo guardar — ' + e.message, 'error'); }
