@@ -340,6 +340,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="field"></div>
     <div class="field"></div>
   </div>
+  <div id="sa-bulk" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,.04);border:1px solid var(--border,#0001);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+    <b><span id="sa-sel-count">0</span> seleccionada(s)</b>
+    <label style="display:flex;align-items:center;gap:6px;margin:0">Asociar todas a:
+      <select id="sa-bulk-pe" style="min-width:200px"></select>
+    </label>
+    <button class="btn-sm" onclick="asociarSeleccionadas()">Asociar seleccionadas</button>
+    <button class="btn-sm" onclick="limpiarSaSel()">Limpiar selección</button>
+    <span style="font-size:11.5px;color:var(--muted)">La conversión queda en blanco (misma unidad); ajustala luego por ítem si hace falta.</span>
+  </div>
   <div class="stock-table-wrap"><div id="sa-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
 
@@ -1414,6 +1423,7 @@ function renderSinAsociar(){
   const cont = document.getElementById('sa-lista');
   if (!cont) return;
   SA_ROWS = [];
+  populateSaBulkSelect(); updateSaBulk();
   let lista = MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId);
   const total = lista.length;
   const cEl = document.getElementById('sa-count'); if (cEl) cEl.textContent = total;
@@ -1422,7 +1432,7 @@ function renderSinAsociar(){
   if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
   if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
   const capped = lista.slice(0, 200);
-  let html = '<table class="stock-table"><thead><tr><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th><th>Producto estándar</th><th>Conversión</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>';
+  let html = '<table class="stock-table"><thead><tr><th style="width:30px"><input type="checkbox" id="sa-chk-all" onchange="toggleSaSelAll(this.checked)" title="Seleccionar todo"/></th><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th><th>Producto estándar</th><th>Conversión</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>';
   capped.forEach(m=>{
     const i = SA_ROWS.push(m.clave) - 1;
     const sug = sugerirPe(m);
@@ -1431,6 +1441,7 @@ function renderSinAsociar(){
     const conv = m.conversionEstandar || '';
     const r = _calcCosto(precio||0, cant||null, conv||null);
     html += `<tr>
+      <td><input type="checkbox" class="sa-chk" ${SA_SEL.has(m.clave)?'checked':''} onchange="toggleSaSelByIdx(${i}, this.checked)"/></td>
       <td>${escHtml(m.proveedor||'—')}</td>
       <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
       <td><input type="number" id="sa-pr-${i}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:92px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></td>
@@ -1444,6 +1455,55 @@ function renderSinAsociar(){
   html += '</tbody></table>';
   if (total > capped.length) html += `<p style="font-size:12px;color:var(--muted);margin-top:8px">Mostrando ${capped.length} de ${total}. Afiná con el buscador.</p>`;
   cont.innerHTML = html;
+  syncSaChkAll();
+}
+// ── Selección múltiple para asociar varias facturas a la vez ─────────────
+let SA_SEL = new Set();
+function populateSaBulkSelect(){
+  const sel = document.getElementById('sa-bulk-pe'); if (!sel) return;
+  sel.innerHTML = peOptions(sel.value);
+}
+function updateSaBulk(){
+  const valido = new Set(MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId).map(m=>m.clave));
+  [...SA_SEL].forEach(c => { if (!valido.has(c)) SA_SEL.delete(c); });
+  const n = SA_SEL.size;
+  const bar = document.getElementById('sa-bulk'); if (bar) bar.style.display = n ? 'flex' : 'none';
+  const cnt = document.getElementById('sa-sel-count'); if (cnt) cnt.textContent = n;
+}
+function syncSaChkAll(){
+  const all = document.getElementById('sa-chk-all'); if (!all) return;
+  const vis = SA_ROWS.filter(Boolean);
+  all.checked = vis.length>0 && vis.every(c => SA_SEL.has(c));
+}
+function toggleSaSelByIdx(i, checked){
+  const c = SA_ROWS[i]; if (c == null) return;
+  if (checked) SA_SEL.add(c); else SA_SEL.delete(c);
+  updateSaBulk(); syncSaChkAll();
+}
+function toggleSaSelAll(checked){
+  SA_ROWS.forEach(c => { if (c==null) return; if (checked) SA_SEL.add(c); else SA_SEL.delete(c); });
+  document.querySelectorAll('.sa-chk').forEach(cb => { cb.checked = checked; });
+  updateSaBulk();
+}
+function limpiarSaSel(){
+  SA_SEL.clear();
+  document.querySelectorAll('.sa-chk').forEach(cb => cb.checked = false);
+  const all = document.getElementById('sa-chk-all'); if (all) all.checked = false;
+  updateSaBulk();
+}
+async function asociarSeleccionadas(){
+  const sel = document.getElementById('sa-bulk-pe');
+  const peId = sel ? sel.value : '';
+  if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
+  const claves = [...SA_SEL];
+  if (!claves.length){ showToast('No hay facturas seleccionadas', 'error'); return; }
+  try {
+    const r = await postAP({ modulo:'maestro_asociar_pe_lote', claves: claves, pe_id: peId });
+    showToast('Asociadas ' + ((r && r.asociados) || claves.length) + ' ✓');
+    SA_SEL.clear();
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
 }
 function recalcSA(i){
   const r = _calcCosto(_vnum('sa-pr-'+i)||0, _vnum('sa-cn-'+i), _vnum('sa-cv-'+i));
