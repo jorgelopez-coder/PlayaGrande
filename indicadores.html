@@ -2,6 +2,39 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
+<script>
+/* Carga resiliente (2026-11-01): limita la concurrencia de peticiones,
+   agrega timeout y reintenta SOLO lecturas (GET/HEAD) — nunca escrituras
+   (POST/PUT), para no duplicar cierres, depósitos, etc. Parcha window.fetch
+   una sola vez, antes de cualquier otra llamada, sin tocar el resto del
+   código. Motivo: si una respuesta de Apps Script se colgaba ("pending"),
+   el módulo quedaba congelado ("no carga / no conecta"). */
+(function(){
+  if (window.__fetchResiliente) return; window.__fetchResiliente = true;
+  var MAX = 5, TIMEOUT = 25000, nativo = window.fetch.bind(window);
+  var enVuelo = 0, cola = [];
+  function adquirir(){ return (enVuelo < MAX) ? (enVuelo++, Promise.resolve())
+                       : new Promise(function(res){ cola.push(res); }); }
+  function liberar(){ var s = cola.shift(); if (s) s(); else enVuelo = Math.max(0, enVuelo-1); }
+  function conTimeout(url, opts){
+    return adquirir().then(function(){
+      var ctrl = new AbortController();
+      var t = setTimeout(function(){ ctrl.abort(); }, TIMEOUT);
+      var o = Object.assign({}, opts, { signal: (opts && opts.signal) || ctrl.signal });
+      return nativo(url, o).finally(function(){ clearTimeout(t); liberar(); });
+    });
+  }
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    var esReq = (typeof Request !== 'undefined' && url instanceof Request);
+    var metodo = (esReq ? (url.method || 'GET') : (opts.method || 'GET')).toUpperCase();
+    if (metodo !== 'GET' && metodo !== 'HEAD') return conTimeout(url, opts);
+    return conTimeout(url, opts).catch(function(){
+      return new Promise(function(r){ setTimeout(r, 700); }).then(function(){ return conTimeout(url, opts); });
+    });
+  };
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Indicadores de Gerencia · Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -375,7 +408,7 @@ if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos
 // Filtra una lista de nombres de kiosko según lo que el rol tiene permitido.
 function kioskosPermitidos(lista) {
   if (!PORTAL_SESION || !PORTAL_SESION.kioskos || PORTAL_SESION.kioskos === 'todos') return lista;
-  return (lista || []).filter(k => PORTAL_SESION.kioskos.includes(k));
+  return (lista || []).filter(function(k){var _n=function(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');};var _k=_n(k);return PORTAL_SESION.kioskos.some(function(p){return _n(p)===_k;});});
 }
 // Si el rol solo tiene 1 kiosko permitido, no tiene sentido mostrar el
 // selector — se fija el valor directo y se oculta el control (todo el
