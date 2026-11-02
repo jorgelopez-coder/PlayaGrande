@@ -255,6 +255,49 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div id="tab-homologacion">
 
+<!-- Nivel 2 — asociación a Producto Estándar (2026-11-02) -->
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Productos estándar y sus facturas</p>
+    <button class="btn-sm" id="btn-sync-2" onclick="sincronizarAhora()">🔄 Sincronizar desde facturas</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Cada producto estándar de tu catálogo, con los productos identificados en las facturas que tiene asociados.
+    Abrí la flechita para ver sus facturas y la conversión a la unidad estándar de cada una.
+  </p>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar producto estándar</label><input type="text" id="as-buscar" placeholder="nombre…" oninput="renderAsociacion()"/></div>
+    <div class="field"><label>Mostrar</label>
+      <select id="as-filtro" onchange="renderAsociacion()">
+        <option value="" selected>Todos</option>
+        <option value="con">Solo con facturas</option>
+        <option value="sin">Solo sin facturas</option>
+      </select>
+    </div>
+    <div class="field"></div>
+  </div>
+  <div class="stock-table-wrap"><div id="as-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Facturas sin asociar a un producto estándar</p>
+    <span class="mp-counts"><span>Sin asociar: <b id="sa-count" style="color:var(--amber)">0</b></span></span>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Productos identificados en facturas (que aplican) todavía sin producto estándar. Elegí el producto estándar
+    —te marco el más parecido— y, si la presentación de compra no está en la unidad de la receta, poné cuántas
+    unidades estándar trae una unidad de compra. Dejalo en blanco si ya es la misma unidad.
+  </p>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar</label><input type="text" id="sa-buscar" placeholder="proveedor o producto…" oninput="renderSinAsociar()"/></div>
+    <div class="field"></div>
+    <div class="field"></div>
+  </div>
+  <div class="stock-table-wrap"><div id="sa-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
+
+
 <div class="card">
   <div class="card-title-row">
     <p class="card-title">Homologación de nombres de factura</p>
@@ -870,6 +913,8 @@ async function cargarMaestro() {
       propuesta: r['Propuesta automática'] || '',
       nombreEstandar: r['Nombre Estándar'] || '',
       estado: r['Estado'] || 'Pendiente',
+      productoEstandarId: r['Producto Estándar ID'] || '',
+      conversionEstandar: (r['Conversión a unidad estándar'] !== '' && r['Conversión a unidad estándar'] != null) ? Number(r['Conversión a unidad estándar']) : '',
       aplica: r['Aplica'] === 'No' ? 'No' : 'Sí',
       // ── Ficha de producto (ex Base de Productos, fusionado acá) ──
       costoSugerido: Number(r['Costo sugerido (última compra)']) || 0,
@@ -910,7 +955,7 @@ async function cargarMaestro() {
   }
 }
 
-function renderTodo() { renderMaestro(); renderFichas(); MX_CONSTRUIDO = false; renderMatriz(); renderConfiguracion(); }
+function renderTodo() { renderMaestro(); renderFichas(); MX_CONSTRUIDO = false; renderMatriz(); renderConfiguracion(); renderAsociacion(); renderSinAsociar(); }
 
 // ── CONFIGURACIÓN (catálogos) — reorganizada 2026-10-09 ───────────────
 // Área/Categoría/Familia/Subfamilia + Presentación/Unidad de receta.
@@ -1188,6 +1233,8 @@ async function cargarProductosEstandar() {
   } catch (e) { PRODUCTOS_ESTANDAR = []; }
   poblarSelectsPe();
   renderProductosEstandar();
+  renderAsociacion();
+  renderSinAsociar();
 }
 
 function poblarSelectsPe() {
@@ -1295,6 +1342,121 @@ function renderProductosEstandar() {
   });
   html += '</tbody></table>';
   cont.innerHTML = html;
+}
+
+// ── Asociación facturas ↔ Producto Estándar (Nivel 2) — 2026-11-02 ──────
+let PE_EXP = new Set();
+let SA_ROWS = [];
+let AS_ROWS = [];
+
+function _normAs(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function scoreMatch(itemTexto, peNombre){
+  const a = new Set(_normAs(itemTexto).split(' ').filter(Boolean));
+  const b = new Set(_normAs(peNombre).split(' ').filter(Boolean));
+  if (!a.size || !b.size) return 0;
+  let inter = 0; a.forEach(t => { if (b.has(t)) inter++; });
+  return inter / Math.max(a.size, b.size);
+}
+function sugerirPe(item){
+  const activos = PRODUCTOS_ESTANDAR.filter(p => p.activo === 'Sí');
+  let best = null, bestS = 0;
+  activos.forEach(p => { const s = scoreMatch((item.nombreFactura||'') + ' ' + (item.nombreEstandar||''), p.nombre); if (s > bestS){ bestS = s; best = p; } });
+  return bestS >= 0.34 ? best : null;
+}
+function peOptions(sel){
+  return '<option value="">— elegir —</option>' + PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí')
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))
+    .map(p=>`<option value="${escapeAttr(p.id)}"${String(p.id)===String(sel)?' selected':''}>${escHtml(p.nombre)} (${escHtml(p.unidadEstandar)})</option>`).join('');
+}
+function itemsAsociados(peId){ return MAESTRO.filter(m => m.productoEstandarId && String(m.productoEstandarId) === String(peId)); }
+
+function renderAsociacion(){
+  const cont = document.getElementById('as-lista');
+  if (!cont) return;
+  AS_ROWS = [];
+  if (!PRODUCTOS_ESTANDAR.length){ cont.innerHTML = '<div class="empty-state">Primero creá productos estándar en la pestaña 📦 Productos estándar.</div>'; return; }
+  const q = (document.getElementById('as-buscar').value||'').trim().toLowerCase();
+  const filtro = document.getElementById('as-filtro').value;
+  let lista = PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  if (q) lista = lista.filter(p=>p.nombre.toLowerCase().indexOf(q)!==-1);
+  lista = lista.map(p=>({ p, items: itemsAsociados(p.id) }));
+  if (filtro==='con') lista = lista.filter(x=>x.items.length);
+  else if (filtro==='sin') lista = lista.filter(x=>!x.items.length);
+  if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados.</div>'; return; }
+  let html = '<table class="stock-table"><thead><tr><th></th><th>Producto estándar</th><th>Unidad</th><th>Facturas</th></tr></thead><tbody>';
+  lista.forEach(({p,items})=>{
+    const abierto = PE_EXP.has(p.id);
+    html += `<tr style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
+      <td>${items.length?(abierto?'▾':'▸'):''}</td>
+      <td><b>${escHtml(p.nombre)}</b></td>
+      <td>${escHtml(p.unidadEstandar)}</td>
+      <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td></tr>`;
+    if (abierto && items.length){
+      items.forEach(it=>{
+        const j = AS_ROWS.push(it.clave) - 1;
+        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="3" style="font-size:12.5px">
+          <b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}
+          <span style="color:var(--muted)"> — ${it.conversionEstandar!==''?it.conversionEstandar:'1'} ${escHtml(p.unidadEstandar)}/unidad compra</span>
+          <button class="btn-sm" style="margin-left:8px" onclick="event.stopPropagation();desasociarItem(${j})">Quitar</button>
+        </td></tr>`;
+      });
+    }
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+function togglePeExp(id){ if(PE_EXP.has(id)) PE_EXP.delete(id); else PE_EXP.add(id); renderAsociacion(); }
+
+function renderSinAsociar(){
+  const cont = document.getElementById('sa-lista');
+  if (!cont) return;
+  SA_ROWS = [];
+  let lista = MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId);
+  const total = lista.length;
+  const cEl = document.getElementById('sa-count'); if (cEl) cEl.textContent = total;
+  const q = (document.getElementById('sa-buscar').value||'').trim().toLowerCase();
+  if (q) lista = lista.filter(m => (m.proveedor+' '+m.nombreFactura).toLowerCase().indexOf(q)!==-1);
+  if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
+  if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
+  const capped = lista.slice(0, 300);
+  let html = '<table class="stock-table"><thead><tr><th>Proveedor</th><th>Producto en factura</th><th>Producto estándar</th><th>Conversión</th><th></th></tr></thead><tbody>';
+  capped.forEach(m=>{
+    const i = SA_ROWS.push(m.clave) - 1;
+    const sug = sugerirPe(m);
+    html += `<tr>
+      <td>${escHtml(m.proveedor||'—')}</td>
+      <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
+      <td><select id="sa-pe-${i}" style="min-width:180px">${peOptions(sug?sug.id:'')}</select></td>
+      <td><input type="number" step="any" id="sa-cv-${i}" placeholder="1" style="width:78px"/></td>
+      <td><button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
+  });
+  html += '</tbody></table>';
+  if (total > capped.length) html += `<p style="font-size:12px;color:var(--muted);margin-top:8px">Mostrando ${capped.length} de ${total}. Afiná con el buscador.</p>`;
+  cont.innerHTML = html;
+}
+
+async function asociarItem(i){
+  const clave = SA_ROWS[i]; if (clave == null) return;
+  const sel = document.getElementById('sa-pe-'+i);
+  const cv = document.getElementById('sa-cv-'+i);
+  const peId = sel ? sel.value : '';
+  if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
+  const conv = (cv && cv.value.trim() !== '') ? Number(cv.value) : '';
+  try {
+    await postAP({ modulo:'maestro_asociar_pe', clave: clave, pe_id: peId, conversion: conv });
+    showToast('Asociado ✓');
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
+}
+async function desasociarItem(j){
+  const clave = AS_ROWS[j]; if (clave == null) return;
+  try {
+    await postAP({ modulo:'maestro_desasociar_pe', clave: clave });
+    showToast('Quitado ✓');
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo quitar — ' + e.message, 'error'); }
 }
 
 function switchTab(nombre) {
