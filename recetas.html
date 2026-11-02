@@ -707,6 +707,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
               Agregar ingrediente
             </button>
             <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
+            <button type="button" class="btn-add" style="margin-top:0" onclick="abrirNuevoProductoEstandar()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg> Nuevo producto estándar</button>
           </div>
           <div id="pm-receta-info" style="font-size:12px;color:var(--muted);margin-top:1rem"></div>
         </div>
@@ -820,6 +821,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           Agregar ingrediente
         </button>
         <button type="button" class="btn-sm" onclick="abrirCopiarIngredientes()">&#10697; Copiar de otra receta</button>
+        <button type="button" class="btn-add" style="margin-top:0" onclick="abrirNuevoProductoEstandar()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg> Nuevo producto estándar</button>
       </div>
 
       <div class="card" style="background:var(--purple-bg);border-color:var(--purple-lt);margin-top:1.25rem;margin-bottom:0">
@@ -890,6 +892,45 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="modal-foot" style="justify-content:flex-end">
       <button class="btn-sm" onclick="cerrarCopiarIngredientes()">Cancelar</button>
       <button class="btn-primary" onclick="aplicarCopiarIngredientes()">Copiar ingredientes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL NUEVO PRODUCTO ESTÁNDAR ═══════════════════ -->
+<!-- Alta rápida de un producto del catálogo Productos_Estandar (Nivel 1) sin
+     salir del editor de recetas; se guarda vía pe_agregar en el Sheet de
+     Cuentas por Pagar. z-index alto porque abre sobre el modal de receta. -->
+<div class="modal-overlay" id="modal-pe" style="z-index:400">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <h3>Nuevo producto estándar</h3>
+      <button class="modal-close" onclick="cerrarNuevoProductoEstandar()">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="field-hint" style="margin-bottom:1rem">Queda en el catálogo base (Productos estándar) y pasa a estar disponible como ingrediente en todas las recetas. El costo se completa cuando se le asocian facturas en el Maestro de Productos.</p>
+      <div class="field">
+        <label>Nombre <span class="req">*</span></label>
+        <input type="text" id="pe-nombre" placeholder="ej: Ron blanco"/>
+      </div>
+      <div class="field" style="margin-top:.85rem">
+        <label>Unidad estándar de receta <span class="req">*</span></label>
+        <input type="text" id="pe-unidad" list="pe-unidad-list" placeholder="ej: ml, g, oz, unidad"/>
+        <datalist id="pe-unidad-list"><option value="ml"><option value="g"><option value="kg"><option value="L"><option value="oz"><option value="unidad"><option value="cucharada"></datalist>
+        <div class="field-hint">La unidad en que se mide este producto dentro de las recetas.</div>
+      </div>
+      <div class="field" style="margin-top:.85rem">
+        <label>Categoría de producto</label>
+        <input type="text" id="pe-categoria" placeholder="opcional"/>
+      </div>
+      <div class="field" style="margin-top:.85rem">
+        <label>Área de negocio</label>
+        <input type="text" id="pe-area" placeholder="opcional"/>
+      </div>
+      <input type="hidden" id="pe-activo" value="Sí"/>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <button class="btn-sm" onclick="cerrarNuevoProductoEstandar()">Cancelar</button>
+      <button class="btn-primary" id="pe-btn-guardar" onclick="guardarNuevoProductoEstandar()">Crear producto</button>
     </div>
   </div>
 </div>
@@ -995,6 +1036,10 @@ const RECETAS_SHEET_ID = '1U9nITZdHgdOmoPpHfXHC_6Cfb8tjQXH36s6QJLVJ90w'; // Shee
 const APPS_SCRIPT_RECETAS = 'https://script.google.com/macros/s/AKfycbzHoSGyqVANUfctfcP1yV3P8x19kUVPmPE_-HdANJ7uPiJx1zTkAxYIc3PrPLz-m8tn/exec';
 // Mismo Web App de RRHH (pestaña "Configuracion") que usan el resto de páginas del portal.
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
+// Web app de "Cuentas por Pagar - Kioskos": ahí viven la hoja Productos_Estandar
+// (catálogo de productos estándar / Nivel 1) y las acciones pe_* del backend.
+// recetas.html la lee por gviz (MAESTRO_SHEET_ID) y le postea para dar de alta.
+const APPS_SCRIPT_AP = 'https://script.google.com/macros/s/AKfycbzCt4erKTU-_tQq4gy_cHh0A9Seqi3Jgwwx1yzjdGdzbLrwdpyb_s0HtJp5HSinxbMX9Q/exec';
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
@@ -1023,6 +1068,7 @@ document.getElementById('date-chip').textContent =
 
 // ── ESTADO ──────────────────────────────────────────────────────────
 let MAESTRO_PRODUCTOS = []; // productos agrupados por claveAgrupacion_, ver cargarMaestroProductos()
+let PRODUCTOS_ESTANDAR = []; // catálogo curado Nivel 1 (hoja Productos_Estandar), ver cargarProductosEstandar()
 let CONFIG = { nivel1: [], nivel2PorNivel1: {}, metaCostoPorNivel1: {} };
 let PLATOS = [];
 let RECETAS = [];
@@ -1193,10 +1239,50 @@ async function cargarMaestroProductos() {
   MAESTRO_PRODUCTOS = Array.from(mapa.values());
 }
 
-// Solo los productos que aplican como ingrediente de receta y ya están
-// confirmados en Homologación — mismo filtro que documenta el plan.
+// Catálogo curado de Nivel 1 (hoja Productos_Estandar, en el Sheet de Cuentas
+// por Pagar / MAESTRO_SHEET_ID). Es la fuente única de ingredientes de receta
+// desde el rediseño del Maestro (2026-11-02). Se lee por gviz; si la hoja no
+// existe todavía (falta desplegar el backend del maestro), queda vacío sin
+// romper la página.
+async function cargarProductosEstandar() {
+  try {
+    const datos = await gvizLoad(MAESTRO_SHEET_ID, 'Productos_Estandar', 'Nombre');
+    PRODUCTOS_ESTANDAR = datos.map(r => ({
+      id: r['ID'] || '',
+      nombre: r['Nombre'] || '',
+      unidadEstandar: r['Unidad estándar'] || '',
+      categoria: r['Categoría de producto'] || '',
+      area: r['Área de negocio'] || '',
+      activo: String(r['Activo']) === 'No' ? 'No' : 'Sí'
+    })).filter(p => p.id || p.nombre);
+  } catch (e) { PRODUCTOS_ESTANDAR = []; }
+}
+
+// Los ingredientes de receta salen del catálogo Producto Estándar activo. El
+// costo sale de las facturas asociadas a ese producto (puente de convivencia:
+// al asociar en el Maestro se deja "Nombre Estándar" = nombre del producto
+// estándar), así que se busca en MAESTRO_PRODUCTOS por la MISMA clave de
+// agrupación. Se conserva ref = claveAgrupacion_(nombre) —igual que antes— para
+// no romper recetas ya guardadas ni el descuento de stock por venta. Un
+// producto estándar recién creado (sin factura asociada) aparece igual, con
+// costo 0 hasta que se le asocie una compra en maestro-productos.html.
 function productosParaIngrediente() {
-  return MAESTRO_PRODUCTOS.filter(p => p.aplicaReceta === 'Sí' && p.estado === 'Confirmado');
+  const porClave = new Map();
+  MAESTRO_PRODUCTOS.forEach(p => { if (p.clave && !porClave.has(p.clave)) porClave.set(p.clave, p); });
+  return PRODUCTOS_ESTANDAR.filter(pe => pe.activo === 'Sí').map(pe => {
+    const clave = claveAgrupacion_(pe.nombre);
+    const m = porClave.get(clave);
+    const costo = m ? (m.costoRealReceta || m.costoPorUnidad || 0) : 0;
+    return {
+      clave: clave,
+      nombre: pe.nombre,
+      unidadReceta: pe.unidadEstandar,
+      aplicaReceta: 'Sí',
+      estado: 'Confirmado',
+      costoRealReceta: costo,
+      costoPorUnidad: costo
+    };
+  });
 }
 
 async function cargarConfiguracion() {
@@ -1280,7 +1366,7 @@ async function cargarMenuRecetas() {
 async function cargarTodo() {
   try {
     await Promise.all([
-      cargarMaestroProductos(), cargarConfiguracion(),
+      cargarMaestroProductos(), cargarProductosEstandar(), cargarConfiguracion(),
       cargarMenuPlatos(), cargarMenuRecetas(), cargarKioskosDisponibles()
     ]);
   } catch (e) {
@@ -2336,7 +2422,7 @@ function renderIngredientesModal() {
     <div class="ing-row" data-idx="${idx}">
       <div class="field"><label>Ingrediente / Subreceta</label>
         <input type="text" list="${PFX_RECETA}-ingrediente-list" value="${escapeAttr(ing.nombre||'')}" placeholder="Escribí para buscar…" oninput="onIngredienteTexto(${idx}, this.value)"/>
-        <div class="field-hint" id="ing-hint-${idx}" style="color:${sinCoincidencia?'var(--red)':'var(--subtle)'}">${fuenteActual ? 'Unidad: ' + escHtml(fuenteActual.unidad||'—') : (sinCoincidencia ? '⚠ no coincide con ningún ingrediente — elegí una opción de la lista' : '')}</div>
+        <div class="field-hint" id="ing-hint-${idx}" style="color:${sinCoincidencia?'var(--red)':'var(--subtle)'}">${hintIngredienteHtml(idx, fuenteActual, sinCoincidencia)}</div>
       </div>
       <div class="field"><label>Cantidad</label>
         <input type="text" inputmode="decimal" value="${escapeAttr(ing.cantidad)}" placeholder="0" oninput="onIngredienteCantidad(${idx}, this.value)"/>
@@ -2371,7 +2457,7 @@ function onIngredienteTexto(idx, texto) {
   const hint = document.getElementById('ing-hint-' + idx);
   if (hint) {
     hint.style.color = sinCoincidencia ? 'var(--red)' : 'var(--subtle)';
-    hint.textContent = match ? 'Unidad: ' + (match.unidad||'—') : (sinCoincidencia ? '⚠ no coincide con ningún ingrediente — elegí una opción de la lista' : '');
+    hint.innerHTML = hintIngredienteHtml(idx, match, sinCoincidencia);
   }
   recalcularCostoRecetaPreview();
 }
@@ -2396,6 +2482,80 @@ function quitarIngrediente(idx) {
   EDITANDO_RECETA.ingredientes.splice(idx, 1);
   renderIngredientesModal();
   recalcularCostoRecetaPreview();
+}
+
+// ── Alta rápida de Producto Estándar desde el editor de ingredientes ──────
+// Las recetas se alimentan del catálogo "Productos estándar" (Nivel 1, hoja
+// Productos_Estandar en el Sheet de Cuentas por Pagar). Este modal da de alta
+// uno nuevo sin salir del editor: postea pe_agregar, recarga el catálogo y, si
+// se abrió desde un renglón de ingrediente, deja el producto nuevo elegido ahí.
+let PE_NUEVO_IDX = null;
+
+async function postAP(payload) {
+  const resp = await fetch(APPS_SCRIPT_AP, { method: 'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) });
+  const json = await resp.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar');
+  return json.result;
+}
+
+function hintIngredienteHtml(idx, fuente, sinCoincidencia) {
+  if (fuente) return 'Unidad: ' + escHtml(fuente.unidad || '—');
+  if (sinCoincidencia) {
+    const nom = (EDITANDO_RECETA && EDITANDO_RECETA.ingredientes[idx]) ? (EDITANDO_RECETA.ingredientes[idx].nombre || '') : '';
+    return '⚠ no coincide con ningún producto estándar — <a href="#" onclick="event.preventDefault();abrirNuevoProductoEstandar(' + idx + ')" style="color:var(--green);font-weight:600;text-decoration:underline">+ crear «' + escHtml(nom) + '» como producto estándar</a>';
+  }
+  return '';
+}
+
+function abrirNuevoProductoEstandar(idx) {
+  PE_NUEVO_IDX = (typeof idx === 'number') ? idx : null;
+  const pre = (PE_NUEVO_IDX != null && EDITANDO_RECETA && EDITANDO_RECETA.ingredientes[PE_NUEVO_IDX])
+    ? (EDITANDO_RECETA.ingredientes[PE_NUEVO_IDX].nombre || '') : '';
+  document.getElementById('pe-nombre').value = pre;
+  document.getElementById('pe-unidad').value = '';
+  document.getElementById('pe-categoria').value = '';
+  document.getElementById('pe-area').value = '';
+  document.getElementById('pe-activo').value = 'Sí';
+  document.getElementById('modal-pe').classList.add('open');
+  setTimeout(function(){ const el = document.getElementById('pe-nombre'); if (el) el.focus(); }, 50);
+}
+
+function cerrarNuevoProductoEstandar() {
+  document.getElementById('modal-pe').classList.remove('open');
+  PE_NUEVO_IDX = null;
+}
+
+async function guardarNuevoProductoEstandar() {
+  const idx = PE_NUEVO_IDX;
+  const nombre = document.getElementById('pe-nombre').value.trim();
+  const unidad = document.getElementById('pe-unidad').value.trim();
+  const categoria = document.getElementById('pe-categoria').value.trim();
+  const area = document.getElementById('pe-area').value.trim();
+  const activo = document.getElementById('pe-activo').value;
+  if (!nombre) { showToast('Escribí el nombre del producto', 'error'); return; }
+  if (!unidad) { showToast('Indicá la unidad estándar de receta', 'error'); return; }
+  const btn = document.getElementById('pe-btn-guardar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  try {
+    await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
+    await cargarProductosEstandar();
+    document.getElementById('modal-pe').classList.remove('open');
+    PE_NUEVO_IDX = null;
+    showToast('Producto estándar creado ✓');
+    if (idx != null && EDITANDO_RECETA && EDITANDO_RECETA.ingredientes[idx]) {
+      const fuente = fuentesIngrediente(RECETA_ORIGINAL_ID).find(f => f.tipoFuente === 'producto' && f.nombre.trim().toLowerCase() === nombre.toLowerCase());
+      if (fuente) {
+        const cant = EDITANDO_RECETA.ingredientes[idx].cantidad || '';
+        EDITANDO_RECETA.ingredientes[idx] = { tipoFuente: fuente.tipoFuente, ref: fuente.ref, nombre: fuente.nombre, unidad: fuente.unidad, cantidad: cant };
+      }
+    }
+    renderIngredientesModal();
+    recalcularCostoRecetaPreview();
+  } catch (e) {
+    showToast('No se pudo crear — ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Crear producto'; }
+  }
 }
 
 // Vista previa de costo, en memoria, antes de guardar — el backend
