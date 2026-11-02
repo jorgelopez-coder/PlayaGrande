@@ -1497,13 +1497,31 @@ async function asociarSeleccionadas(){
   if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
   const claves = [...SA_SEL];
   if (!claves.length){ showToast('No hay facturas seleccionadas', 'error'); return; }
+  const btn = document.querySelector('#sa-bulk button');
+  if (btn){ btn.disabled = true; btn.textContent = 'Asociando…'; }
   try {
-    const r = await postAP({ modulo:'maestro_asociar_pe_lote', claves: claves, pe_id: peId });
-    showToast('Asociadas ' + ((r && r.asociados) || claves.length) + ' ✓');
+    let asociados = 0;
+    try {
+      // Vía rápida: una sola llamada (requiere backend con 'maestro_asociar_pe_lote').
+      const r = await postAP({ modulo:'maestro_asociar_pe_lote', claves: claves, pe_id: peId });
+      asociados = (r && r.asociados) || claves.length;
+    } catch (eLote){
+      // Backend viejo sin lote: asociar una por una con la acción que sí está desplegada.
+      for (const c of claves){
+        try { await postAP({ modulo:'maestro_asociar_pe', clave: c, pe_id: peId, conversion: '' }); asociados++; }
+        catch (e1){}
+      }
+      if (!asociados) throw eLote;
+    }
+    showToast('Asociadas ' + asociados + ' de ' + claves.length + ' ✓');
     SA_SEL.clear();
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
-  } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
+  } catch (e){
+    showToast('No se pudo asociar — ' + e.message, 'error');
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = 'Asociar seleccionadas'; }
+  }
 }
 function recalcSA(i){
   const r = _calcCosto(_vnum('sa-pr-'+i)||0, _vnum('sa-cn-'+i), _vnum('sa-cv-'+i));
