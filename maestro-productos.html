@@ -1349,8 +1349,11 @@ function renderProductosEstandar() {
 let PE_EXP = new Set();
 let SA_ROWS = [];
 let AS_ROWS = [];
+let DESGLOSE_ARCHIVO = {};  // clave Maestro -> { archivo, numero, f } de la factura más reciente
 
-function _normAs(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _normAs(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function _claveMaestro(prov, prod){ const n = s => String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); return n(prov)+'§'+n(prod); }
 function scoreMatch(itemTexto, peNombre){
   const a = new Set(_normAs(itemTexto).split(' ').filter(Boolean));
   const b = new Set(_normAs(peNombre).split(' ').filter(Boolean));
@@ -1380,7 +1383,37 @@ function _calcCosto(precio, cant, conv){
   return { cu: cu, ce: cu/f };
 }
 
-// ── Lista "sin asociar" ──
+function archivoBtn(clave){
+  const d = DESGLOSE_ARCHIVO[clave];
+  if (!d || !d.archivo) return '';
+  return `<button class="btn-sm" title="${escapeAttr(d.archivo)}" onclick="event.stopPropagation();abrirPdfFactura('${_jsq(d.archivo)}')">📄 Factura${d.numero?(' '+escHtml(d.numero)):''}</button>`;
+}
+async function abrirPdfFactura(archivo){
+  if (!archivo) return;
+  if (/^https?:\/\//i.test(archivo)){ window.open(archivo,'_blank'); return; }
+  try {
+    const r = await postAP({ modulo:'link_pdf', archivo: archivo });
+    if (r && r.url) window.open(r.url,'_blank');
+    else showToast('No se encontró el PDF "'+archivo+'" en Drive.', 'error');
+  } catch(e){ showToast('No se pudo abrir la factura — '+e.message, 'error'); }
+}
+async function cargarDesgloseArchivos(){
+  try {
+    const filas = await gvizLoad('Desglose_IA', 'Producto');
+    const map = {};
+    filas.forEach(r=>{
+      const arch = (r['Archivo']||'').toString().trim();
+      if (!arch) return;
+      const clave = _claveMaestro(r['Proveedor'], r['Producto']);
+      const f = String(r['Fecha de factura'] || r['Fecha de carga'] || '');
+      const prev = map[clave];
+      if (!prev || f > prev.f) map[clave] = { archivo: arch, numero: (r['Número de factura']||'').toString(), f: f };
+    });
+    DESGLOSE_ARCHIVO = map;
+  } catch(e){ DESGLOSE_ARCHIVO = {}; }
+  renderAsociacion(); renderSinAsociar();
+}
+
 function renderSinAsociar(){
   const cont = document.getElementById('sa-lista');
   if (!cont) return;
@@ -1404,13 +1437,13 @@ function renderSinAsociar(){
     html += `<tr>
       <td>${escHtml(m.proveedor||'—')}</td>
       <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
-      <td><input type="number" step="any" id="sa-pr-${i}" value="${precio}" oninput="recalcSA(${i})" style="width:92px"/></td>
+      <td><input type="number" id="sa-pr-${i}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:92px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></td>
       <td><input type="number" step="any" id="sa-cn-${i}" value="${cant}" oninput="recalcSA(${i})" style="width:64px"/></td>
       <td><b id="sa-cu-${i}">${_money(r.cu)}</b></td>
       <td><select id="sa-pe-${i}" style="min-width:170px">${peOptions(sug?sug.id:'')}</select></td>
       <td><input type="number" step="any" id="sa-cv-${i}" value="${conv}" placeholder="1" oninput="recalcSA(${i})" style="width:72px"/></td>
       <td><b id="sa-ce-${i}" style="color:var(--green)">${_money(r.ce)}</b></td>
-      <td><button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
+      <td style="white-space:nowrap">${archivoBtn(m.clave)} <button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
   });
   html += '</tbody></table>';
   if (total > capped.length) html += `<p style="font-size:12px;color:var(--muted);margin-top:8px">Mostrando ${capped.length} de ${total}. Afiná con el buscador.</p>`;
@@ -1436,7 +1469,6 @@ async function asociarItem(i){
   } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
 }
 
-// ── Grupos: producto estándar → sus facturas (editable) ──
 function renderAsociacion(){
   const cont = document.getElementById('as-lista');
   if (!cont) return;
@@ -1470,12 +1502,13 @@ function renderAsociacion(){
         const r = _calcCosto(precio||0, cant||null, conv||null);
         html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4">
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
-            <span style="min-width:180px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
-            <label>Precio <input type="number" step="any" id="as-pr-${j}" value="${precio}" oninput="recalcAS(${j})" style="width:90px"/></label>
-            <label>Cant. <input type="number" step="any" id="as-cn-${j}" value="${cant}" oninput="recalcAS(${j})" style="width:60px"/></label>
+            <span style="min-width:170px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
+            <label>Precio <input type="number" id="as-pr-${j}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></label>
+            <label>Cant. <input type="number" step="any" id="as-cn-${j}" value="${cant}" oninput="recalcAS(${j})" style="width:58px"/></label>
             <span>Costo u: <b id="as-cu-${j}">${_money(r.cu)}</b></span>
-            <label>Conversión <input type="number" step="any" id="as-cv-${j}" value="${conv}" placeholder="1" oninput="recalcAS(${j})" style="width:70px"/></label>
+            <label>Conversión <input type="number" step="any" id="as-cv-${j}" value="${conv}" placeholder="1" oninput="recalcAS(${j})" style="width:68px"/></label>
             <span>Costo/u. estándar: <b id="as-ce-${j}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
+            ${archivoBtn(it.clave)}
             <button class="btn-sm" onclick="event.stopPropagation();guardarCostoItem(${j})">Guardar</button>
             <button class="btn-sm" onclick="event.stopPropagation();desasociarItem(${j})">Quitar</button>
           </div>
@@ -2494,6 +2527,7 @@ cargarMaestro();
 cargarKioskosDisponibles();
 cargarConfiguracion();
 cargarProductosEstandar();
+cargarDesgloseArchivos();
 </script>
 </body>
 </html>
