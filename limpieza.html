@@ -36,7 +36,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Control de Limpieza - Ecosistema Kioskos</title>
+<title>Checklist de Procesos - Ecosistema Kioskos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -214,6 +214,28 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .foto-preview-wrap img{width:100%;max-height:220px;object-fit:contain;border-radius:10px;border:1px solid var(--border);display:block;background:var(--surface)}
 .foto-remove{position:absolute;top:8px;right:8px;background:var(--red);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
+/* ── Checklist de procesos: áreas, filtros, secciones ── */
+.area-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;letter-spacing:.02em;border-radius:5px;padding:1px 7px;white-space:nowrap;border:1px solid}
+.area-tag.general{color:var(--muted);background:var(--surface);border-color:var(--border)}
+.area-tag.barra{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-lt)}
+.area-tag.salon{color:var(--blue);background:var(--blue-bg);border-color:var(--blue-lt)}
+.area-tag.cocina{color:var(--red);background:var(--red-bg);border-color:var(--red-lt)}
+
+.filtros{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.chip{font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer;transition:all .12s;user-select:none}
+.chip:hover{border-color:var(--border-h);color:var(--text)}
+.chip.on{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+
+.ctl-sec{margin-bottom:1.4rem}
+.ctl-sec-head{display:flex;align-items:center;gap:8px;margin:0 0 .6rem;font-family:var(--font-d);font-size:14.5px;font-weight:700}
+.ctl-sec-head .cnt{font-family:var(--font-b);font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 10px;margin-left:auto}
+.ctl-sec-head .cnt.done{color:var(--green);background:var(--green-bg);border-color:var(--green-lt)}
+
+.chk-foto{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;cursor:pointer;font-size:13.5px;user-select:none;transition:border-color .12s}
+.chk-foto:hover{border-color:var(--border-h)}
+.chk-foto input{width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+.foto-badge{font-size:10px;font-weight:700;color:var(--green);background:var(--green-bg);border:1px solid var(--green-lt);border-radius:5px;padding:1px 6px;white-space:nowrap}
+
 @media(max-width:700px){
   header{padding:0 1rem}main{padding:1rem 1rem 3rem}
   .field-row-2{grid-template-columns:1fr}
@@ -233,7 +255,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>
       Inicio
     </a>
-    <span class="page-title">🧼 Control de Limpieza</span>
+    <span class="page-title">✅ Checklist de Procesos</span>
   </div>
   <div class="nav-right">
     <span class="date-chip" id="date-chip"></span>
@@ -263,13 +285,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <input type="date" id="ctl-fecha" onchange="renderControl()"/>
       <button class="btn-sm" onclick="ctlHoy()">Hoy</button>
     </div>
-    <div id="ctl-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
+    <div class="filtros" id="ctl-filtros"></div>
+    <div id="ctl-list"><div class="empty">Elegí un kiosko para ver sus procesos.</div></div>
   </section>
 
   <!-- ══ PANE TAREAS (listado + asignar) ══ -->
   <section class="pane" id="pane-tareas">
-    <div class="hint" style="font-size:12.5px;margin-bottom:1rem">Todas las tareas ingresadas para este kiosko. Tocá <b>Asignar</b> para elegir uno o más responsables y una fecha de cumplimiento.</div>
-    <div id="tsk-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
+    <div class="hint" style="font-size:12.5px;margin-bottom:1rem">Todos los procesos ingresados para este kiosko. Tocá <b>Asignar</b> para elegir uno o más responsables y una fecha de cumplimiento.</div>
+    <div class="filtros" id="tsk-filtros"></div>
+    <div id="tsk-list"><div class="empty">Elegí un kiosko para ver sus procesos.</div></div>
   </section>
 
   <!-- ══ PANE CALENDARIO ══ -->
@@ -294,10 +318,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <!-- ══ PANE CONFIGURACIÓN ══ -->
   <section class="pane" id="pane-config">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-      <div class="hint" style="font-size:12.5px">Tareas de limpieza definidas para este kiosko.</div>
+      <div class="hint" style="font-size:12.5px">Procesos definidos para este kiosko.</div>
       <button class="btn-add" onclick="abrirFormTarea()">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
-        Nueva tarea
+        Nuevo proceso
       </button>
     </div>
     <div id="cfg-list"><div class="empty">Elegí un kiosko para ver sus tareas.</div></div>
@@ -313,8 +337,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <div class="modal-body">
       <div class="field">
-        <label for="t-nombre">Nombre de la tarea <span class="req">*</span></label>
-        <input type="text" id="t-nombre" placeholder="Ej. Limpieza profunda de cámara de frío"/>
+        <label for="t-nombre">Nombre del proceso <span class="req">*</span></label>
+        <input type="text" id="t-nombre" placeholder="Ej. Encender equipos de barra / Limpieza de cámara de frío"/>
       </div>
       <div class="field">
         <label for="t-instr">Instrucciones</label>
@@ -326,6 +350,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div class="mom-opt on" data-mom="durante" onclick="elegirMomento('durante')">🕐 Durante el día</div>
           <div class="mom-opt" data-mom="apertura" onclick="elegirMomento('apertura')">🌅 Apertura</div>
           <div class="mom-opt" data-mom="cierre" onclick="elegirMomento('cierre')">🌙 Cierre</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Área</label>
+        <div class="mom-select" id="area-select">
+          <div class="mom-opt on" data-area="general" onclick="elegirArea('general')">📋 General</div>
+          <div class="mom-opt" data-area="barra" onclick="elegirArea('barra')">🍺 Barra</div>
+          <div class="mom-opt" data-area="salon" onclick="elegirArea('salon')">🍽️ Salón</div>
+          <div class="mom-opt" data-area="cocina" onclick="elegirArea('cocina')">👨‍🍳 Cocina</div>
         </div>
       </div>
       <div class="field">
@@ -357,6 +390,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field" id="rec-unica" style="display:none">
         <label for="t-rec-fecha">Fecha <span class="req">*</span></label>
         <input type="date" id="t-rec-fecha"/>
+      </div>
+      <div class="field">
+        <label>Evidencia al completar</label>
+        <label class="chk-foto">
+          <input type="checkbox" id="t-req-foto"/>
+          <span>Exigir foto para marcar este proceso como hecho</span>
+        </label>
+        <p class="hint">Activalo para limpieza u orden (deja constancia con foto). Dejalo apagado para pasos simples como encender equipos o revisar el fondo de caja.</p>
       </div>
       <div class="field">
         <label>Foto de referencia (opcional)</label>
@@ -410,9 +451,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="modal-close" onclick="cerrarEvidencia()">×</button>
     </div>
     <div class="modal-body">
-      <div class="banner" style="background:var(--green-bg);border-color:var(--green-lt);color:var(--green)">📷 Para dar por hecha la tarea hay que <b>tomar una foto</b> de evidencia. Se abre la cámara directamente.</div>
+      <div class="banner" id="evid-banner" style="background:var(--green-bg);border-color:var(--green-lt);color:var(--green)">📷 Para dar por hecha la tarea hay que <b>tomar una foto</b> de evidencia. Se abre la cámara directamente.</div>
       <div class="field">
-        <label>Foto de evidencia <span class="req">*</span></label>
+        <label>Foto de evidencia <span class="req" id="evid-req">*</span></label>
         <div class="foto-upload" id="evid-upload-area">
           <input type="file" id="evid-foto" accept="image/*" capture="environment" onchange="onFotoEvidSelected(event)"/>
           <div id="evid-placeholder"><div style="font-size:26px;margin-bottom:4px">📷</div><div>Tocá para tomar la foto</div></div>
@@ -464,7 +505,7 @@ if (!PORTAL_SESION || (Date.now() - PORTAL_SESION.ts) >= 8 * 60 * 60 * 1000) {
   window.location.href = 'login.html';
 }
 if (PORTAL_SESION && PORTAL_SESION.modulos !== 'todos' && !PORTAL_SESION.modulos.includes('limpieza')) {
-  document.body.innerHTML = '<div style="max-width:420px;margin:4rem auto;text-align:center;font-family:sans-serif;color:#1c3a28"><h2>Sin acceso</h2><p>Tu rol no tiene habilitado el módulo de Limpieza.</p><a href="index.html">Volver al inicio</a></div>';
+  document.body.innerHTML = '<div style="max-width:420px;margin:4rem auto;text-align:center;font-family:sans-serif;color:#1c3a28"><h2>Sin acceso</h2><p>Tu rol no tiene habilitado el módulo de Checklist de Procesos.</p><a href="index.html">Volver al inicio</a></div>';
   throw new Error('sin acceso');
 }
 function sesionNombre(){ return (PORTAL_SESION && PORTAL_SESION.nombre) || ''; }
@@ -479,7 +520,16 @@ const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0q
 const LIMPIEZA_URL = 'https://script.google.com/macros/s/AKfycbzwY34EePdqV6yunYEdblREbhlurNgFAZZs4-NPeAf4A4OVVFlgKdz4da7pNDxPc85Dhg/exec';
 
 const MOMENTOS = { durante:{nombre:'Durante el día',ico:'🕐'}, apertura:{nombre:'Apertura',ico:'🌅'}, cierre:{nombre:'Cierre',ico:'🌙'} };
+const AREAS = { general:{nombre:'General',ico:'📋',cls:'general'}, barra:{nombre:'Barra',ico:'🍺',cls:'barra'}, salon:{nombre:'Salón',ico:'🍽️',cls:'salon'}, cocina:{nombre:'Cocina',ico:'👨‍🍳',cls:'cocina'} };
 const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']; // índice = Date.getDay()
+function areaDe(t){ const a=String(t['Área']||'general').toLowerCase().trim(); return AREAS[a]?a:'general'; }
+function areaTag(t){ const info=AREAS[areaDe(t)]; return `<span class="area-tag ${info.cls}">${info.ico} ${info.nombre}</span>`; }
+function requiereFotoDe(t){ return String(t['Requiere Foto']||'').toLowerCase().charAt(0)==='s'; }
+function chipsAreaHtml(){
+  const items = [['','Todas','']].concat(Object.keys(AREAS).map(k=>[k,AREAS[k].nombre,AREAS[k].ico]));
+  return items.map(([k,nom,ico])=>`<span class="chip ${areaFiltro===k?'on':''}" onclick="setAreaFiltro('${k}')">${ico?ico+' ':''}${nom}</span>`).join('');
+}
+function setAreaFiltro(a){ areaFiltro = a; renderControl(); renderTareas(); }
 
 let kioskoSel = '';
 let TAREAS = [];                 // tareas del kiosko seleccionado (todas, activas e inactivas)
@@ -487,8 +537,9 @@ let ASIGN = {};                  // mapa "tareaId|fecha" -> fila de Asignaciones
 let personalData = [];           // colaboradores (para autocompletar responsable)
 let calRef = new Date();
 let tabActual = 'control';
+let areaFiltro = ''; // filtro de área activo en Control y Tareas ('' = todas)
 // estado de edición de formularios
-let editandoTareaId = null, momentoSel = 'durante', fotoRefDataUrl = null;
+let editandoTareaId = null, momentoSel = 'durante', areaSel = 'general', fotoRefDataUrl = null;
 let evidCtx = null, fotoEvidDataUrl = null; // evidCtx = {tareaId, fecha, nombre}
 let asignCtx = null; // asignCtx = {tareaId, nombre}
 let evidVolverDia = null; // si la evidencia se abrió desde el calendario, día al que volver
@@ -623,39 +674,56 @@ function irTab(tab){
 function ctlHoy(){ document.getElementById('ctl-fecha').value = hoy(); renderControl(); }
 function renderControl(){
   const cont = document.getElementById('ctl-list');
-  if (!kioskoSel){ cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus tareas.</div>'; return; }
+  const filtros = document.getElementById('ctl-filtros');
+  if (!kioskoSel){ if(filtros)filtros.innerHTML=''; cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus procesos.</div>'; return; }
+  if (filtros) filtros.innerHTML = chipsAreaHtml();
   const iso = document.getElementById('ctl-fecha').value || hoy();
-  const tareas = tareasDelDia(iso);
-  if (!tareas.length){ cont.innerHTML = '<div class="empty">No hay tareas programadas para este día en '+escapeAttr(kioskoSel)+'.</div>'; return; }
+  let tareas = tareasDelDia(iso);
+  if (areaFiltro) tareas = tareas.filter(t => areaDe(t)===areaFiltro);
+  if (!tareas.length){ cont.innerHTML = '<div class="empty">No hay procesos programados para este día'+(areaFiltro?' en '+AREAS[areaFiltro].nombre:' en '+escapeAttr(kioskoSel))+'.</div>'; return; }
   const colabs = colaboradoresDe(kioskoSel);
-  cont.innerHTML = tareas.map(t => {
-    const est = estadoEn(t, iso);
-    const a = asignDe(t['ID'], iso) || {};
-    const mom = String(t['Momento']||'durante').toLowerCase();
-    const refFoto = t['Foto Referencia URL'] ? `<img class="thumb-ref" src="${escapeAttr(t['Foto Referencia URL'])}" title="Foto de referencia" onclick="verFoto('${escapeAttr(t['Foto Referencia URL'])}')" onerror="this.style.display='none'"/>` : '';
-    const responsable = a['Responsable'] || '';
-    const opc = ['<option value="">— responsable —</option>'].concat(colabs.map(n=>`<option ${n===responsable?'selected':''}>${escapeAttr(n)}</option>`)).join('');
-    let side;
-    if (est === 'completada'){
-      const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" src="${escapeAttr(a['Foto Evidencia URL'])}" title="Ver evidencia" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
-      side = `<span class="estado-tag completada">✓ Completada</span>${evFoto}`;
-    } else {
-      side = `<select onchange="asignarResponsable('${t['ID']}','${iso}', this.value)">${opc}</select>
-        <button class="btn-add" style="justify-content:center;width:100%" onclick="abrirEvidencia('${t['ID']}','${iso}')">📷 Marcar hecha</button>`;
-    }
-    const metaResp = (est==='completada' && (a['Completada por']||a['Responsable'])) ? `<span>👤 <b>${escapeAttr(a['Completada por']||a['Responsable'])}</b></span>` : (responsable?`<span>👤 <b>${escapeAttr(responsable)}</b></span>`:'');
-    const metaHora = a['Completada'] ? `<span>🕒 ${escapeAttr(a['Completada'])}</span>` : '';
-    const nota = a['Nota'] ? `<span>📝 ${escapeAttr(a['Nota'])}</span>` : '';
-    return `<div class="task-row ${est}">
-      ${refFoto}
-      <div class="task-body">
-        <div class="task-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:'Durante el día'}</span></div>
-        ${t['Instrucciones']?`<div class="task-meta"><span>${escapeAttr(t['Instrucciones'])}</span></div>`:''}
-        <div class="task-meta">${metaResp}${metaHora}${nota}</div>
-      </div>
-      <div class="task-side"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'':'● Pendiente'}</span>${side}</div>
+  // agrupar por momento → checklist de Apertura / Durante el día / Cierre
+  const orden = ['apertura','durante','cierre'];
+  const grupos = {apertura:[], durante:[], cierre:[]};
+  tareas.forEach(t => { const m=String(t['Momento']||'durante').toLowerCase(); (grupos[m]||grupos.durante).push(t); });
+  cont.innerHTML = orden.filter(m=>grupos[m].length).map(m => {
+    const lista = grupos[m].sort((a,b)=>String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')));
+    const hechas = lista.filter(t=>estadoEn(t,iso)==='completada').length;
+    const total = lista.length, done = hechas===total;
+    const titulo = m==='apertura' ? '🌅 Checklist de apertura' : m==='cierre' ? '🌙 Checklist de cierre' : '🕐 Durante el día';
+    return `<div class="ctl-sec">
+      <div class="ctl-sec-head">${titulo}<span class="cnt ${done?'done':''}">${hechas}/${total}${done?' ✓':''}</span></div>
+      ${lista.map(t=>filaControl(t, iso, colabs)).join('')}
     </div>`;
   }).join('');
+}
+function filaControl(t, iso, colabs){
+  const est = estadoEn(t, iso);
+  const a = asignDe(t['ID'], iso) || {};
+  const refFoto = t['Foto Referencia URL'] ? `<img class="thumb-ref" src="${escapeAttr(t['Foto Referencia URL'])}" title="Foto de referencia" onclick="verFoto('${escapeAttr(t['Foto Referencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+  const responsable = a['Responsable'] || '';
+  const opc = ['<option value="">— responsable —</option>'].concat(colabs.map(n=>`<option ${n===responsable?'selected':''}>${escapeAttr(n)}</option>`)).join('');
+  const pideFoto = requiereFotoDe(t);
+  let side;
+  if (est === 'completada'){
+    const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" src="${escapeAttr(a['Foto Evidencia URL'])}" title="Ver evidencia" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
+    side = `<span class="estado-tag completada">✓ Completada</span>${evFoto}`;
+  } else {
+    side = `<select onchange="asignarResponsable('${t['ID']}','${iso}', this.value)">${opc}</select>
+      <button class="btn-add" style="justify-content:center;width:100%" onclick="abrirEvidencia('${t['ID']}','${iso}')">${pideFoto?'📷':'✓'} Marcar hecha</button>`;
+  }
+  const metaResp = (est==='completada' && (a['Completada por']||a['Responsable'])) ? `<span>👤 <b>${escapeAttr(a['Completada por']||a['Responsable'])}</b></span>` : (responsable?`<span>👤 <b>${escapeAttr(responsable)}</b></span>`:'');
+  const metaHora = a['Completada'] ? `<span>🕒 ${escapeAttr(a['Completada'])}</span>` : '';
+  const nota = a['Nota'] ? `<span>📝 ${escapeAttr(a['Nota'])}</span>` : '';
+  return `<div class="task-row ${est}">
+    ${refFoto}
+    <div class="task-body">
+      <div class="task-name">${escapeAttr(t['Nombre']||'(sin nombre)')} ${areaTag(t)}${pideFoto?' <span class="foto-badge">📷 foto</span>':''}</div>
+      ${t['Instrucciones']?`<div class="task-meta"><span>${escapeAttr(t['Instrucciones'])}</span></div>`:''}
+      <div class="task-meta">${metaResp}${metaHora}${nota}</div>
+    </div>
+    <div class="task-side"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'':'● Pendiente'}</span>${side}</div>
+  </div>`;
 }
 async function asignarResponsable(tareaId, iso, responsable){
   if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
@@ -671,9 +739,14 @@ async function asignarResponsable(tareaId, iso, responsable){
 // ══ TAREAS (listado + asignar responsables y fecha) ══════════════════
 function renderTareas(){
   const cont = document.getElementById('tsk-list');
-  if (!kioskoSel){ cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus tareas.</div>'; return; }
-  if (!TAREAS.length){ cont.innerHTML = '<div class="empty">Todavía no hay tareas para '+escapeAttr(kioskoSel)+'. Agregalas en la pestaña Configuración.</div>'; return; }
-  cont.innerHTML = TAREAS.slice()
+  const filtros = document.getElementById('tsk-filtros');
+  if (!kioskoSel){ if(filtros)filtros.innerHTML=''; cont.innerHTML = '<div class="empty">Elegí un kiosko para ver sus procesos.</div>'; return; }
+  if (filtros) filtros.innerHTML = chipsAreaHtml();
+  if (!TAREAS.length){ cont.innerHTML = '<div class="empty">Todavía no hay procesos para '+escapeAttr(kioskoSel)+'. Agregalos en la pestaña Configuración.</div>'; return; }
+  let lista = TAREAS.slice();
+  if (areaFiltro) lista = lista.filter(t=>areaDe(t)===areaFiltro);
+  if (!lista.length){ cont.innerHTML = '<div class="empty">No hay procesos de '+AREAS[areaFiltro].nombre+' para este kiosko.</div>'; return; }
+  cont.innerHTML = lista
     .sort((a,b)=>String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')))
     .map(t => {
       const activa = String(t['Activa']||'Sí').toLowerCase().charAt(0) !== 'n';
@@ -690,7 +763,7 @@ function renderTareas(){
       }).join('');
       return `<div class="tsk-card ${activa?'':'off'}">
         <div class="tsk-body">
-          <div class="tsk-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span>${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
+          <div class="tsk-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span> ${areaTag(t)}${requiereFotoDe(t)?' <span class="foto-badge">📷 foto</span>':''}${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
           <span class="cfg-rec">🔁 ${textoRecurrencia(t)}</span>
           ${chips?`<div class="tsk-asg">${chips}</div>`:'<div class="hint" style="margin-top:6px">Sin asignaciones próximas.</div>'}
         </div>
@@ -764,12 +837,26 @@ function proximaFechaTarea(t){
 // ══ EVIDENCIA (completar con foto) ═══════════════════════════════════
 function abrirEvidencia(tareaId, iso){
   const t = TAREAS.find(x=>String(x['ID'])===String(tareaId)); if (!t) return;
-  evidCtx = { tareaId, fecha:iso, nombre:t['Nombre']||'' };
+  const pideFoto = requiereFotoDe(t);
+  evidCtx = { tareaId, fecha:iso, nombre:t['Nombre']||'', requiereFoto:pideFoto };
   fotoEvidDataUrl = null; quitarFotoEvidVista();
   document.getElementById('evid-nota').value = '';
   const a = asignDe(tareaId, iso) || {};
-  document.getElementById('evid-title').textContent = t['Nombre']||'Tarea';
+  document.getElementById('evid-title').textContent = t['Nombre']||'Proceso';
   document.getElementById('evid-sub').textContent = fechaLarga(iso) + (a['Responsable']?' · '+a['Responsable']:'');
+  // adaptar la UI según si el proceso exige foto
+  const banner = document.getElementById('evid-banner');
+  const req = document.getElementById('evid-req');
+  if (pideFoto){
+    banner.style.display = '';
+    banner.innerHTML = '📷 Para dar por hecho este proceso hay que <b>tomar una foto</b> de evidencia. Se abre la cámara directamente.';
+    req.style.display = '';
+  } else {
+    banner.style.display = 'none';
+    req.style.display = 'none';
+    const ph = document.getElementById('evid-placeholder');
+    ph.innerHTML = '<div style="font-size:26px;margin-bottom:4px">📷</div><div>Foto opcional — tocá si querés dejar evidencia</div>';
+  }
   document.getElementById('form-evid').classList.add('show');
 }
 function cerrarEvidencia(){
@@ -778,7 +865,7 @@ function cerrarEvidencia(){
 }
 async function completarTarea(){
   if (!evidCtx) return;
-  if (!fotoEvidDataUrl){ showToast('Tenés que tomar la foto de evidencia','error'); return; }
+  if (evidCtx.requiereFoto && !fotoEvidDataUrl){ showToast('Este proceso exige una foto de evidencia','error'); return; }
   if (LIMPIEZA_URL.includes('TODO_PEGAR')){ showToast('Backend no conectado','error'); return; }
   const a = asignDe(evidCtx.tareaId, evidCtx.fecha) || {};
   const btn = document.getElementById('btn-completar'); const txt = btn.textContent;
@@ -786,8 +873,9 @@ async function completarTarea(){
   try{
     const resp = await fetchConTimeout(LIMPIEZA_URL, post({
       accion:'completar', tareaId:evidCtx.tareaId, kiosko:kioskoSel, fecha:evidCtx.fecha,
+      requiere_foto: evidCtx.requiereFoto ? 'Sí' : 'No',
       responsable: a['Responsable']||'', completada_por: sesionNombre()||a['Responsable']||'',
-      nota: document.getElementById('evid-nota').value.trim(), foto: fotoEvidDataUrl
+      nota: document.getElementById('evid-nota').value.trim(), foto: fotoEvidDataUrl || ''
     }), 120000);
     const out = await resp.json();
     if (!out.ok) throw new Error(out.error||'Error al guardar');
@@ -841,10 +929,10 @@ function abrirDia(iso){
     const quien = a['Completada por']||a['Responsable']||'';
     const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" style="margin-top:6px" src="${escapeAttr(a['Foto Evidencia URL'])}" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
     const accion = (est!=='completada')
-      ? `<button class="btn-add" style="margin-top:8px" onclick="completarDesdeDia('${t['ID']}','${iso}')">📷 Marcar hecha</button>` : '';
+      ? `<button class="btn-add" style="margin-top:8px" onclick="completarDesdeDia('${t['ID']}','${iso}')">${requiereFotoDe(t)?'📷':'✓'} Marcar hecha</button>` : '';
     return `<div class="task-row ${est}" style="margin-bottom:8px">
       <div class="task-body">
-        <div class="task-name" style="font-size:14px">${escapeAttr(t['Nombre']||'')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico:''}</span></div>
+        <div class="task-name" style="font-size:14px">${escapeAttr(t['Nombre']||'')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico:''}</span> ${areaTag(t)}</div>
         <div class="task-meta"><span class="estado-tag ${est}">${est==='vencida'?'⚠ Vencida':est==='completada'?'✓ Completada':'● Pendiente'}</span>${quien?`<span>👤 <b>${escapeAttr(quien)}</b></span>`:''}</div>
         ${evFoto}
         ${accion}
@@ -867,7 +955,7 @@ function renderConfig(){
     return `<div class="cfg-card ${activa?'':'off'}">
       ${refFoto}
       <div class="cfg-body">
-        <div class="cfg-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span>${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
+        <div class="cfg-name">${escapeAttr(t['Nombre']||'(sin nombre)')} <span class="mom-tag">${MOMENTOS[mom]?MOMENTOS[mom].ico+' '+MOMENTOS[mom].nombre:''}</span> ${areaTag(t)}${requiereFotoDe(t)?' <span class="foto-badge">📷 foto</span>':''}${activa?'':' <span class="estado-tag vencida">inactiva</span>'}</div>
         ${t['Instrucciones']?`<div class="cfg-instr">${escapeAttr(t['Instrucciones'])}</div>`:''}
         <span class="cfg-rec">🔁 ${textoRecurrencia(t)}</span>
       </div>
@@ -896,7 +984,8 @@ function abrirFormTarea(){
   setTimeout(()=>document.getElementById('t-nombre').focus(),50);
 }
 function cerrarFormTarea(){ document.getElementById('form-tarea').classList.remove('show'); }
-function elegirMomento(m){ momentoSel=m; document.querySelectorAll('.mom-opt').forEach(o=>o.classList.toggle('on',o.dataset.mom===m)); }
+function elegirMomento(m){ momentoSel=m; document.querySelectorAll('#mom-select .mom-opt').forEach(o=>o.classList.toggle('on',o.dataset.mom===m)); }
+function elegirArea(a){ areaSel=a; document.querySelectorAll('#area-select .mom-opt').forEach(o=>o.classList.toggle('on',o.dataset.area===a)); }
 function onRecTipoChange(){
   const tipo = document.getElementById('t-rec-tipo').value;
   document.getElementById('rec-semanal').style.display = tipo==='semanal'?'block':'none';
@@ -906,14 +995,15 @@ function onRecTipoChange(){
 function toggleDow(el){ el.classList.toggle('on'); }
 function dowSeleccionados(){ return Array.from(document.querySelectorAll('#dow-select .dow-opt.on')).map(e=>e.dataset.dow); }
 function limpiarFormTarea(){
-  editandoTareaId=null; momentoSel='durante'; fotoRefDataUrl=null;
+  editandoTareaId=null; momentoSel='durante'; areaSel='general'; fotoRefDataUrl=null;
   document.getElementById('t-nombre').value='';
   document.getElementById('t-instr').value='';
   document.getElementById('t-rec-tipo').value='diaria';
   document.getElementById('t-rec-mes').value='';
   document.getElementById('t-rec-fecha').value='';
+  document.getElementById('t-req-foto').checked=false;
   document.querySelectorAll('#dow-select .dow-opt').forEach(e=>e.classList.remove('on'));
-  elegirMomento('durante'); onRecTipoChange(); quitarFotoRefVista();
+  elegirMomento('durante'); elegirArea('general'); onRecTipoChange(); quitarFotoRefVista();
 }
 function editarTarea(id){
   const t = TAREAS.find(x=>String(x['ID'])===String(id)); if (!t) return;
@@ -922,6 +1012,8 @@ function editarTarea(id){
   document.getElementById('t-nombre').value = t['Nombre']||'';
   document.getElementById('t-instr').value = t['Instrucciones']||'';
   elegirMomento(String(t['Momento']||'durante').toLowerCase());
+  elegirArea(areaDe(t));
+  document.getElementById('t-req-foto').checked = requiereFotoDe(t);
   const tipo = String(t['Recurrencia Tipo']||'diaria').toLowerCase();
   document.getElementById('t-rec-tipo').value = tipo; onRecTipoChange();
   const det = String(t['Recurrencia Detalle']||'');
@@ -948,7 +1040,9 @@ async function guardarTarea(){
     const resp = await fetchConTimeout(LIMPIEZA_URL, post({
       accion:'tarea_guardar', id: editandoTareaId||'', kiosko:kioskoSel, nombre,
       instrucciones: document.getElementById('t-instr').value.trim(),
-      momento: momentoSel, recurrenciaTipo: tipo, recurrenciaDetalle: detalle,
+      momento: momentoSel, area: areaSel,
+      requiere_foto: document.getElementById('t-req-foto').checked ? 'Sí' : 'No',
+      recurrenciaTipo: tipo, recurrenciaDetalle: detalle,
       foto: fotoRefDataUrl || '', registrado_por: sesionNombre()
     }), 120000);
     const out = await resp.json();
