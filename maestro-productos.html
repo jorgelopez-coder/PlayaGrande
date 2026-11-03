@@ -292,13 +292,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <span>Activos: <b id="pe-count-activos" style="color:var(--green)">0</b></span>
     <span>Inactivos: <b id="pe-count-inactivos" style="color:var(--muted)">0</b></span>
     <span>Total: <b id="pe-count-total">0</b></span>
+    <button class="btn-sm" id="btn-pe-toggle-lista" onclick="togglePeLista()" style="margin-left:auto">Ver listado ▾</button>
   </div>
+  <div id="pe-listado-wrap" style="display:none">
   <div class="field-row-3">
     <div class="field"><label>Buscar</label><input type="text" id="pe-buscar" placeholder="nombre…" oninput="renderProductosEstandar()"/></div>
     <div class="field"><label>Categoría</label><select id="pe-filtro-cat" onchange="renderProductosEstandar()"><option value="" selected>Todas</option></select></div>
     <div class="field"><label>Estado</label><select id="pe-filtro-activo" onchange="renderProductosEstandar()"><option value="" selected>Todos</option><option value="Sí">Activos</option><option value="No">Inactivos</option></select></div>
   </div>
   <div class="stock-table-wrap"><div id="pe-lista"><div class="empty-state">Cargando…</div></div></div>
+  </div><!-- /pe-listado-wrap -->
 </div>
 
 <!-- Nivel 2 — asociación a Producto Estándar (2026-11-02) -->
@@ -1249,6 +1252,14 @@ function poblarSelectsPe() {
   set('pe-area', opt(CONFIG.areas));
   const fc = document.getElementById('pe-filtro-cat');
   if (fc) { const v = fc.value; fc.innerHTML = '<option value="">Todas</option>' + (CONFIG.categorias || []).map(c => `<option value="${escapeAttr(c)}">${escHtml(c)}</option>`).join(''); fc.value = v; }
+}
+
+function togglePeLista() {
+  const w = document.getElementById('pe-listado-wrap');
+  const b = document.getElementById('btn-pe-toggle-lista');
+  const oculto = w.style.display === 'none';
+  w.style.display = oculto ? '' : 'none';
+  if (b) b.textContent = oculto ? 'Ocultar listado ▴' : 'Ver listado ▾';
 }
 
 function togglePeForm() {
