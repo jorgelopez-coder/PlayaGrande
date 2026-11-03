@@ -2511,7 +2511,7 @@ function quitarIngrediente(idx) {
 // se abrió desde un renglón de ingrediente, deja el producto nuevo elegido ahí.
 let PE_NUEVO_IDX = null;
 
-async function postAP(payload) {
+async function postAPMaestro(payload) {
   const resp = await fetch(APPS_SCRIPT_AP, { method: 'POST', body: new URLSearchParams({ data: JSON.stringify(payload) }) });
   const json = await resp.json();
   if (!json.ok) throw new Error(json.error || 'Error al guardar');
@@ -2565,7 +2565,7 @@ async function guardarNuevoProductoEstandar() {
   const btn = document.getElementById('pe-btn-guardar');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
   try {
-    await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
+    await postAPMaestro({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
     await cargarProductosEstandar();
     document.getElementById('modal-pe').classList.remove('open');
     PE_NUEVO_IDX = null;
