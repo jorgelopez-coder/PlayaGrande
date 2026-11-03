@@ -500,6 +500,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <!-- ═══════════════════ TAB COSTOS ═══════════════════ -->
 <div id="tab-costos" style="display:none">
 
+<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div>
+    <p class="card-title" style="margin:0">Recalcular costos de todas las recetas</p>
+    <p style="font-size:12.5px;color:var(--muted);margin:.25rem 0 0">Reescribe el costo guardado de cada receta con el costo actual por Producto Estándar. Corré esto una vez tras asociar facturas o cambiar costos; luego los costos de las presentaciones quedan al día.</p>
+  </div>
+  <button class="btn-primary" id="btn-recalcular-costos" onclick="recalcularTodosLosCostos()">↻ Recalcular costos</button>
+</div>
+
 <div class="card">
   <div class="card-title-row">
     <p class="card-title">Variación histórica del costo</p>
@@ -2583,6 +2591,27 @@ async function guardarNuevoProductoEstandar() {
     showToast('No se pudo crear — ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Crear producto'; }
+  }
+}
+
+// Dispara el recálculo server-side del costo guardado de TODAS las recetas
+// (módulo menu_recalcular_costos). Útil tras asociar facturas a un Producto
+// Estándar o cambiar costos: el costo de las presentaciones usa el costo
+// guardado de la receta, que no se actualiza solo.
+async function recalcularTodosLosCostos() {
+  const btn = document.getElementById('btn-recalcular-costos');
+  if (btn) { btn.disabled = true; btn.textContent = 'Recalculando…'; }
+  try {
+    const r = await postAP({ modulo: 'menu_recalcular_costos' });
+    await Promise.all([cargarMenuPlatos(), cargarMenuRecetas()]);
+    renderPlatos();
+    renderRecetas();
+    renderIndicadores();
+    showToast('Costos recalculados ✓' + (r && r.actualizadas != null ? ' (' + r.actualizadas + ' recetas)' : ''), 'success');
+  } catch (e) {
+    showToast('No se pudo recalcular — ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Recalcular costos'; }
   }
 }
 
