@@ -1069,6 +1069,7 @@ document.getElementById('date-chip').textContent =
 // ── ESTADO ──────────────────────────────────────────────────────────
 let MAESTRO_PRODUCTOS = []; // productos agrupados por claveAgrupacion_, ver cargarMaestroProductos()
 let PRODUCTOS_ESTANDAR = []; // catálogo curado Nivel 1 (hoja Productos_Estandar), ver cargarProductosEstandar()
+let PROMEDIO_ESTANDAR_POR_PE = new Map(); // peId -> costo promedio x unidad estándar (prom. de "Costo por unidad estándar" de facturas asociadas), ver cargarMaestroProductos()
 let CONFIG = { nivel1: [], nivel2PorNivel1: {}, metaCostoPorNivel1: {} };
 let PLATOS = [];
 let RECETAS = [];
@@ -1236,6 +1237,20 @@ async function cargarMaestroProductos() {
     const fechaCandidato = fichaActualizada ? new Date(fichaActualizada).getTime() || 0 : 0;
     if (fechaCandidato > fechaExistente) mapa.set(clave, candidato);
   });
+  // Costo promedio x unidad estándar por Producto Estándar (Nivel 2): promedio
+  // de "Costo por unidad estándar" de TODAS las facturas asociadas a ese PE
+  // (mismo criterio que la pestaña Asociar de maestro-productos.html).
+  const sumaPE = new Map();
+  datos.forEach(r => {
+    const peId = r['Producto Estándar ID'];
+    const ce = Number(r['Costo por unidad estándar']) || 0;
+    if (!peId || ce <= 0) return;
+    const key = String(peId);
+    const acc = sumaPE.get(key) || { suma: 0, n: 0 };
+    acc.suma += ce; acc.n += 1; sumaPE.set(key, acc);
+  });
+  PROMEDIO_ESTANDAR_POR_PE = new Map();
+  sumaPE.forEach((v, k) => { if (v.n) PROMEDIO_ESTANDAR_POR_PE.set(k, v.suma / v.n); });
   MAESTRO_PRODUCTOS = Array.from(mapa.values());
 }
 
@@ -1272,7 +1287,12 @@ function productosParaIngrediente() {
   return PRODUCTOS_ESTANDAR.filter(pe => pe.activo === 'Sí').map(pe => {
     const clave = claveAgrupacion_(pe.nombre);
     const m = porClave.get(clave);
-    const costo = m ? (m.costoRealReceta || m.costoPorUnidad || 0) : 0;
+    // Costo = costo PROMEDIO x unidad estándar del Producto Estándar (prom. de
+    // las facturas asociadas por ID en el Maestro). Si todavía no tiene
+    // facturas asociadas, cae al costo por nombre para no regresar a ₡0.
+    const prom = PROMEDIO_ESTANDAR_POR_PE.get(String(pe.id));
+    const costoPorNombre = m ? (m.costoRealReceta || m.costoPorUnidad || 0) : 0;
+    const costo = (prom != null && prom > 0) ? prom : costoPorNombre;
     return {
       clave: clave,
       nombre: pe.nombre,
@@ -2499,7 +2519,15 @@ async function postAP(payload) {
 }
 
 function hintIngredienteHtml(idx, fuente, sinCoincidencia) {
-  if (fuente) return 'Unidad: ' + escHtml(fuente.unidad || '—');
+  if (fuente) {
+    const u = escHtml(fuente.unidad || '—');
+    const c = Number(fuente.costo) || 0;
+    const label = fuente.tipoFuente === 'subreceta' ? 'Costo x unidad' : 'Costo estándar';
+    const costoTxt = c > 0
+      ? ' · ' + label + ': <b>' + fmtCRC(c) + '</b> /' + u
+      : ' · <span style="color:var(--amber)">sin costo aún (asociá facturas en el Maestro)</span>';
+    return 'Unidad: ' + u + costoTxt;
+  }
   if (sinCoincidencia) {
     const nom = (EDITANDO_RECETA && EDITANDO_RECETA.ingredientes[idx]) ? (EDITANDO_RECETA.ingredientes[idx].nombre || '') : '';
     return '⚠ no coincide con ningún producto estándar — <a href="#" onclick="event.preventDefault();abrirNuevoProductoEstandar(' + idx + ')" style="color:var(--green);font-weight:600;text-decoration:underline">+ crear «' + escHtml(nom) + '» como producto estándar</a>';

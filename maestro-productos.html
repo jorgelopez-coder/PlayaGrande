@@ -309,7 +309,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
     Cada producto estándar de tu catálogo, con los productos identificados en las facturas que tiene asociados.
-    Abrí la flechita para ver sus facturas y la conversión a la unidad estándar de cada una.
+    Abrí la flechita para ver las facturas asociadas a cada uno.
   </p>
   <div class="field-row-3">
     <div class="field"><label>Buscar producto estándar</label><input type="text" id="as-buscar" placeholder="nombre…" oninput="renderAsociacion()"/></div>
@@ -332,8 +332,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
     Productos identificados en facturas (que aplican) todavía sin producto estándar. Elegí el producto estándar
-    —te marco el más parecido— y, si la presentación de compra no está en la unidad de la receta, poné cuántas
-    unidades estándar trae una unidad de compra. Dejalo en blanco si ya es la misma unidad.
+    —te marco el más parecido— y asocialo.
   </p>
   <div class="field-row-3">
     <div class="field"><label>Buscar</label><input type="text" id="sa-buscar" placeholder="proveedor o producto…" oninput="renderSinAsociar()"/></div>
@@ -347,7 +346,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </label>
     <button class="btn-sm" onclick="asociarSeleccionadas()">Asociar seleccionadas</button>
     <button class="btn-sm" onclick="limpiarSaSel()">Limpiar selección</button>
-    <span style="font-size:11.5px;color:var(--muted)">La conversión queda en blanco (misma unidad); ajustala luego por ítem si hace falta.</span>
   </div>
   <div class="stock-table-wrap"><div id="sa-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
@@ -1432,14 +1430,13 @@ function renderSinAsociar(){
   if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
   if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
   const capped = lista.slice(0, 200);
-  let html = '<table class="stock-table"><thead><tr><th style="width:30px"><input type="checkbox" id="sa-chk-all" onchange="toggleSaSelAll(this.checked)" title="Seleccionar todo"/></th><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th><th>Producto estándar</th><th>Conversión</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>';
+  let html = '<table class="stock-table"><thead><tr><th style="width:30px"><input type="checkbox" id="sa-chk-all" onchange="toggleSaSelAll(this.checked)" title="Seleccionar todo"/></th><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th><th>Producto estándar</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>';
   capped.forEach(m=>{
     const i = SA_ROWS.push(m.clave) - 1;
     const sug = sugerirPe(m);
     const precio = m.costoSugerido || m.precioSinIva || '';  // precio = última compra real (Desglose), no el valor estático del Maestro
     const cant = m.cantidadPresentacion || '';
-    const conv = m.conversionEstandar || '';
-    const r = _calcCosto(precio||0, cant||null, conv||null);
+    const r = _calcCosto(precio||0, cant||null, null);
     html += `<tr>
       <td><input type="checkbox" class="sa-chk" ${SA_SEL.has(m.clave)?'checked':''} onchange="toggleSaSelByIdx(${i}, this.checked)"/></td>
       <td>${escHtml(m.proveedor||'—')}</td>
@@ -1448,7 +1445,6 @@ function renderSinAsociar(){
       <td><input type="number" step="any" id="sa-cn-${i}" value="${cant}" oninput="recalcSA(${i})" style="width:64px"/></td>
       <td><b id="sa-cu-${i}">${_money(r.cu)}</b></td>
       <td><select id="sa-pe-${i}" style="min-width:170px">${peOptions(sug?sug.id:'')}</select></td>
-      <td><input type="number" step="any" id="sa-cv-${i}" value="${conv}" placeholder="1" oninput="recalcSA(${i})" style="width:72px"/></td>
       <td><b id="sa-ce-${i}" style="color:var(--green)">${_money(r.ce)}</b></td>
       <td style="white-space:nowrap">${archivoBtn(m.clave)} <button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
   });
@@ -1524,7 +1520,7 @@ async function asociarSeleccionadas(){
   }
 }
 function recalcSA(i){
-  const r = _calcCosto(_vnum('sa-pr-'+i)||0, _vnum('sa-cn-'+i), _vnum('sa-cv-'+i));
+  const r = _calcCosto(_vnum('sa-pr-'+i)||0, _vnum('sa-cn-'+i), null);
   const cu = document.getElementById('sa-cu-'+i); if (cu) cu.textContent = _money(r.cu);
   const ce = document.getElementById('sa-ce-'+i); if (ce) ce.textContent = _money(r.ce);
 }
@@ -1533,10 +1529,10 @@ async function asociarItem(i){
   const sel = document.getElementById('sa-pe-'+i);
   const peId = sel ? sel.value : '';
   if (!peId){ showToast('Elegí el producto estándar', 'error'); return; }
-  const precio = _vnum('sa-pr-'+i); const cantidad = _vnum('sa-cn-'+i); const conv = _vnum('sa-cv-'+i);
+  const precio = _vnum('sa-pr-'+i); const cantidad = _vnum('sa-cn-'+i);
   try {
     await postAP({ modulo:'maestro_asociar_pe', clave: clave, pe_id: peId,
-      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv });
+      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: '' });
     showToast('Asociado ✓');
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
@@ -1574,15 +1570,13 @@ function renderAsociacion(){
         grupoJs.push(j);
         const precio = it.costoSugerido || it.precioSinIva || '';  // precio = última compra real (Desglose)
         const cant = it.cantidadPresentacion || '';
-        const conv = it.conversionEstandar || '';
-        const r = _calcCosto(precio||0, cant||null, conv||null);
+        const r = _calcCosto(precio||0, cant||null, null);
         html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4">
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
             <span style="min-width:170px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
             <label>Precio <input type="number" id="as-pr-${j}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></label>
             <label>Cant. <input type="number" step="any" id="as-cn-${j}" value="${cant}" oninput="recalcAS(${j})" style="width:58px"/></label>
             <span>Costo u: <b id="as-cu-${j}">${_money(r.cu)}</b></span>
-            <label>Conversión <input type="number" step="any" id="as-cv-${j}" value="${conv}" placeholder="1" oninput="recalcAS(${j})" style="width:68px"/></label>
             <span>Costo/u. estándar: <b id="as-ce-${j}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
             ${archivoBtn(it.clave)}
             <button class="btn-sm" onclick="event.stopPropagation();guardarCostoItem(${j})">Guardar</button>
@@ -1591,7 +1585,7 @@ function renderAsociacion(){
         </td></tr>`;
       });
       html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4" style="text-align:right;padding:6px 8px">
-        <button class="btn-sm" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad/conversión de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>
+        <button class="btn-sm" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>
       </td></tr>`;
     }
   });
@@ -1600,16 +1594,16 @@ function renderAsociacion(){
 }
 function togglePeExp(id){ if(PE_EXP.has(id)) PE_EXP.delete(id); else PE_EXP.add(id); renderAsociacion(); }
 function recalcAS(j){
-  const r = _calcCosto(_vnum('as-pr-'+j)||0, _vnum('as-cn-'+j), _vnum('as-cv-'+j));
+  const r = _calcCosto(_vnum('as-pr-'+j)||0, _vnum('as-cn-'+j), null);
   const cu = document.getElementById('as-cu-'+j); if (cu) cu.textContent = _money(r.cu);
   const ce = document.getElementById('as-ce-'+j); if (ce) ce.textContent = _money(r.ce);
 }
 async function guardarCostoItem(j){
   const clave = AS_ROWS[j]; if (clave == null) return;
-  const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j); const conv = _vnum('as-cv-'+j);
+  const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j);
   try {
     await postAP({ modulo:'maestro_guardar_costo_item', clave: clave,
-      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv });
+      precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: '' });
     showToast('Costo guardado ✓');
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
@@ -1618,8 +1612,8 @@ async function guardarCostoItem(j){
 async function guardarCostosGrupo(js){
   const items = (js||[]).map(j => {
     const clave = AS_ROWS[j]; if (clave == null) return null;
-    const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j); const conv = _vnum('as-cv-'+j);
-    return { clave: clave, precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: conv==null?'':conv };
+    const precio = _vnum('as-pr-'+j); const cantidad = _vnum('as-cn-'+j);
+    return { clave: clave, precio: precio==null?'':precio, cantidad: cantidad==null?'':cantidad, conversion: '' };
   }).filter(Boolean);
   if (!items.length){ showToast('No hay líneas para guardar', 'error'); return; }
   try {

@@ -87,6 +87,12 @@
     .qty-input.sugerido { border-color:var(--amber); background:var(--amber-bg); }
     .prov-input { width:130px; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-b); font-size:12px; padding:5px 7px; outline:none; }
     .prov-input:focus { border-color:var(--blue); }
+    .prov-pick { display:flex; align-items:center; justify-content:space-between; gap:6px; width:100%; max-width:200px; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-b); font-size:12px; padding:5px 8px; outline:none; cursor:pointer; text-align:left; }
+    .prov-pick:hover { border-color:var(--blue); }
+    .prov-opts { display:flex; flex-direction:column; gap:4px; }
+    .prov-opt { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-b); font-size:12.5px; padding:6px 10px; cursor:pointer; text-align:left; }
+    .prov-opt:hover { border-color:var(--blue); background:var(--surface); }
+    .prov-opt.sel { border-color:var(--green); background:var(--green-bg); }
     .badge { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; }
     .b-ok       { background:var(--green-bg); color:var(--green); }
     .b-low      { background:var(--amber-bg); color:var(--amber); }
@@ -508,39 +514,95 @@ function alCambiarKiosko() {
   switchTab('ordenes', document.querySelectorAll('.tab')[0]);
 }
 
-// ── CATÁLOGO: Maestro de Productos + Mínimos por kiosko ──────────
-let MAESTRO_PRODUCTOS = [];
-let MINIMOS_KIOSKO    = {}; // nombreProducto -> mínimo (del kiosko actual)
-let PROVEEDORES       = []; // nombres de la hoja "Proveedores" (Inventario) — solo para autocompletar
+// ── CATÁLOGO: Productos Estándar (Nivel 1) + proveedores/precios del Maestro ──
+// El catálogo de la orden es ahora el catálogo curado a mano "Productos_Estandar"
+// (modelo de dos niveles — ver maestro-productos.html). Cada producto estándar
+// trae, además, la lista de proveedores a los que se le ha comprado y el último
+// precio de cada uno, derivados de las filas del Maestro (Nivel 2) asociadas a él.
+let PRODUCTOS_ESTANDAR = [];      // catálogo Nivel 1 (hoja Productos_Estandar)
+let PE_PROVEEDORES     = new Map(); // claveAsociación -> [{proveedor, costo, moneda, fecha, ...}]
+let MINIMOS_KIOSKO     = {};       // nombreProducto -> mínimo (del kiosko actual)
+let PROVEEDORES        = [];       // nombres de proveedores — para el <datalist> de respaldo
 
-async function cargarMaestroProductos() {
+// Catálogo Nivel 1: productos estándar activos.
+async function cargarProductosEstandar() {
+  try {
+    const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Productos_Estandar');
+    PRODUCTOS_ESTANDAR = datos
+      .filter(r => String(r['Activo']||'').trim() !== 'No')
+      .map(r => ({
+        id:        String(r['ID']||'').trim(),
+        nombre:    String(r['Nombre']||'').trim(),
+        unidad:    String(r['Unidad estándar']||'').trim(),
+        categoria: String(r['Categoría de producto']||'').trim(),
+        area:      String(r['Área de negocio']||'').trim(),
+      }))
+      .filter(p => p.nombre)
+      .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  } catch(e) { console.warn('No se pudo cargar Productos_Estandar:', e.message); }
+}
+
+// Índice de proveedores + último precio por producto estándar.
+// Agrupa las filas de Maestro_Productos por su producto estándar: primero por la
+// columna "Producto Estándar ID" (Nivel 2, si ya está desplegada); si está vacía,
+// cae al "puente de convivencia" por Nombre Estándar == nombre del producto
+// estándar. Cada fila del Maestro aporta UN proveedor con su última compra.
+async function cargarProveedoresPorProducto() {
+  PE_PROVEEDORES = new Map();
   try {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos');
-    const mapa = new Map();
     datos.forEach(r => {
       if (r['Aplica'] === 'No') return;
       if (r['Activo'] === 'No') return;
-      const nombre = (r['Nombre Estándar'] || '').toString().trim();
-      if (!nombre) return;
-      const key = claveNorm(nombre);
-      const prod = {
-        id: nombre, nombre,
-        area:          (r['Área de negocio']||'').toString().trim(),
-        categoria:     (r['Categoría']||'').toString().trim(),
-        unidad:        (r['Unidad Receta']||r['Unidad']||'').toString().trim(),
-        presentacion:  (r['Presentación']||'').toString().trim(),
-        tamano:        (r['Tamaño']||'').toString().trim(),
-        precio_sin_iva:parseFloat(r['Precio sin IVA'])||0,
-        cantidad_presentacion: parseFloat(r['Cantidad presentación'])||1,
-        proveedor:     (r['Proveedor']||'').toString().trim(),
-        kioskosTxt:    (r['Kioskos']||'').toString().trim(),
-        stock_minimo:  0, // se completa en cargarCatalogoDelKiosko()
+      const proveedor = String(r['Proveedor']||'').trim();
+      if (!proveedor) return;
+      const peId = String(r['Producto Estándar ID']||'').trim();
+      const nomEst = String(r['Nombre Estándar']||'').trim();
+      // Claves bajo las que este proveedor queda disponible para un producto:
+      const claves = [];
+      if (peId)  claves.push('id:'   + peId);
+      if (nomEst) claves.push('nom:' + claveNorm(nomEst));
+      if (!claves.length) return;
+      const entry = {
+        proveedor,
+        nombreFactura: String(r['Nombre en Factura']||'').trim(),
+        costo:  parseFloat(r['Costo sugerido (última compra)']) || parseFloat(r['Precio sin IVA']) || 0,
+        moneda: String(r['Moneda sugerida']||'CRC').trim() || 'CRC',
+        fecha:  String(r['Fecha última compra']||'').trim(),
+        presentacion: String(r['Presentación']||'').trim(),
+        tamano:       String(r['Tamaño']||'').trim(),
+        cantidad_presentacion: parseFloat(r['Cantidad presentación']) || 1,
       };
-      const previo = mapa.get(key);
-      if (!previo || (!previo.area && prod.area)) mapa.set(key, prod);
+      claves.forEach(k => {
+        if (!PE_PROVEEDORES.has(k)) PE_PROVEEDORES.set(k, []);
+        PE_PROVEEDORES.get(k).push(entry);
+      });
     });
-    MAESTRO_PRODUCTOS = Array.from(mapa.values()).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  } catch(e) { console.warn('No se pudo cargar el Maestro de Productos:', e.message); }
+  } catch(e) { console.warn('No se pudieron cargar los proveedores por producto:', e.message); }
+}
+
+// Fecha "DD/MM/AAAA" o "DD/MM/AAAA hh:mm:ss" -> comparable (orden cronológico).
+function fechaOrdenable(s) {
+  s = String(s||'').trim(); if (!s) return '';
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]);
+  return s; // ya ISO o formato desconocido — se ordena como texto
+}
+
+// Devuelve, para un producto estándar, sus proveedores (uno por proveedor, con
+// su última compra), ordenados del más reciente al más antiguo.
+function proveedoresDeProducto(p) {
+  const lista = (PE_PROVEEDORES.get('id:' + p.id) || [])
+    .concat(p.id ? [] : [])
+    .concat(PE_PROVEEDORES.get('nom:' + claveNorm(p.nombre)) || []);
+  // Dedupe por proveedor: se queda con la compra más reciente de cada uno.
+  const porProv = new Map();
+  lista.forEach(e => {
+    const k = claveNorm(e.proveedor);
+    const prev = porProv.get(k);
+    if (!prev || fechaOrdenable(e.fecha) > fechaOrdenable(prev.fecha)) porProv.set(k, e);
+  });
+  return [...porProv.values()].sort((a,b)=> fechaOrdenable(b.fecha).localeCompare(fechaOrdenable(a.fecha)));
 }
 async function cargarMinimosDelKiosko() {
   MINIMOS_KIOSKO = {};
@@ -671,18 +733,33 @@ async function guardarMinimoLinea(id) {
 }
 async function cargarCatalogoDelKiosko() {
   if (!kioskoActual) { productos = []; return; }
-  if (!MAESTRO_PRODUCTOS.length) await cargarMaestroProductos();
+  if (!PRODUCTOS_ESTANDAR.length) await cargarProductosEstandar();
+  if (!PE_PROVEEDORES.size)       await cargarProveedoresPorProducto();
   await cargarMinimosDelKiosko();
-  productos = MAESTRO_PRODUCTOS
-    .filter(p => productoAplicaKiosko(p, kioskoActual))
-    .map(p => ({ ...p, stock_minimo: MINIMOS_KIOSKO[claveNorm(p.nombre)] || 0 }));
-  document.getElementById('status-msg').textContent = productos.length + ' productos · ' + kioskoActual;
+  productos = PRODUCTOS_ESTANDAR.map(p => {
+    const provs    = proveedoresDeProducto(p);   // más reciente primero
+    const ultimo   = provs[0] || null;           // proveedor de la última compra
+    return {
+      ...p,
+      area:          p.area || 'Sin área',
+      proveedores:   provs,
+      // Valores por defecto de la línea = última compra (el usuario puede
+      // cambiar el proveedor desde el desplegable y el precio se ajusta).
+      proveedor:     ultimo ? ultimo.proveedor : '',
+      precio_sin_iva: ultimo ? ultimo.costo : 0,
+      presentacion:  ultimo ? ultimo.presentacion : '',
+      tamano:        ultimo ? ultimo.tamano : '',
+      cantidad_presentacion: ultimo ? ultimo.cantidad_presentacion : 1,
+      stock_minimo:  MINIMOS_KIOSKO[claveNorm(p.nombre)] || 0,
+    };
+  });
+  document.getElementById('status-msg').textContent = productos.length + ' productos estándar · ' + kioskoActual;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
 async function init() {
   await cargarOrdenesDesdeSheet();
-  await Promise.all([cargarKioskos(), cargarProveedores()]);
+  await Promise.all([cargarKioskos(), cargarProveedores(), cargarProductosEstandar(), cargarProveedoresPorProducto()]);
   if (kioskoActual) {
     await cargarCatalogoDelKiosko();
     renderListaOrdenes();
@@ -1031,8 +1108,9 @@ function renderOrden() {
       var linea     = ordenActual.lineas[p.id] || {};
       var sugerido  = calcPedidoSugerido(p);
       var pedido    = linea.pedido !== undefined ? linea.pedido : sugerido;
+      var provs     = p.proveedores || [];
       var proveedor = linea.proveedor !== undefined ? linea.proveedor : (p.proveedor||'');
-      var precioC   = parseFloat(p.precio_sin_iva) || 0;
+      var precioC   = precioLinea(p, linea);
       var monto     = pedido * precioC;
       subtotal += monto;
 
@@ -1042,7 +1120,8 @@ function renderOrden() {
       if (q && p.nombre.toLowerCase().indexOf(q) === -1) return;
       filasVisibles++;
 
-      var pres     = [p.presentacion, p.tamano].filter(Boolean).join(' ') || '—';
+      var sid      = slugId(p.id);
+      var pres     = [p.presentacion, p.tamano].filter(Boolean).join(' ') || (p.unidad ? 'est.: ' + p.unidad : '—');
       var colStock = '';
       if (!esRecarga) {
         var stockBadge = '<span style="color:var(--subtle);font-size:12px;">Sin datos</span>';
@@ -1061,6 +1140,25 @@ function renderOrden() {
           + '<td class="num" style="color:var(--muted);">' + (min > 0 ? min + ' pres.' : '—') + '</td>';
       }
 
+      // Celda de proveedor: desplegable con los proveedores a los que se le
+      // ha comprado y el último precio de cada uno. Si el producto estándar
+      // todavía no tiene compras asociadas (Nivel 2 sin desplegar o ítem sin
+      // asociar), cae a un campo libre con el datalist global.
+      var provCell;
+      if (provs.length) {
+        var ult = provs[0];
+        provCell = '<td style="min-width:150px;">'
+          + '<button type="button" class="prov-pick" onclick="togglePrecios(\'' + sid + '\')">'
+          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(proveedor || 'Elegir proveedor…') + '</span>'
+          + '<svg id="provchev-' + sid + '" viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;transition:transform .15s;"><path d="M4 6l4 4 4-4"/></svg>'
+          + '</button>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + provs.length + ' prov. · últ. ' + fmt2(ult.costo) + (ult.fecha ? ' · ' + escHtml(ult.fecha.split(' ')[0]) : '') + '</div>'
+          + '</td>';
+      } else {
+        provCell = '<td><input type="text" class="prov-input" list="dl-proveedores" value="' + escHtml(proveedor)
+          + '" placeholder="Sin compras — anotar…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)"></td>';
+      }
+
       filas += '<tr>'
         + '<td><div style="font-weight:500;font-size:13px;">' + escHtml(p.nombre) + '</div>'
         + '<div style="font-size:11px;color:var(--muted);">' + escHtml(pres) + '</div></td>'
@@ -1068,11 +1166,28 @@ function renderOrden() {
         + '<td class="num"><input type="number" class="qty-input' + (sugerido > 0 ? ' sugerido' : '')
         + '" min="0" step="1" value="' + pedido
         + '" oninput="onPedido(\'' + jsArg(p.id) + '\',this)"></td>'
-        + '<td class="num" style="color:var(--muted);font-size:12px;">' + fmt2(precioC) + '</td>'
-        + '<td class="num" style="font-weight:600;" id="monto-' + slugId(p.id) + '">' + fmt(monto) + '</td>'
-        + '<td><input type="text" class="prov-input" list="dl-proveedores" value="' + escHtml(proveedor)
-        + '" placeholder="Proveedor…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)"></td>'
+        + '<td class="num" style="color:var(--muted);font-size:12px;" id="precio-' + sid + '">' + fmt2(precioC) + '</td>'
+        + '<td class="num" style="font-weight:600;" id="monto-' + sid + '">' + fmt(monto) + '</td>'
+        + provCell
         + '</tr>';
+
+      // Sub-fila desplegable: cada proveedor con su último precio y fecha.
+      if (provs.length) {
+        var colspan  = esRecarga ? 5 : 7;
+        var opciones = provs.map(function(e, idx){
+          var sel = claveNorm(e.proveedor) === claveNorm(proveedor);
+          return '<button type="button" class="prov-opt' + (sel ? ' sel' : '') + '" onclick="elegirProveedor(\'' + jsArg(p.id) + '\',' + idx + ')">'
+            + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(e.proveedor)
+            + (e.nombreFactura ? ' <span style="color:var(--subtle);">· ' + escHtml(e.nombreFactura) + '</span>' : '') + '</span>'
+            + '<span style="white-space:nowrap;font-weight:600;color:var(--blue);">' + fmt2(e.costo)
+            + (e.fecha ? ' <span style="color:var(--muted);font-weight:400;">· ' + escHtml(e.fecha.split(' ')[0]) + '</span>' : '') + '</span>'
+            + '</button>';
+        }).join('');
+        filas += '<tr id="prov-row-' + sid + '" style="display:none;"><td colspan="' + colspan + '" style="background:var(--surface);padding:8px 12px;">'
+          + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;">Proveedores donde se ha comprado · último precio</div>'
+          + '<div class="prov-opts">' + opciones + '</div>'
+          + '</td></tr>';
+      }
     });
 
     totalGeneral += subtotal;
@@ -1115,13 +1230,19 @@ function renderOrden() {
 }
 function jsArg(v) { return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
+// Precio efectivo de una línea: el que fijó el proveedor elegido
+// (linea.precio) o, por defecto, el de la última compra del producto.
+function precioLinea(p, linea) {
+  if (linea && linea.precio !== undefined) return parseFloat(linea.precio) || 0;
+  return parseFloat(p ? p.precio_sin_iva : 0) || 0;
+}
 function onPedido(id, input) {
   if (!ordenActual.lineas[id]) ordenActual.lineas[id] = {};
   var val   = parseFloat(input.value) || 0;
   ordenActual.lineas[id].pedido = val;
   var p     = productos.find(function(x){ return x.id === id; });
   var mEl   = document.getElementById('monto-' + slugId(id));
-  if (mEl) mEl.textContent = fmt(val * (parseFloat(p ? p.precio_sin_iva : 0) || 0));
+  if (mEl) mEl.textContent = fmt(val * precioLinea(p, ordenActual.lineas[id]));
   saveOrdenes(ordenes);
   recalcularTotales();
   renderResumenProveedores();
@@ -1132,6 +1253,28 @@ function onProveedor(id, input) {
   saveOrdenes(ordenes);
   pushOrdenDebounced(ordenActual);
   renderResumenProveedores();
+}
+// Desplegar/ocultar la lista de proveedores de un producto.
+function togglePrecios(sid) {
+  var row = document.getElementById('prov-row-' + sid);
+  var chev = document.getElementById('provchev-' + sid);
+  if (!row) return;
+  var abrir = row.style.display === 'none';
+  row.style.display = abrir ? 'table-row' : 'none';
+  if (chev) chev.style.transform = abrir ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+// Elegir un proveedor del desplegable: fija proveedor + precio de la línea
+// con los de esa última compra, y re-renderiza para reflejar precio y monto.
+function elegirProveedor(id, idx) {
+  var p = productos.find(function(x){ return x.id === id; });
+  if (!p || !p.proveedores || !p.proveedores[idx]) return;
+  var e = p.proveedores[idx];
+  if (!ordenActual.lineas[id]) ordenActual.lineas[id] = {};
+  ordenActual.lineas[id].proveedor = e.proveedor;
+  ordenActual.lineas[id].precio    = e.costo;
+  saveOrdenes(ordenes);
+  pushOrdenDebounced(ordenActual);
+  renderOrden();
 }
 
 // ── RESUMEN POR PROVEEDOR vs. PRESUPUESTO ─────────────────────────
@@ -1147,7 +1290,7 @@ function renderResumenProveedores() {
     var pedido = linea.pedido !== undefined ? linea.pedido : calcPedidoSugerido(p);
     if (!pedido) return;
     var prov  = (linea.proveedor !== undefined ? linea.proveedor : (p.proveedor||'')).trim() || 'Sin proveedor';
-    var monto = pedido * (parseFloat(p.precio_sin_iva) || 0);
+    var monto = pedido * precioLinea(p, linea);
     porProv[prov] = (porProv[prov] || 0) + monto;
   });
 
@@ -1190,7 +1333,7 @@ function recalcularTotales() {
     productos.filter(function(p){ return (p.area||'Sin área') === area; }).forEach(function(p){
       var linea  = ordenActual.lineas[p.id] || {};
       var pedido = linea.pedido !== undefined ? linea.pedido : calcPedidoSugerido(p);
-      sub += (pedido||0) * (parseFloat(p.precio_sin_iva)||0);
+      sub += (pedido||0) * precioLinea(p, linea);
     });
     total += sub;
     var el = document.getElementById('sub-' + slugId(area));
@@ -1210,10 +1353,13 @@ async function aprobarOrden() {
     var l = ordenActual.lineas[p.id] || {};
     return (l.pedido !== undefined ? l.pedido : calcPedidoSugerido(p)) > 0;
   }).map(function(p){
-    var l     = ordenActual.lineas[p.id] || {};
-    var ped   = l.pedido !== undefined ? l.pedido : calcPedidoSugerido(p);
-    var prov  = l.proveedor !== undefined ? l.proveedor : (p.proveedor||'');
-    return Object.assign({}, p, { pedido:ped, monto:ped*(parseFloat(p.precio_sin_iva)||0), proveedor_orden:prov });
+    var l      = ordenActual.lineas[p.id] || {};
+    var ped    = l.pedido !== undefined ? l.pedido : calcPedidoSugerido(p);
+    var prov   = l.proveedor !== undefined ? l.proveedor : (p.proveedor||'');
+    var precio = precioLinea(p, l);
+    // No guardamos el arreglo de proveedores dentro de la línea aprobada
+    // (se sube al Sheet) — sí el precio efectivo del proveedor elegido.
+    return Object.assign({}, p, { proveedores:undefined, pedido:ped, monto:ped*precio, precio_sin_iva:precio, proveedor_orden:prov });
   });
 
   if (!lineas.length) { showToast('Sin productos con pedido > 0','error'); return; }
