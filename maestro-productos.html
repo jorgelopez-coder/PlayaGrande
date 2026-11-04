@@ -1371,9 +1371,11 @@ function renderProductosEstandar() {
     const validos = costeados.filter(x => x.costo > 0);
     const mejor = validos.length ? Math.min.apply(null, validos.map(x => x.costo)) : null;
     const tieneDetalle = !!(p.notas || p.rendimiento || p.pesoEmpaque);
+    const tieneProv = items.length > 0;
+    const expandible = tieneProv || tieneDetalle;
     const abierto = PE_CAT_EXP.has(p.id);
     html += `<tr style="cursor:pointer${p.activo === 'No' ? ';opacity:.55' : ''}" onclick="togglePeCatExp('${escapeAttr(p.id)}')">
-      <td>${tieneDetalle ? (abierto ? '▾' : '▸') : ''}</td>
+      <td>${expandible ? (abierto ? '▾' : '▸') : ''}</td>
       <td><b>${escHtml(p.nombre)}</b>${p.notas ? ' <span title="'+escapeAttr(p.notas)+'" style="color:var(--muted)">📝</span>' : ''}</td>
       <td>${escHtml(p.unidadEstandar)}</td>
       <td>${escHtml(p.categoria || '—')}</td>
@@ -1385,12 +1387,37 @@ function renderProductosEstandar() {
         <button class="btn-sm" onclick="editarPe('${escapeAttr(p.id)}')">Editar</button>
         <button class="btn-sm" onclick="eliminarPe('${escapeAttr(p.id)}')">Eliminar</button>
       </td></tr>`;
-    if (abierto && tieneDetalle) {
+    if (abierto && expandible) {
+      let exp = '';
+      if (tieneProv) {
+        const filasProv = items.map(it => {
+          const pc = it.costoSugerido || it.precioSinIva || 0;
+          const sym = it.monedaSugerida === 'USD' ? 'US$' : '₡';
+          return { it, pc, txt: pc ? (sym + Number(pc).toLocaleString('es-CR',{maximumFractionDigits:2})) : '—' };
+        });
+        const conPrecio = filasProv.filter(x => x.pc > 0);
+        const mejorPc = conPrecio.length ? Math.min.apply(null, conPrecio.map(x => x.pc)) : null;
+        const filas = filasProv.sort((a,b) => (a.pc||1e15) - (b.pc||1e15)).map(x => {
+          const es = mejorPc != null && x.pc === mejorPc && x.pc > 0;
+          return `<tr>
+            <td>${es ? '⭐ ' : ''}<b>${escHtml(x.it.proveedor || '—')}</b></td>
+            <td>${escHtml(x.it.nombreFactura || '—')}</td>
+            <td style="text-align:right;white-space:nowrap">${es ? ('<b style="color:var(--green)">'+x.txt+'</b>') : x.txt}</td>
+          </tr>`;
+        }).join('');
+        exp += `<div style="font-size:11px;color:var(--muted);margin:2px 0 4px">Proveedores (${items.length}) — ⭐ mejor precio de compra</div>
+          <table class="stock-table" style="margin:0 0 6px;width:auto;min-width:420px">
+            <thead><tr><th>Proveedor</th><th>Nombre en factura</th><th style="text-align:right">Precio de compra</th></tr></thead>
+            <tbody>${filas}</tbody></table>`;
+      } else {
+        exp += '<div style="font-size:12px;color:var(--amber);margin-bottom:4px">Sin proveedores asociados todavía (asociá facturas en la pestaña “3 · Estándar y sus facturas”).</div>';
+      }
       const detalle = [];
       if (p.notas) detalle.push('📝 <b>Notas:</b> ' + escHtml(p.notas));
       if (p.rendimiento) detalle.push('<b>% de rendimiento:</b> ' + escHtml(p.rendimiento) + '%');
       if (p.pesoEmpaque) detalle.push('<b>Peso del empaque:</b> ' + escHtml(p.pesoEmpaque) + ' g');
-      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted);line-height:1.8">${detalle.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</td></tr>`;
+      if (detalle.length) exp += `<div style="font-size:12px;color:var(--muted);line-height:1.8">${detalle.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</div>`;
+      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="padding:8px 10px">${exp}</td></tr>`;
     }
   });
   html += '</tbody></table>';
