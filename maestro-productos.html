@@ -775,6 +775,30 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-nuevo-pe">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <h3>Nuevo producto estándar</h3>
+      <button class="modal-close" onclick="cerrarNuevoPe()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">
+        Para la factura: <b id="np-ref">—</b>. Se crea en el catálogo y queda seleccionado en esta fila para asociarlo.
+      </p>
+      <div class="field"><label>Nombre *</label><input type="text" id="np-nombre" placeholder="ej: Ron blanco"/></div>
+      <div class="field-row-3">
+        <div class="field"><label>Unidad estándar de receta *</label><select id="np-unidad"><option value="">—</option></select></div>
+        <div class="field"><label>Categoría de producto</label><select id="np-categoria"><option value="">—</option></select></div>
+        <div class="field"><label>Área de negocio</label><select id="np-area"><option value="">—</option></select></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" onclick="cerrarNuevoPe()">Cancelar</button>
+      <button class="btn-primary" id="btn-np-guardar" onclick="guardarNuevoPe()">Crear y seleccionar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -1414,6 +1438,7 @@ function renderProductosEstandar() {
 // ── Asociación facturas ↔ Producto Estándar (Nivel 2) — 2026-11-02 ──────
 let PE_EXP = new Set();
 let SA_ROWS = [];
+let SA_FORCE_PE = {};  // clave Maestro -> id de PE recién creado, para preseleccionarlo al redibujar
 let AS_ROWS = [];
 let DESGLOSE_ARCHIVO = {};  // clave Maestro -> { archivo, numero, f } de la factura más reciente
 
@@ -1507,7 +1532,7 @@ function renderSinAsociar(){
       <td><input type="number" id="sa-pr-${i}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:92px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></td>
       <td><input type="number" step="any" id="sa-cn-${i}" value="${cant}" oninput="recalcSA(${i})" style="width:64px"/></td>
       <td><b id="sa-cu-${i}">${_money(r.cu)}</b></td>
-      <td><select id="sa-pe-${i}" style="min-width:170px">${peOptions(sug?sug.id:'')}</select></td>
+      <td><div style="display:flex;gap:6px;align-items:center"><select id="sa-pe-${i}" style="min-width:150px;flex:1">${peOptions(SA_FORCE_PE[m.clave] || (sug?sug.id:''))}</select><button class="btn-sm" onclick="abrirNuevoPe(${i})" title="Crear un producto estándar nuevo y asociarlo">+ Nuevo</button></div></td>
       <td><b id="sa-ce-${i}" style="color:var(--green)">${_money(r.ce)}</b></td>
       <td style="white-space:nowrap">${archivoBtn(m.clave)} <button class="btn-sm" onclick="asociarItem(${i})">Asociar</button></td></tr>`;
   });
@@ -1601,6 +1626,55 @@ async function asociarItem(i){
     renderAsociacion(); renderSinAsociar();
   } catch (e){ showToast('No se pudo asociar — ' + e.message, 'error'); }
 }
+
+// ── Crear producto estándar al vuelo desde "Facturas sin asociar" ─────
+let SA_NUEVO_PE_CLAVE = null;  // clave de la fila que abrió el modal
+function abrirNuevoPe(i){
+  const clave = SA_ROWS[i]; if (clave == null) return;
+  SA_NUEVO_PE_CLAVE = clave;
+  const m = MAESTRO.find(x => x.clave === clave);
+  const opt = (arr) => '<option value="">—</option>' + (arr || []).map(x => `<option value="${escapeAttr(x)}">${escHtml(x)}</option>`).join('');
+  document.getElementById('np-unidad').innerHTML = opt(CONFIG.unidadesReceta);
+  document.getElementById('np-categoria').innerHTML = opt(CONFIG.categorias);
+  document.getElementById('np-area').innerHTML = opt(CONFIG.areas);
+  document.getElementById('np-nombre').value = m ? (m.nombreFactura || '') : '';
+  document.getElementById('np-unidad').value = '';
+  document.getElementById('np-categoria').value = '';
+  document.getElementById('np-area').value = '';
+  document.getElementById('np-ref').textContent = m ? `${m.proveedor||'—'} · ${m.nombreFactura||''}` : '—';
+  document.getElementById('modal-nuevo-pe').classList.add('open');
+  setTimeout(() => document.getElementById('np-nombre').focus(), 50);
+}
+function cerrarNuevoPe(){
+  document.getElementById('modal-nuevo-pe').classList.remove('open');
+  SA_NUEVO_PE_CLAVE = null;
+}
+async function guardarNuevoPe(){
+  const nombre = document.getElementById('np-nombre').value.trim();
+  const unidad = document.getElementById('np-unidad').value;
+  const categoria = document.getElementById('np-categoria').value;
+  const area = document.getElementById('np-area').value;
+  if (!nombre){ showToast('Escribí el nombre del producto', 'error'); return; }
+  if (!unidad){ showToast('Elegí la unidad estándar de receta', 'error'); return; }
+  const btn = document.getElementById('btn-np-guardar');
+  if (btn){ btn.disabled = true; btn.textContent = 'Creando…'; }
+  const clave = SA_NUEVO_PE_CLAVE;
+  try {
+    const r = await postAP({ modulo:'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: 'Sí', notas: '' });
+    if (clave != null && r && r.id) SA_FORCE_PE[clave] = r.id;  // preseleccionarlo al redibujar
+    showToast('Producto estándar creado ✓');
+    document.getElementById('modal-nuevo-pe').classList.remove('open');
+    SA_NUEVO_PE_CLAVE = null;
+    await cargarProductosEstandar();  // recarga catálogo + redibuja tablas (incl. sin asociar)
+  } catch (e){
+    showToast('No se pudo crear — ' + e.message, 'error');
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = 'Crear y seleccionar'; }
+  }
+}
+document.getElementById('modal-nuevo-pe').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-nuevo-pe')) cerrarNuevoPe();
+});
 
 function renderAsociacion(){
   const cont = document.getElementById('as-lista');
