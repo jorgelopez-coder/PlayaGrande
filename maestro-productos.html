@@ -375,7 +375,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     Inventario, Órdenes y Análisis. Podés agregarle <b>notas</b> y, con “+ Más datos del producto”, el
     % de rendimiento, el peso del empaque y la presentación de compra.
   </p>
-  <div id="pe-form" style="display:none">
+  <div class="modal-overlay" id="pe-form">
+   <div class="modal" style="max-width:660px">
+    <div class="modal-head">
+      <h3 id="pe-form-title">Nuevo producto estándar</h3>
+      <button class="modal-close" onclick="cancelarPe()">×</button>
+    </div>
+    <div class="modal-body">
     <div class="field-row-3">
       <div class="field"><label>Nombre *</label><input type="text" id="pe-nombre" placeholder="ej: Ron blanco"/></div>
       <div class="field"><label>Unidad estándar de receta *</label>
@@ -416,8 +422,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
     </div>
     <input type="hidden" id="pe-edit-id"/>
-    <button class="btn-sm" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
-    <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
+      <button class="btn-primary" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
+    </div>
+   </div>
   </div>
   <div class="mp-counts" style="margin-top:1rem">
     <span>Activos: <b id="pe-count-activos" style="color:var(--green)">0</b></span>
@@ -777,6 +787,27 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="modal-foot">
       <button class="btn-sm" onclick="cerrarNotaPe()">Cancelar</button>
       <button class="btn-primary" id="btn-nota-pe-guardar" onclick="guardarNotaPe()">Guardar nota</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-foto-pe">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <h3>Foto del producto</h3>
+      <button class="modal-close" onclick="cerrarFotoPe()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:.75rem"><b id="foto-pe-ref">—</b></p>
+      <input type="file" id="foto-pe-input" accept="image/*" onchange="onFotoPeSelected(event)"/>
+      <div id="foto-pe-wrap" style="display:none;margin-top:10px">
+        <img id="foto-pe-preview" alt="" style="max-width:220px;max-height:220px;border-radius:8px;border:1px solid var(--border);display:block"/>
+        <button type="button" class="btn-sm" onclick="quitarFotoPe()" style="margin-top:6px">Quitar foto</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" onclick="cerrarFotoPe()">Cancelar</button>
+      <button class="btn-primary" id="btn-foto-pe-guardar" onclick="guardarFotoPe()">Guardar foto</button>
     </div>
   </div>
 </div>
@@ -1309,10 +1340,12 @@ function togglePeLista() {
 
 function togglePeForm() {
   const f = document.getElementById('pe-form');
-  if (f.style.display !== 'none') { cancelarPe(); return; }
-  f.style.display = '';
+  if (f.classList.contains('open')) { cancelarPe(); return; }
+  cancelarPe();
+  const t = document.getElementById('pe-form-title'); if (t) t.textContent = 'Nuevo producto estándar';
+  f.classList.add('open');
   poblarSelectsPe();
-  document.getElementById('pe-nombre').focus();
+  setTimeout(() => { const n = document.getElementById('pe-nombre'); if (n) n.focus(); }, 50);
 }
 
 function togglePeMasDatos(forzar) {
@@ -1324,7 +1357,7 @@ function togglePeMasDatos(forzar) {
 }
 
 function cancelarPe() {
-  document.getElementById('pe-form').style.display = 'none';
+  document.getElementById('pe-form').classList.remove('open');
   document.getElementById('pe-edit-id').value = '';
   document.getElementById('pe-nombre').value = '';
   document.getElementById('pe-unidad').value = '';
@@ -1343,7 +1376,9 @@ function cancelarPe() {
 function editarPe(id) {
   const p = PRODUCTOS_ESTANDAR.find(x => String(x.id) === String(id));
   if (!p) return;
-  document.getElementById('pe-form').style.display = '';
+  cancelarPe();
+  document.getElementById('pe-form-title').textContent = 'Editar producto';
+  document.getElementById('pe-form').classList.add('open');
   poblarSelectsPe();
   document.getElementById('pe-edit-id').value = p.id;
   document.getElementById('pe-nombre').value = p.nombre;
@@ -1362,7 +1397,6 @@ function editarPe(id) {
   }
   togglePeMasDatos(!!(p.rendimiento || p.pesoEmpaque || p.presentacionCompra || p.imagenUrl));
   document.getElementById('btn-pe-guardar').textContent = 'Guardar cambios';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function guardarPe() {
@@ -1425,8 +1459,56 @@ async function guardarNotaPe(){
   finally { if (btn) btn.disabled = false; }
 }
 document.getElementById('modal-nota-pe').addEventListener('click', e => { if (e.target.id === 'modal-nota-pe') cerrarNotaPe(); });
+document.getElementById('pe-form').addEventListener('click', e => { if (e.target.id === 'pe-form') cancelarPe(); });
+
+// ── Foto rápida por producto (ícono 📷 en el catálogo) ───────────────────
+let FOTO_PE_ID = null, FOTO_PE_BASE64 = null, FOTO_PE_QUITAR = false;
+function editarFotoPe(id){
+  const p = PRODUCTOS_ESTANDAR.find(x => String(x.id) === String(id));
+  if (!p) return;
+  FOTO_PE_ID = id; FOTO_PE_BASE64 = null; FOTO_PE_QUITAR = false;
+  document.getElementById('foto-pe-ref').textContent = p.nombre;
+  const inp = document.getElementById('foto-pe-input'); if (inp) inp.value = '';
+  const wrap = document.getElementById('foto-pe-wrap');
+  const img = document.getElementById('foto-pe-preview');
+  if (p.imagenUrl) { img.src = p.imagenUrl; wrap.style.display = 'block'; }
+  else { img.src = ''; wrap.style.display = 'none'; }
+  document.getElementById('modal-foto-pe').classList.add('open');
+}
+function cerrarFotoPe(){ FOTO_PE_ID = null; FOTO_PE_BASE64 = null; FOTO_PE_QUITAR = false; document.getElementById('modal-foto-pe').classList.remove('open'); }
+function onFotoPeSelected(ev){
+  const file = ev.target.files[0]; if (!file) return;
+  if (file.size > PE_FOTO_MAX_ORIGINAL){ showToast('El archivo es demasiado grande (máx. 30 MB)','error'); return; }
+  _peComprimirLimite(file).then(dataUrl => {
+    FOTO_PE_BASE64 = dataUrl; FOTO_PE_QUITAR = false;
+    document.getElementById('foto-pe-wrap').style.display = 'block';
+    document.getElementById('foto-pe-preview').src = dataUrl;
+  }).catch(e => { showToast('No se pudo procesar la foto — ' + e.message, 'error'); });
+}
+function quitarFotoPe(){
+  FOTO_PE_BASE64 = null; FOTO_PE_QUITAR = true;
+  document.getElementById('foto-pe-wrap').style.display = 'none';
+  document.getElementById('foto-pe-preview').src = '';
+  const inp = document.getElementById('foto-pe-input'); if (inp) inp.value = '';
+}
+async function guardarFotoPe(){
+  const p = PRODUCTOS_ESTANDAR.find(x => String(x.id) === String(FOTO_PE_ID));
+  if (!p) { cerrarFotoPe(); return; }
+  if (!FOTO_PE_BASE64 && !FOTO_PE_QUITAR){ showToast('Elegí una foto o quitá la actual','error'); return; }
+  const btn = document.getElementById('btn-foto-pe-guardar'); if (btn) btn.disabled = true;
+  try {
+    await postAP({ modulo:'pe_editar', id: p.id, nombre: p.nombre, unidad_estandar: p.unidadEstandar, categoria: p.categoria, area: p.area, activo: p.activo, notas: p.notas, rendimiento: p.rendimiento, peso_empaque: p.pesoEmpaque, presentacion_compra: p.presentacionCompra, imagen: FOTO_PE_BASE64 || '', quitar_imagen: FOTO_PE_QUITAR });
+    showToast('Foto guardada ✓');
+    cerrarFotoPe();
+    await cargarProductosEstandar();
+  } catch(e){ showToast('No se pudo guardar la foto — ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+document.getElementById('modal-foto-pe').addEventListener('click', e => { if (e.target.id === 'modal-foto-pe') cerrarFotoPe(); });
 
 let PE_CAT_EXP = new Set();
+let PE_GRUPO_COL = new Set();
+function togglePeGrupo(key){ if (PE_GRUPO_COL.has(key)) PE_GRUPO_COL.delete(key); else PE_GRUPO_COL.add(key); renderProductosEstandar(); }
 function togglePeCatExp(id){ if (PE_CAT_EXP.has(id)) PE_CAT_EXP.delete(id); else PE_CAT_EXP.add(id); renderProductosEstandar(); }
 
 // Costo comparable de un ítem para elegir el "mejor": usa el costo por unidad
@@ -1470,8 +1552,10 @@ function renderProductosEstandar() {
     const gKey = gArea + ' ¦ ' + gCat;
     if (gKey !== grupoActual) {
       grupoActual = gKey;
-      html += `<tr class="pe-grupo"><td colspan="${NCOLS}" style="background:var(--surface);font-weight:600;padding:8px 10px;border-top:2px solid var(--border-h)">${escHtml(gArea)} <span style="color:var(--muted)">›</span> ${escHtml(gCat)}</td></tr>`;
+      const gcol = PE_GRUPO_COL.has(gKey);
+      html += `<tr class="pe-grupo" style="cursor:pointer" onclick="togglePeGrupo('${_jsq(gKey)}')"><td colspan="${NCOLS}" style="background:var(--surface);font-weight:600;padding:8px 10px;border-top:2px solid var(--border-h)">${gcol ? '▸' : '▾'} ${escHtml(gArea)} <span style="color:var(--muted)">›</span> ${escHtml(gCat)}</td></tr>`;
     }
+    if (PE_GRUPO_COL.has(gKey)) return;
     const items = itemsAsociados(p.id);
     const costeados = items.map(it => ({ it, costo: _peCostoComparable(it) }));
     const validos = costeados.filter(x => x.costo > 0);
@@ -1489,6 +1573,7 @@ function renderProductosEstandar() {
       <td>${p.activo === 'Sí' ? '<span style="color:var(--green)">Activo</span>' : '<span style="color:var(--muted)">Inactivo</span>'}</td>
       <td style="white-space:nowrap;text-align:right" onclick="event.stopPropagation()">
         <button class="btn-sm" title="Editar" onclick="editarPe('${escapeAttr(p.id)}')">✏️</button>
+        <button class="btn-sm" title="Foto" onclick="editarFotoPe('${escapeAttr(p.id)}')">📷</button>
         <button class="btn-sm" title="Notas" onclick="editarNotaPe('${escapeAttr(p.id)}')">📝</button>
         <button class="btn-sm" title="Eliminar" onclick="eliminarPe('${escapeAttr(p.id)}')">🗑️</button>
       </td></tr>`;
