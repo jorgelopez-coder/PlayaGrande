@@ -284,6 +284,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       </div>
       <div class="field"></div>
     </div>
+    <div class="field"><label>Notas del producto</label>
+      <textarea id="pe-notas" rows="2" placeholder="observaciones, presentación habitual, proveedor preferido…" style="width:100%"></textarea>
+    </div>
     <input type="hidden" id="pe-edit-id"/>
     <button class="btn-sm" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
     <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
@@ -1235,7 +1238,8 @@ async function cargarProductosEstandar() {
       unidadEstandar: r['Unidad estándar'] || '',
       categoria: r['Categoría de producto'] || '',
       area: r['Área de negocio'] || '',
-      activo: String(r['Activo']) === 'No' ? 'No' : 'Sí'
+      activo: String(r['Activo']) === 'No' ? 'No' : 'Sí',
+      notas: r['Notas'] || ''
     })).filter(p => p.id || p.nombre);
   } catch (e) { PRODUCTOS_ESTANDAR = []; }
   poblarSelectsPe();
@@ -1278,6 +1282,7 @@ function cancelarPe() {
   document.getElementById('pe-categoria').value = '';
   document.getElementById('pe-area').value = '';
   document.getElementById('pe-activo').value = 'Sí';
+  document.getElementById('pe-notas').value = '';
   document.getElementById('btn-pe-guardar').textContent = 'Guardar producto';
 }
 
@@ -1292,6 +1297,7 @@ function editarPe(id) {
   document.getElementById('pe-categoria').value = p.categoria;
   document.getElementById('pe-area').value = p.area;
   document.getElementById('pe-activo').value = p.activo;
+  document.getElementById('pe-notas').value = p.notas || '';
   document.getElementById('btn-pe-guardar').textContent = 'Guardar cambios';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1303,11 +1309,12 @@ async function guardarPe() {
   const categoria = document.getElementById('pe-categoria').value;
   const area = document.getElementById('pe-area').value;
   const activo = document.getElementById('pe-activo').value;
+  const notas = document.getElementById('pe-notas').value.trim();
   if (!nombre) { showToast('Escribí el nombre del producto', 'error'); return; }
   if (!unidad) { showToast('Elegí la unidad estándar de receta', 'error'); return; }
   try {
-    if (id) await postAP({ modulo: 'pe_editar', id: id, nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
-    else await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo });
+    if (id) await postAP({ modulo: 'pe_editar', id: id, nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas });
+    else await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas });
     showToast(id ? 'Producto actualizado ✓' : 'Producto creado ✓');
     cancelarPe();
     await cargarProductosEstandar();
@@ -1323,6 +1330,16 @@ async function eliminarPe(id) {
     showToast('Producto eliminado ✓');
     await cargarProductosEstandar();
   } catch (e) { showToast('No se pudo eliminar — ' + e.message, 'error'); }
+}
+
+let PE_CAT_EXP = new Set();
+function togglePeCatExp(id){ if (PE_CAT_EXP.has(id)) PE_CAT_EXP.delete(id); else PE_CAT_EXP.add(id); renderProductosEstandar(); }
+
+// Costo comparable de un ítem para elegir el "mejor": usa el costo por unidad
+// estándar si está calculado; si no, cae al precio de la última compra.
+function _peCostoComparable(it){
+  if (it.costoEstandar > 0) return it.costoEstandar;
+  return it.costoSugerido || it.precioSinIva || 0;
 }
 
 function renderProductosEstandar() {
@@ -1342,18 +1359,53 @@ function renderProductosEstandar() {
   document.getElementById('pe-count-inactivos').textContent = PRODUCTOS_ESTANDAR.length - activos;
   document.getElementById('pe-count-total').textContent = PRODUCTOS_ESTANDAR.length;
   if (!lista.length) { cont.innerHTML = '<div class="empty-state">Sin productos estándar todavía. Agregá el primero con “+ Producto estándar”.</div>'; return; }
-  let html = '<table class="stock-table"><thead><tr><th>Nombre</th><th>Unidad estándar</th><th>Categoría</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody>';
+  let html = '<table class="stock-table"><thead><tr><th></th><th>Nombre</th><th>Unidad estándar</th><th>Categoría</th><th>Área</th><th>Proveedores</th><th>Mejor costo/u.</th><th>Estado</th><th></th></tr></thead><tbody>';
   lista.forEach(p => {
-    html += `<tr${p.activo === 'No' ? ' style="opacity:.55"' : ''}>
-      <td><b>${escHtml(p.nombre)}</b></td>
+    const items = itemsAsociados(p.id);
+    const abierto = PE_CAT_EXP.has(p.id);
+    const costeados = items.map(it => ({ it, costo: _peCostoComparable(it) }));
+    const validos = costeados.filter(x => x.costo > 0);
+    const mejor = validos.length ? Math.min.apply(null, validos.map(x => x.costo)) : null;
+    html += `<tr style="cursor:pointer${p.activo === 'No' ? ';opacity:.55' : ''}" onclick="togglePeCatExp('${escapeAttr(p.id)}')">
+      <td>${items.length ? (abierto ? '▾' : '▸') : ''}</td>
+      <td><b>${escHtml(p.nombre)}</b>${p.notas ? ' <span title="'+escapeAttr(p.notas)+'" style="color:var(--muted)">📝</span>' : ''}</td>
       <td>${escHtml(p.unidadEstandar)}</td>
       <td>${escHtml(p.categoria || '—')}</td>
       <td>${escHtml(p.area || '—')}</td>
+      <td>${items.length ? ('<b>'+items.length+'</b>') : '<span style="color:var(--amber)">0</span>'}</td>
+      <td>${mejor != null ? ('<b style="color:var(--green)">'+_money(mejor)+'</b>') : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${p.activo === 'Sí' ? '<span style="color:var(--green)">Activo</span>' : '<span style="color:var(--muted)">Inactivo</span>'}</td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">
         <button class="btn-sm" onclick="editarPe('${escapeAttr(p.id)}')">Editar</button>
         <button class="btn-sm" onclick="eliminarPe('${escapeAttr(p.id)}')">Eliminar</button>
       </td></tr>`;
+    if (abierto) {
+      if (p.notas) {
+        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted)">📝 ${escHtml(p.notas)}</td></tr>`;
+      }
+      if (items.length) {
+        const ordenados = costeados.slice().sort((a, b) => {
+          const av = a.costo > 0 ? a.costo : Infinity, bv = b.costo > 0 ? b.costo : Infinity; return av - bv;
+        });
+        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="padding:0">
+          <table class="stock-table" style="margin:0;width:100%;font-size:12px">
+          <thead><tr><th>Proveedor</th><th>Producto (factura)</th><th>Precio de compra</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>`;
+        ordenados.forEach(({ it, costo }) => {
+          const esMejor = (mejor != null && costo > 0 && Math.abs(costo - mejor) < 1e-9);
+          const precio = it.costoSugerido || it.precioSinIva || 0;
+          const ce = it.costoEstandar > 0 ? it.costoEstandar : null;
+          html += `<tr${esMejor ? ' style="background:rgba(22,163,74,.10)"' : ''}>
+            <td>${esMejor ? '⭐ ' : ''}<b>${escHtml(it.proveedor || '—')}</b></td>
+            <td>${escHtml(it.nombreFactura || '—')}</td>
+            <td>${precio ? _money(precio) : '—'}</td>
+            <td>${ce != null ? ('<b style="color:var(--green)">'+_money(ce)+'</b> <span style="color:var(--muted)">/'+escHtml(p.unidadEstandar)+'</span>') : '<span style="color:var(--muted)">—</span>'}</td>
+            <td style="white-space:nowrap">${archivoBtn(it.clave)}</td></tr>`;
+        });
+        html += `</tbody></table></td></tr>`;
+      } else {
+        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted)">Todavía sin facturas asociadas. Asociá sus proveedores en “Productos estándar y sus facturas”.</td></tr>`;
+      }
+    }
   });
   html += '</tbody></table>';
   cont.innerHTML = html;

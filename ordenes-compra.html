@@ -328,6 +328,11 @@ const SHEETS_URL_CIERRES = 'https://script.google.com/macros/s/AKfycbzegddEwvSBs
 const APPS_SCRIPT_ORDENES = 'https://script.google.com/macros/s/AKfycbyuS-7IHHGcN2iLUdtQFr0txHoIjV2z2C-SMTKmpx3Nqi3cIgH7OZK0nNTbys40iJoT/exec';
 const IVA             = 0.13;  // IVA incluido en "Total Ventas ₡"
 const PCT_PRESUPUESTO = 0.35;  // % de las ventas netas que define el presupuesto semanal
+// Kioskos que venden en dólares (Square, datáfono, SINPE): su presupuesto se
+// calcula sobre ventas en $, pero las compras/órdenes son en colones, así que
+// el saldo disponible se convierte a ₡ con el tipo de cambio del cierre.
+const KIOSKOS_USD = ['Catalinas'];
+function esKioskoUSD(k){ return KIOSKOS_USD.some(function(u){ return claveNorm(u) === claveNorm(k); }); }
 // ─────────────────────────────────────────────────────────────────
 
 const hoy      = new Date();
@@ -742,6 +747,7 @@ async function cargarCatalogoDelKiosko() {
     return {
       ...p,
       area:          p.area || 'Sin área',
+      categoria:     p.categoria || 'Sin categoría',
       proveedores:   provs,
       // Valores por defecto de la línea = última compra (el usuario puede
       // cambiar el proveedor desde el desplegable y el precio se ajusta).
@@ -854,7 +860,7 @@ async function cargarCierres() {
   // guardado con distinta capitalización que el valor canónico del <select>.
   var lista = (data.records || [])
     .filter(function(r){ return claveNorm(r[3]) === claveNorm(kioskoActual); })
-    .map(function(r){ return { fecha: String(r[1]||'').slice(0,10), totalVentas: parseFloat(r[10]) || 0 }; })
+    .map(function(r){ return { fecha: String(r[1]||'').slice(0,10), totalVentas: parseFloat(r[10]) || 0, tc: parseFloat(r[24]) || 0 }; })
     .filter(function(r){ return r.fecha; });
   cierresCache[kioskoActual] = lista;
   return lista;
@@ -946,12 +952,26 @@ function renderKPISemanas() {
 async function calcularPresupuestoSemanal(fechaYMD) {
   var rango    = rangoSemanaAnterior(fechaYMD);
   var cierres  = await cargarCierres();
+  var esUSD    = esKioskoUSD(kioskoActual);
+  // Tipo de cambio de respaldo = el del cierre más reciente con TC > 0 (por si
+  // un cierre puntual de un kiosko en $ no trajo su propio TC).
+  var tcResp   = 0;
+  cierres.forEach(function(c){ if (c.tc > 0) tcResp = c.tc; });
+  var tcUsado  = 0;
+  // Catalinas (y cualquier kiosko en $): las ventas vienen en dólares pero las
+  // compras son en colones, así que convertimos cada cierre a ₡ con su tipo de
+  // cambio (o el de respaldo) antes de sacar el 35%. El resto ya está en ₡.
   var brutas   = cierres
     .filter(function(c){ return c.fecha >= rango.inicio && c.fecha <= rango.fin; })
-    .reduce(function(a,c){ return a + c.totalVentas; }, 0);
+    .reduce(function(a,c){
+      if (!esUSD) return a + c.totalVentas;
+      var tc = c.tc > 0 ? c.tc : tcResp;
+      if (tc > 0) tcUsado = tc;
+      return a + c.totalVentas * tc;
+    }, 0);
   var netas       = Math.round(brutas / (1 + IVA));
   var presupuesto = Math.round(netas * PCT_PRESUPUESTO);
-  return { inicio: rango.inicio, fin: rango.fin, brutas: brutas, netas: netas, presupuesto: presupuesto };
+  return { inicio: rango.inicio, fin: rango.fin, brutas: brutas, netas: netas, presupuesto: presupuesto, usd: esUSD, tc: tcUsado };
 }
 
 async function actualizarPresupuesto() {
@@ -970,6 +990,7 @@ async function actualizarPresupuesto() {
     ordenActual.comprometido_semana = comprometido;
     ordenActual.saldo_disponible    = saldoDisponible;
     ordenActual.presupuesto_info = 'Semana ' + fmtDMY(r.inicio) + ' – ' + fmtDMY(r.fin)
+      + (r.usd ? ' · Ventas en $ convertidas a ₡' + (r.tc > 0 ? ' (TC ₡' + r.tc + ')' : '') : '')
       + ' · Ventas brutas: ' + fmt(r.brutas) + ' · Netas (sin IVA): ' + fmt(r.netas)
       + (comprometido > 0 ? ' · Ya comprometido esta semana: ' + fmt(comprometido) : '');
     saveOrdenes(ordenes);
@@ -1096,11 +1117,21 @@ function renderOrden() {
   var areas = [...new Set(productos.map(function(p){ return p.area || 'Sin área'; }))].sort();
 
   areas.forEach(function(area) {
-    var prods = productos.filter(function(p){ return (p.area||'Sin área') === area; });
-    if (!prods.length) return;
+    var prodsArea = productos.filter(function(p){ return (p.area||'Sin área') === area; });
+    if (!prodsArea.length) return;
     var subtotal = 0;
     var filas = '';
     var filasVisibles = 0;
+    var colspanFull = esRecarga ? 5 : 7;
+    var cats = [...new Set(prodsArea.map(function(p){ return p.categoria || 'Sin categoría'; }))]
+      .sort(function(a,b){ return a.localeCompare(b,'es'); });
+
+    cats.forEach(function(cat) {
+    var prods = prodsArea.filter(function(p){ return (p.categoria||'Sin categoría') === cat; });
+    if (!prods.length) return;
+    var catSubtotal = 0;
+    var catVisibles = 0;
+    var catFilas = '';
 
     prods.forEach(function(p) {
       var min       = parseFloat(p.stock_minimo) || 0;
@@ -1112,13 +1143,13 @@ function renderOrden() {
       var proveedor = linea.proveedor !== undefined ? linea.proveedor : (p.proveedor||'');
       var precioC   = precioLinea(p, linea);
       var monto     = pedido * precioC;
-      subtotal += monto;
+      catSubtotal += monto;
 
       // El buscador solo filtra qué filas se muestran — el subtotal y el
       // total general de arriba siguen contando TODOS los productos,
       // aunque estén ocultos por la búsqueda en este momento.
       if (q && p.nombre.toLowerCase().indexOf(q) === -1) return;
-      filasVisibles++;
+      catVisibles++;
 
       var sid      = slugId(p.id);
       var pres     = [p.presentacion, p.tamano].filter(Boolean).join(' ') || (p.unidad ? 'est.: ' + p.unidad : '—');
@@ -1159,7 +1190,7 @@ function renderOrden() {
           + '" placeholder="Sin compras — anotar…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)"></td>';
       }
 
-      filas += '<tr>'
+      catFilas += '<tr>'
         + '<td><div style="font-weight:500;font-size:13px;">' + escHtml(p.nombre) + '</div>'
         + '<div style="font-size:11px;color:var(--muted);">' + escHtml(pres) + '</div></td>'
         + colStock
@@ -1183,11 +1214,20 @@ function renderOrden() {
             + (e.fecha ? ' <span style="color:var(--muted);font-weight:400;">· ' + escHtml(e.fecha.split(' ')[0]) + '</span>' : '') + '</span>'
             + '</button>';
         }).join('');
-        filas += '<tr id="prov-row-' + sid + '" style="display:none;"><td colspan="' + colspan + '" style="background:var(--surface);padding:8px 12px;">'
+        catFilas += '<tr id="prov-row-' + sid + '" style="display:none;"><td colspan="' + colspan + '" style="background:var(--surface);padding:8px 12px;">'
           + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;">Proveedores donde se ha comprado · último precio</div>'
           + '<div class="prov-opts">' + opciones + '</div>'
           + '</td></tr>';
       }
+    });
+
+    subtotal += catSubtotal;
+    filasVisibles += catVisibles;
+    if (q && !catVisibles) return; // ninguna fila de esta categoría coincide con la búsqueda
+    filas += '<tr class="cat-row"><td colspan="' + colspanFull + '" style="background:var(--surface);padding:6px 14px;border-top:1px solid var(--border);">'
+      + '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);">' + escHtml(cat) + '</span>'
+      + '<span style="float:right;font-size:11px;font-weight:600;color:var(--blue);" id="sub-cat-' + slugId(area + '||' + cat) + '">' + fmt(catSubtotal) + '</span>'
+      + '</td></tr>' + catFilas;
     });
 
     totalGeneral += subtotal;
@@ -1330,10 +1370,18 @@ function recalcularTotales() {
   var areas = [...new Set(productos.map(function(p){ return p.area || 'Sin área'; }))];
   areas.forEach(function(area) {
     var sub = 0;
-    productos.filter(function(p){ return (p.area||'Sin área') === area; }).forEach(function(p){
-      var linea  = ordenActual.lineas[p.id] || {};
-      var pedido = linea.pedido !== undefined ? linea.pedido : calcPedidoSugerido(p);
-      sub += (pedido||0) * precioLinea(p, linea);
+    var prodsArea = productos.filter(function(p){ return (p.area||'Sin área') === area; });
+    var cats = [...new Set(prodsArea.map(function(p){ return p.categoria || 'Sin categoría'; }))];
+    cats.forEach(function(cat) {
+      var catSub = 0;
+      prodsArea.filter(function(p){ return (p.categoria||'Sin categoría') === cat; }).forEach(function(p){
+        var linea  = ordenActual.lineas[p.id] || {};
+        var pedido = linea.pedido !== undefined ? linea.pedido : calcPedidoSugerido(p);
+        catSub += (pedido||0) * precioLinea(p, linea);
+      });
+      sub += catSub;
+      var cEl = document.getElementById('sub-cat-' + slugId(area + '||' + cat));
+      if (cEl) cEl.textContent = fmt(catSub);
     });
     total += sub;
     var el = document.getElementById('sub-' + slugId(area));
