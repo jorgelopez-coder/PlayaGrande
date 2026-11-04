@@ -246,129 +246,27 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <main>
 
 <div class="mp-tabs">
-  <button class="mp-tab active" id="tab-btn-homologacion" onclick="switchTab('homologacion')">Homologación</button>
-  <button class="mp-tab" id="tab-btn-fichas" onclick="switchTab('fichas')">Fichas de producto</button>
+  <button class="mp-tab active" id="tab-btn-homologacion" onclick="switchTab('homologacion')">1 · Productos de factura</button>
+  <button class="mp-tab" id="tab-btn-asociar" onclick="switchTab('asociar')">2 · Sin asociar</button>
+  <button class="mp-tab" id="tab-btn-estandar" onclick="switchTab('estandar')">3 · Estándar y sus facturas</button>
+  <button class="mp-tab" id="tab-btn-catalogo" onclick="switchTab('catalogo')">4 · Catálogo</button>
   <button class="mp-tab" id="tab-btn-matriz" onclick="switchTab('matriz')">🏪 Matriz de kioskos</button>
   <button class="mp-tab" id="tab-btn-config" onclick="switchTab('config')">⚙ Configuración</button>
 </div>
 
 <div id="tab-homologacion">
 
-<!-- Catálogo de productos estándar (fusionado desde su pestaña aparte, 2026-11-02) -->
 <div class="card">
   <div class="card-title-row">
-    <p class="card-title">Catálogo de productos estándar</p>
-    <button class="btn-sm" id="btn-pe-toggle" onclick="togglePeForm()">+ Producto estándar</button>
-  </div>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Esta es la <b>base curada a mano</b>: cada producto se define una sola vez con su <b>nombre</b> y su
-    <b>unidad estándar de receta</b> (ml, g, unidad…). Es la fuente única para Recetas, Inventario, Órdenes y
-    Análisis. Después se le asocian las líneas de factura que le correspondan para traer su costo.
-  </p>
-  <div id="pe-form" style="display:none">
-    <div class="field-row-3">
-      <div class="field"><label>Nombre *</label><input type="text" id="pe-nombre" placeholder="ej: Ron blanco"/></div>
-      <div class="field"><label>Unidad estándar de receta *</label>
-        <select id="pe-unidad"><option value="">—</option></select>
-      </div>
-      <div class="field"><label>Activo</label>
-        <select id="pe-activo"><option value="Sí" selected>Sí</option><option value="No">No</option></select>
-      </div>
-    </div>
-    <div class="field-row-3">
-      <div class="field"><label>Categoría de producto</label>
-        <select id="pe-categoria"><option value="">—</option></select>
-      </div>
-      <div class="field"><label>Área de negocio</label>
-        <select id="pe-area"><option value="">—</option></select>
-      </div>
-      <div class="field"></div>
-    </div>
-    <div class="field"><label>Notas del producto</label>
-      <textarea id="pe-notas" rows="2" placeholder="observaciones, presentación habitual, proveedor preferido…" style="width:100%"></textarea>
-    </div>
-    <input type="hidden" id="pe-edit-id"/>
-    <button class="btn-sm" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
-    <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
-  </div>
-  <div class="mp-counts" style="margin-top:1rem">
-    <span>Activos: <b id="pe-count-activos" style="color:var(--green)">0</b></span>
-    <span>Inactivos: <b id="pe-count-inactivos" style="color:var(--muted)">0</b></span>
-    <span>Total: <b id="pe-count-total">0</b></span>
-    <button class="btn-sm" id="btn-pe-toggle-lista" onclick="togglePeLista()" style="margin-left:auto">Ver listado ▾</button>
-  </div>
-  <div id="pe-listado-wrap" style="display:none">
-  <div class="field-row-3">
-    <div class="field"><label>Buscar</label><input type="text" id="pe-buscar" placeholder="nombre…" oninput="renderProductosEstandar()"/></div>
-    <div class="field"><label>Categoría</label><select id="pe-filtro-cat" onchange="renderProductosEstandar()"><option value="" selected>Todas</option></select></div>
-    <div class="field"><label>Estado</label><select id="pe-filtro-activo" onchange="renderProductosEstandar()"><option value="" selected>Todos</option><option value="Sí">Activos</option><option value="No">Inactivos</option></select></div>
-  </div>
-  <div class="stock-table-wrap"><div id="pe-lista"><div class="empty-state">Cargando…</div></div></div>
-  </div><!-- /pe-listado-wrap -->
-</div>
-
-<!-- Nivel 2 — asociación a Producto Estándar (2026-11-02) -->
-<div class="card">
-  <div class="card-title-row">
-    <p class="card-title">Productos estándar y sus facturas</p>
-    <button class="btn-sm" id="btn-sync-2" onclick="sincronizarAhora()">🔄 Sincronizar desde facturas</button>
-  </div>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Cada producto estándar de tu catálogo, con los productos identificados en las facturas que tiene asociados.
-    Abrí la flechita para ver las facturas asociadas a cada uno.
-  </p>
-  <div class="field-row-3">
-    <div class="field"><label>Buscar producto estándar</label><input type="text" id="as-buscar" placeholder="nombre…" oninput="renderAsociacion()"/></div>
-    <div class="field"><label>Mostrar</label>
-      <select id="as-filtro" onchange="renderAsociacion()">
-        <option value="" selected>Todos</option>
-        <option value="con">Solo con facturas</option>
-        <option value="sin">Solo sin facturas</option>
-      </select>
-    </div>
-    <div class="field"></div>
-  </div>
-  <div class="stock-table-wrap"><div id="as-lista"><div class="empty-state">Cargando…</div></div></div>
-</div>
-
-<div class="card">
-  <div class="card-title-row">
-    <p class="card-title">Facturas sin asociar a un producto estándar</p>
-    <span class="mp-counts"><span>Sin asociar: <b id="sa-count" style="color:var(--amber)">0</b></span></span>
-  </div>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Productos identificados en facturas (que aplican) todavía sin producto estándar. Elegí el producto estándar
-    —te marco el más parecido— y asocialo.
-  </p>
-  <div class="field-row-3">
-    <div class="field"><label>Buscar</label><input type="text" id="sa-buscar" placeholder="proveedor o producto…" oninput="renderSinAsociar()"/></div>
-    <div class="field"></div>
-    <div class="field"></div>
-  </div>
-  <div id="sa-bulk" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,.04);border:1px solid var(--border,#0001);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-    <b><span id="sa-sel-count">0</span> seleccionada(s)</b>
-    <label style="display:flex;align-items:center;gap:6px;margin:0">Asociar todas a:
-      <select id="sa-bulk-pe" style="min-width:200px"></select>
-    </label>
-    <button class="btn-sm" onclick="asociarSeleccionadas()">Asociar seleccionadas</button>
-    <button class="btn-sm" onclick="limpiarSaSel()">Limpiar selección</button>
-  </div>
-  <div class="stock-table-wrap"><div id="sa-lista"><div class="empty-state">Cargando…</div></div></div>
-</div>
-
-
-<div class="card">
-  <div class="card-title-row">
-    <p class="card-title">Homologación de nombres de factura</p>
+    <p class="card-title">Productos y servicios identificados en facturas</p>
     <button class="btn-sm" id="btn-sync" onclick="sincronizarAhora()">🔄 Sincronizar desde facturas</button>
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
     Cada fila es un texto de producto distinto visto en las facturas (Desglose_IA), agrupado por proveedor.
-    La <b>propuesta automática</b> es el nombre que ya generó la IA al leer la factura (o una limpieza básica
-    si esa factura no trajo ninguna); ajustala si hace falta y guardá el <b>Nombre Estándar</b> que se va a
-    usar de acá en adelante para ese producto en toda la operación. "Sincronizar" trae los productos nuevos
-    sin tocar los que ya confirmaste. Para cargar precio, costo y en qué kioskos se vende cada uno,
-    andá a la sección <b>Fichas de producto</b> más abajo.
+    Acá definís únicamente qué líneas <b>aplican</b> —son productos que vas a tener en inventario y órdenes—
+    y cuáles <b>no</b> —servicios u otros cobros que no se mapean—. "Sincronizar desde facturas" trae los
+    productos nuevos sin tocar lo que ya marcaste. La asociación a un producto estándar se hace en las
+    pestañas siguientes.
   </p>
   <div class="mp-counts">
     <span>Pendientes: <b id="mp-count-pendientes" style="color:var(--amber)">0</b></span>
@@ -396,41 +294,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <div class="card">
-  <div class="card-title-row">
-    <p class="card-title">Agregar producto manual</p>
-    <button class="btn-sm" id="btn-manual-toggle" onclick="toggleManual()">+ Agregar producto</button>
-  </div>
-  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem" id="mp-manual-hint">
-    Para productos que todavía no aparecieron en ninguna factura procesada (o que nunca van a venir por factura)
-    pero igual necesitás tener en el maestro para Recetas/Inventario/Análisis.
-  </p>
-  <div id="mp-manual-form" style="display:none">
-    <div class="field-row-3">
-      <div class="field"><label>Nombre estándar *</label><input type="text" id="mf-nombre" placeholder="ej: Cerveza artesanal IPA 355ml"/></div>
-      <div class="field"><label>Proveedor</label><input type="text" id="mf-proveedor" placeholder="opcional"/></div>
-      <div class="field"><label>Categoría</label><input type="text" id="mf-categoria" placeholder="opcional"/></div>
-    </div>
-    <div class="field-row-3">
-      <div class="field"><label>Unidad</label><input type="text" id="mf-unidad" placeholder="ej: unidad, kg, litro"/></div>
-      <div class="field"><label>Nombre en factura (si es distinto)</label><input type="text" id="mf-nombre-factura" placeholder="opcional"/></div>
-      <div class="field"><label>Aplica</label>
-        <select id="mf-aplica">
-          <option value="Sí" selected>Sí</option>
-          <option value="No">No (servicio, no mapear)</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn-sm" id="btn-manual-guardar" onclick="guardarManual()">Guardar producto</button>
-  </div>
-</div>
-
-<div class="card">
   <div class="mp-bulkbar" id="mp-bulkbar">
     <span><b id="mp-bulk-count">0</b> seleccionados</span>
     <button class="btn-sm" onclick="marcarAplicaLote('Sí')">Marcar: Aplica Sí</button>
     <button class="btn-sm" onclick="marcarAplicaLote('No')">Marcar: No aplica (servicio)</button>
-    <input type="text" id="mp-bulk-nombre" placeholder="Nombre estándar para toda la selección…" style="min-width:220px;flex:1"/>
-    <button class="btn-sm" onclick="guardarNombreEstandarLote()">Guardar nombre estándar</button>
     <button class="btn-sm" onclick="limpiarSeleccion()">Deseleccionar todo</button>
   </div>
   <div class="stock-table-wrap"><div id="mp-lista"><div class="empty-state">Cargando…</div></div></div>
@@ -438,38 +305,129 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 </div>
 
-<div id="tab-fichas" style="display:none">
+<div id="tab-asociar" style="display:none">
 
 <div class="card">
   <div class="card-title-row">
-    <p class="card-title">Fichas de producto</p>
+    <p class="card-title">Facturas sin asociar a un producto estándar</p>
+    <span class="mp-counts"><span>Sin asociar: <b id="sa-count" style="color:var(--amber)">0</b></span></span>
   </div>
   <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
-    Cada fila de acá es <b>un producto</b>, agrupado por su Nombre Estándar (los distintos
-    proveedores/nombres de factura que confirmaste con ese mismo nombre en Homologación quedan
-    adentro — abrí la flechita para verlos). Acá cargás la clasificación, precio/costo, en qué
-    kioskos se vende y la info para recetas de cada producto ya confirmado (los marcados
-    "No aplica" arriba no aparecen porque son servicios, no productos). El
-    <b>precio de compra se prellena solo</b> con el último precio visto en las facturas registradas
-    (Desglose_IA) — ajustalo si hace falta antes de guardar.
+    Productos identificados en facturas (que aplican) todavía sin producto estándar. Elegí el producto estándar
+    —te marco el más parecido— y asocialo.
   </p>
-  <div class="mp-counts">
-    <span>Con ficha completa: <b id="pf-count-completas" style="color:var(--green)">0</b></span>
-    <span>Pendientes de ficha: <b id="pf-count-pendientes" style="color:var(--amber)">0</b></span>
-    <span>Total: <b id="pf-count-total">0</b></span>
-  </div>
   <div class="field-row-3">
-    <div class="field"><label>Buscar</label><input type="text" id="pf-buscar" placeholder="proveedor o producto…" oninput="renderFichas()"/></div>
-    <div class="field"><label>Estado de ficha</label>
-      <select id="pf-filtro-estado" onchange="renderFichas()">
+    <div class="field"><label>Buscar</label><input type="text" id="sa-buscar" placeholder="proveedor o producto…" oninput="renderSinAsociar()"/></div>
+    <div class="field"></div>
+    <div class="field"></div>
+  </div>
+  <div id="sa-bulk" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,.04);border:1px solid var(--border,#0001);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+    <b><span id="sa-sel-count">0</span> seleccionada(s)</b>
+    <label style="display:flex;align-items:center;gap:6px;margin:0">Asociar todas a:
+      <select id="sa-bulk-pe" style="min-width:200px"></select>
+    </label>
+    <button class="btn-sm" onclick="asociarSeleccionadas()">Asociar seleccionadas</button>
+    <button class="btn-sm" onclick="limpiarSaSel()">Limpiar selección</button>
+  </div>
+  <div class="stock-table-wrap"><div id="sa-lista"><div class="empty-state">Cargando…</div></div></div>
+</div>
+
+</div>
+
+<div id="tab-estandar" style="display:none">
+
+<!-- Nivel 2 — asociación a Producto Estándar (2026-11-02) -->
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Productos estándar y sus facturas</p>
+    <button class="btn-sm" id="btn-sync-2" onclick="sincronizarAhora()">🔄 Sincronizar desde facturas</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Cada producto estándar de tu catálogo, con los productos identificados en las facturas que tiene asociados.
+    Abrí la flechita para ver las facturas asociadas a cada uno.
+  </p>
+  <div class="field-row-3">
+    <div class="field"><label>Buscar producto estándar</label><input type="text" id="as-buscar" placeholder="nombre…" oninput="renderAsociacion()"/></div>
+    <div class="field"><label>Mostrar</label>
+      <select id="as-filtro" onchange="renderAsociacion()">
         <option value="" selected>Todos</option>
-        <option value="pendiente">Pendientes</option>
-        <option value="completa">Completas</option>
+        <option value="con">Solo con facturas</option>
+        <option value="sin">Solo sin facturas</option>
       </select>
     </div>
+    <div class="field"></div>
   </div>
-  <div class="stock-table-wrap"><div id="pf-lista"><div class="empty-state">Cargando…</div></div></div>
+  <div class="stock-table-wrap"><div id="as-lista"><div class="empty-state">Cargando…</div></div></div>
 </div>
+
+</div>
+
+<div id="tab-catalogo" style="display:none">
+
+<!-- Catálogo de productos estándar (fusionado desde su pestaña aparte, 2026-11-02) -->
+<div class="card">
+  <div class="card-title-row">
+    <p class="card-title">Catálogo de productos estándar</p>
+    <button class="btn-sm" id="btn-pe-toggle" onclick="togglePeForm()">+ Producto estándar</button>
+  </div>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    Esta es la <b>base curada a mano</b> y lista para consulta: cada producto se define una sola vez con su
+    <b>nombre</b> y su <b>unidad estándar de receta</b> (ml, g, unidad…). Es la fuente única para Recetas,
+    Inventario, Órdenes y Análisis. Podés agregarle <b>notas</b> y, con “+ Más datos del producto”, el
+    % de rendimiento, el peso del empaque y la presentación de compra.
+  </p>
+  <div id="pe-form" style="display:none">
+    <div class="field-row-3">
+      <div class="field"><label>Nombre *</label><input type="text" id="pe-nombre" placeholder="ej: Ron blanco"/></div>
+      <div class="field"><label>Unidad estándar de receta *</label>
+        <select id="pe-unidad"><option value="">—</option></select>
+      </div>
+      <div class="field"><label>Activo</label>
+        <select id="pe-activo"><option value="Sí" selected>Sí</option><option value="No">No</option></select>
+      </div>
+    </div>
+    <div class="field-row-3">
+      <div class="field"><label>Categoría de producto</label>
+        <select id="pe-categoria"><option value="">—</option></select>
+      </div>
+      <div class="field"><label>Área de negocio</label>
+        <select id="pe-area"><option value="">—</option></select>
+      </div>
+      <div class="field"></div>
+    </div>
+    <div class="field"><label>Notas del producto</label>
+      <textarea id="pe-notas" rows="2" placeholder="observaciones, presentación habitual, proveedor preferido…" style="width:100%"></textarea>
+    </div>
+    <div style="margin:.25rem 0 .75rem">
+      <button type="button" class="btn-sm" id="btn-pe-masdatos" onclick="togglePeMasDatos()">+ Más datos del producto</button>
+    </div>
+    <div id="pe-masdatos" style="display:none">
+      <div class="field-row-3">
+        <div class="field"><label>% de rendimiento</label><input type="number" id="pe-rendimiento" min="0" step="any" placeholder="ej: 85"/></div>
+        <div class="field"><label>Peso del empaque / contenedor (g)</label><input type="number" id="pe-peso-empaque" min="0" step="any" placeholder="ej: 20"/></div>
+        <div class="field"><label>Presentación de compra</label><input type="text" id="pe-presentacion-compra" placeholder="ej: Caja, Six pack, Barril"/></div>
+      </div>
+    </div>
+    <input type="hidden" id="pe-edit-id"/>
+    <button class="btn-sm" id="btn-pe-guardar" onclick="guardarPe()">Guardar producto</button>
+    <button class="btn-sm" onclick="cancelarPe()">Cancelar</button>
+  </div>
+  <div class="mp-counts" style="margin-top:1rem">
+    <span>Activos: <b id="pe-count-activos" style="color:var(--green)">0</b></span>
+    <span>Inactivos: <b id="pe-count-inactivos" style="color:var(--muted)">0</b></span>
+    <span>Total: <b id="pe-count-total">0</b></span>
+    <button class="btn-sm" id="btn-pe-toggle-lista" onclick="togglePeLista()" style="margin-left:auto">Ver listado ▾</button>
+  </div>
+  <div id="pe-listado-wrap" style="display:none">
+  <div class="field-row-3">
+    <div class="field"><label>Buscar</label><input type="text" id="pe-buscar" placeholder="nombre…" oninput="renderProductosEstandar()"/></div>
+    <div class="field"><label>Categoría</label><select id="pe-filtro-cat" onchange="renderProductosEstandar()"><option value="" selected>Todas</option></select></div>
+    <div class="field"><label>Estado</label><select id="pe-filtro-activo" onchange="renderProductosEstandar()"><option value="" selected>Todos</option><option value="Sí">Activos</option><option value="No">Inactivos</option></select></div>
+  </div>
+  <div class="stock-table-wrap"><div id="pe-lista"><div class="empty-state">Cargando…</div></div></div>
+  </div><!-- /pe-listado-wrap -->
+</div>
+
 </div>
 
 <div id="tab-matriz" style="display:none">
@@ -1263,7 +1221,10 @@ async function cargarProductosEstandar() {
       categoria: r['Categoría de producto'] || '',
       area: r['Área de negocio'] || '',
       activo: String(r['Activo']) === 'No' ? 'No' : 'Sí',
-      notas: r['Notas'] || ''
+      notas: r['Notas'] || '',
+      rendimiento: r['Rendimiento (%)'] || '',
+      pesoEmpaque: r['Peso empaque (g)'] || '',
+      presentacionCompra: r['Presentación de compra'] || ''
     })).filter(p => p.id || p.nombre);
   } catch (e) { PRODUCTOS_ESTANDAR = []; }
   poblarSelectsPe();
@@ -1298,6 +1259,14 @@ function togglePeForm() {
   document.getElementById('pe-nombre').focus();
 }
 
+function togglePeMasDatos(forzar) {
+  const d = document.getElementById('pe-masdatos');
+  const b = document.getElementById('btn-pe-masdatos');
+  const abrir = (typeof forzar === 'boolean') ? forzar : (d.style.display === 'none');
+  d.style.display = abrir ? '' : 'none';
+  if (b) b.textContent = abrir ? '− Menos datos' : '+ Más datos del producto';
+}
+
 function cancelarPe() {
   document.getElementById('pe-form').style.display = 'none';
   document.getElementById('pe-edit-id').value = '';
@@ -1307,6 +1276,10 @@ function cancelarPe() {
   document.getElementById('pe-area').value = '';
   document.getElementById('pe-activo').value = 'Sí';
   document.getElementById('pe-notas').value = '';
+  document.getElementById('pe-rendimiento').value = '';
+  document.getElementById('pe-peso-empaque').value = '';
+  document.getElementById('pe-presentacion-compra').value = '';
+  togglePeMasDatos(false);
   document.getElementById('btn-pe-guardar').textContent = 'Guardar producto';
 }
 
@@ -1322,6 +1295,10 @@ function editarPe(id) {
   document.getElementById('pe-area').value = p.area;
   document.getElementById('pe-activo').value = p.activo;
   document.getElementById('pe-notas').value = p.notas || '';
+  document.getElementById('pe-rendimiento').value = p.rendimiento || '';
+  document.getElementById('pe-peso-empaque').value = p.pesoEmpaque || '';
+  document.getElementById('pe-presentacion-compra').value = p.presentacionCompra || '';
+  togglePeMasDatos(!!(p.rendimiento || p.pesoEmpaque || p.presentacionCompra));
   document.getElementById('btn-pe-guardar').textContent = 'Guardar cambios';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1334,11 +1311,15 @@ async function guardarPe() {
   const area = document.getElementById('pe-area').value;
   const activo = document.getElementById('pe-activo').value;
   const notas = document.getElementById('pe-notas').value.trim();
+  const rendimiento = document.getElementById('pe-rendimiento').value.trim();
+  const pesoEmpaque = document.getElementById('pe-peso-empaque').value.trim();
+  const presentacionCompra = document.getElementById('pe-presentacion-compra').value.trim();
   if (!nombre) { showToast('Escribí el nombre del producto', 'error'); return; }
   if (!unidad) { showToast('Elegí la unidad estándar de receta', 'error'); return; }
+  const extra = { rendimiento: rendimiento, peso_empaque: pesoEmpaque, presentacion_compra: presentacionCompra };
   try {
-    if (id) await postAP({ modulo: 'pe_editar', id: id, nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas });
-    else await postAP({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas });
+    if (id) await postAP(Object.assign({ modulo: 'pe_editar', id: id, nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas }, extra));
+    else await postAP(Object.assign({ modulo: 'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: activo, notas: notas }, extra));
     showToast(id ? 'Producto actualizado ✓' : 'Producto creado ✓');
     cancelarPe();
     await cargarProductosEstandar();
@@ -1383,52 +1364,33 @@ function renderProductosEstandar() {
   document.getElementById('pe-count-inactivos').textContent = PRODUCTOS_ESTANDAR.length - activos;
   document.getElementById('pe-count-total').textContent = PRODUCTOS_ESTANDAR.length;
   if (!lista.length) { cont.innerHTML = '<div class="empty-state">Sin productos estándar todavía. Agregá el primero con “+ Producto estándar”.</div>'; return; }
-  let html = '<table class="stock-table"><thead><tr><th></th><th>Nombre</th><th>Unidad estándar</th><th>Categoría</th><th>Área</th><th>Proveedores</th><th>Mejor costo/u.</th><th>Estado</th><th></th></tr></thead><tbody>';
+  let html = '<table class="stock-table"><thead><tr><th></th><th>Nombre</th><th>Unidad estándar</th><th>Categoría</th><th>Área</th><th>Presentación de compra</th><th>Mejor costo/u.</th><th>Estado</th><th></th></tr></thead><tbody>';
   lista.forEach(p => {
     const items = itemsAsociados(p.id);
-    const abierto = PE_CAT_EXP.has(p.id);
     const costeados = items.map(it => ({ it, costo: _peCostoComparable(it) }));
     const validos = costeados.filter(x => x.costo > 0);
     const mejor = validos.length ? Math.min.apply(null, validos.map(x => x.costo)) : null;
+    const tieneDetalle = !!(p.notas || p.rendimiento || p.pesoEmpaque);
+    const abierto = PE_CAT_EXP.has(p.id);
     html += `<tr style="cursor:pointer${p.activo === 'No' ? ';opacity:.55' : ''}" onclick="togglePeCatExp('${escapeAttr(p.id)}')">
-      <td>${items.length ? (abierto ? '▾' : '▸') : ''}</td>
+      <td>${tieneDetalle ? (abierto ? '▾' : '▸') : ''}</td>
       <td><b>${escHtml(p.nombre)}</b>${p.notas ? ' <span title="'+escapeAttr(p.notas)+'" style="color:var(--muted)">📝</span>' : ''}</td>
       <td>${escHtml(p.unidadEstandar)}</td>
       <td>${escHtml(p.categoria || '—')}</td>
       <td>${escHtml(p.area || '—')}</td>
-      <td>${items.length ? ('<b>'+items.length+'</b>') : '<span style="color:var(--amber)">0</span>'}</td>
+      <td>${escHtml(p.presentacionCompra || '—')}</td>
       <td>${mejor != null ? ('<b style="color:var(--green)">'+_money(mejor)+'</b>') : '<span style="color:var(--muted)">—</span>'}</td>
       <td>${p.activo === 'Sí' ? '<span style="color:var(--green)">Activo</span>' : '<span style="color:var(--muted)">Inactivo</span>'}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
         <button class="btn-sm" onclick="editarPe('${escapeAttr(p.id)}')">Editar</button>
         <button class="btn-sm" onclick="eliminarPe('${escapeAttr(p.id)}')">Eliminar</button>
       </td></tr>`;
-    if (abierto) {
-      if (p.notas) {
-        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted)">📝 ${escHtml(p.notas)}</td></tr>`;
-      }
-      if (items.length) {
-        const ordenados = costeados.slice().sort((a, b) => {
-          const av = a.costo > 0 ? a.costo : Infinity, bv = b.costo > 0 ? b.costo : Infinity; return av - bv;
-        });
-        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="padding:0">
-          <table class="stock-table" style="margin:0;width:100%;font-size:12px">
-          <thead><tr><th>Proveedor</th><th>Producto (factura)</th><th>Precio de compra</th><th>Costo/u. estándar</th><th></th></tr></thead><tbody>`;
-        ordenados.forEach(({ it, costo }) => {
-          const esMejor = (mejor != null && costo > 0 && Math.abs(costo - mejor) < 1e-9);
-          const precio = it.costoSugerido || it.precioSinIva || 0;
-          const ce = it.costoEstandar > 0 ? it.costoEstandar : null;
-          html += `<tr${esMejor ? ' style="background:rgba(22,163,74,.10)"' : ''}>
-            <td>${esMejor ? '⭐ ' : ''}<b>${escHtml(it.proveedor || '—')}</b></td>
-            <td>${escHtml(it.nombreFactura || '—')}</td>
-            <td>${precio ? _money(precio) : '—'}</td>
-            <td>${ce != null ? ('<b style="color:var(--green)">'+_money(ce)+'</b> <span style="color:var(--muted)">/'+escHtml(p.unidadEstandar)+'</span>') : '<span style="color:var(--muted)">—</span>'}</td>
-            <td style="white-space:nowrap">${archivoBtn(it.clave)}</td></tr>`;
-        });
-        html += `</tbody></table></td></tr>`;
-      } else {
-        html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted)">Todavía sin facturas asociadas. Asociá sus proveedores en “Productos estándar y sus facturas”.</td></tr>`;
-      }
+    if (abierto && tieneDetalle) {
+      const detalle = [];
+      if (p.notas) detalle.push('📝 <b>Notas:</b> ' + escHtml(p.notas));
+      if (p.rendimiento) detalle.push('<b>% de rendimiento:</b> ' + escHtml(p.rendimiento) + '%');
+      if (p.pesoEmpaque) detalle.push('<b>Peso del empaque:</b> ' + escHtml(p.pesoEmpaque) + ' g');
+      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="8" style="font-size:12px;color:var(--muted);line-height:1.8">${detalle.join('&nbsp;&nbsp;·&nbsp;&nbsp;')}</td></tr>`;
     }
   });
   html += '</tbody></table>';
@@ -1817,14 +1779,13 @@ async function desasociarItem(j){
 }
 
 function switchTab(nombre) {
-  document.getElementById('tab-homologacion').style.display = nombre === 'homologacion' ? '' : 'none';
-  document.getElementById('tab-fichas').style.display = nombre === 'fichas' ? '' : 'none';
-  document.getElementById('tab-matriz').style.display = nombre === 'matriz' ? '' : 'none';
-  document.getElementById('tab-config').style.display = nombre === 'config' ? '' : 'none';
-  document.getElementById('tab-btn-homologacion').classList.toggle('active', nombre === 'homologacion');
-  document.getElementById('tab-btn-fichas').classList.toggle('active', nombre === 'fichas');
-  document.getElementById('tab-btn-matriz').classList.toggle('active', nombre === 'matriz');
-  document.getElementById('tab-btn-config').classList.toggle('active', nombre === 'config');
+  var TABS = ['homologacion','asociar','estandar','catalogo','matriz','config'];
+  TABS.forEach(function(t){
+    var cont = document.getElementById('tab-' + t);
+    if (cont) cont.style.display = (t === nombre) ? '' : 'none';
+    var btn = document.getElementById('tab-btn-' + t);
+    if (btn) btn.classList.toggle('active', t === nombre);
+  });
   if (nombre === 'matriz') { if (!KIOSKOS.length && !CARGANDO_KIOSKOS) cargarKioskosDisponibles(); renderMatriz(); }
   if (nombre === 'config') renderConfiguracion();
 }
@@ -1848,7 +1809,7 @@ function renderMaestro() {
 
   const cont = document.getElementById('mp-lista');
   if (!MAESTRO.length) {
-    cont.innerHTML = '<div class="empty-state">Todavía no hay nada acá. Tocá "Sincronizar desde facturas" para traer los productos vistos en Desglose_IA, o agregá uno a mano arriba.</div>';
+    cont.innerHTML = '<div class="empty-state">Todavía no hay nada acá. Tocá "Sincronizar desde facturas" para traer los productos vistos en Desglose_IA.</div>';
     return;
   }
   if (!FILTRADOS.length) {
@@ -1863,7 +1824,7 @@ function renderMaestro() {
       <thead><tr>
         <th><input type="checkbox" class="mp-chk" id="mp-chk-all" ${todosVisiblesSeleccionados?'checked':''} onchange="toggleTodos(this.checked)"/></th>
         <th>Proveedor</th><th>Nombre en factura</th><th>Veces</th>
-        <th>Propuesta automática</th><th>Nombre estándar</th><th>Estado</th><th>Aplica</th><th></th>
+        <th>Estado</th><th>Aplica</th>
       </tr></thead>
       <tbody>
         ${FILTRADOS.map((m, idx) => `
@@ -1872,8 +1833,6 @@ function renderMaestro() {
             <td>${escHtml(m.proveedor||'—')}</td>
             <td>${escHtml(m.nombreFactura)}</td>
             <td>${fmtNum(m.vecesVisto)}</td>
-            <td class="mp-propuesta">${escHtml(m.propuesta||'—')}</td>
-            <td><input type="text" class="mp-input" id="mp-input-${idx}" value="${escapeAttr(m.nombreEstandar || m.propuesta)}" placeholder="Nombre estándar"/></td>
             <td><span class="badge badge-${m.estado==='Confirmado'?'aplicada':'pendiente'}">${m.estado}</span></td>
             <td>
               <select class="mp-aplica-sel" id="mp-aplica-${idx}" onchange="guardarAplica(${idx})">
@@ -1881,7 +1840,6 @@ function renderMaestro() {
                 <option value="No" ${m.aplica==='No'?'selected':''}>No, es servicio</option>
               </select>
             </td>
-            <td style="white-space:nowrap"><button class="btn-sm" onclick="guardarFila(${idx})">Guardar</button></td>
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -2574,21 +2532,18 @@ function usarSugerenciaCosto() {
   actualizarCostoFichaPreview();
 }
 
-// Abre automaticamente la ficha de un producto cuando se llega con
-// ?ficha=<Nombre Estandar> (ej. desde "Abrir ficha en Maestro" en
-// Analisis de Compras). Corre al terminar de cargar el Maestro.
+// Al llegar con ?ficha=<Nombre> (ej. desde "Abrir ficha en Maestro" en
+// Análisis de Compras) ya no existe la ficha: redirige al Catálogo de
+// productos estándar y filtra por ese nombre para consulta.
 function abrirFichaPendiente() {
   const nombre = window.__fichaPendiente;
   if (!nombre) return;
   window.__fichaPendiente = null;
-  switchTab('fichas');
-  const inp = document.getElementById('pf-buscar');
-  if (inp) { inp.value = nombre; renderFichas(); }
-  const objetivo = claveAgrupacion_(nombre);
-  const m = MAESTRO.find(x => x.aplica === 'Sí' &&
-    claveAgrupacion_(x.nombreEstandar || x.nombreFactura) === objetivo);
-  if (m) { abrirFicha(m.clave); }
-  else { showToast('No se encontró la ficha de "' + nombre + '". Puede que el producto aún no esté homologado con Aplica: Sí.', 'error'); }
+  switchTab('catalogo');
+  const wrap = document.getElementById('pe-listado-wrap');
+  if (wrap && wrap.style.display === 'none') togglePeLista();
+  const inp = document.getElementById('pe-buscar');
+  if (inp) { inp.value = nombre; renderProductosEstandar(); }
 }
 
 function abrirFicha(clave) {
