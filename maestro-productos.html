@@ -88,6 +88,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 .badge-pendiente{background:var(--amber-bg);color:var(--amber)}
 .badge-aplicada{background:var(--green-bg);color:var(--green)}
+.as-fila-vacia>td{background:var(--red-bg) !important;box-shadow:inset 3px 0 0 var(--red)}
+.as-chip-vacia{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:700;color:#fff;background:var(--red);border-radius:20px;padding:2px 9px;letter-spacing:.02em;vertical-align:middle}
 .stock-table-wrap{overflow-x:auto}
 .stock-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .stock-table th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap}
@@ -346,6 +348,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     Cada producto estándar de tu catálogo, con los productos identificados en las facturas que tiene asociados.
     Abrí la flechita para ver las facturas asociadas a cada uno.
   </p>
+  <div id="as-vacias-aviso" style="display:none;font-size:12.5px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-lt);border-radius:8px;padding:8px 12px;margin-bottom:1rem"></div>
   <div class="field-row-3">
     <div class="field"><label>Buscar producto estándar</label><input type="text" id="as-buscar" placeholder="nombre…" oninput="renderAsociacion()"/></div>
     <div class="field"><label>Mostrar</label>
@@ -1892,17 +1895,29 @@ function renderAsociacion(){
     return a.localeCompare(b,'es');
   });
 
+  const totalVacias = PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí').filter(p=>{
+    const its = itemsAsociados(p.id);
+    const cs = its.map(it=>it.costoEstandar).filter(x=>x>0);
+    return !its.length && !cs.length;
+  }).length;
+  const avisoEl = document.getElementById('as-vacias-aviso');
+  if (avisoEl){
+    if (totalVacias){ avisoEl.style.display=''; avisoEl.innerHTML = '⚠ <b>'+totalVacias+'</b> producto'+(totalVacias!==1?'s':'')+' estándar sin ninguna factura asociada y con costo en ₡0 (resaltado'+(totalVacias!==1?'s':'')+' en rojo abajo).'; }
+    else { avisoEl.style.display='none'; }
+  }
+
   let html = '<table class="stock-table"><thead><tr><th></th><th>Producto estándar</th><th>Unidad</th><th>Facturas</th><th>Costo/u. estándar (prom.)</th></tr></thead><tbody>';
 
   const renderFila = ({p,items}) => {
     const abierto = PE_EXP.has(p.id);
     const costos = items.map(it=>it.costoEstandar).filter(x=>x>0);
     const prom = costos.length ? costos.reduce((a,c)=>a+c,0)/costos.length : null;
-    html += `<tr style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
+    const vacio = !items.length && prom == null;  // sin factura asociada y costo en ₡0
+    html += `<tr class="${vacio?'as-fila-vacia':''}" style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
       <td>${items.length?(abierto?'▾':'▸'):''}</td>
-      <td style="padding-left:28px"><b>${escHtml(p.nombre)}</b></td>
+      <td style="padding-left:28px"><b>${escHtml(p.nombre)}</b>${vacio?' <span class="as-chip-vacia">⚠ sin factura · ₡0</span>':''}</td>
       <td>${escHtml(p.unidadEstandar)}</td>
-      <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td>
+      <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--red);font-weight:700">0</span>'}</td>
       <td><b style="color:var(--green)">${_money(prom)}</b>${prom!=null?` <span style="color:var(--muted)">/${escHtml(p.unidadEstandar)}</span>`:''}</td></tr>`;
     if (abierto && items.length){
       const grupoJs = [];
