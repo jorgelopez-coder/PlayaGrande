@@ -1609,41 +1609,59 @@ function renderAsociacion(){
   if (!PRODUCTOS_ESTANDAR.length){ cont.innerHTML = '<div class="empty-state">Primero creá productos estándar arriba, en el catálogo.</div>'; return; }
   const q = (document.getElementById('as-buscar').value||'').trim().toLowerCase();
   const filtro = document.getElementById('as-filtro').value;
-  let lista = PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí').sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  let lista = PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí');
   if (q) lista = lista.filter(p=>p.nombre.toLowerCase().indexOf(q)!==-1);
   lista = lista.map(p=>({ p, items: itemsAsociados(p.id) }));
   if (filtro==='con') lista = lista.filter(x=>x.items.length);
   else if (filtro==='sin') lista = lista.filter(x=>!x.items.length);
   if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados.</div>'; return; }
+
+  // Agrupar por Área de negocio → Categoría de producto
+  const AREA_NA = 'Sin área de negocio', CAT_NA = 'Sin categoría';
+  const areas = {};
+  lista.forEach(x=>{
+    const area = (x.p.area||'').trim() || AREA_NA;
+    const cat  = (x.p.categoria||'').trim() || CAT_NA;
+    if (!areas[area]) areas[area] = {};
+    if (!areas[area][cat]) areas[area][cat] = [];
+    areas[area][cat].push(x);
+  });
+  const ordenar = (keys, naVal) => keys.sort((a,b)=>{
+    const na = a===naVal, nb = b===naVal;
+    if (na!==nb) return na?1:-1;
+    return a.localeCompare(b,'es');
+  });
+
   let html = '<table class="stock-table"><thead><tr><th></th><th>Producto estándar</th><th>Unidad</th><th>Facturas</th><th>Costo/u. estándar (prom.)</th></tr></thead><tbody>';
-  lista.forEach(({p,items})=>{
+
+  const renderFila = ({p,items}) => {
     const abierto = PE_EXP.has(p.id);
     const costos = items.map(it=>it.costoEstandar).filter(x=>x>0);
     const prom = costos.length ? costos.reduce((a,c)=>a+c,0)/costos.length : null;
     html += `<tr style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
       <td>${items.length?(abierto?'▾':'▸'):''}</td>
-      <td><b>${escHtml(p.nombre)}</b></td>
+      <td style="padding-left:28px"><b>${escHtml(p.nombre)}</b></td>
       <td>${escHtml(p.unidadEstandar)}</td>
       <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--amber)">0</span>'}</td>
       <td><b style="color:var(--green)">${_money(prom)}</b>${prom!=null?` <span style="color:var(--muted)">/${escHtml(p.unidadEstandar)}</span>`:''}</td></tr>`;
     if (abierto && items.length){
       const grupoJs = [];
       items.forEach(it=>{
-        const j = AS_ROWS.push(it.clave) - 1;
-        grupoJs.push(j);
+        const jj = AS_ROWS.push(it.clave) - 1;
+        grupoJs.push(jj);
         const precio = it.costoSugerido || it.precioSinIva || '';  // precio = última compra real (Desglose)
         const cant = it.cantidadPresentacion || '';
         const r = _calcCosto(precio||0, cant||null, null);
         html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4">
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
             <span style="min-width:170px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
-            <label>Precio <input type="number" id="as-pr-${j}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></label>
-            <label>Cant. <input type="number" step="any" id="as-cn-${j}" value="${cant}" oninput="recalcAS(${j})" style="width:58px"/></label>
-            <span>Costo u: <b id="as-cu-${j}">${_money(r.cu)}</b></span>
-            <span>Costo/u. estándar: <b id="as-ce-${j}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
+            <label>Precio <input type="number" id="as-pr-${jj}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></label>
+            <label>Cant. <input type="number" step="any" id="as-cn-${jj}" value="${cant}" oninput="recalcAS(${jj})" style="width:58px"/></label>
+            <span>Costo u: <b id="as-cu-${jj}">${_money(r.cu)}</b></span>
+            <span>Costo/u. estándar: <b id="as-ce-${jj}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
             ${archivoBtn(it.clave)}
-            <button class="btn-sm" onclick="event.stopPropagation();guardarCostoItem(${j})">Guardar</button>
-            <button class="btn-sm" onclick="event.stopPropagation();desasociarItem(${j})">Quitar</button>
+            <button class="btn-sm" onclick="event.stopPropagation();guardarCostoItem(${jj})">Guardar</button>
+            <button class="btn-sm" onclick="event.stopPropagation();desasociarItem(${jj})">Quitar</button>
           </div>
         </td></tr>`;
       });
@@ -1651,10 +1669,26 @@ function renderAsociacion(){
         <button class="btn-sm" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>
       </td></tr>`;
     }
+  };
+
+  ordenar(Object.keys(areas), AREA_NA).forEach(area=>{
+    const cats = areas[area];
+    const totalArea = Object.keys(cats).reduce((n,c)=>n+cats[c].length,0);
+    html += `<tr style="background:var(--green-lt)"><td></td><td colspan="4" style="padding:9px 8px">
+      <b style="font-size:13px;color:var(--text)">${escHtml(area)}</b>
+      <span style="color:var(--muted);font-size:11.5px;font-weight:600"> · ${totalArea} producto${totalArea!==1?'s':''}</span></td></tr>`;
+    ordenar(Object.keys(cats), CAT_NA).forEach(cat=>{
+      const grupo = cats[cat].sort((a,b)=>a.p.nombre.localeCompare(b.p.nombre,'es'));
+      html += `<tr style="background:var(--surface)"><td></td><td colspan="4" style="padding:5px 8px 5px 16px;font-size:12px;color:var(--muted)">
+        <b>${escHtml(cat)}</b> · ${grupo.length}</td></tr>`;
+      grupo.forEach(renderFila);
+    });
   });
+
   html += '</tbody></table>';
   cont.innerHTML = html;
 }
+
 function togglePeExp(id){ if(PE_EXP.has(id)) PE_EXP.delete(id); else PE_EXP.add(id); renderAsociacion(); }
 function recalcAS(j){
   const r = _calcCosto(_vnum('as-pr-'+j)||0, _vnum('as-cn-'+j), null);
