@@ -801,7 +801,7 @@ async function guardarMermaUI() {
     pesoContenedor,
     foto: fotoBase64 || null,
     registrado_por: sesionNombre(),
-    registrado_en: new Date().toISOString()
+    registrado_en: ahoraCR()
   };
 
   try {
@@ -1372,6 +1372,10 @@ function renderLineChart(containerId, points) {
 
 // ── UTILS ─────────────────────────────────────────────────────────
 function hoy() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function ahoraCR() {
+  // Marca de tiempo legible en hora de Costa Rica (YYYY-MM-DD HH:mm:ss)
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Costa_Rica' });
+}
 function haceNDias(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
