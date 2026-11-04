@@ -425,7 +425,7 @@ function alCambiarKiosko() {
 }
 
 // ── MAESTRO DE PRODUCTOS: única fuente del catálogo ──────────────
-let MAESTRO_PRODUCTOS = []; // catálogo completo, sin filtrar por kiosko
+let MAESTRO_PRODUCTOS = []; // catálogo = Productos Estándar (Nivel 1), sin filtrar por kiosko
 let productos = [];         // catálogo filtrado al kiosko seleccionado (lo que usa la toma)
 
 // ── MARCAS DE ENVASE: taras aprendidas por producto×marca ──────────
@@ -471,39 +471,107 @@ async function guardarMarcaEnvase(producto, marca, taraG) {
   } catch(e) { /* falla silenciosa: no bloquea la toma si no se pudo aprender la marca */ }
 }
 
-async function cargarMaestroProductos() {
+// ── NIVEL 2: ítems de factura (Maestro_Productos) ──────────────────
+// Ya NO es el catálogo: es la capa de asociación que aporta precios al
+// Producto Estándar. Cada ítem se liga a un Producto Estándar por su
+// "Producto Estándar ID". Ver project_maestro_productos_estandar_n1.
+let MAESTRO_ITEMS = [];
+
+async function cargarMaestroItems() {
   try {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
-    const mapa = new Map();
+    MAESTRO_ITEMS = datos.filter(r => r['Aplica'] !== 'No' && r['Activo'] !== 'No').map(r => ({
+      peId:          (r['Producto Estándar ID']||'').toString().trim(),
+      proveedor:     (r['Proveedor']||'').toString().trim(),
+      nombreFactura: (r['Nombre en Factura']||'').toString().trim(),
+      familia:       (r['Familia']||'').toString().trim(),
+      presentacion:  (r['Presentación']||'').toString().trim(),
+      tamano:        (r['Tamaño']||'').toString().trim(),
+      // Precio de compra (presentación completa, sin IVA): última compra o ficha
+      precioCompra:  parseFloat(r['Costo sugerido (última compra)']) || parseFloat(r['Precio sin IVA']) || 0,
+      // Valor de la unidad (costo por unidad estándar / de receta)
+      costoUnidad:   parseFloat(r['Costo por unidad estándar']) || parseFloat(r['Costo por unidad']) || 0,
+      kioskosTxt:    (r['Kioskos']||'').toString().trim(),
+      // Control por peso (botellas de licor / cerveza en sifón)
+      tipoControl:   (r['Tipo de Control']||'').toString().trim() === 'peso' ? 'peso' : 'unitario',
+      contenidoMl:   parseFloat(r['Contenido Envase (ml)'])||0,
+      densidad:      parseFloat(r['Densidad (g/ml)'])||0,
+      taraDefecto:   (r['Tara por Defecto (g)']!=='' && r['Tara por Defecto (g)']!=null) ? parseFloat(r['Tara por Defecto (g)']) : '',
+    }));
+  } catch(e) { MAESTRO_ITEMS = []; }
+}
+
+// Ítems de factura asociados a un Producto Estándar (por ID).
+function itemsDePe(peId) {
+  if (!peId) return [];
+  const k = String(peId).trim();
+  return MAESTRO_ITEMS.filter(it => it.peId && String(it.peId).trim() === k);
+}
+// Costo comparable para elegir el proveedor "mejor" (⭐): usa el costo por
+// unidad estándar si existe, si no cae al precio de compra. Mismo criterio
+// que el catálogo de Productos Estándar en maestro-productos.html.
+function costoComparableItem(it) {
+  return it.costoUnidad > 0 ? it.costoUnidad : (it.precioCompra || 0);
+}
+
+// ── NIVEL 1: Producto Estándar = catálogo de la Toma ───────────────
+// El catálogo de Inventario sale de la lista curada de Productos Estándar
+// (hoja Productos_Estandar, Activo != No). Los precios para valorizar los
+// aporta el proveedor de MEJOR costo (⭐) entre sus facturas asociadas:
+//   precio de compra  → valor del producto cerrado/completo
+//   costo/u. estándar → valor de lo abierto / pesado (cuando hay pesos)
+async function cargarMaestroProductos() {
+  try {
+    const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Productos_Estandar', 'Nombre');
+    const lista = [];
     datos.forEach(r => {
-      if (r['Aplica'] === 'No') return;
-      if (r['Activo'] === 'No') return;
-      const nombre = (r['Nombre Estándar'] || '').toString().trim();
+      const nombre = (r['Nombre']||'').toString().trim();
       if (!nombre) return;
-      const key = claveNorm(nombre);
-      const prod = {
-        id:            nombre, // Producto = Nombre Estándar, sin ID propio (igual que Inventario v2)
+      if (String(r['Activo']) === 'No') return;
+      const peId  = (r['ID']||'').toString().trim();
+      const items = itemsDePe(peId);
+
+      // Proveedor de mejor costo (menor costo comparable entre los que tienen precio)
+      let mejor = null, mejorCosto = Infinity;
+      items.forEach(it => {
+        const c = costoComparableItem(it);
+        if (c > 0 && c < mejorCosto) { mejorCosto = c; mejor = it; }
+      });
+      // Ítem con configuración de peso (si alguno la tiene); preferir el mejor
+      const itemPeso = (mejor && mejor.tipoControl === 'peso') ? mejor
+                     : (items.find(it => it.tipoControl === 'peso') || null);
+
+      // Aplicabilidad por kiosko: unión de los ítems asociados. Si alguno
+      // aplica a "Todos" (o no trae kioskos), o no hay ítems, aplica a todos.
+      let kioskosTxt = '';
+      if (items.length) {
+        const todos = items.some(it => !it.kioskosTxt || /^todos$/i.test(it.kioskosTxt.trim()));
+        if (!todos) {
+          const set = new Set();
+          items.forEach(it => it.kioskosTxt.split(',').map(s=>s.trim()).filter(Boolean).forEach(k=>set.add(k)));
+          kioskosTxt = [...set].join(', ');
+        }
+      }
+
+      lista.push({
+        id:            nombre,  // identidad = Nombre (= Nombre Estándar puente): no rompe tomas guardadas ni órdenes
         nombre:        nombre,
         area:          (r['Área de negocio']||'').toString().trim(),
-        categoria:     (r['Categoría de producto']||r['Categoría']||'').toString().trim(),
-        familia:       (r['Familia']||'').toString().trim(),
-        unidad:        (r['Unidad Receta']||r['Unidad']||'').toString().trim(),
-        presentacion:  (r['Presentación']||'').toString().trim(),
-        tamano:        (r['Tamaño']||'').toString().trim(),
-        precio_sin_iva:parseFloat(r['Precio sin IVA'])||0,
-        costo:         parseFloat(r['Costo por unidad'])||0, // costo por unidad de receta, para valorizar lo "abierto"
-        kioskosTxt:    (r['Kioskos']||'').toString().trim(),
-        // ── Control por peso (2026-07-27): botellas de licor, cerveza en
-        // sifón — ver project_control_peso_tara_inventario en la memoria.
-        tipoControl:   (r['Tipo de Control']||'').toString().trim() === 'peso' ? 'peso' : 'unitario',
-        contenidoMl:   parseFloat(r['Contenido Envase (ml)'])||0,
-        densidad:      parseFloat(r['Densidad (g/ml)'])||0,
-        taraDefecto:   (r['Tara por Defecto (g)']!=='' && r['Tara por Defecto (g)']!=null) ? parseFloat(r['Tara por Defecto (g)']) : '',
-      };
-      const previo = mapa.get(key);
-      if (!previo || (!previo.area && prod.area)) mapa.set(key, prod);
+        categoria:     (r['Categoría de producto']||'').toString().trim(),
+        familia:       mejor ? mejor.familia : '',
+        unidad:        (r['Unidad estándar']||'').toString().trim(),
+        presentacion:  mejor ? mejor.presentacion : '',
+        tamano:        mejor ? mejor.tamano : '',
+        precio_sin_iva: mejor ? mejor.precioCompra : 0,  // precio de compra → cerrado/completo
+        costo:          mejor ? mejor.costoUnidad : 0,   // valor de la unidad → abierto/pesado
+        kioskosTxt:    kioskosTxt,
+        tipoControl:   itemPeso ? 'peso' : 'unitario',
+        contenidoMl:   itemPeso ? itemPeso.contenidoMl : 0,
+        densidad:      itemPeso ? itemPeso.densidad : 0,
+        taraDefecto:   itemPeso ? itemPeso.taraDefecto : '',
+      });
     });
-    MAESTRO_PRODUCTOS = Array.from(mapa.values()).sort((a,b) => a.nombre.localeCompare(b.nombre));
+    MAESTRO_PRODUCTOS = lista.sort((a,b) => a.nombre.localeCompare(b.nombre));
   } catch(e) { /* si falla, la toma queda vacía pero el resto del módulo sigue funcionando */ }
   actualizarProductosDelKiosko();
 }
@@ -513,7 +581,7 @@ function actualizarProductosDelKiosko() {
   const selA  = document.getElementById('f-actual-area');
   if (selA) selA.innerHTML = '<option value="">Todas las áreas</option>' + areas.map(a=>`<option>${escHtml(a)}</option>`).join('');
   document.getElementById('status-msg').textContent =
-    kioskoActual ? `${productos.length} productos del Maestro para ${kioskoActual}` : 'Seleccioná un kiosko para empezar.';
+    kioskoActual ? `${productos.length} productos estándar para ${kioskoActual}` : 'Seleccioná un kiosko para empezar.';
 }
 
 // ── STORAGE (localStorage, igual que Lorito) ──────────────────────
@@ -528,7 +596,8 @@ function genId()      { return 'INV-' + hoy.getFullYear() + pad(hoy.getMonth()+1
 // ── INIT ──────────────────────────────────────────────────────────
 async function init() {
   tomas = getTomas();
-  await Promise.all([cargarKioskos(), cargarMaestroProductos(), cargarMarcasEnvase()]);
+  await Promise.all([cargarKioskos(), cargarMaestroItems(), cargarMarcasEnvase()]);
+  await cargarMaestroProductos(); // junta ítems de factura → catálogo de Productos Estándar
   // cargarMaestroProductos() puede resolver antes que cargarKioskos() fije
   // kioskoActual (viene de localStorage, pero cargarKioskos() también espera
   // una llamada al Apps Script de RRHH) — se recalcula acá para no quedar
@@ -608,7 +677,7 @@ function renderActual() {
   const thead = `<table><thead><tr>
     <th>Producto</th>
     <th>Presentación</th>
-    <th>Precio compra s/IVA</th>
+    <th>Precio de compra</th>
     <th style="text-align:right;">Cerrado / Completo</th>
     <th style="text-align:right;">En uso / Abierto</th>
     <th style="text-align:right;">Valorización</th>
