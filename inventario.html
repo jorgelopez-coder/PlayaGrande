@@ -418,6 +418,7 @@ function alCambiarKiosko() {
   kioskoActual = document.getElementById('sel-kiosko').value;
   if (kioskoActual) localStorage.setItem('kiosko_actual', kioskoActual);
   tomaActual = null;
+  REF_TOMA={}; REF_COMPRAS={}; REF_META=null; REF_CARGANDO=false;
   document.getElementById('tab-btn-actual').style.display = 'none';
   actualizarProductosDelKiosko();
   switchTab('tomas', document.querySelectorAll('.tab')[0]);
@@ -482,6 +483,7 @@ async function cargarMaestroItems() {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
     MAESTRO_ITEMS = datos.filter(r => r['Aplica'] !== 'No' && r['Activo'] !== 'No').map(r => ({
       peId:          (r['Producto Estándar ID']||'').toString().trim(),
+      nombreEstandar:(r['Nombre Estándar']||'').toString().trim(),
       proveedor:     (r['Proveedor']||'').toString().trim(),
       nombreFactura: (r['Nombre en Factura']||'').toString().trim(),
       familia:       (r['Familia']||'').toString().trim(),
@@ -584,6 +586,110 @@ function actualizarProductosDelKiosko() {
     kioskoActual ? `${productos.length} productos estándar para ${kioskoActual}` : 'Seleccioná un kiosko para empezar.';
 }
 
+// ── REFERENCIA: toma anterior + compras desde entonces ─────────────
+// Para cada producto de la toma activa, se muestra (al tocar "toma anterior
+// y compras") lo que se contó en la toma finalizada más reciente del kiosko y
+// las compras de ese producto en Desglose_IA posteriores a la fecha de esa
+// toma. Solo lectura, sin backend: reusa los Sheets que ya lee la página.
+let REF_TOMA    = {};   // claveNorm(nombre) → { completos, enUso, unidad }
+let REF_COMPRAS = {};   // claveNorm(nombre) → { unidades, facturas:Set }
+let REF_META    = null; // { tomaId, fecha } de la toma anterior usada
+let REF_CARGANDO = false;
+
+function fmtCant(n){ n = Number(n)||0; return Number.isInteger(n) ? n.toLocaleString('es-CR') : n.toLocaleString('es-CR',{maximumFractionDigits:2}); }
+function isoFechaRef(v){
+  const s = String(v==null?'':v).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[1]+'-'+m[2]+'-'+m[3];
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]);
+  m = s.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})/); if (m) return m[1]+'-'+pad(+m[2]+1)+'-'+pad(+m[3]);
+  return '';
+}
+function numRef(v){ const n = parseFloat(String(v==null?'':v).replace(/[,₡$\s]/g,'')); return isFinite(n)?n:0; }
+
+async function cargarReferenciaToma(){
+  REF_TOMA={}; REF_COMPRAS={}; REF_META=null;
+  if (!kioskoActual) return;
+  REF_CARGANDO = true;
+  if (tomaActual) renderActual();
+  try {
+    // 1) Toma anterior: la finalizada más reciente del kiosko en HISTORIAL_inventario
+    const hist = await gvizLoad(INVENTARIO_SHEET_ID, 'HISTORIAL_inventario');
+    const porToma = {};
+    hist.forEach(r => {
+      if (claveNorm(r['Kiosko']) !== claveNorm(kioskoActual)) return;
+      const id = String(r['Toma ID']||'').trim(); if (!id) return;
+      const f = isoFechaRef(r['Fecha toma']);
+      const t = (porToma[id] = porToma[id] || { id, fecha:f, lineas:[] });
+      if (f && (!t.fecha || f > t.fecha)) t.fecha = f;
+      t.lineas.push(r);
+    });
+    const activaId = tomaActual ? tomaActual.id : null;
+    const lista = Object.values(porToma)
+      .filter(t => t.id !== activaId)
+      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || b.id.localeCompare(a.id));
+    const anterior = lista[0];
+    if (!anterior){ REF_CARGANDO=false; if (tomaActual) renderActual(); return; }
+    REF_META = { tomaId: anterior.id, fecha: anterior.fecha };
+    anterior.lineas.forEach(r => {
+      const k = claveNorm(r['Producto']); if (!k) return;
+      REF_TOMA[k] = {
+        completos: numRef(r['Cant. completos']),
+        enUso:     numRef(r['Cant. en uso']),
+        unidad:    String(r['Unidad']||'').trim()
+      };
+    });
+    // 2) Compras: Desglose_IA del kiosko con Fecha de factura posterior a la toma
+    const desde = anterior.fecha;
+    if (desde){
+      const maestroPorClave = {};
+      MAESTRO_ITEMS.forEach(it => {
+        if (!it.nombreEstandar) return;
+        maestroPorClave[claveNorm(it.proveedor)+'§'+claveNorm(it.nombreFactura)] = it.nombreEstandar;
+      });
+      const compras = await gvizLoad(COMPRAS_SHEET_ID, 'Desglose_IA', 'Producto');
+      compras.forEach(r => {
+        if (claveNorm(r['Kiosko']) !== claveNorm(kioskoActual)) return;
+        const f = isoFechaRef(r['Fecha de factura']); if (!f || f <= desde) return;
+        const ne = maestroPorClave[claveNorm(r['Proveedor'])+'§'+claveNorm(r['Producto'])];
+        if (!ne) return;
+        const k = claveNorm(ne); if (!k) return;
+        let cant = numRef(r['Cantidad']);
+        const tipo = String(r['Tipo de documento']||'').toLowerCase();
+        if (tipo.indexOf('nota')>=0 && (tipo.indexOf('créd')>=0 || tipo.indexOf('cred')>=0)) cant = -Math.abs(cant);
+        const facturaKey = (String(r['Archivo']||'').trim() || String(r['Proveedor']||'').trim()) + '|' + String(r['Número de factura']||'').trim();
+        const o = REF_COMPRAS[k] = REF_COMPRAS[k] || { unidades:0, facturas:new Set() };
+        o.unidades += cant;
+        if (facturaKey.replace(/\|/g,'').trim()) o.facturas.add(facturaKey);
+      });
+    }
+  } catch(e){ /* la referencia es opcional: si falla, la toma sigue funcionando */ }
+  REF_CARGANDO = false;
+  if (tomaActual) renderActual();
+}
+
+function refDetalleHtml(p){
+  const k = claveNorm(p.nombre);
+  if (REF_CARGANDO && !REF_META) return '<span style="color:var(--muted);font-size:12px;"><span class="spinner"></span> Cargando referencia…</span>';
+  if (!REF_META) return '<span style="color:var(--muted);font-size:12px;">Sin toma anterior finalizada para este kiosko.</span>';
+  const ta = REF_TOMA[k], co = REF_COMPRAS[k];
+  const bToma = ta
+    ? `<b>${fmtCant(ta.completos)}</b> completos · <b>${fmtCant(ta.enUso)}</b> ${escHtml(ta.unidad||'en uso')}`
+    : '<span style="color:var(--muted);">no se contó en esa toma</span>';
+  const nf = co ? co.facturas.size : 0;
+  const bCompras = (co && (nf || co.unidades))
+    ? `<b>${nf}</b> factura${nf!==1?'s':''} · <b>${fmtCant(co.unidades)}</b> unidades compradas`
+    : '<span style="color:var(--muted);">sin compras en el período</span>';
+  return `<div style="font-size:12px;line-height:1.7;">
+    <div>📋 <span style="color:var(--muted);">Toma anterior</span> (${escHtml(REF_META.fecha||'—')}): ${bToma}</div>
+    <div>🧾 <span style="color:var(--muted);">Compras desde esa fecha</span>: ${bCompras}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px;">Unidades de compra tal cual la factura (sin convertir a la unidad de conteo).</div>
+  </div>`;
+}
+function toggleRef(slug){
+  const el = document.getElementById('ref-'+slug);
+  if (el) el.style.display = (el.style.display==='none' || !el.style.display) ? 'table-row' : 'none';
+}
+
 // ── STORAGE (localStorage, igual que Lorito) ──────────────────────
 let tomas      = [];  // todas las tomas, de todos los kioskos
 let tomaActual = null;
@@ -635,6 +741,7 @@ function iniciaNuevaToma() {
   renderActualMeta();
   renderActual();
   renderListaTomas();
+  cargarReferenciaToma();
   showToast(`Toma ${id} iniciada en ${kioskoActual}`, 'success');
 }
 
@@ -781,6 +888,7 @@ function buildFilaToma(p, groupId) {
     <td>
       <div style="font-weight:500;">${escHtml(p.nombre)}</div>
       <div style="font-size:11px;color:var(--muted);">${escHtml(p.categoria||'')}</div>
+      <button type="button" onclick="toggleRef('${slugIdInv(p.id)}')" style="margin-top:3px;padding:1px 8px;font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-bg);border:1px solid var(--teal-lt);border-radius:999px;cursor:pointer;">📊 toma anterior y compras</button>
     </td>
     <td style="font-size:12px;color:var(--muted);">${escHtml(presentacion)}</td>
     <td class="num" style="font-size:12px;color:var(--muted);">${fmt2(precioC)}</td>
@@ -805,6 +913,11 @@ function buildFilaToma(p, groupId) {
     </td>
     <td class="num" style="font-weight:600;color:var(--teal);" id="val-${slugIdInv(p.id)}">
       ${tieneData ? fmt(valor) : '—'}
+    </td>
+  </tr>
+  <tr class="ref-row" data-grupo="${groupId}" id="ref-${slugIdInv(p.id)}" style="display:none;">
+    <td colspan="6" style="padding:7px 12px 12px 26px;background:var(--surface);border-bottom:1px solid var(--border);">
+      ${refDetalleHtml(p)}
     </td>
   </tr>`;
 }
@@ -1211,6 +1324,7 @@ function abrirToma() {
   switchTab('actual', document.getElementById('tab-btn-actual'));
   renderActualMeta();
   renderActual();
+  cargarReferenciaToma();
 }
 
 // ── RENDER HISTORIAL ──────────────────────────────────────────────
