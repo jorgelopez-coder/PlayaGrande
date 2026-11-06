@@ -605,6 +605,13 @@ function isoFechaRef(v){
   return '';
 }
 function numRef(v){ const n = parseFloat(String(v==null?'':v).replace(/[,₡$\s]/g,'')); return isFinite(n)?n:0; }
+// El nombre del kiosko no siempre es idéntico entre hojas: HISTORIAL_inventario
+// guarda "Las Catalinas" mientras que Desglose_IA (facturas) guarda "Catalinas".
+// kioskoKey() normaliza y además quita el artículo inicial para que ambos
+// nombres resuelvan a la misma clave. Los demás kioskos no llevan artículo,
+// así que no se ven afectados.
+function kioskoKey(s){ return claveNorm(s).replace(/^(las|la|los|el)\s+/,''); }
+function mismoKiosko(a,b){ return kioskoKey(a) === kioskoKey(b); }
 
 async function cargarReferenciaToma(){
   REF_TOMA={}; REF_COMPRAS={}; REF_META=null;
@@ -616,7 +623,7 @@ async function cargarReferenciaToma(){
     const hist = await gvizLoad(INVENTARIO_SHEET_ID, 'HISTORIAL_inventario');
     const porToma = {};
     hist.forEach(r => {
-      if (claveNorm(r['Kiosko']) !== claveNorm(kioskoActual)) return;
+      if (!mismoKiosko(r['Kiosko'], kioskoActual)) return;
       const id = String(r['Toma ID']||'').trim(); if (!id) return;
       const f = isoFechaRef(r['Fecha toma']);
       const t = (porToma[id] = porToma[id] || { id, fecha:f, lineas:[] });
@@ -648,7 +655,7 @@ async function cargarReferenciaToma(){
       });
       const compras = await gvizLoad(COMPRAS_SHEET_ID, 'Desglose_IA', 'Producto');
       compras.forEach(r => {
-        if (claveNorm(r['Kiosko']) !== claveNorm(kioskoActual)) return;
+        if (!mismoKiosko(r['Kiosko'], kioskoActual)) return;
         const f = isoFechaRef(r['Fecha de factura']); if (!f || f <= desde) return;
         const ne = maestroPorClave[claveNorm(r['Proveedor'])+'§'+claveNorm(r['Producto'])];
         if (!ne) return;
