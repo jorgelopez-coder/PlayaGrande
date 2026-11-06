@@ -560,8 +560,8 @@ async function cargarMaestroProductos() {
         categoria:     (r['Categoría de producto']||'').toString().trim(),
         familia:       mejor ? mejor.familia : '',
         unidad:        (r['Unidad estándar']||'').toString().trim(),
-        presentacion:  mejor ? mejor.presentacion : '',
-        tamano:        mejor ? mejor.tamano : '',
+        presentacion:  (r['Presentación de compra']||'').toString().trim(),  // fuente única: Producto Estándar
+        tamano:        '',  // el tamaño ya viene incluido en "Presentación de compra" del Producto Estándar
         precio_sin_iva: mejor ? mejor.precioCompra : 0,  // precio de compra → cerrado/completo
         costo:          mejor ? mejor.costoUnidad : 0,   // valor de la unidad → abierto/pesado
         kioskosTxt:    kioskosTxt,
