@@ -696,6 +696,20 @@ function toggleRef(slug){
   const el = document.getElementById('ref-'+slug);
   if (el) el.style.display = (el.style.display==='none' || !el.style.display) ? 'table-row' : 'none';
 }
+// Marca ⚠ para productos que tienen compras en el período pero siguen sin
+// ningún valor contado en la toma actual. Se prende/apaga en vivo al contar.
+function tieneCompraPeriodo(p){
+  const c = REF_COMPRAS[claveNorm(p.nombre)];
+  return !!(c && (c.unidades>0 || (c.facturas && c.facturas.size)));
+}
+function actualizarMarcaCompra(id){
+  const el = document.getElementById('mk-'+slugIdInv(id));
+  if (!el) return;
+  const p = productos.find(x=>x.id===id); if (!p) return;
+  const linea = (tomaActual && tomaActual.lineas && tomaActual.lineas[id]) || {};
+  const sinValor = !(linea.cerrado!==undefined || linea.abierto!==undefined);
+  el.style.display = (tieneCompraPeriodo(p) && sinValor) ? 'inline-block' : 'none';
+}
 
 // ── STORAGE (localStorage, igual que Lorito) ──────────────────────
 let tomas      = [];  // todas las tomas, de todos los kioskos
@@ -886,6 +900,7 @@ function buildFilaToma(p, groupId) {
   const valAbierto = (parseFloat(abierto)||0) * precioU;
   const valor       = valCerrado + valAbierto;
   const tieneData   = cerrado !== '' || abierto !== '';
+  const marcarCompra = tieneCompraPeriodo(p) && !tieneData; // comprado en el período, aún sin contar
 
   const presentacion = [p.presentacion, p.tamano].filter(Boolean).join(' ') || '—';
   const colapsado = gruposColapsados.has(groupId);
@@ -895,6 +910,7 @@ function buildFilaToma(p, groupId) {
     <td>
       <div style="font-weight:500;">${escHtml(p.nombre)}</div>
       <div style="font-size:11px;color:var(--muted);">${escHtml(p.categoria||'')}</div>
+      <div><span id="mk-${slugIdInv(p.id)}" style="display:${marcarCompra?'inline-block':'none'};margin-top:3px;padding:1px 8px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:999px;">⚠ comprado, sin contar</span></div>
       <button type="button" onclick="toggleRef('${slugIdInv(p.id)}')" style="margin-top:3px;padding:1px 8px;font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-bg);border:1px solid var(--teal-lt);border-radius:999px;cursor:pointer;">📊 toma anterior y compras</button>
     </td>
     <td style="font-size:12px;color:var(--muted);">${escHtml(presentacion)}</td>
@@ -1022,6 +1038,7 @@ function recalcAbierto(id) {
   const valA = (parseFloat(linea.abierto)||0) * precioU;
   const valEl = document.getElementById('val-' + sidSafe);
   if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+  actualizarMarcaCompra(id);
 
   saveTomas(tomas);
   actualizarValorLive();
@@ -1108,6 +1125,7 @@ function onLinea(id, campo, input) {
     const valA     = (parseFloat(linea.abierto)||0) * precioU;
     const valEl    = document.getElementById('val-' + slugIdInv(id));
     if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+    actualizarMarcaCompra(id);
   }
 
   saveTomas(tomas);
