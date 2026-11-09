@@ -2984,10 +2984,34 @@ function fmtNum(n){ return Number(n||0).toLocaleString('es-CR'); }
   } catch (e) {}
 })();
 
+// Deep-link desde Menú y Recetas: ?pe=<nombre> abre el Catálogo de Producto
+// Estándar filtrado a ese producto y, si hay match exacto por nombre, abre su
+// edición directo. Se encadena tras cargarProductosEstandar() para tener los
+// datos listos.
+function aplicarDeepLinkPe() {
+  try {
+    var nombre = new URLSearchParams(location.search).get('pe');
+    if (!nombre) return;
+    if (typeof switchTab === 'function') switchTab('catalogo');
+    var inp = document.getElementById('pe-buscar');
+    if (inp) inp.value = nombre;
+    var est = document.getElementById('pe-filtro-activo'); if (est) est.value = '';
+    var cat = document.getElementById('pe-filtro-cat'); if (cat) cat.value = '';
+    if (typeof renderProductosEstandar === 'function') renderProductosEstandar();
+    var norm = function(s){ return (s||'').toString().trim().toLowerCase(); };
+    var match = (PRODUCTOS_ESTANDAR || []).filter(function(p){ return norm(p.nombre) === norm(nombre); });
+    if (match.length === 1 && typeof editarPe === 'function') {
+      editarPe(match[0].id);
+      var f = document.getElementById('pe-form');
+      if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } catch (e) {}
+}
+
 cargarMaestro();
 cargarKioskosDisponibles();
 cargarConfiguracion();
-cargarProductosEstandar();
+cargarProductosEstandar().then(aplicarDeepLinkPe);
 cargarDesgloseArchivos();
 </script>
 </body>

@@ -309,6 +309,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .menu-detrow.open{display:table-row}
 .menu-detrow>td{background:var(--surface);padding:10px 12px 12px!important}
 .det-wrap .det-cap{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.grp-head.cat-head{cursor:pointer;user-select:none;align-items:center;gap:8px}
+.grp-head.cat-head:hover .grp-nombre{color:var(--purple)}
+.cat-chev{width:13px;height:13px;color:var(--muted);flex-shrink:0;transition:transform .15s;transform:rotate(90deg)}
+.grp-head.cat-head.colapsada .cat-chev{transform:rotate(0)}
+.cat-wrap.colapsada{display:none}
+.ing-link{color:var(--purple);text-decoration:none;border-bottom:1px dashed var(--purple-lt);display:inline-flex;align-items:center;gap:3px}
+.ing-link:hover{border-bottom-style:solid}
+.ing-ext{width:11px;height:11px;opacity:.65;flex-shrink:0}
+.ico-btn{position:relative}
+.ico-btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:11px;font-weight:600;padding:3px 7px;border-radius:5px;white-space:nowrap;z-index:30;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.ico-btn[data-tip]:hover::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--text);z-index:30;pointer-events:none}
 
 /* ── v2: histórico y recomendaciones ───────────────────────────────── */
 .hist-tabs{display:flex;gap:6px}
@@ -1703,17 +1714,29 @@ function renderPlatos() {
 // ─── Listado del menú (reemplaza la grilla de tarjetas) ──────────────
 // Jorge pidió (2026-11-08) ver el menú como un LISTADO agrupado por área
 // (Nivel 1 = alimentos/bebidas) y por categoría (Nivel 2), con UNA FILA POR
-// PRESENTACIÓN de venta: nombre, costo calculado, precio de venta editable
-// inline y food cost. Las acciones (ver receta / duplicar / activar) son por
-// plato, por eso van unidas con rowspan.
+// PRESENTACIÓN de venta. Ajustes 2026-11-08b: categorías contraíbles, badges
+// verdes de Receta/Square, link al estándar del producto en cada ingrediente
+// y tooltips en los íconos de acción.
+
+// Categorías (Nivel 2) que el usuario dejó contraídas. En memoria, para que
+// el estado sobreviva a los re-render (filtros, búsqueda).
+const MENU_CAT_COLAPSADAS = new Set();
+function catKey(n1, n2) { return n1 + '¦' + n2; }
+function toggleCategoria(headEl) {
+  const key = headEl.dataset.catkey;
+  const wrap = headEl.nextElementSibling;
+  const colapsar = !MENU_CAT_COLAPSADAS.has(key);
+  if (colapsar) MENU_CAT_COLAPSADAS.add(key); else MENU_CAT_COLAPSADAS.delete(key);
+  headEl.classList.toggle('colapsada', colapsar);
+  if (wrap) wrap.classList.toggle('colapsada', colapsar);
+}
+
 function agruparPlatosHTML(filtrados) {
   const porN1 = {};
   filtrados.forEach(function(x) {
     const n1 = x.p.nivel1 || 'Sin área';
     (porN1[n1] = porN1[n1] || []).push(x);
   });
-  // El orden de áreas respeta CONFIG.nivel1 (alimentos antes que bebidas, o
-  // como lo tenga configurado); las que no estén en CONFIG van al final.
   const ordenN1 = Object.keys(porN1).sort(function(a, b) {
     const ia = CONFIG.nivel1.indexOf(a), ib = CONFIG.nivel1.indexOf(b);
     if (ia === -1 && ib === -1) return a.localeCompare(b);
@@ -1732,22 +1755,28 @@ function agruparPlatosHTML(filtrados) {
     const bloques = ordenN2.map(function(n2) {
       const items = porN2[n2].sort(function(a, b) { return a.p.nombre.localeCompare(b.p.nombre); });
       const filas = items.map(filasPlato).join('');
-      return `<div class="grp-head"><span class="grp-nombre">${escHtml(n2)}</span><span class="grp-meta">${items.length} plato(s)</span></div>
-        <table class="menu-lista">
-          <thead><tr>
-            <th>Plato</th><th>Presentación</th>
-            <th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Food cost</th>
-            <th class="col-acc">Acciones</th>
-          </tr></thead>
-          <tbody>${filas}</tbody>
-        </table>`;
+      const key = catKey(n1, n2);
+      const colap = MENU_CAT_COLAPSADAS.has(key);
+      return `<div class="grp-head cat-head ${colap ? 'colapsada' : ''}" data-catkey="${escapeAttr(key)}" onclick="toggleCategoria(this)">
+          <svg class="cat-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>
+          <span class="grp-nombre">${escHtml(n2)}</span>
+          <span class="grp-meta">${items.length} plato(s)</span>
+        </div>
+        <div class="cat-wrap ${colap ? 'colapsada' : ''}">
+          <table class="menu-lista">
+            <thead><tr>
+              <th>Plato</th><th>Presentación</th>
+              <th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Food cost</th>
+              <th class="col-acc">Acciones</th>
+            </tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>`;
     }).join('');
     return `<div class="grp-head-n1"><span class="grp-n1-nombre">${escHtml(n1)}</span><span class="grp-meta">${itemsN1.length} plato(s)</span></div>${bloques}`;
   }).join('');
 }
 
-// Devuelve las <tr> de un plato: una por presentación activa + una fila
-// escondida con el detalle de la receta.
 function filasPlato({p, estado}) {
   const receta = recetaDePlato(p.id);
   const metaPct = CONFIG.metaCostoPorNivel1[p.nivel1];
@@ -1757,19 +1786,20 @@ function filasPlato({p, estado}) {
   const inact = p.activo ? '' : ' fila-inactiva';
 
   const icoReceta = receta
-    ? `<button class="ico-btn" title="Ver / ocultar receta" onclick="togglePlatoDetalle('${rowId}')"><svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`
-    : `<button class="ico-btn ico-warn" title="Cargar receta" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋</button>`;
+    ? `<button class="ico-btn" data-tip="Ver receta" aria-label="Ver receta" onclick="togglePlatoDetalle('${rowId}')"><svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`
+    : `<button class="ico-btn ico-warn" data-tip="Cargar receta" aria-label="Cargar receta" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋</button>`;
   const celdaAcc = `<td class="col-acc" rowspan="${nFilas}">
       ${icoReceta}
-      <button class="ico-btn" title="Abrir ficha (editar)" onclick="abrirPlato('${escapeAttr(p.id)}')">✎</button>
-      <button class="ico-btn" title="Duplicar plato" onclick="duplicarPlato('${escapeAttr(p.id)}')">⧉</button>
-      <button class="ico-btn ${p.activo ? '' : 'ico-off'}" title="${p.activo ? 'Desactivar' : 'Activar'}" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? '◉' : '○'}</button>
+      <button class="ico-btn" data-tip="Abrir ficha" aria-label="Abrir ficha" onclick="abrirPlato('${escapeAttr(p.id)}')">✎</button>
+      <button class="ico-btn" data-tip="Duplicar" aria-label="Duplicar plato" onclick="duplicarPlato('${escapeAttr(p.id)}')">⧉</button>
+      <button class="ico-btn ${p.activo ? '' : 'ico-off'}" data-tip="${p.activo ? 'Desactivar' : 'Activar'}" aria-label="${p.activo ? 'Desactivar' : 'Activar'}" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? '◉' : '○'}</button>
     </td>`;
 
-  const badges = `${estado.sinReceta ? '<span class="plt-badge plt-badge-warn">sin receta</span>' : ''}${estado.sinSquare ? '<span class="plt-badge plt-badge-warn">sin Square</span>' : ''}`;
+  // Badges: verde cuando SÍ tiene (Receta / Square), ámbar cuando falta.
+  const badges = `${receta ? '<span class="plt-badge plt-badge-ok">Receta</span>' : '<span class="plt-badge plt-badge-warn">sin receta</span>'}${estado.sinSquare ? '<span class="plt-badge plt-badge-warn">sin Square</span>' : '<span class="plt-badge plt-badge-ok">Square</span>'}`;
   const celdaNombre = `<td class="celda-plato" rowspan="${nFilas}">
       <div class="cp-nombre">${escHtml(p.nombre)}</div>
-      ${badges ? `<div class="cp-badges">${badges}</div>` : ''}
+      <div class="cp-badges">${badges}</div>
     </td>`;
 
   let filas;
@@ -1800,8 +1830,14 @@ function filasPlato({p, estado}) {
     const filasIng = receta.ingredientes.map(function(ing) {
       const fuente = fuentesIngrediente(receta.id).find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
       const cu = fuente ? fuente.costo : 0;
+      // Productos → link al Catálogo de Producto Estándar en maestro-productos
+      // (abre el buscador del estándar para editarlo). Subrecetas no tienen
+      // estándar, se muestran como texto con su badge.
+      const nombreCell = ing.tipoFuente === 'producto'
+        ? `<a class="ing-link" href="maestro-productos.html?pe=${encodeURIComponent(ing.nombre)}" target="_blank" rel="noopener" title="Editar el estándar de este producto">${escHtml(ing.nombre)}<svg class="ing-ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M13 3L7 9"/></svg></a>`
+        : `${escHtml(ing.nombre)} <span class="badge-sub">sub</span>`;
       return `<tr>
-        <td>${escHtml(ing.nombre)} ${ing.tipoFuente==='subreceta'?'<span class="badge-sub">sub</span>':''} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
+        <td>${nombreCell} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
         <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
         <td class="det-num">${fmtCRC(cu * (Number(ing.cantidad)||0))}</td>
       </tr>`;
