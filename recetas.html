@@ -1908,6 +1908,8 @@ function filasPlato({p, estado}) {
     let cuerpo = '';
     if (receta) {
       const fuentes = fuentesIngrediente(receta.id);
+      const cv = costoRecetaVivo(receta);
+      const totalReceta = cv.total || 0;
       const filasIng = receta.ingredientes.map(function(ing) {
         const fuente = fuentes.find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
         const cu = fuente ? fuente.costo : 0;
@@ -1917,17 +1919,20 @@ function filasPlato({p, estado}) {
         const nombreCell = ing.tipoFuente === 'producto'
           ? `<a class="ing-link" href="maestro-productos.html?pe=${encodeURIComponent(ing.nombre)}" target="_blank" rel="noopener" title="Editar el estándar de este producto">${escHtml(ing.nombre)}<svg class="ing-ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M13 3L7 9"/></svg></a>`
           : `${escHtml(ing.nombre)} <span class="badge-sub">sub</span>`;
+        const costoLineaIng = cu * (Number(ing.cantidad)||0);
+        const pctLinea = totalReceta > 0 ? (costoLineaIng / totalReceta) * 100 : null;
         return `<tr>
           <td>${nombreCell} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
           <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
           <td class="det-num">${fmtCRC(cu)}</td>
-          <td class="det-num">${fmtCRC(cu * (Number(ing.cantidad)||0))}</td>
+          <td class="det-num">${fmtCRC(costoLineaIng)}</td>
+          <td class="det-num">${fmtPct(pctLinea)}</td>
         </tr>`;
       }).join('');
-      const cv = costoRecetaVivo(receta);
       cuerpo = `<div class="det-cap">Receta · rinde ${escHtml(String(receta.rendimiento||'—'))} ${escHtml(receta.unidadRendimiento||'')} · costo/unidad ${fmtCRC(cv.porUnidad||0)}</div>
-        <table class="det-table"><thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo/unidad</th><th style="text-align:right">Costo</th></tr></thead>
-        <tbody>${filasIng || '<tr><td colspan="4" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody></table>`;
+        <table class="det-table"><thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo/unidad</th><th style="text-align:right">Costo</th><th style="text-align:right">% del costo</th></tr></thead>
+        <tbody>${filasIng || '<tr><td colspan="5" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody>
+        <tfoot><tr><td><b>Total</b></td><td></td><td></td><td class="det-num"><b>${fmtCRC(totalReceta)}</b></td><td class="det-num"><b>${totalReceta>0?'100.0%':'—'}</b></td></tr></tfoot></table>`;
     } else {
       cuerpo = `<div class="det-cap">Sin receta cargada todavía. <button type="button" class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋ Cargar receta</button></div>`;
     }
