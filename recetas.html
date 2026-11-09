@@ -309,6 +309,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .menu-detrow.open{display:table-row}
 .menu-detrow>td{background:var(--surface);padding:10px 12px 12px!important}
 .det-wrap .det-cap{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.det-wrap .det-desc{font-size:13px;color:var(--text);margin-bottom:10px;line-height:1.5;font-style:italic}
 .grp-head.cat-head{cursor:pointer;user-select:none;align-items:center;gap:8px}
 .grp-head.cat-head:hover .grp-nombre{color:var(--purple)}
 .cat-chev{width:13px;height:13px;color:var(--muted);flex-shrink:0;transition:transform .15s;transform:rotate(90deg)}
@@ -519,6 +520,24 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="cfg-chips" id="cfg-chips-nivel2"></div>
 </div>
 
+<div class="card">
+  <p class="card-title">Impuestos del menú</p>
+  <p style="font-size:12.5px;color:var(--muted);margin-bottom:1rem">
+    El precio de venta que cargás en cada presentación es el precio FINAL del menú (con impuestos). Para el
+    food cost, el costo se compara contra el precio SIN impuestos. Marcá los que apliquen — se restan de
+    forma aditiva: precio sin imp. = precio del menú ÷ (1 + % servicio + % IVA).
+  </p>
+  <div class="cfg-chips">
+    <div class="cfg-chip">
+      <label class="check-row"><input type="checkbox" id="imp-servicio" onchange="guardarImpuesto('Servicio', this.checked)"/> Impuesto de servicio (10%)</label>
+    </div>
+    <div class="cfg-chip">
+      <label class="check-row"><input type="checkbox" id="imp-iva" onchange="guardarImpuesto('IVA', this.checked)"/> IVA (13%)</label>
+    </div>
+  </div>
+  <p id="imp-nota" style="font-size:12px;color:var(--muted);margin-top:.75rem"></p>
+</div>
+
 </div>
 
 <!-- ═══════════════════ TAB COMBOS ═══════════════════ -->
@@ -712,6 +731,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
           <div class="field">
             <label>Nombre <span class="req">*</span></label>
             <input type="text" id="pm-nombre" placeholder="ej: Ceviche de camarón"/>
+          </div>
+          <div class="field">
+            <label>Descripción <span style="color:var(--subtle);font-weight:400">(se muestra en el menú al desplegar el plato)</span></label>
+            <textarea id="pm-descripcion" rows="2" placeholder="ej: Camarón fresco curado en limón con cebolla morada, culantro y chile dulce."></textarea>
           </div>
           <div class="field-row">
             <div class="field">
@@ -1122,7 +1145,7 @@ document.getElementById('date-chip').textContent =
 let MAESTRO_PRODUCTOS = []; // productos agrupados por claveAgrupacion_, ver cargarMaestroProductos()
 let PRODUCTOS_ESTANDAR = []; // catálogo curado Nivel 1 (hoja Productos_Estandar), ver cargarProductosEstandar()
 let PROMEDIO_ESTANDAR_POR_PE = new Map(); // peId -> costo promedio x unidad estándar (prom. de "Costo por unidad estándar" de facturas asociadas), ver cargarMaestroProductos()
-let CONFIG = { nivel1: [], nivel2PorNivel1: {}, metaCostoPorNivel1: {} };
+let CONFIG = { nivel1: [], nivel2PorNivel1: {}, metaCostoPorNivel1: {}, impuestoServicioPct: 0, impuestoIvaPct: 0 };
 let PLATOS = [];
 let RECETAS = [];
 let EDITANDO_PLATO = null;   // copia de trabajo del plato abierto en el modal (o null)
@@ -1373,6 +1396,7 @@ async function cargarConfiguracion() {
 
   const datos = await gvizLoad(RECETAS_SHEET_ID, 'Configuracion', 'Tipo');
   const nivel1 = [], nivel2PorNivel1 = {}, metaCostoPorNivel1 = {};
+  let impuestoServicioPct = 0, impuestoIvaPct = 0;
   datos.forEach(r => {
     const tipo = r['Tipo'], valor = r['Valor'], extra = r['Extra'];
     if (!valor) return;
@@ -1381,9 +1405,13 @@ async function cargarConfiguracion() {
       if (extra !== '' && extra != null && !isNaN(Number(extra))) metaCostoPorNivel1[valor] = Number(extra);
     } else if (tipo === 'Nivel2') {
       (nivel2PorNivel1[extra] = nivel2PorNivel1[extra] || []).push(valor);
+    } else if (tipo === 'Impuesto') {
+      const pct = (extra !== '' && extra != null && !isNaN(Number(extra))) ? Number(extra) : 0;
+      if (valor === 'Servicio') impuestoServicioPct = pct;
+      else if (valor === 'IVA') impuestoIvaPct = pct;
     }
   });
-  CONFIG = { nivel1, nivel2PorNivel1, metaCostoPorNivel1 };
+  CONFIG = { nivel1, nivel2PorNivel1, metaCostoPorNivel1, impuestoServicioPct, impuestoIvaPct };
 }
 
 async function cargarMenuPlatos() {
@@ -1405,7 +1433,8 @@ async function cargarMenuPlatos() {
       presentacionesCorruptas: corrupta,
       activo: r['Activo'] === false ? false : true,
       fotoUrl: r['FotoURL'] || '',
-      indicaciones: r['Indicaciones'] || ''
+      indicaciones: r['Indicaciones'] || '',
+      descripcion: r['Descripcion'] || ''
     };
   }).filter(p => p.id);
 }
@@ -1450,6 +1479,7 @@ async function cargarTodo() {
   renderIndicadores();
   renderConfigNivel1();
   renderConfigNivel2();
+  renderConfigImpuestos();
   poblarSelectNivel1('hist-nivel1', '');
   poblarSelectNivel1('imp-nivel1', '');
   // Los combos se leen por endpoint (no gviz) y son livianos: se cargan de
@@ -1478,18 +1508,54 @@ function fuentesIngrediente(excluirRecetaId) {
   return [...productos, ...subrecetas];
 }
 
+// Costo de la receta EN VIVO desde el costo actual de cada ingrediente
+// (fuentesIngrediente lee el costo vigente del Maestro), no desde el snapshot
+// CostoPorUnidadRendimiento guardado en el Sheet — asi la columna Costo del
+// listado se actualiza sola cuando cambia el costo de un producto, sin tener
+// que correr "Recalcular costos". Mismo criterio que el detalle de
+// ingredientes (productos en vivo, subrecetas con su costo guardado), para
+// que la columna Costo cuadre con la suma de las filas del detalle.
+function costoRecetaVivo(receta) {
+  if (!receta) return { total: 0, porUnidad: 0 };
+  const fuentes = fuentesIngrediente(receta.id);
+  let total = 0;
+  (receta.ingredientes || []).forEach(function(ing) {
+    const f = fuentes.find(x => x.tipoFuente === ing.tipoFuente && x.ref === ing.ref);
+    total += (f ? f.costo : 0) * (Number(ing.cantidad) || 0);
+  });
+  const rend = Number(receta.rendimiento) || 0;
+  return { total: total, porUnidad: rend > 0 ? total / rend : 0 };
+}
 function costoPresentacion(presentacion, receta) {
   if (!receta || !receta.rendimiento) return 0;
-  return receta.costoPorUnidadRendimiento * (Number(presentacion.cantidad) || 0);
+  return costoRecetaVivo(receta).porUnidad * (Number(presentacion.cantidad) || 0);
+}
+
+// ── Impuestos (globales, configurables en la pestaña Configuracion) ──
+// El precio de venta cargado es el precio FINAL del menu (con impuestos). El
+// food cost se calcula contra el precio SIN impuestos. Modelo aditivo:
+// precio sin imp. = precio final / (1 + %servicio + %iva).
+function divisorImpuestos() {
+  const serv = Number(CONFIG.impuestoServicioPct) || 0;
+  const iva = Number(CONFIG.impuestoIvaPct) || 0;
+  return 1 + serv / 100 + iva / 100;
+}
+function precioSinImpuestos(precioFinal) {
+  const p = Number(precioFinal) || 0;
+  const div = divisorImpuestos();
+  return div > 0 ? p / div : p;
 }
 function pctCosto(costo, precioVenta) {
-  const precio = Number(precioVenta) || 0;
-  if (!precio) return null;
-  return (costo / precio) * 100;
+  const base = precioSinImpuestos(precioVenta);
+  if (!base) return null;
+  return (costo / base) * 100;
 }
+// Precio FINAL (con impuestos) a cobrar para que el food cost sobre el precio
+// sin impuestos quede en la meta.
 function precioSugerido(costo, metaPct) {
   if (!metaPct) return null;
-  return costo / (metaPct / 100);
+  const base = costo / (metaPct / 100); // precio sin impuestos necesario
+  return base * divisorImpuestos();
 }
 function colorPct(pct, metaPct) {
   if (pct == null) return 'var(--muted)';
@@ -1542,8 +1608,9 @@ function calcularIndicadoresCosto() {
       const precio = Number(pr.precioVenta) || 0;
       if (!receta || !precio) { n1.nExcluidas++; n2.nExcluidas++; return; }
       const costo = costoPresentacion(pr, receta);
-      n1.sumCosto += costo; n1.sumPrecio += precio; n1.nIncluidas++;
-      n2.sumCosto += costo; n2.sumPrecio += precio; n2.nIncluidas++;
+      const base = precioSinImpuestos(precio);
+      n1.sumCosto += costo; n1.sumPrecio += base; n1.nIncluidas++;
+      n2.sumCosto += costo; n2.sumPrecio += base; n2.nIncluidas++;
     });
   });
   return porNivel1;
@@ -1766,7 +1833,7 @@ function agruparPlatosHTML(filtrados) {
           <table class="menu-lista">
             <thead><tr>
               <th>Plato</th><th>Presentación</th>
-              <th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Food cost</th>
+              <th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Sin imp.</th><th class="num">Food cost</th>
               <th class="col-acc">Acciones</th>
             </tr></thead>
             <tbody>${filas}</tbody>
@@ -1784,9 +1851,12 @@ function filasPlato({p, estado}) {
   const nFilas = Math.max(1, presAct.length);
   const rowId = 'plt-det-' + p.id;
   const inact = p.activo ? '' : ' fila-inactiva';
+  const tieneDesc = !!(p.descripcion && p.descripcion.trim());
+  const expandible = receta || tieneDesc;
 
-  const icoReceta = receta
-    ? `<button class="ico-btn" data-tip="Ver receta" aria-label="Ver receta" onclick="togglePlatoDetalle('${rowId}')"><svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`
+  const flechaDet = `<button class="ico-btn" data-tip="${receta ? 'Ver receta' : 'Ver descripción'}" aria-label="${receta ? 'Ver receta' : 'Ver descripción'}" onclick="togglePlatoDetalle('${rowId}')"><svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`;
+  const icoReceta = expandible
+    ? flechaDet
     : `<button class="ico-btn ico-warn" data-tip="Cargar receta" aria-label="Cargar receta" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋</button>`;
   const celdaAcc = `<td class="col-acc" rowspan="${nFilas}">
       ${icoReceta}
@@ -1804,14 +1874,16 @@ function filasPlato({p, estado}) {
 
   let filas;
   if (!presAct.length) {
-    filas = `<tr class="fila-pres${inact}">${celdaNombre}<td colspan="4" class="sin-pres">Sin presentaciones activas</td>${celdaAcc}</tr>`;
+    filas = `<tr class="fila-pres${inact}">${celdaNombre}<td colspan="5" class="sin-pres">Sin presentaciones activas</td>${celdaAcc}</tr>`;
   } else {
     filas = presAct.map(function(pr, i) {
       const costo = costoPresentacion(pr, receta);
       const pct = receta ? pctCosto(costo, pr.precioVenta) : null;
       const fcId = 'fc-' + p.id + '-' + pr.id;
+      const siId = 'si-' + p.id + '-' + pr.id;
       const costoTxt = receta ? fmtCRC(costo) : '<span class="sin-dato">—</span>';
       const precioVal = pr.precioVenta ? Number(pr.precioVenta) : '';
+      const sinImpTxt = pr.precioVenta ? fmtCRC(precioSinImpuestos(pr.precioVenta)) : '<span class="sin-dato">—</span>';
       return `<tr class="fila-pres${inact}">
         ${i === 0 ? celdaNombre : ''}
         <td class="pres-col"><span class="pres-nombre">${escHtml(pr.nombre || '—')}</span></td>
@@ -1819,6 +1891,7 @@ function filasPlato({p, estado}) {
         <td class="num precio-col">
           <span class="precio-wrap"><span class="crc">₡</span><input type="number" class="precio-input" value="${precioVal}" min="0" step="any" placeholder="—" onchange="guardarPrecioInline('${escapeAttr(p.id)}','${escapeAttr(pr.id)}', this)" onkeydown="if(event.key==='Enter'){this.blur();}"/></span>
         </td>
+        <td class="num sinimp-col"><span id="${siId}">${sinImpTxt}</span></td>
         <td class="num"><span class="fc-badge" id="${fcId}" style="color:${colorPct(pct, metaPct)}">${fmtPct(pct)}</span></td>
         ${i === 0 ? celdaAcc : ''}
       </tr>`;
@@ -1826,27 +1899,37 @@ function filasPlato({p, estado}) {
   }
 
   let detalle = '';
-  if (receta) {
-    const filasIng = receta.ingredientes.map(function(ing) {
-      const fuente = fuentesIngrediente(receta.id).find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
-      const cu = fuente ? fuente.costo : 0;
-      // Productos → link al Catálogo de Producto Estándar en maestro-productos
-      // (abre el buscador del estándar para editarlo). Subrecetas no tienen
-      // estándar, se muestran como texto con su badge.
-      const nombreCell = ing.tipoFuente === 'producto'
-        ? `<a class="ing-link" href="maestro-productos.html?pe=${encodeURIComponent(ing.nombre)}" target="_blank" rel="noopener" title="Editar el estándar de este producto">${escHtml(ing.nombre)}<svg class="ing-ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M13 3L7 9"/></svg></a>`
-        : `${escHtml(ing.nombre)} <span class="badge-sub">sub</span>`;
-      return `<tr>
-        <td>${nombreCell} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
-        <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
-        <td class="det-num">${fmtCRC(cu * (Number(ing.cantidad)||0))}</td>
-      </tr>`;
-    }).join('');
-    detalle = `<tr class="menu-detrow" id="${rowId}"><td colspan="6">
+  if (expandible) {
+    let cuerpo = '';
+    if (receta) {
+      const fuentes = fuentesIngrediente(receta.id);
+      const filasIng = receta.ingredientes.map(function(ing) {
+        const fuente = fuentes.find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
+        const cu = fuente ? fuente.costo : 0;
+        // Productos → link al Catálogo de Producto Estándar en maestro-productos
+        // (abre el buscador del estándar para editarlo). Subrecetas no tienen
+        // estándar, se muestran como texto con su badge.
+        const nombreCell = ing.tipoFuente === 'producto'
+          ? `<a class="ing-link" href="maestro-productos.html?pe=${encodeURIComponent(ing.nombre)}" target="_blank" rel="noopener" title="Editar el estándar de este producto">${escHtml(ing.nombre)}<svg class="ing-ext" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M13 3L7 9"/></svg></a>`
+          : `${escHtml(ing.nombre)} <span class="badge-sub">sub</span>`;
+        return `<tr>
+          <td>${nombreCell} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
+          <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
+          <td class="det-num">${fmtCRC(cu)}</td>
+          <td class="det-num">${fmtCRC(cu * (Number(ing.cantidad)||0))}</td>
+        </tr>`;
+      }).join('');
+      const cv = costoRecetaVivo(receta);
+      cuerpo = `<div class="det-cap">Receta · rinde ${escHtml(String(receta.rendimiento||'—'))} ${escHtml(receta.unidadRendimiento||'')} · costo/unidad ${fmtCRC(cv.porUnidad||0)}</div>
+        <table class="det-table"><thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo/unidad</th><th style="text-align:right">Costo</th></tr></thead>
+        <tbody>${filasIng || '<tr><td colspan="4" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody></table>`;
+    } else {
+      cuerpo = `<div class="det-cap">Sin receta cargada todavía. <button type="button" class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋ Cargar receta</button></div>`;
+    }
+    detalle = `<tr class="menu-detrow" id="${rowId}"><td colspan="7">
       <div class="det-wrap">
-        <div class="det-cap">Receta · rinde ${escHtml(String(receta.rendimiento||'—'))} ${escHtml(receta.unidadRendimiento||'')} · costo/unidad ${fmtCRC(receta.costoPorUnidadRendimiento||0)}</div>
-        <table class="det-table"><thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo</th></tr></thead>
-        <tbody>${filasIng || '<tr><td colspan="3" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody></table>
+        ${tieneDesc ? `<div class="det-desc">${escHtml(p.descripcion)}</div>` : ''}
+        ${cuerpo}
       </div></td></tr>`;
   }
   return filas + detalle;
@@ -1874,7 +1957,7 @@ async function guardarPrecioInline(platoId, presId, input) {
       plato: {
         id: plato.id, nombre: plato.nombre, nivel1: plato.nivel1, nivel2: plato.nivel2,
         kioskos: plato.kioskos, activo: plato.activo, presentaciones: plato.presentaciones,
-        indicaciones: plato.indicaciones || '', foto: null, quitarFoto: false
+        indicaciones: plato.indicaciones || '', descripcion: plato.descripcion || '', foto: null, quitarFoto: false
       },
       receta: null
     });
@@ -1884,6 +1967,8 @@ async function guardarPrecioInline(platoId, presId, input) {
     const pct = receta ? pctCosto(costo, pres.precioVenta) : null;
     const fc = document.getElementById('fc-' + platoId + '-' + presId);
     if (fc) { fc.textContent = fmtPct(pct); fc.style.color = colorPct(pct, metaPct); }
+    const si = document.getElementById('si-' + platoId + '-' + presId);
+    if (si) { si.innerHTML = pres.precioVenta ? fmtCRC(precioSinImpuestos(pres.precioVenta)) : '<span class="sin-dato">—</span>'; }
     refrescarContadoresMenu();
     showToast('Precio actualizado ✓');
   } catch (e) {
@@ -1934,7 +2019,7 @@ function nuevoPlato() {
   EDITANDO_PLATO = {
     id: '', nombre: '', nivel1: CONFIG.nivel1[0] || '', nivel2: '', kioskos: 'Todos',
     presentaciones: [{ id: nuevoIdLocal(), nombre: 'Regular', cantidad: '', precioVenta: '', nombreVentaSquare: '', activo: true }],
-    activo: true, fotoUrl: '', indicaciones: ''
+    activo: true, fotoUrl: '', indicaciones: '', descripcion: ''
   };
   abrirModalPlatoConEstado('Nueva ficha de plato', false);
 }
@@ -1978,6 +2063,7 @@ function abrirModalPlatoConEstado(titulo, esEdicion) {
 
   renderPresentacionesModal();
   document.getElementById('pm-indicaciones').value = EDITANDO_PLATO.indicaciones || '';
+  document.getElementById('pm-descripcion').value = EDITANDO_PLATO.descripcion || '';
   PLATO_FOTO_BASE64 = null;
   PLATO_FOTO_QUITADA = false;
   document.getElementById('pm-foto').value = '';
@@ -2209,6 +2295,7 @@ async function guardarFicha() {
   EDITANDO_PLATO.kioskos = leerKioskosPlatoModal();
   EDITANDO_PLATO.activo = document.getElementById('pm-activo').checked;
   EDITANDO_PLATO.indicaciones = document.getElementById('pm-indicaciones').value.trim();
+  EDITANDO_PLATO.descripcion = document.getElementById('pm-descripcion').value.trim();
 
   if (!EDITANDO_PLATO.nombre) { showToast('Ingresá el nombre del plato.', 'error'); return; }
   if (!EDITANDO_PLATO.nivel1) { showToast('Seleccioná el Nivel 1.', 'error'); return; }
@@ -2240,6 +2327,7 @@ async function guardarFicha() {
         activo: EDITANDO_PLATO.activo,
         presentaciones: EDITANDO_PLATO.presentaciones,
         indicaciones: EDITANDO_PLATO.indicaciones,
+        descripcion: EDITANDO_PLATO.descripcion,
         foto: PLATO_FOTO_BASE64,       // dataURL de foto nueva, o null si no se tocó
         quitarFoto: PLATO_FOTO_QUITADA // true si se quitó la foto existente sin poner una nueva
       },
@@ -2845,6 +2933,39 @@ function crearRecetaParaPlato(platoId) {
 
 function contarPlatosPorNivel1(valor) { return PLATOS.filter(p => p.nivel1 === valor).length; }
 function contarPlatosPorNivel2(nivel1, valor) { return PLATOS.filter(p => p.nivel1 === nivel1 && p.nivel2 === valor).length; }
+
+function renderConfigImpuestos() {
+  const s = document.getElementById('imp-servicio');
+  const i = document.getElementById('imp-iva');
+  if (s) s.checked = (Number(CONFIG.impuestoServicioPct) || 0) > 0;
+  if (i) i.checked = (Number(CONFIG.impuestoIvaPct) || 0) > 0;
+  const nota = document.getElementById('imp-nota');
+  if (nota) {
+    const div = divisorImpuestos();
+    nota.textContent = div > 1
+      ? `Precio sin impuestos = precio del menú ÷ ${div.toFixed(2)}. El food cost se calcula sobre ese valor.`
+      : 'Sin impuestos marcados: el food cost se calcula sobre el precio del menú tal cual.';
+  }
+}
+
+// Activa/desactiva un impuesto global (Servicio 10% / IVA 13%). Optimista en
+// memoria para refrescar el listado al instante; luego persiste al backend.
+async function guardarImpuesto(tipo, activo) {
+  const pct = activo ? (tipo === 'Servicio' ? 10 : 13) : '';
+  if (tipo === 'Servicio') CONFIG.impuestoServicioPct = activo ? 10 : 0;
+  else CONFIG.impuestoIvaPct = activo ? 13 : 0;
+  renderConfigImpuestos();
+  renderPlatos();
+  renderIndicadores();
+  try {
+    await postAP({ modulo: 'impuesto_guardar', impuesto: tipo, pct: pct });
+    showToast('Impuesto actualizado ✓');
+  } catch (e) {
+    showToast('No se pudo guardar — ' + e.message, 'error');
+    await cargarConfiguracion();
+    renderConfigImpuestos(); renderPlatos(); renderIndicadores();
+  }
+}
 
 function renderConfigNivel1() {
   const cont = document.getElementById('cfg-chips-nivel1');
