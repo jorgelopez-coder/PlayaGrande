@@ -276,6 +276,39 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .grp-head:first-child{margin-top:0}
 .grp-nombre{font-family:var(--font-d);font-size:13px;font-weight:700}
 .grp-meta{font-size:11.5px;color:var(--muted)}
+.grp-head-n1{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:1.9rem 0 .5rem}
+.grp-head-n1:first-child{margin-top:0}
+.grp-n1-nombre{font-family:var(--font-d);font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
+.menu-lista{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:.4rem}
+.menu-lista thead th{text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:4px 10px 6px 0;border-bottom:1px solid var(--border);white-space:nowrap}
+.menu-lista thead th.num{text-align:right}
+.menu-lista thead th.col-acc{text-align:center;width:1%}
+.menu-lista td{padding:7px 10px 7px 0;border-bottom:1px solid var(--border);vertical-align:middle}
+.menu-lista .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.menu-lista .fila-inactiva td{opacity:.42}
+.menu-lista .celda-plato{border-right:1px solid var(--border);padding-right:14px!important;min-width:150px}
+.cp-nombre{font-weight:600;font-family:var(--font-d);line-height:1.25}
+.cp-badges{margin-top:4px;display:flex;gap:4px;flex-wrap:wrap}
+.pres-nombre{color:var(--muted);font-size:12.5px}
+.sin-dato{color:var(--subtle)}
+.precio-wrap{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--border);border-radius:6px;padding:2px 7px;background:var(--surface);transition:border-color .15s}
+.precio-wrap:focus-within{border-color:var(--purple)}
+.precio-wrap .crc{color:var(--muted);font-size:12px}
+.precio-input{width:74px;border:none;background:transparent;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;color:var(--text);outline:none;padding:1px 0}
+.precio-input:disabled{opacity:.5}
+.fc-badge{font-weight:700;font-variant-numeric:tabular-nums}
+.col-acc{text-align:center;white-space:nowrap}
+.ico-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;cursor:pointer;font-size:14px;line-height:1;margin-left:3px;transition:all .15s;vertical-align:middle}
+.ico-btn:first-child{margin-left:0}
+.ico-btn:hover{border-color:var(--border-h);background:var(--card)}
+.ico-btn.ico-warn{color:var(--amber);border-color:var(--amber-lt);background:var(--amber-bg);font-weight:700}
+.ico-btn.ico-off{color:var(--subtle)}
+.ico-btn .rec-arrow{width:15px;height:15px}
+.sin-pres{color:var(--subtle);font-style:italic}
+.menu-detrow{display:none}
+.menu-detrow.open{display:table-row}
+.menu-detrow>td{background:var(--surface);padding:10px 12px 12px!important}
+.det-wrap .det-cap{font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600}
 
 /* ── v2: histórico y recomendaciones ───────────────────────────────── */
 .hist-tabs{display:flex;gap:6px}
@@ -1667,88 +1700,172 @@ function renderPlatos() {
   cont.innerHTML = agruparPlatosHTML(filtrados);
 }
 
-// Agrupa el menú filtrado por categoría (Nivel 2) con un encabezado por
-// grupo: es la forma en que se lee un menú en papel, y con 100+ platos una
-// grilla plana se vuelve inmanejable. Dentro de cada grupo el orden es
-// alfabético.
+// ─── Listado del menú (reemplaza la grilla de tarjetas) ──────────────
+// Jorge pidió (2026-11-08) ver el menú como un LISTADO agrupado por área
+// (Nivel 1 = alimentos/bebidas) y por categoría (Nivel 2), con UNA FILA POR
+// PRESENTACIÓN de venta: nombre, costo calculado, precio de venta editable
+// inline y food cost. Las acciones (ver receta / duplicar / activar) son por
+// plato, por eso van unidas con rowspan.
 function agruparPlatosHTML(filtrados) {
-  const grupos = {};
+  const porN1 = {};
   filtrados.forEach(function(x) {
-    const cat = x.p.nivel2 || 'Sin categoría';
-    (grupos[cat] = grupos[cat] || []).push(x);
+    const n1 = x.p.nivel1 || 'Sin área';
+    (porN1[n1] = porN1[n1] || []).push(x);
   });
-  const orden = Object.keys(grupos).sort(function(a, b) { return a.localeCompare(b); });
-  return orden.map(function(cat) {
-    const items = grupos[cat].sort(function(a, b) { return a.p.nombre.localeCompare(b.p.nombre); });
-    const conReceta = items.filter(function(x) { return !x.estado.sinReceta; }).length;
-    return `<div class="grp-head">
-        <span class="grp-nombre">${escHtml(cat)}</span>
-        <span class="grp-meta">${items.length} plato(s) · ${conReceta} con receta</span>
-      </div>
-      <div class="plt-grid">${items.map(tarjetaPlato).join('')}</div>`;
+  // El orden de áreas respeta CONFIG.nivel1 (alimentos antes que bebidas, o
+  // como lo tenga configurado); las que no estén en CONFIG van al final.
+  const ordenN1 = Object.keys(porN1).sort(function(a, b) {
+    const ia = CONFIG.nivel1.indexOf(a), ib = CONFIG.nivel1.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return ordenN1.map(function(n1) {
+    const itemsN1 = porN1[n1];
+    const porN2 = {};
+    itemsN1.forEach(function(x) {
+      const n2 = x.p.nivel2 || 'Sin categoría';
+      (porN2[n2] = porN2[n2] || []).push(x);
+    });
+    const ordenN2 = Object.keys(porN2).sort(function(a, b) { return a.localeCompare(b); });
+    const bloques = ordenN2.map(function(n2) {
+      const items = porN2[n2].sort(function(a, b) { return a.p.nombre.localeCompare(b.p.nombre); });
+      const filas = items.map(filasPlato).join('');
+      return `<div class="grp-head"><span class="grp-nombre">${escHtml(n2)}</span><span class="grp-meta">${items.length} plato(s)</span></div>
+        <table class="menu-lista">
+          <thead><tr>
+            <th>Plato</th><th>Presentación</th>
+            <th class="num">Costo</th><th class="num">Precio venta</th><th class="num">Food cost</th>
+            <th class="col-acc">Acciones</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>`;
+    }).join('');
+    return `<div class="grp-head-n1"><span class="grp-n1-nombre">${escHtml(n1)}</span><span class="grp-meta">${itemsN1.length} plato(s)</span></div>${bloques}`;
   }).join('');
 }
 
-// El HTML de la tarjeta no cambió — solo se extrajo de renderPlatos() para
-// poder pintarlo agrupado.
-function tarjetaPlato({p, estado}) {
-    const receta = recetaDePlato(p.id);
-    const metaPct = CONFIG.metaCostoPorNivel1[p.nivel1];
-    const filasPres = p.presentaciones.filter(pr => pr.activo !== false).map(pr => {
+// Devuelve las <tr> de un plato: una por presentación activa + una fila
+// escondida con el detalle de la receta.
+function filasPlato({p, estado}) {
+  const receta = recetaDePlato(p.id);
+  const metaPct = CONFIG.metaCostoPorNivel1[p.nivel1];
+  const presAct = p.presentaciones.filter(pr => pr.activo !== false);
+  const nFilas = Math.max(1, presAct.length);
+  const rowId = 'plt-det-' + p.id;
+  const inact = p.activo ? '' : ' fila-inactiva';
+
+  const icoReceta = receta
+    ? `<button class="ico-btn" title="Ver / ocultar receta" onclick="togglePlatoDetalle('${rowId}')"><svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>`
+    : `<button class="ico-btn ico-warn" title="Cargar receta" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')">＋</button>`;
+  const celdaAcc = `<td class="col-acc" rowspan="${nFilas}">
+      ${icoReceta}
+      <button class="ico-btn" title="Abrir ficha (editar)" onclick="abrirPlato('${escapeAttr(p.id)}')">✎</button>
+      <button class="ico-btn" title="Duplicar plato" onclick="duplicarPlato('${escapeAttr(p.id)}')">⧉</button>
+      <button class="ico-btn ${p.activo ? '' : 'ico-off'}" title="${p.activo ? 'Desactivar' : 'Activar'}" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? '◉' : '○'}</button>
+    </td>`;
+
+  const badges = `${estado.sinReceta ? '<span class="plt-badge plt-badge-warn">sin receta</span>' : ''}${estado.sinSquare ? '<span class="plt-badge plt-badge-warn">sin Square</span>' : ''}`;
+  const celdaNombre = `<td class="celda-plato" rowspan="${nFilas}">
+      <div class="cp-nombre">${escHtml(p.nombre)}</div>
+      ${badges ? `<div class="cp-badges">${badges}</div>` : ''}
+    </td>`;
+
+  let filas;
+  if (!presAct.length) {
+    filas = `<tr class="fila-pres${inact}">${celdaNombre}<td colspan="4" class="sin-pres">Sin presentaciones activas</td>${celdaAcc}</tr>`;
+  } else {
+    filas = presAct.map(function(pr, i) {
       const costo = costoPresentacion(pr, receta);
-      // Sin receta no hay costo, y por lo tanto tampoco un 0% de costo — que
-      // se pintaría verde y leería como "excelente" cuando en realidad es
-      // "todavía no se sabe".
       const pct = receta ? pctCosto(costo, pr.precioVenta) : null;
-      return `<tr>
-        <td>${escHtml(pr.nombre||'—')}</td>
-        <td class="num">${pr.precioVenta ? fmtCRC(pr.precioVenta) : '—'}</td>
-        <td class="num">${receta ? fmtCRC(costo) : '—'}</td>
-        <td class="num" style="color:${colorPct(pct, metaPct)};font-weight:600">${fmtPct(pct)}</td>
+      const fcId = 'fc-' + p.id + '-' + pr.id;
+      const costoTxt = receta ? fmtCRC(costo) : '<span class="sin-dato">—</span>';
+      const precioVal = pr.precioVenta ? Number(pr.precioVenta) : '';
+      return `<tr class="fila-pres${inact}">
+        ${i === 0 ? celdaNombre : ''}
+        <td class="pres-col"><span class="pres-nombre">${escHtml(pr.nombre || '—')}</span></td>
+        <td class="num costo-col">${costoTxt}</td>
+        <td class="num precio-col">
+          <span class="precio-wrap"><span class="crc">₡</span><input type="number" class="precio-input" value="${precioVal}" min="0" step="any" placeholder="—" onchange="guardarPrecioInline('${escapeAttr(p.id)}','${escapeAttr(pr.id)}', this)" onkeydown="if(event.key==='Enter'){this.blur();}"/></span>
+        </td>
+        <td class="num"><span class="fc-badge" id="${fcId}" style="color:${colorPct(pct, metaPct)}">${fmtPct(pct)}</span></td>
+        ${i === 0 ? celdaAcc : ''}
       </tr>`;
     }).join('');
-    const rowId = 'plt-det-' + p.id;
-    const filasIngPlato = receta ? receta.ingredientes.map(ing => {
+  }
+
+  let detalle = '';
+  if (receta) {
+    const filasIng = receta.ingredientes.map(function(ing) {
       const fuente = fuentesIngrediente(receta.id).find(f => f.tipoFuente === ing.tipoFuente && f.ref === ing.ref);
-      const costoUnitario = fuente ? fuente.costo : 0;
+      const cu = fuente ? fuente.costo : 0;
       return `<tr>
         <td>${escHtml(ing.nombre)} ${ing.tipoFuente==='subreceta'?'<span class="badge-sub">sub</span>':''} ${!fuente?'<span class="plt-badge plt-badge-warn">⚠ no encontrado</span>':''}</td>
         <td class="det-num">${escHtml(String(ing.cantidad))} ${escHtml(ing.unidad||'')}</td>
-        <td class="det-num">${fmtCRC(costoUnitario * (Number(ing.cantidad)||0))}</td>
+        <td class="det-num">${fmtCRC(cu * (Number(ing.cantidad)||0))}</td>
       </tr>`;
-    }).join('') : '';
-    return `
-    <div class="plt-card ${p.activo ? '' : 'inactivo'}">
-      ${p.fotoUrl ? `<img src="${escapeAttr(p.fotoUrl)}" class="plt-foto" alt="${escapeAttr(p.nombre)}"/>` : ''}
-      <div class="plt-card-head ${receta ? 'clicable' : ''}" ${receta ? `onclick="togglePlatoDetalle('${rowId}')"` : ''}>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div class="plt-nombre">${escHtml(p.nombre)}</div>
-          ${receta ? `<svg class="rec-arrow" id="${rowId}-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>` : ''}
-        </div>
-        <div class="plt-cat">${escHtml(p.nivel1)} › ${escHtml(p.nivel2)}</div>
-      </div>
-      <div class="plt-kioskos">📍 ${p.kioskos === 'Todos' ? 'Todos los kioskos' : escHtml(p.kioskos)}</div>
-      <div class="plt-badges">
-        ${estado.sinReceta ? '<span class="plt-badge plt-badge-warn">⚠ Sin receta</span>' : '<span class="plt-badge plt-badge-ok">✓ Receta</span>'}
-        ${estado.sinPrecio ? '<span class="plt-badge plt-badge-warn">⚠ Sin precio</span>' : ''}
-        ${estado.sinSquare ? '<span class="plt-badge plt-badge-warn">⚠ Sin nombre Square</span>' : ''}
-        ${p.presentacionesCorruptas ? '<span class="plt-badge plt-badge-warn">⚠ Datos dañados</span>' : ''}
-      </div>
-      ${filasPres ? `<table class="plt-pres-mini"><tbody>${filasPres}</tbody></table>` : '<div class="field-hint">Sin presentaciones activas.</div>'}
-      ${receta ? `
-      <div class="plt-recdetail" id="${rowId}">
-        <table class="det-table">
-          <thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo</th></tr></thead>
-          <tbody>${filasIngPlato || '<tr><td colspan="3" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody>
-        </table>
-      </div>` : ''}
-      <div class="plt-actions">
-        <button class="btn-sm" onclick="abrirPlato('${escapeAttr(p.id)}')">Abrir ficha</button>
-        ${estado.sinReceta ? `<button class="btn-sm" onclick="crearRecetaParaPlato('${escapeAttr(p.id)}')" style="border-color:var(--purple-lt);background:var(--purple-bg);color:var(--purple)">+ Cargar receta</button>` : ''}
-        <button class="btn-sm" onclick="duplicarPlato('${escapeAttr(p.id)}')" title="Crear una ficha nueva con la misma receta">&#10697; Duplicar</button>
-        <button class="btn-sm" onclick="toggleActivoPlato('${escapeAttr(p.id)}', ${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
-      </div>
-    </div>`;
+    }).join('');
+    detalle = `<tr class="menu-detrow" id="${rowId}"><td colspan="6">
+      <div class="det-wrap">
+        <div class="det-cap">Receta · rinde ${escHtml(String(receta.rendimiento||'—'))} ${escHtml(receta.unidadRendimiento||'')} · costo/unidad ${fmtCRC(receta.costoPorUnidadRendimiento||0)}</div>
+        <table class="det-table"><thead><tr><th>Ingrediente</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Costo</th></tr></thead>
+        <tbody>${filasIng || '<tr><td colspan="3" style="color:var(--subtle)">Sin ingredientes.</td></tr>'}</tbody></table>
+      </div></td></tr>`;
+  }
+  return filas + detalle;
+}
+
+// Guarda el precio de venta editado inline. Reusa menu_ficha_guardar con
+// receta:null — el backend solo toca el plato y deja la receta intacta — así
+// que es 100% client-side (no hay que redesplegar el Apps Script). Recalcula
+// el food cost de esa fila y los contadores sin repintar toda la lista, para
+// no cerrar el detalle de receta que esté abierto.
+async function guardarPrecioInline(platoId, presId, input) {
+  const plato = PLATOS.find(p => p.id === platoId);
+  if (!plato) return;
+  const pres = plato.presentaciones.find(pr => pr.id === presId);
+  if (!pres) return;
+  const nuevo = input.value === '' ? '' : Number(input.value);
+  if (nuevo !== '' && (isNaN(nuevo) || nuevo < 0)) { showToast('Precio inválido.', 'error'); input.value = pres.precioVenta || ''; return; }
+  const anterior = pres.precioVenta;
+  if (String(anterior == null ? '' : anterior) === String(nuevo === '' ? '' : nuevo)) return;
+  pres.precioVenta = nuevo;
+  input.disabled = true;
+  try {
+    await postAP({
+      modulo: 'menu_ficha_guardar',
+      plato: {
+        id: plato.id, nombre: plato.nombre, nivel1: plato.nivel1, nivel2: plato.nivel2,
+        kioskos: plato.kioskos, activo: plato.activo, presentaciones: plato.presentaciones,
+        indicaciones: plato.indicaciones || '', foto: null, quitarFoto: false
+      },
+      receta: null
+    });
+    const receta = recetaDePlato(plato.id);
+    const metaPct = CONFIG.metaCostoPorNivel1[plato.nivel1];
+    const costo = costoPresentacion(pres, receta);
+    const pct = receta ? pctCosto(costo, pres.precioVenta) : null;
+    const fc = document.getElementById('fc-' + platoId + '-' + presId);
+    if (fc) { fc.textContent = fmtPct(pct); fc.style.color = colorPct(pct, metaPct); }
+    refrescarContadoresMenu();
+    showToast('Precio actualizado ✓');
+  } catch (e) {
+    pres.precioVenta = anterior;
+    input.value = anterior || '';
+    showToast('No se pudo guardar — ' + e.message, 'error');
+  } finally {
+    input.disabled = false;
+  }
+}
+
+// Recalcula solo los contadores de la barra tras un cambio inline.
+function refrescarContadoresMenu() {
+  const est = PLATOS.map(p => estadoPlato(p));
+  document.getElementById('plt-count-sinreceta').textContent = est.filter(e => e.sinReceta).length;
+  document.getElementById('plt-count-sinprecio').textContent = est.filter(e => e.sinPrecio).length;
+  document.getElementById('plt-count-sinsquare').textContent = est.filter(e => e.sinSquare).length;
+  document.getElementById('plt-count-total').textContent = PLATOS.length;
 }
 
 // Los contadores de pendientes (sin receta / sin precio / sin Square) funcionan
