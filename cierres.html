@@ -1272,6 +1272,24 @@ async function submitCierre() {
   if (!kiosko) { showToast('Seleccioná un kiosko', 'error'); return; }
   if (!SHEETS_URL || SHEETS_URL.startsWith('TODO_')) { showToast('Configurá SHEETS_URL primero', 'error'); return; }
 
+  // No permitir más de un cierre por kiosko por día. El POST va con
+  // mode:'no-cors' (no se puede leer la respuesta del backend), así que el
+  // aviso de duplicado se hace acá releyendo el historial por GET. El backend
+  // vuelve a validar por si dos personas guardan a la vez (ver
+  // Code-cierres-kioskos-backend.gs -> doPost).
+  const fechaCierre = document.getElementById('f-fecha').value || hoy();
+  try {
+    const respDup = await fetch(SHEETS_URL + '?action=read');
+    const dataDup = await respDup.json();
+    const existeCierre = (dataDup.records || []).some(r =>
+      String(r[3] || '').trim().toLocaleUpperCase('es') === kiosko.trim().toLocaleUpperCase('es') &&
+      soloFecha(r[1]) === fechaCierre);
+    if (existeCierre) {
+      showToast('Ya hay un cierre registrado para ' + kiosko + ' el ' + fechaCierre + '. Solo se permite un cierre por día por kiosko.', 'error');
+      return;
+    }
+  } catch(e) { /* si no se puede releer, el backend igual bloquea el duplicado */ }
+
   const payload = construirPayload();
   const btn = document.getElementById('btn-submit');
   btn.disabled = true; btn.textContent = 'Guardando…';

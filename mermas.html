@@ -789,6 +789,24 @@ async function guardarMermaUI() {
   if (!kiosko) { showToast('Seleccioná el kiosko', 'error'); return; }
   if (pesoBruto === '' || Number(pesoBruto) <= 0) { showToast('Ingresá el peso bruto de la báscula', 'error'); return; }
 
+  // No permitir más de una merma por kiosko por día. Pre-chequeo acá (releyendo
+  // la hoja) para avisar antes de subir la foto; el backend vuelve a validar
+  // por si dos personas guardan a la vez (ver Code-mantenimiento-backend.gs
+  // -> guardarMerma).
+  const fechaMerma = document.getElementById('merma-fecha').value || hoy();
+  try {
+    const okData = await fetchMermasData();
+    if (okData) {
+      const existeMerma = mermasData.some(r =>
+        r.kiosko.trim().toLocaleUpperCase('es') === kiosko.trim().toLocaleUpperCase('es') &&
+        r.fecha === fechaMerma);
+      if (existeMerma) {
+        showToast('Ya hay una merma registrada para ' + kiosko + ' el ' + fechaMerma + '. Solo se permite una por día por kiosko.', 'error');
+        return;
+      }
+    }
+  } catch(e) { /* si no se puede releer, el backend igual bloquea el duplicado */ }
+
   const btn = document.getElementById('btn-merma-submit');
   btn.disabled = true; btn.textContent = 'Guardando…';
 
