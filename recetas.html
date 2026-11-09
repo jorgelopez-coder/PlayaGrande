@@ -1528,7 +1528,12 @@ function costoRecetaVivo(receta) {
 }
 function costoPresentacion(presentacion, receta) {
   if (!receta || !receta.rendimiento) return 0;
-  return costoRecetaVivo(receta).porUnidad * (Number(presentacion.cantidad) || 0);
+  // Si la presentacion no trae cantidad (comun en platos de comida donde 1
+  // presentacion = 1 unidad de rendimiento de la receta) se asume 1. En
+  // bebidas la cantidad siempre viene (ej. 473 ml), asi que ahi no cambia.
+  const c = presentacion && presentacion.cantidad;
+  const cant = (c === '' || c === null || c === undefined) ? 1 : (Number(c) || 0);
+  return costoRecetaVivo(receta).porUnidad * cant;
 }
 
 // ── Impuestos (globales, configurables en la pestaña Configuracion) ──
@@ -2231,7 +2236,7 @@ function renderPresentacionesModal() {
         <input type="text" value="${escapeAttr(pr.nombre)}" placeholder="ej: Regular, Vaso 16oz" oninput="onPresentacionInput(${idx},'nombre',this.value)"/>
       </div>
       <div class="field"><label>Cantidad</label>
-        <input type="number" min="0" step="any" value="${escapeAttr(pr.cantidad)}" placeholder="0" oninput="onPresentacionInput(${idx},'cantidad',this.value)"/>
+        <input type="number" min="0" step="any" value="${escapeAttr(pr.cantidad)}" placeholder="1" oninput="onPresentacionInput(${idx},'cantidad',this.value)"/>
       </div>
       <div class="field"><label>Precio venta (₡)</label>
         <input type="number" min="0" step="any" value="${escapeAttr(pr.precioVenta)}" placeholder="0" oninput="onPresentacionInput(${idx},'precioVenta',this.value)"/>
