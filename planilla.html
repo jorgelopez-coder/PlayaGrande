@@ -283,9 +283,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="showTab('control',this)">Control</button>
+  <button class="tab-btn active" onclick="showTab('control',this)">Historial</button>
   <button class="tab-btn" onclick="showTab('planilla',this)">Planilla</button>
-  <button class="tab-btn" onclick="showTab('historial',this)">Historial</button>
   <button class="tab-btn" onclick="showTab('feriados',this)">Feriados</button>
   <button class="tab-btn" onclick="showTab('calendario',this)">Calendario</button>
 </div>
@@ -300,7 +299,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn-sm" onclick="cambiarAnioControl(1)">Año siguiente →</button>
   </div>
   <div class="card control-detalle-card" id="control-detalle">
-    <p class="hint" style="display:block">Hacé click en una quincena de la tabla para ver el monto total pagado.</p>
+    <p class="hint" style="display:block">Hacé click en una quincena para ver el detalle de la planilla (resumen por rubro, desglose por colaborador y PDF).</p>
   </div>
   <div class="card" style="overflow-x:auto">
     <div id="control-tabla-cont"><div class="empty-state"><span class="spinner"></span></div></div>
@@ -311,17 +310,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <!-- ── TAB PLANILLA (wizard) ── -->
 <div class="page" id="tab-planilla">
   <div id="planilla-contenido"><div class="empty-state"><span class="spinner"></span></div></div>
-</div>
-
-<!-- ── TAB HISTORIAL ── -->
-<div class="page" id="tab-historial">
-  <div class="lista-card" id="hist-lista">
-    <div class="lista-head">
-      <span class="lista-head-title">Planillas de este kiosko</span>
-      <span class="badge-count" id="hist-badge-count">—</span>
-    </div>
-    <div id="hist-items"><div class="empty-lista"><span class="spinner"></span></div></div>
-  </div>
 </div>
 
 <!-- ── TAB FERIADOS ── -->
@@ -473,7 +461,6 @@ function showTab(tab, el) {
   el.classList.add('active');
   if (tab === 'control') cargarControl();
   if (tab === 'planilla') cargarTabPlanilla();
-  if (tab === 'historial') cargarHistorial();
   if (tab === 'feriados') cargarFeriados();
   if (tab === 'calendario') cargarCalendarioPlanilla();
 }
@@ -651,7 +638,6 @@ function alCambiarSelector() {
   actualizarChipPeriodo();
   const tabActivo = document.querySelector('.page.active').id.replace('tab-','');
   if (tabActivo === 'planilla') cargarTabPlanilla();
-  if (tabActivo === 'historial') cargarHistorial();
 }
 
 // ══════════════════════════ DATOS COMPARTIDOS ══════════════════════════
@@ -2746,7 +2732,7 @@ async function cargarControl() {
   renderControlAnioLabel();
   const cont = document.getElementById('control-tabla-cont');
   cont.innerHTML = '<div class="empty-state"><span class="spinner"></span></div>';
-  document.getElementById('control-detalle').innerHTML = '<p class="hint" style="display:block">Hacé click en una quincena de la tabla para ver el monto total pagado.</p>';
+  document.getElementById('control-detalle').innerHTML = '<p class="hint" style="display:block">Hacé click en una quincena para ver el detalle de la planilla.</p>';
   try {
     if (!KIOSKOS || !KIOSKOS.length) await cargarKioskos();
     const data = await fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=planillas');
@@ -2803,23 +2789,168 @@ function celdaControl(kiosko, periodo) {
   const periodoAttr = JSON.stringify(periodo).replace(/"/g, '&quot;');
   return `<td><span class="control-celda clickable ${est.celda}" id="${id}" title="${estado}" onclick="seleccionarCeldaControl(${kioskoAttr}, ${periodoAttr})">${est.icono}</span></td>`;
 }
+let CONTROL_DETALLE_CTX = null;
+
 function seleccionarCeldaControl(kiosko, periodo) {
   document.querySelectorAll('.control-celda.selected').forEach(el => el.classList.remove('selected'));
   const el = document.getElementById(idCeldaControl(kiosko, periodo));
   if (el) el.classList.add('selected');
+  const cont = document.getElementById('control-detalle');
   const fila = buscarPlanillaControl(kiosko, periodo);
-  if (!fila) return;
+  if (!fila) { cont.innerHTML = '<p class="hint" style="display:block">Hacé click en una quincena para ver el detalle de la planilla.</p>'; return; }
   const estado = fila['Estado'] || 'Abierta';
   const badgeClase = estiloEstadoPlanilla(estado).badge;
-  document.getElementById('control-detalle').innerHTML = `
+  const encabezado = `
     <p class="card-title">${kiosko} — ${periodo} <span class="estado-badge ${badgeClase}" style="margin-left:6px">${estado}</span></p>
     <div class="total-row" style="margin-top:10px">
       <span class="total-label">Total pagado</span>
       <span class="total-valor">${fmt(fila['Total neto'])}</span>
     </div>
     <p class="hint" style="display:block;margin-top:8px">${fechaBonita(fila['Fecha inicio'])} — ${fechaBonita(fila['Fecha fin'])} · ${fila['Colaboradores']||0} colaborador(es) · calculado por ${fila['Calculado por']||'—'}${fila['Aprobado por'] ? ` · incidencias aprobadas por ${fila['Aprobado por']}` : ''}</p>
-    ${fila['PDF URL'] ? `<p class="hint" style="display:block;margin-top:4px"><a href="${fila['PDF URL']}" target="_blank">Ver PDF archivado ↗</a></p>` : ''}
   `;
+  // Planilla aún sin cálculo final (Abierta / incidencias en revisión o aprobadas):
+  // no hay snapshot que mostrar — ofrecemos retomar el wizard en ese kiosko/periodo.
+  if (!estadoEsCalculada(estado)) {
+    cont.innerHTML = encabezado + `
+      <div style="margin-top:10px"><button class="btn-secondary" onclick='retomarWizardDesdeControl(${JSON.stringify(kiosko)}, ${JSON.stringify(periodo)})'>Abrir en la pestaña Planilla para continuar →</button></div>
+    `;
+    return;
+  }
+  // Planilla calculada/aprobada: cargamos el snapshot de PlanillasDetalle y mostramos
+  // resumen totalizado por rubro + desglose por colaborador + descarga de PDF.
+  cont.innerHTML = encabezado + '<div id="control-detalle-cuerpo" style="margin-top:12px"><div class="empty-state"><span class="spinner"></span></div></div>';
+  cargarDetalleControl(fila, kiosko, periodo);
+}
+
+async function cargarDetalleControl(fila, kiosko, periodo) {
+  const cuerpo = document.getElementById('control-detalle-cuerpo');
+  try {
+    const data = await fetchBackendJSON(APPS_SCRIPT_URL + '?modulo=planillas_detalle');
+    const detalle = (data.ok ? data.registros : []).filter(d => String(d['ID Planilla']) === String(fila['ID']));
+    if (!detalle.length) { cuerpo.innerHTML = '<div class="empty-state">Sin detalle guardado para esta planilla.</div>'; return; }
+    CONTROL_DETALLE_CTX = { detalle, kiosko, periodo };
+    const totalNeto = detalle.reduce((a, d) => a + (Number(d['Neto a pagar']) || 0), 0);
+    cuerpo.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn-secondary" id="btn-control-pdf" onclick="descargarPDFControl()">Descargar PDF</button>
+        ${fila['PDF URL'] ? `<a class="btn-secondary" href="${fila['PDF URL']}" target="_blank" style="text-decoration:none;display:inline-block">Ver PDF archivado ↗</a>` : ''}
+      </div>
+      ${renderResumenRubrosControl(detalle)}
+      <p class="card-title" style="margin-top:16px">Desglose por colaborador <span class="hint">(click en una fila para ver el detalle)</span></p>
+      <table class="calc-tabla">
+        <thead><tr><th>Colaborador</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Deducciones</th><th style="text-align:right">Neto</th></tr></thead>
+        <tbody>${detalle.map((d, j) => `
+          <tr class="calc-row" onclick="toggleDetalleControlPersona(${j})">
+            <td>${d['Colaborador']}<div class="subtit">${d['Puesto']||''}${esSiTexto(d['Es extra'])?' · <span style="color:var(--red)">Extra</span>':''}</div></td>
+            <td class="monto">${fmt(d['Total ingresos'])}</td><td class="monto">${fmt(d['Total deducciones'])}</td>
+            <td class="monto" style="font-weight:700;color:var(--green)">${fmt(d['Neto a pagar'])}</td>
+          </tr>
+          <tr class="calc-detalle" id="control-det-calc-${j}" style="display:none">
+            <td colspan="4">${renderDetalleCalculoHistPersona(d)}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>
+      <div class="total-row"><span class="total-label">Total neto del kiosko</span><span class="total-valor">${fmt(totalNeto)}</span></div>
+    `;
+  } catch (err) {
+    cuerpo.innerHTML = '<div class="empty-state">Error al cargar el detalle.</div>';
+  }
+}
+
+// Resumen totalizado por rubro de pago, sumando todos los colaboradores de la planilla.
+function renderResumenRubrosControl(detalle) {
+  const sum = col => detalle.reduce((a, d) => a + (Number(d[col]) || 0), 0);
+  const ingresos = [
+    ['Horas regulares', 'Horas regulares monto'],
+    ['Horas extra 50%', 'Horas extra 50% monto'],
+    ['Horas extra 100%', 'Horas extra 100% monto'],
+    ['Feriados', 'Feriados monto'],
+    ['Incapacidad CCSS', 'Incapacidad CCSS monto'],
+    ['Incapacidad INS', 'Incapacidad INS monto'],
+    ['Incapacidad interna', 'Incapacidad interna monto'],
+    ['Vacaciones', 'Vacaciones monto'],
+    ['Subsidio', 'Subsidio monto'],
+    ['Servicio 10%', 'Servicio 10% monto'],
+    ['Tips', 'Tips monto'],
+  ];
+  const restas = [
+    ['Días no trabajados', 'Días no trabajados monto'],
+    ['Tardanza', 'Tardanza monto'],
+  ];
+  const deducciones = [
+    ['CCSS obrera (10.83%)', 'CCSS obrera monto'],
+    ['Adelanto salario', 'Adelanto salario'],
+    ['Compras aprobadas', 'Compras aprobadas'],
+    ['Otras', 'Otras deducciones'],
+    ['Embargo salarial', 'Embargo salarial'],
+    ['Pensión alimenticia', 'Pensión alimenticia'],
+  ];
+  const linea = (lbl, val, signo) => `<div><span>${lbl}</span><span>${signo === '-' ? '−' : ''}${fmt(val)}</span></div>`;
+  const bloqueIng = ingresos.filter(([, c]) => sum(c) !== 0).map(([l, c]) => linea(l, sum(c))).join('')
+    + restas.filter(([, c]) => sum(c) !== 0).map(([l, c]) => linea(l, sum(c), '-')).join('');
+  const bloqueDed = deducciones.filter(([, c]) => sum(c) !== 0).map(([l, c]) => linea(l, sum(c))).join('');
+  const totalIng = sum('Total ingresos');
+  const totalDed = sum('Total deducciones');
+  const totalNeto = sum('Neto a pagar');
+  return `
+    <div class="card" style="background:var(--bg2,#faf7ef);margin:0">
+      <p class="card-title">Resumen totalizado por rubro</p>
+      <div class="detalle-grid">
+        <div><b>Ingresos</b>${bloqueIng || '<div><span>Sin rubros de ingreso</span><span>—</span></div>'}
+          <div style="border-top:1px solid var(--border,#d8e5dc);margin-top:6px;padding-top:6px;font-weight:700"><span>Total ingresos</span><span>${fmt(totalIng)}</span></div>
+        </div>
+        <div><b>Deducciones</b>${bloqueDed || '<div><span>Sin deducciones</span><span>—</span></div>'}
+          <div style="border-top:1px solid var(--border,#d8e5dc);margin-top:6px;padding-top:6px;font-weight:700"><span>Total deducciones</span><span>${fmt(totalDed)}</span></div>
+        </div>
+      </div>
+      <div class="total-row"><span class="total-label">Total neto a pagar</span><span class="total-valor">${fmt(totalNeto)}</span></div>
+    </div>
+  `;
+}
+
+function toggleDetalleControlPersona(j) {
+  const fila = document.getElementById('control-det-calc-' + j);
+  if (fila) fila.style.display = fila.style.display === 'none' ? '' : 'none';
+}
+
+async function descargarPDFControl() {
+  if (!CONTROL_DETALLE_CTX) return;
+  const { detalle, kiosko, periodo } = CONTROL_DETALLE_CTX;
+  const btn = document.getElementById('btn-control-pdf');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando PDF…'; }
+  try {
+    const resultado = {
+      colaboradores: detalle.map(d => ({
+        colaborador: d['Colaborador'], puesto: d['Puesto'],
+        totalIngresos: Number(d['Total ingresos']) || 0,
+        totalDeducciones: Number(d['Total deducciones']) || 0,
+        neto: Number(d['Neto a pagar']) || 0
+      })),
+      totales: { totalNeto: detalle.reduce((a, d) => a + (Number(d['Neto a pagar']) || 0), 0) }
+    };
+    const pdfBase64 = await generarPDFPlanilla(kiosko, periodo, resultado);
+    descargarPDF(pdfBase64, 'Planilla_' + kiosko + '_' + periodo + '.pdf');
+  } catch (err) {
+    showToast('No se pudo generar el PDF: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Descargar PDF'; }
+  }
+}
+
+function retomarWizardDesdeControl(kiosko, periodo) {
+  const selKiosko = document.getElementById('pl-kiosko');
+  if (selKiosko && [...selKiosko.options].some(o => o.value === kiosko)) selKiosko.value = kiosko;
+  const m = String(periodo).match(/^(\d{4})-(\d{2})-Q(\d)$/);
+  if (m) {
+    const selAnio = document.getElementById('pl-anio');
+    if (selAnio && ![...selAnio.options].some(o => Number(o.value) === Number(m[1]))) selAnio.insertAdjacentHTML('beforeend', `<option value="${m[1]}">${m[1]}</option>`);
+    if (selAnio) selAnio.value = m[1];
+    document.getElementById('pl-mes').value = String(Number(m[2]));
+    document.getElementById('pl-quincena').value = m[3];
+    actualizarChipPeriodo();
+  }
+  const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.trim() === 'Planilla');
+  showTab('planilla', btn);
 }
 
 // ══════════════════════════ HISTORIAL ══════════════════════════
