@@ -283,7 +283,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
         <div id="hist-kiosko-items"></div>
       </div>
     </div>
-    <button class="btn-sm" onclick="cargarHistorial()" style="margin-left:auto">↻ Actualizar</button>
+    <button class="btn-sm" onclick="revisarDuplicadosMermas(this)" style="margin-left:auto;border-color:var(--red-lt);color:var(--red)">🧹 Eliminar duplicados</button>
+    <button class="btn-sm" onclick="cargarHistorial()">↻ Actualizar</button>
   </div>
 
   <div class="chart-wrap">
@@ -389,6 +390,44 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </div><!-- /tab-config -->
 
 </main>
+
+<style>
+.dup-overlay{position:fixed;inset:0;background:rgba(28,58,40,.45);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.dup-overlay.show{display:flex}
+.dup-modal{background:var(--card);border:1px solid var(--border-h);border-radius:12px;width:100%;max-width:640px;box-shadow:0 10px 40px rgba(0,0,0,.2);display:flex;flex-direction:column;max-height:calc(100vh - 80px)}
+.dup-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.dup-head h3{font-size:15px;font-weight:600;color:var(--text)}
+.dup-x{background:none;border:none;font-size:16px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px}
+.dup-x:hover{background:var(--surface)}
+.dup-sub{font-size:12.5px;color:var(--muted);padding:12px 20px 0}
+.dup-body{padding:12px 20px;overflow-y:auto;flex:1}
+.dup-group{border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:12px}
+.dup-group-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.dup-rec{display:flex;align-items:flex-start;gap:9px;padding:8px;border-radius:7px;font-size:13px;border:1px solid transparent;cursor:pointer;margin-bottom:4px}
+.dup-rec.keep{background:var(--green-bg);border-color:var(--green-lt)}
+.dup-rec.del{background:var(--red-bg);border-color:var(--red-lt)}
+.dup-rec input{margin-top:3px;flex-shrink:0}
+.dup-rec-info{flex:1;line-height:1.5}
+.dup-rec-tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px;white-space:nowrap;align-self:center}
+.dup-rec-tag.keep{background:var(--green-lt);color:var(--green)}
+.dup-rec-tag.del{background:var(--red-lt);color:var(--red)}
+.dup-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--border)}
+</style>
+
+<div class="dup-overlay" id="dup-overlay" onclick="if(event.target===this)cerrarDuplicados()">
+  <div class="dup-modal">
+    <div class="dup-head">
+      <h3>Eliminar mermas duplicadas</h3>
+      <button class="dup-x" onclick="cerrarDuplicados()">✕</button>
+    </div>
+    <p class="dup-sub" id="dup-sub"></p>
+    <div class="dup-body" id="dup-body"></div>
+    <div class="dup-foot">
+      <button class="btn-sm" onclick="cerrarDuplicados()">Cancelar</button>
+      <button class="btn-sm" id="dup-del-btn" onclick="confirmarEliminarDuplicados(this)" style="background:var(--red);color:#fff;border-color:var(--red)">Eliminar seleccionadas</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
@@ -1389,6 +1428,108 @@ function renderLineChart(containerId, points) {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
+// ELIMINAR MERMAS DUPLICADAS
+// Una merma duplicada = mas de un registro para el mismo kiosko y la misma
+// fecha. Agrupa los duplicados, deja elegir cual conservar (por defecto el
+// mas reciente) y elimina los demas de la hoja Mermas via backend
+// (accion 'merma_eliminar' en Code-mantenimiento-backend.gs).
+let dupGrupos = [];
+
+async function revisarDuplicadosMermas(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Buscando…'; }
+  try {
+    if (!mermasData || !mermasData.length) { await fetchMermasData(); }
+    const mapa = {};
+    mermasData.forEach(r => {
+      const clave = r.kiosko + '||' + r.fecha;
+      (mapa[clave] = mapa[clave] || []).push(r);
+    });
+    dupGrupos = Object.values(mapa)
+      .filter(g => g.length > 1)
+      .map(g => [...g].sort((a,b) => Number(b.id) - Number(a.id)))
+      .sort((a,b) => b[0].fecha.localeCompare(a[0].fecha));
+
+    if (!dupGrupos.length) {
+      showToast('No se encontraron mermas duplicadas', 'success');
+      return;
+    }
+    dupGrupos.forEach(g => { g.keepId = String(g[0].id); });
+    renderDuplicados();
+    document.getElementById('dup-overlay').classList.add('show');
+  } catch(e) {
+    showToast('No se pudo leer el historial — revisa la conexion', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧹 Eliminar duplicados'; }
+  }
+}
+
+function renderDuplicados() {
+  const totalDup = dupGrupos.reduce((s,g) => s + (g.length - 1), 0);
+  document.getElementById('dup-sub').textContent =
+    dupGrupos.length + ' fecha' + (dupGrupos.length===1?'':'s') + ' con duplicados · ' +
+    totalDup + ' registro' + (totalDup===1?'':'s') + ' se eliminaria' + (totalDup===1?'':'n') +
+    '. Elegi cual conservar en cada caso.';
+
+  document.getElementById('dup-body').innerHTML = dupGrupos.map((g, gi) => {
+    const filas = g.map(r => {
+      const keep = String(r.id) === g.keepId;
+      const hora = horaDesdeId(r.id);
+      return `
+        <label class="dup-rec ${keep?'keep':'del'}">
+          <input type="radio" name="dup-g${gi}" ${keep?'checked':''} onchange="elegirConservar(${gi}, '${String(r.id)}')"/>
+          <span class="dup-rec-info">
+            <b>${r.pesoNeto.toLocaleString('es-CR')} g</b> neto · bruto ${r.pesoBruto.toLocaleString('es-CR')} g
+            <br><span style="color:var(--muted)">Registro: ${r.registradoPor || '—'}${hora?' · '+hora:''}${r.fotoUrl?' · <a href="'+r.fotoUrl+'" target="_blank" rel="noopener" class="foto-link">foto ↗</a>':''}</span>
+          </span>
+          <span class="dup-rec-tag ${keep?'keep':'del'}">${keep?'Conservar':'Eliminar'}</span>
+        </label>`;
+    }).join('');
+    return `<div class="dup-group"><div class="dup-group-title">${g[0].kiosko} — ${g[0].fecha}</div>${filas}</div>`;
+  }).join('');
+}
+
+function elegirConservar(gi, id) {
+  dupGrupos[gi].keepId = String(id);
+  renderDuplicados();
+}
+
+function horaDesdeId(id) {
+  const n = Number(id);
+  if (!n || n < 1e12) return '';
+  try {
+    return new Date(n).toLocaleString('es-CR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  } catch(e) { return ''; }
+}
+
+function cerrarDuplicados() {
+  document.getElementById('dup-overlay').classList.remove('show');
+}
+
+async function confirmarEliminarDuplicados(btn) {
+  const ids = [];
+  dupGrupos.forEach(g => g.forEach(r => { if (String(r.id) !== g.keepId) ids.push(String(r.id)); }));
+  if (!ids.length) { showToast('No hay registros marcados para eliminar', 'error'); return; }
+  if (!confirm('Se eliminaran ' + ids.length + ' merma(s) duplicada(s) de forma permanente. Esta accion no se puede deshacer. Continuar?')) return;
+
+  btn.disabled = true; btn.textContent = 'Eliminando…';
+  try {
+    const resp = await fetchConTimeout(MERMAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ accion: 'merma_eliminar', ids })
+    }, 45000);
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error al eliminar');
+    cerrarDuplicados();
+    showToast((out.eliminados != null ? out.eliminados : ids.length) + ' merma(s) duplicada(s) eliminada(s) ✓', 'success');
+    await cargarHistorial();
+  } catch(e) {
+    showToast('No se pudo eliminar — ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Eliminar seleccionadas';
+  }
+}
+
 function hoy() { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function ahoraCR() {
   // Marca de tiempo legible en hora de Costa Rica (YYYY-MM-DD HH:mm:ss)
