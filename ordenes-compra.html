@@ -551,6 +551,9 @@ async function cargarProductosEstandar() {
         unidad:    String(r['Unidad estándar']||'').trim(),
         categoria: String(r['Categoría de producto']||'').trim(),
         area:      String(r['Área de negocio']||'').trim(),
+        // "Presentación de compra" del catálogo (hoja Productos_Estandar),
+        // para mostrarla debajo del nombre en la orden.
+        presentacionCatalogo: String(r['Presentación de compra']||'').trim(),
       }))
       .filter(p => p.nombre)
       .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
@@ -1163,7 +1166,10 @@ function renderOrden() {
       catVisibles++;
 
       var sid      = slugId(p.id);
-      var pres     = [p.presentacion, p.tamano].filter(Boolean).join(' ') || (p.unidad ? 'est.: ' + p.unidad : '—');
+      // Presentación de compra que se muestra bajo el nombre: la del catálogo
+      // (Producto Estándar). Si no hay, cae a la del último proveedor y luego
+      // a la unidad estándar.
+      var pres     = p.presentacionCatalogo || ([p.presentacion, p.tamano].filter(Boolean).join(' ')) || (p.unidad ? 'est.: ' + p.unidad : '—');
       var colStock = '';
       if (!esRecarga) {
         var stockBadge = '<span style="color:var(--subtle);font-size:12px;">Sin datos</span>';
