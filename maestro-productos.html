@@ -413,7 +413,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <div class="field-row-3">
         <div class="field"><label>% de rendimiento</label><input type="number" id="pe-rendimiento" min="0" step="any" placeholder="ej: 85"/></div>
         <div class="field"><label>Peso del empaque / contenedor (g)</label><input type="number" id="pe-peso-empaque" min="0" step="any" placeholder="ej: 20"/></div>
-        <div class="field"><label>Presentación de compra</label><input type="text" id="pe-presentacion-compra" placeholder="ej: Caja, Six pack, Barril"/></div>
+        <div class="field"><label>Presentación de compra</label><select id="pe-presentacion-compra"><option value="">—</option></select></div>
       </div>
       <div class="field">
         <label>Imagen del producto</label>
@@ -1299,6 +1299,10 @@ function poblarSelectsPe() {
   set('pe-unidad', opt(CONFIG.unidadesReceta));
   set('pe-categoria', opt(CONFIG.categorias));
   set('pe-area', opt(CONFIG.areas));
+  // Presentación de compra: opciones del catálogo de ⚙ Configuración, con
+  // respaldo de valores ya usados en productos estándar (texto libre viejo).
+  const _presUsadas = (typeof PRODUCTOS_ESTANDAR !== 'undefined' ? PRODUCTOS_ESTANDAR : []).map(p => p.presentacionCompra).filter(Boolean);
+  set('pe-presentacion-compra', opt(Array.from(new Set([...(CONFIG.presentaciones || []), ..._presUsadas]))));
   const fc = document.getElementById('pe-filtro-cat');
   if (fc) { const v = fc.value; fc.innerHTML = '<option value="">Todas</option>' + (CONFIG.categorias || []).map(c => `<option value="${escapeAttr(c)}">${escHtml(c)}</option>`).join(''); fc.value = v; }
 }
