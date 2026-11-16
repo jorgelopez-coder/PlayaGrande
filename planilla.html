@@ -1375,28 +1375,49 @@ async function confirmarPaso1YContinuar() {
 // Suma las horas de la hoja "Horarios" (horarios.html) para un colaborador
 // dentro del rango de fechas de la planilla — se muestra como nota bajo el
 // campo "Horas reg." del Paso 2 para poder comparar contra lo cargado a mano.
+const HORAS_DIA_LIBRE = 8; // el dia libre es pagado: se refleja como 8h en la planilla
 function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
   const buscado = String(nombre||'').trim().toLowerCase();
-  const resultado = { horas: 0, dias: 0 };
+  const resultado = { horas: 0, dias: 0, diasLibre: 0, detalle: [] };
   if (!buscado || !fechaInicio || !fechaFin) return resultado;
   HORARIOS_CACHE.forEach(row => {
     if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
-    // Solo turnos de TRABAJO del MISMO kiosko de la planilla. El horario
+    // Solo filas del MISMO kiosko de la planilla, dentro del rango. El horario
     // guarda las vacaciones con 8h (HORAS_VACACIONES en horarios.html) y las
-    // coberturas/permisos/libres/cerrados con 0h; sin este filtro la nota
-    // contaba vacaciones como horas trabajadas y sumaba horas de otros
-    // kioskos. Mismo criterio que nombresSugeridosDesdeHorario() y el aviso
-    // de doble asignacion de horarios.html.
+    // coberturas/permisos/cerrados con 0h; por eso se filtra por Estado para
+    // no contar vacaciones como horas trabajadas ni horas de otros kioskos.
+    // Mismo criterio de kiosko que nombresSugeridosDesdeHorario().
     if (!mismoKiosko(row['Kiosko'], kiosko)) return;
-    if (String(row['Estado']||'trabajo') !== 'trabajo') return;
     const fecha = String(row['Fecha']||'');
     if (!fecha || fecha < fechaInicio || fecha > fechaFin) return;
-    const horas = Number(row['Horas']) || 0;
-    if (horas <= 0) return;
-    resultado.horas += horas;
-    resultado.dias++;
+    const estado = String(row['Estado']||'trabajo');
+    if (estado === 'trabajo') {
+      const horas = Number(row['Horas']) || 0;
+      if (horas <= 0) return;
+      resultado.horas += horas;
+      resultado.dias++;
+      resultado.detalle.push({ fecha, horas, estado: 'trabajo' });
+    } else if (estado === 'libre') {
+      // El dia libre es pagado: se refleja con 8h, pero NO suma como dia
+      // trabajado (no afecta el subsidio por dia de Tamarindo, que usa .dias).
+      resultado.horas += HORAS_DIA_LIBRE;
+      resultado.diasLibre++;
+      resultado.detalle.push({ fecha, horas: HORAS_DIA_LIBRE, estado: 'libre' });
+    }
   });
+  resultado.detalle.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
   return resultado;
+}
+// Celda del Paso 2 bajo "Horas reg.": resumen de horas del horario (incluye el
+// dia libre como 8h) con un <details> que despliega el detalle por fecha.
+function celdaHorario(info) {
+  if (!info || info.horas <= 0) return '<div class="hint" style="white-space:nowrap;margin-top:2px">Sin horario registrado</div>';
+  const partes = [];
+  if (info.dias) partes.push(`${info.dias} d\u00eda${info.dias===1?'':'s'}`);
+  if (info.diasLibre) partes.push(`${info.diasLibre} libre${info.diasLibre===1?'':'s'}`);
+  const resumen = `Horario: ${(+info.horas.toFixed(2))}h${partes.length?` (${partes.join(' + ')})`:''}`;
+  const filas = info.detalle.map(d => `<div style="display:flex;justify-content:space-between;gap:12px"><span>${fechaBonita(d.fecha)}${d.estado==='libre'?' \ud83c\udf19 libre':''}</span><span>${(+d.horas.toFixed(2))}h</span></div>`).join('');
+  return `<details style="margin-top:2px"><summary class="hint" style="white-space:nowrap;cursor:pointer">${resumen}</summary><div class="subtit" style="margin-top:4px;min-width:150px">${filas}</div></details>`;
 }
 // --- Subsidio por dia trabajado (particularidad de Tamarindo) ---
 // El monto por dia se define una sola vez a nivel de planilla (Paso 2) y los
@@ -1462,11 +1483,11 @@ function renderPaso2() {
     const prev = calcularClientePreview(p);
     const detalleAbierto = PASO2_EXPANDIDO === i;
     const horarioInfo = horasHorarioRegistradas(p.nombre, kioskoPlanilla, r.fechaInicio, r.fechaFin);
-    const horarioTxt = horarioInfo.horas > 0 ? `Horario: ${horarioInfo.horas}h (${horarioInfo.dias} día${horarioInfo.dias===1?'':'s'})` : 'Sin horario registrado';
+    const horarioCeldaHtml = celdaHorario(horarioInfo);
     return `
     <tr>
       <td>${p.nombre}${p.esExtra?'<span class="tag-manual">Extra</span>':''}</td>
-      <td><input type="number" min="0" step="0.5" value="${p.horasRegulares}" oninput="actualizarCampoSilencioso(${i},'horasRegulares',this.value)"><div class="hint" style="white-space:nowrap;margin-top:2px">${horarioTxt}</div></td>
+      <td><input type="number" min="0" step="0.5" value="${p.horasRegulares}" oninput="actualizarCampoSilencioso(${i},'horasRegulares',this.value)">${horarioCeldaHtml}</td>
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra50Horas>0?`${prev.extra50Horas}h`:'—'}</td>
       <td class="hint" title="${prev.extraFechas.length?'Aprobadas: '+prev.extraFechas.map(fechaBonita).join(', '):'Sin solicitudes aprobadas en esta quincena — reportalas en Horas extra.'}">${prev.extra100Horas>0?`${prev.extra100Horas}h`:'—'}</td>
       <td class="hint">${prev.diasNoTrabajadosAuto>0?`${prev.diasNoTrabajadosAuto} día(s) auto`:'—'}</td>
