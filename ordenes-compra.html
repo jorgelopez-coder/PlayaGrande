@@ -1515,6 +1515,7 @@ function renderOrdenAprobada(orden) {
   var html = '<div style="padding:1rem 1.25rem;background:var(--green-bg);border-bottom:1px solid var(--green-lt);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
     + '<span style="font-size:13px;color:var(--green);font-weight:600;">✓ Orden aprobada el ' + new Date(orden.aprobada).toLocaleString('es-CR') + '</span>'
     + '<div class="send-btns">'
+    + '<button class="btn-sec" style="border-color:var(--amber-lt);color:var(--amber);background:var(--amber-bg);" onclick="reabrirOrden(\'' + jsArg(orden.id) + '\')">&#9999;&#65039; Reabrir y editar</button>'
     + '<button class="btn-sec" onclick="descargarPDFOrden()">&#128196; Descargar PDF</button>'
     + '<button class="btn-wa" onclick="enviarWhatsAppOrden()">&#128172; WhatsApp</button>'
     + '<button class="btn-email" onclick="enviarCorreoOrden()">&#9993; Correo</button>'
@@ -1824,6 +1825,40 @@ function verOrdenAprobada(id) {
   renderMeta();
   renderOrdenAprobada(orden);
   mostrarPresupuestoCacheado(orden);
+}
+
+// ── REABRIR UNA ORDEN APROBADA PARA EDITARLA ──────────────────────
+function reabrirOrden(id) {
+  var orden = getOrdenes().find(function(o){ return o.id === id; });
+  if (!orden) return;
+  // No permitir dos órdenes en proceso en el mismo kiosko a la vez.
+  var otraEnProceso = getOrdenes().find(function(o){
+    return o.id !== id && o.kiosko === orden.kiosko && o.estado === 'en_proceso';
+  });
+  if (otraEnProceso) {
+    alert('Ya hay otra orden en proceso (' + otraEnProceso.id + ') en ' + orden.kiosko + '. Aprobala o eliminala antes de reabrir esta.');
+    return;
+  }
+  if (!confirm('¿Reabrir la orden ' + orden.id + ' para editarla?\n\nVolverá al estado "En proceso" y deberás aprobarla de nuevo para generar los envíos por proveedor.')) return;
+  orden.estado = 'en_proceso';
+  delete orden.aprobada;
+  delete orden.lineas_aprobadas;
+  ordenActual = orden;
+  saveOrdenes(ordenes);
+  pushOrden(orden);
+  stockActual = {};
+  document.getElementById('tab-btn-actual').style.display = 'block';
+  document.getElementById('btn-aprobar').style.display = 'block';
+  switchTab('actual', document.getElementById('tab-btn-actual'));
+  renderMeta();
+  if (orden.inventario_id) {
+    document.getElementById('sel-inventario').value = orden.inventario_id;
+    cargarInventarioSeleccionado();
+  } else { renderOrden(); }
+  actualizarPresupuesto();
+  renderListaOrdenes();
+  renderHistorial();
+  showToast('Orden ' + orden.id + ' reabierta para edición', 'success');
 }
 
 function renderHistorial() {
