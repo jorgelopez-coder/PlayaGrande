@@ -1378,7 +1378,7 @@ async function confirmarPaso1YContinuar() {
 const HORAS_DIA_LIBRE = 8; // el dia libre es pagado: se refleja como 8h en la planilla
 function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
   const buscado = String(nombre||'').trim().toLowerCase();
-  const resultado = { horas: 0, dias: 0, diasLibre: 0, detalle: [] };
+  const resultado = { horas: 0, dias: 0, diasLibre: 0, diasCubre: 0, detalle: [] };
   if (!buscado || !fechaInicio || !fechaFin) return resultado;
   HORARIOS_CACHE.forEach(row => {
     if (String(row['Colaborador']||'').trim().toLowerCase() !== buscado) return;
@@ -1403,6 +1403,12 @@ function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
       resultado.horas += HORAS_DIA_LIBRE;
       resultado.diasLibre++;
       resultado.detalle.push({ fecha, horas: HORAS_DIA_LIBRE, estado: 'libre' });
+    } else if (estado === 'cubre') {
+      // Dia cubriendo en OTRO kiosko (Estado='cubre', 0h en el origen, kiosko
+      // destino en la columna 'Detalle'). Se refleja en el detalle pero NO
+      // suma horas ni dias en la planilla del kiosko de origen.
+      resultado.diasCubre++;
+      resultado.detalle.push({ fecha, horas: 0, estado: 'cubre', destino: String(row['Detalle']||'').trim() });
     }
   });
   resultado.detalle.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
@@ -1411,12 +1417,19 @@ function horasHorarioRegistradas(nombre, kiosko, fechaInicio, fechaFin) {
 // Celda del Paso 2 bajo "Horas reg.": resumen de horas del horario (incluye el
 // dia libre como 8h) con un <details> que despliega el detalle por fecha.
 function celdaHorario(info) {
-  if (!info || info.horas <= 0) return '<div class="hint" style="white-space:nowrap;margin-top:2px">Sin horario registrado</div>';
+  if (!info || !info.detalle || !info.detalle.length) return '<div class="hint" style="white-space:nowrap;margin-top:2px">Sin horario registrado</div>';
   const partes = [];
   if (info.dias) partes.push(`${info.dias} d\u00eda${info.dias===1?'':'s'}`);
   if (info.diasLibre) partes.push(`${info.diasLibre} libre${info.diasLibre===1?'':'s'}`);
+  if (info.diasCubre) partes.push(`${info.diasCubre} cubre`);
   const resumen = `Horario: ${(+info.horas.toFixed(2))}h${partes.length?` (${partes.join(' + ')})`:''}`;
-  const filas = info.detalle.map(d => `<div style="display:flex;justify-content:space-between;gap:12px"><span>${fechaBonita(d.fecha)}${d.estado==='libre'?' \ud83c\udf19 libre':''}</span><span>${(+d.horas.toFixed(2))}h</span></div>`).join('');
+  const filas = info.detalle.map(d => {
+    const izq = d.estado==='libre' ? `${fechaBonita(d.fecha)} \ud83c\udf19 libre`
+              : d.estado==='cubre' ? `${fechaBonita(d.fecha)} \ud83d\udd04 cubre${d.destino?' '+d.destino:''}`
+              : fechaBonita(d.fecha);
+    const der = d.estado==='cubre' ? '<span style="opacity:.6">no suma</span>' : `${(+d.horas.toFixed(2))}h`;
+    return `<div style="display:flex;justify-content:space-between;gap:12px"><span>${izq}</span><span>${der}</span></div>`;
+  }).join('');
   return `<details style="margin-top:2px"><summary class="hint" style="white-space:nowrap;cursor:pointer">${resumen}</summary><div class="subtit" style="margin-top:4px;min-width:150px">${filas}</div></details>`;
 }
 // --- Subsidio por dia trabajado (particularidad de Tamarindo) ---
