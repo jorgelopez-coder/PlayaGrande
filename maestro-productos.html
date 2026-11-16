@@ -966,6 +966,7 @@ async function cargarMaestro() {
       conversionEstandar: (r['Conversión a unidad estándar'] !== '' && r['Conversión a unidad estándar'] != null) ? Number(r['Conversión a unidad estándar']) : '',
       costoEstandar: Number(r['Costo por unidad estándar']) || 0,
       aplica: r['Aplica'] === 'No' ? 'No' : 'Sí',
+      esManual: r['Manual'] === 'Sí' || r['Manual'] === true,
       // ── Ficha de producto (ex Base de Productos, fusionado acá) ──
       costoSugerido: Number(r['Costo sugerido (última compra)']) || 0,
       monedaSugerida: r['Moneda sugerida'] || '',
@@ -1869,6 +1870,7 @@ function renderAsociacion(){
   const cont = document.getElementById('as-lista');
   if (!cont) return;
   AS_ROWS = [];
+  poblarProveedoresDatalist();
   if (!PRODUCTOS_ESTANDAR.length){ cont.innerHTML = '<div class="empty-state">Primero creá productos estándar arriba, en el catálogo.</div>'; return; }
   const q = (document.getElementById('as-buscar').value||'').trim().toLowerCase();
   const filtro = document.getElementById('as-filtro').value;
@@ -1913,13 +1915,14 @@ function renderAsociacion(){
     const costos = items.map(it=>it.costoEstandar).filter(x=>x>0);
     const prom = costos.length ? costos.reduce((a,c)=>a+c,0)/costos.length : null;
     const vacio = !items.length && prom == null;  // sin factura asociada y costo en ₡0
+    const escId = _jsq(p.id);
     html += `<tr class="${vacio?'as-fila-vacia':''}" style="cursor:pointer" onclick="togglePeExp('${escapeAttr(p.id)}')">
-      <td>${items.length?(abierto?'▾':'▸'):''}</td>
+      <td>${abierto?'▾':'▸'}</td>
       <td style="padding-left:28px"><b>${escHtml(p.nombre)}</b>${vacio?' <span class="as-chip-vacia">⚠ sin factura · ₡0</span>':''}</td>
       <td>${escHtml(p.unidadEstandar)}</td>
       <td>${items.length?('<b>'+items.length+'</b>'):'<span style="color:var(--red);font-weight:700">0</span>'}</td>
       <td><b style="color:var(--green)">${_money(prom)}</b>${prom!=null?` <span style="color:var(--muted)">/${escHtml(p.unidadEstandar)}</span>`:''}</td></tr>`;
-    if (abierto && items.length){
+    if (abierto){
       const grupoJs = [];
       items.forEach(it=>{
         const jj = AS_ROWS.push(it.clave) - 1;
@@ -1927,10 +1930,15 @@ function renderAsociacion(){
         const precio = it.costoSugerido || it.precioSinIva || '';  // precio = última compra real (Desglose)
         const cant = it.cantidadPresentacion || '';
         const r = _calcCosto(precio||0, cant||null, null);
+        const esMan = !!it.esManual;
+        const inputPrecio = esMan
+          ? `<input type="number" step="any" id="as-pr-${jj}" value="${precio}" oninput="recalcAS(${jj})" title="Precio manual (editable)" style="width:88px"/>`
+          : `<input type="number" id="as-pr-${jj}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/>`;
+        const tagMan = esMan ? ' <span title="Proveedor ingresado a mano" style="font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px">✎ manual</span>' : '';
         html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4">
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px">
-            <span style="min-width:170px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}</span>
-            <label>Precio <input type="number" id="as-pr-${jj}" value="${precio}" readonly title="Precio de la última factura (fijo)" style="width:88px;background:rgba(0,0,0,.05);color:var(--muted);border:none"/></label>
+            <span style="min-width:170px"><b>${escHtml(it.proveedor||'—')}</b> · ${escHtml(it.nombreFactura||'')}${tagMan}</span>
+            <label>Precio ${inputPrecio}</label>
             <label>Cant. <input type="number" step="any" id="as-cn-${jj}" value="${cant}" oninput="recalcAS(${jj})" style="width:58px"/></label>
             <span>Costo u: <b id="as-cu-${jj}">${_money(r.cu)}</b></span>
             <span>Costo/u. estándar: <b id="as-ce-${jj}" style="color:var(--green)">${_money(r.ce)}</b> /${escHtml(p.unidadEstandar)}</span>
@@ -1940,8 +1948,21 @@ function renderAsociacion(){
           </div>
         </td></tr>`;
       });
-      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4" style="text-align:right;padding:6px 8px">
-        <button class="btn-sm" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>
+      // Botón + formulario de alta MANUAL de un proveedor/precio
+      html += `<tr style="background:rgba(0,0,0,.03)"><td></td><td colspan="4" style="padding:6px 8px">
+        <button class="btn-sm" onclick="event.stopPropagation();toggleFormProvManual('${escId}')" title="Asignar un proveedor con precio y cantidad a mano, sin factura">➕ Agregar proveedor manual</button>
+        ${items.length ? `<button class="btn-sm" style="margin-left:6px" onclick="event.stopPropagation();guardarCostosGrupo([${grupoJs.join(',')}])" title="Guarda todos los cambios de precio/cantidad de este producto estándar"><b>💾 Guardar todo (${items.length})</b></button>` : ''}
+      </td></tr>
+      <tr id="pm-form-${escapeAttr(p.id)}" style="display:none;background:rgba(0,0,0,.03)"><td></td><td colspan="4" style="padding:8px 8px 12px">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;font-size:12px" onclick="event.stopPropagation()">
+          <label style="display:flex;flex-direction:column;gap:2px">Proveedor <input list="dl-proveedores" id="pm-prov-${escapeAttr(p.id)}" placeholder="nombre del proveedor" style="width:170px"/></label>
+          <label style="display:flex;flex-direction:column;gap:2px">Precio (sin IVA) <input type="number" step="any" id="pm-precio-${escapeAttr(p.id)}" style="width:110px"/></label>
+          <label style="display:flex;flex-direction:column;gap:2px">Cantidad presentación <input type="number" step="any" id="pm-cant-${escapeAttr(p.id)}" placeholder="1" style="width:120px"/></label>
+          <label style="display:flex;flex-direction:column;gap:2px">Nombre en factura (opcional) <input id="pm-nom-${escapeAttr(p.id)}" placeholder="(usa el nombre del producto)" style="width:200px"/></label>
+          <button class="btn-sm" onclick="event.stopPropagation();agregarProveedorManual('${escId}')"><b>Agregar</b></button>
+          <button class="btn-sm" onclick="event.stopPropagation();toggleFormProvManual('${escId}')">Cancelar</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Costo u. = Precio ÷ Cantidad. Dejá la cantidad vacía o en 1 si el precio ya es por unidad estándar.</div>
       </td></tr>`;
     }
   };
@@ -2015,6 +2036,38 @@ async function desasociarItem(j){
     await cargarMaestro();
     renderAsociacion(); renderSinAsociar();
   } catch (e){ showToast('No se pudo quitar — ' + e.message, 'error'); }
+}
+
+function poblarProveedoresDatalist(){
+  let dl = document.getElementById('dl-proveedores');
+  if (!dl){ dl = document.createElement('datalist'); dl.id = 'dl-proveedores'; document.body.appendChild(dl); }
+  const provs = Array.from(new Set(MAESTRO.map(m => (m.proveedor||'').trim()).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b,'es'));
+  dl.innerHTML = provs.map(p=>`<option value="${escapeAttr(p)}"></option>`).join('');
+}
+function toggleFormProvManual(peId){
+  const row = document.getElementById('pm-form-' + peId);
+  if (!row) return;
+  const abierto = row.style.display !== 'none';
+  row.style.display = abierto ? 'none' : '';
+  if (!abierto){ const inp = document.getElementById('pm-prov-' + peId); if (inp) inp.focus(); }
+}
+async function agregarProveedorManual(peId){
+  const prov = (document.getElementById('pm-prov-' + peId)||{}).value || '';
+  const precio = (document.getElementById('pm-precio-' + peId)||{}).value || '';
+  const cant = (document.getElementById('pm-cant-' + peId)||{}).value || '';
+  const nom = (document.getElementById('pm-nom-' + peId)||{}).value || '';
+  if (!prov.trim()){ showToast('Escribí el proveedor', 'error'); return; }
+  if (precio === '' || isNaN(Number(precio))){ showToast('Escribí el precio', 'error'); return; }
+  try {
+    await postAP({ modulo:'maestro_agregar_proveedor_manual', pe_id: peId,
+      proveedor: prov.trim(), precio: Number(precio),
+      cantidad: cant === '' ? '' : Number(cant), nombre_factura: nom.trim() });
+    showToast('Proveedor agregado ✓');
+    PE_EXP.add(peId);  // dejar el producto desplegado tras agregar
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){ showToast('No se pudo agregar — ' + e.message, 'error'); }
 }
 
 function switchTab(nombre) {
