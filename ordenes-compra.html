@@ -93,6 +93,16 @@
     .prov-opt { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-b); font-size:12.5px; padding:6px 10px; cursor:pointer; text-align:left; }
     .prov-opt:hover { border-color:var(--blue); background:var(--surface); }
     .prov-opt.sel { border-color:var(--green); background:var(--green-bg); }
+    .prov-opt .prov-nom { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .prov-opt .prov-cifras { display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex:none; }
+    .prov-ce { font-size:11px; color:var(--green); white-space:nowrap; font-weight:600; }
+    .prov-ce-na { color:var(--subtle); font-weight:400; }
+    .prov-otro { display:flex; align-items:center; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); flex-wrap:wrap; }
+    .prov-otro-lbl { font-size:11px; color:var(--muted); white-space:nowrap; }
+    .prov-otro input { background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-b); font-size:12px; padding:5px 7px; outline:none; }
+    .prov-otro input:focus { border-color:var(--blue); }
+    .prov-otro-nom { flex:1; min-width:120px; }
+    .prov-otro-precio { width:95px; }
     .badge { display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap; }
     .b-ok       { background:var(--green-bg); color:var(--green); }
     .b-low      { background:var(--amber-bg); color:var(--amber); }
@@ -572,6 +582,7 @@ async function cargarProveedoresPorProducto() {
         proveedor,
         nombreFactura: String(r['Nombre en Factura']||'').trim(),
         costo:  parseFloat(r['Costo sugerido (última compra)']) || parseFloat(r['Precio sin IVA']) || 0,
+        costoEstandar: parseFloat(r['Costo por unidad estándar']) || 0,
         moneda: String(r['Moneda sugerida']||'CRC').trim() || 'CRC',
         fecha:  String(r['Fecha última compra']||'').trim(),
         presentacion: String(r['Presentación']||'').trim(),
@@ -1180,14 +1191,15 @@ function renderOrden() {
         var ult = provs[0];
         provCell = '<td style="min-width:150px;">'
           + '<button type="button" class="prov-pick" onclick="togglePrecios(\'' + sid + '\')">'
-          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(proveedor || 'Elegir proveedor…') + '</span>'
+          + '<span id="provname-' + sid + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(proveedor || 'Elegir proveedor…') + '</span>'
           + '<svg id="provchev-' + sid + '" viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;transition:transform .15s;"><path d="M4 6l4 4 4-4"/></svg>'
           + '</button>'
           + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + provs.length + ' prov. · últ. ' + fmt2(ult.costo) + (ult.fecha ? ' · ' + escHtml(ult.fecha.split(' ')[0]) : '') + '</div>'
           + '</td>';
       } else {
-        provCell = '<td><input type="text" class="prov-input" list="dl-proveedores" value="' + escHtml(proveedor)
-          + '" placeholder="Sin compras — anotar…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)"></td>';
+        provCell = '<td style="min-width:150px;"><input type="text" class="prov-input" list="dl-proveedores" value="' + escHtml(proveedor)
+          + '" placeholder="Sin compras — anotar…" onchange="onProveedor(\'' + jsArg(p.id) + '\',this)">'
+          + '<input type="number" min="0" step="0.01" class="prov-input" style="width:95px;margin-top:4px;" placeholder="Precio compra" value="' + (linea.precio!==undefined?linea.precio:'') + '" onchange="onPrecioManual(\'' + jsArg(p.id) + '\',this)"></td>';
       }
 
       catFilas += '<tr>'
@@ -1205,18 +1217,34 @@ function renderOrden() {
       // Sub-fila desplegable: cada proveedor con su último precio y fecha.
       if (provs.length) {
         var colspan  = esRecarga ? 5 : 7;
+        var unidadEst = escHtml(p.unidad || 'u');
         var opciones = provs.map(function(e, idx){
           var sel = claveNorm(e.proveedor) === claveNorm(proveedor);
+          var ceTxt = (e.costoEstandar > 0)
+            ? '<span class="prov-ce" title="Costo por unidad estándar">' + fmt2(e.costoEstandar) + '/' + unidadEst + '</span>'
+            : '<span class="prov-ce prov-ce-na" title="Sin costo por unidad estándar">— /' + unidadEst + '</span>';
           return '<button type="button" class="prov-opt' + (sel ? ' sel' : '') + '" onclick="elegirProveedor(\'' + jsArg(p.id) + '\',' + idx + ')">'
-            + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(e.proveedor)
+            + '<span class="prov-nom">' + escHtml(e.proveedor)
             + (e.nombreFactura ? ' <span style="color:var(--subtle);">· ' + escHtml(e.nombreFactura) + '</span>' : '') + '</span>'
-            + '<span style="white-space:nowrap;font-weight:600;color:var(--blue);">' + fmt2(e.costo)
-            + (e.fecha ? ' <span style="color:var(--muted);font-weight:400;">· ' + escHtml(e.fecha.split(' ')[0]) + '</span>' : '') + '</span>'
+            + '<span class="prov-cifras">'
+            +   '<span style="white-space:nowrap;font-weight:600;color:var(--blue);">' + fmt2(e.costo)
+            +     (e.fecha ? ' <span style="color:var(--muted);font-weight:400;">· ' + escHtml(e.fecha.split(' ')[0]) + '</span>' : '') + '</span>'
+            +   ceTxt
+            + '</span>'
             + '</button>';
         }).join('');
+        // ¿El proveedor actual de la línea NO está entre los conocidos? -> es manual
+        var provConocido = provs.some(function(e){ return claveNorm(e.proveedor) === claveNorm(proveedor); });
+        var manualNom = (!provConocido && proveedor) ? proveedor : '';
+        var manualPre = (!provConocido && linea.precio !== undefined) ? linea.precio : '';
         catFilas += '<tr id="prov-row-' + sid + '" style="display:none;"><td colspan="' + colspan + '" style="background:var(--surface);padding:8px 12px;">'
-          + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;">Proveedores donde se ha comprado · último precio</div>'
+          + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;">Proveedor · precio últ. compra · costo/u. estándar</div>'
           + '<div class="prov-opts">' + opciones + '</div>'
+          + '<div class="prov-otro">'
+          +   '<span class="prov-otro-lbl">Otro proveedor:</span>'
+          +   '<input type="text" class="prov-otro-nom" list="dl-proveedores" placeholder="Nombre…" value="' + escHtml(manualNom) + '" onchange="onProveedorManual(\'' + jsArg(p.id) + '\',this)">'
+          +   '<input type="number" class="prov-otro-precio" min="0" step="0.01" placeholder="Precio compra" value="' + (manualPre !== '' ? manualPre : '') + '" onchange="onPrecioManual(\'' + jsArg(p.id) + '\',this)">'
+          + '</div>'
           + '</td></tr>';
       }
     });
@@ -1315,6 +1343,42 @@ function elegirProveedor(id, idx) {
   saveOrdenes(ordenes);
   pushOrdenDebounced(ordenActual);
   renderOrden();
+}
+
+// Elegir "Otro proveedor" a mano: fija el nombre escrito como proveedor de la
+// línea. Actualiza el encabezado del desplegable y quita la selección de los
+// conocidos SIN re-renderizar, para no cerrar el desplegable mientras se
+// escribe (precio en el campo contiguo).
+function onProveedorManual(id, input) {
+  if (!ordenActual.lineas[id]) ordenActual.lineas[id] = {};
+  var nombre = input.value.trim();
+  ordenActual.lineas[id].proveedor = nombre;
+  saveOrdenes(ordenes);
+  pushOrdenDebounced(ordenActual);
+  var sid = slugId(id);
+  var hdr = document.getElementById('provname-' + sid);
+  if (hdr) hdr.textContent = nombre || 'Elegir proveedor…';
+  var row = document.getElementById('prov-row-' + sid);
+  if (row) row.querySelectorAll('.prov-opt.sel').forEach(function(b){ b.classList.remove('sel'); });
+  renderResumenProveedores();
+}
+// Precio de compra manual de una línea (para "Otro proveedor" o un producto
+// sin compras asociadas). Actualiza precio y monto en sitio y re-suma totales.
+function onPrecioManual(id, input) {
+  if (!ordenActual.lineas[id]) ordenActual.lineas[id] = {};
+  var val = parseFloat(input.value) || 0;
+  ordenActual.lineas[id].precio = val;
+  saveOrdenes(ordenes);
+  pushOrdenDebounced(ordenActual);
+  var p   = productos.find(function(x){ return x.id === id; });
+  var sid = slugId(id);
+  var pedido = (ordenActual.lineas[id].pedido !== undefined) ? ordenActual.lineas[id].pedido : calcPedidoSugerido(p);
+  var pEl = document.getElementById('precio-' + sid);
+  var mEl = document.getElementById('monto-' + sid);
+  if (pEl) pEl.textContent = fmt2(val);
+  if (mEl) mEl.textContent = fmt(pedido * val);
+  recalcularTotales();
+  renderResumenProveedores();
 }
 
 // ── RESUMEN POR PROVEEDOR vs. PRESUPUESTO ─────────────────────────
