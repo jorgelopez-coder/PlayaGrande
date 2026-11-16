@@ -1475,9 +1475,13 @@ async function aprobarOrden() {
     var ped    = l.pedido !== undefined ? l.pedido : calcPedidoSugerido(p);
     var prov   = l.proveedor !== undefined ? l.proveedor : (p.proveedor||'');
     var precio = precioLinea(p, l);
+    // Nombre del producto tal como aparece en la factura del proveedor elegido
+    // (columna "Nombre en Factura" del Maestro, vía p.proveedores).
+    var provEntry = (p.proveedores||[]).find(function(e){ return claveNorm(e.proveedor) === claveNorm(prov); });
+    var nombreFactura = provEntry ? (provEntry.nombreFactura||'') : '';
     // No guardamos el arreglo de proveedores dentro de la línea aprobada
     // (se sube al Sheet) — sí el precio efectivo del proveedor elegido.
-    return Object.assign({}, p, { proveedores:undefined, pedido:ped, monto:ped*precio, precio_sin_iva:precio, proveedor_orden:prov });
+    return Object.assign({}, p, { proveedores:undefined, pedido:ped, monto:ped*precio, precio_sin_iva:precio, proveedor_orden:prov, nombre_factura:nombreFactura });
   });
 
   if (!lineas.length) { showToast('Sin productos con pedido > 0','error'); return; }
@@ -1558,7 +1562,10 @@ function renderOrdenAprobada(orden) {
       + '<th style="text-align:right;">Cantidad</th><th style="text-align:right;">Precio</th><th style="text-align:right;">Monto</th>'
       + '</tr></thead><tbody>'
       + items.map(function(i){
-          return '<tr><td style="font-weight:500;">' + escHtml(i.nombre) + '</td>'
+          var nf = (i.nombre_factura||'').trim();
+          var nfHtml = (nf && claveNorm(nf) !== claveNorm(i.nombre))
+            ? '<div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;">En factura: ' + escHtml(nf) + '</div>' : '';
+          return '<tr><td style="font-weight:500;">' + escHtml(i.nombre) + nfHtml + '</td>'
             + '<td style="color:var(--muted);font-size:12px;">' + escHtml([i.presentacion,i.tamano].filter(Boolean).join(' ')||'—') + '</td>'
             + '<td class="num">' + i.pedido + '</td>'
             + '<td class="num" style="color:var(--muted);">' + fmt2(i.precio_sin_iva||0) + '</td>'
@@ -1591,8 +1598,11 @@ async function generarPDFOrden() {
     var items = provMap[prov];
     var total = items.reduce(function(a,i){ return a + (i.monto||0); }, 0);
     var filas = items.map(function(i){
+      var nf = (i.nombre_factura||'').trim();
+      var nfHtml = (nf && claveNorm(nf) !== claveNorm(i.nombre))
+        ? '<div style="font-size:10px;color:#888;">En factura: ' + nf + '</div>' : '';
       return '<tr>'
-        + '<td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;">' + i.nombre + '</td>'
+        + '<td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;">' + i.nombre + nfHtml + '</td>'
         + '<td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;color:#666;">' + ([i.presentacion,i.tamano].filter(Boolean).join(' ')||'—') + '</td>'
         + '<td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;">' + i.pedido + '</td>'
         + '<td style="padding:6px 8px;border-bottom:1px solid #e0e0e0;text-align:right;color:#666;">' + fmt2(i.precio_sin_iva||0) + '</td>'
