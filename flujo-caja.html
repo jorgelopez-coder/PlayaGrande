@@ -797,7 +797,7 @@ async function cargarOrdenesAprobadas() {
       const fechaDef  = isoDate(o.fecha) || String(o.fecha || '').slice(0,10) || hoyISO;
       const porProv   = {};
       lineas.forEach(l => {
-        const prov  = String(l.proveedor || '').trim() || '(sin proveedor)';
+        const prov  = String(l.proveedor_orden || l.proveedor || '').trim() || '(sin proveedor)';
         const monto = Number(l.monto) || ((Number(l.pedido) || 0) * (Number(l.precio_sin_iva) || 0));
         if (!(monto > 0)) return;
         porProv[prov] = (porProv[prov] || 0) + monto;
