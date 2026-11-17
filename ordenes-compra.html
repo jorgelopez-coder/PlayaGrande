@@ -1778,8 +1778,8 @@ function buildWA(prov, orden, items) {
   }).join('\n');
   // Encabezado con los datos fiscales del kiosko (Configuración): nombre de la sociedad y cédula jurídica.
   var info      = KIOSKOS_INFO[orden.kiosko] || {};
-  var sociedad  = (info['Nombre Jurídico'] || '').trim();
-  var cedula    = (info['Cédula Jurídica'] || '').trim();
+  var sociedad  = String(info['Nombre Jurídico'] || '').trim();
+  var cedula    = String(info['Cédula Jurídica'] || '').trim();
   var encabezado = '';
   if (sociedad) encabezado += '*' + sociedad + '*\n';
   if (cedula)   encabezado += 'Cédula jurídica: ' + cedula + '\n';
