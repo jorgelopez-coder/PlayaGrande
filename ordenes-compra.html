@@ -1766,7 +1766,11 @@ function buildEmail(prov, orden, items) {
 }
 function buildWA(prov, orden, items) {
   var total = items.reduce(function(a,i){ return a+(i.monto||0); }, 0);
-  var lineas = items.map(function(i){ return '- ' + i.nombre + ': ' + i.pedido + ' ' + (i.presentacion||'u') + ' ' + (i.tamano||''); }).join('\n');
+  var lineas = items.map(function(i){
+    // Nombre tal como aparece en la factura del proveedor (para que lo reconozca); cae al nombre estándar si no hay.
+    var nombre = (i.nombre_factura||'').trim() || i.nombre;
+    return '- ' + nombre + ': ' + i.pedido + ' ' + (i.presentacion||'u') + ' ' + (i.tamano||'');
+  }).join('\n');
   return '*Pedido ' + orden.id + ' - ' + orden.kiosko + '*\nFecha: ' + orden.fecha + '\nProveedor: ' + prov + '\n\n' + lineas + '\n\n*Total: ' + fmt(total) + '*';
 }
 function abrirEmail(asunto, cuerpo) { window.open('mailto:?subject=' + asunto + '&body=' + cuerpo); }
