@@ -1843,7 +1843,8 @@ function abrirOrden() {
 }
 
 function verOrdenAprobada(id) {
-  var orden = getOrdenes().find(function(o){ return o.id === id; });
+  if (!ordenes.length) ordenes = getOrdenes();
+  var orden = ordenes.find(function(o){ return o.id === id; });
   if (!orden) return;
   document.getElementById('tab-btn-actual').style.display = 'block';
   document.getElementById('btn-aprobar').style.display = 'none';
@@ -1856,10 +1857,14 @@ function verOrdenAprobada(id) {
 
 // ── REABRIR UNA ORDEN APROBADA PARA EDITARLA ──────────────────────
 function reabrirOrden(id) {
-  var orden = getOrdenes().find(function(o){ return o.id === id; });
+  if (!ordenes.length) ordenes = getOrdenes();
+  // Operar sobre el objeto que vive en el arreglo `ordenes` (NO una copia
+  // suelta de getOrdenes()), para que saveOrdenes(ordenes) persista la
+  // mutación y ordenActual quede sincronizado con localStorage y el backend.
+  var orden = ordenes.find(function(o){ return o.id === id; });
   if (!orden) return;
   // No permitir dos órdenes en proceso en el mismo kiosko a la vez.
-  var otraEnProceso = getOrdenes().find(function(o){
+  var otraEnProceso = ordenes.find(function(o){
     return o.id !== id && o.kiosko === orden.kiosko && o.estado === 'en_proceso';
   });
   if (otraEnProceso) {
