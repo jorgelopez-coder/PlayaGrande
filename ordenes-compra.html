@@ -366,6 +366,7 @@ let MINIMOS_DESTACAR = DEEPLINK_PRODUCTO ? claveNorm(DEEPLINK_PRODUCTO) : '';
 
 // ── ESTADO ────────────────────────────────────────────────────────
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
+let KIOSKOS_INFO = {}; // { nombreKiosko: fila completa de Configuración } — para datos fiscales (Cédula Jurídica, Nombre Jurídico)
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
 // nombres de kioskos hardcodeada — si los 3 intentos fallan, se avisa y la
@@ -513,6 +514,10 @@ function productoAplicaKiosko(p, kiosko) {
 async function cargarKioskos() {
     const data = await cargarKioskosDesdeBackend(APPS_SCRIPT_RRHH + '?modulo=kioskos');
     if (data.ok && Array.isArray(data.kioskos) && data.kioskos.length) KIOSKOS = kioskosPermitidos(data.kioskos);
+    if (data.ok && Array.isArray(data.registros)) {
+      KIOSKOS_INFO = {};
+      data.registros.forEach(function(r){ if (r && r['Kiosko']) KIOSKOS_INFO[r['Kiosko']] = r; });
+    }
   const sel = document.getElementById('sel-kiosko');
   sel.innerHTML = '<option value="" disabled selected>Seleccioná un kiosko…</option>' + KIOSKOS.map(k => `<option>${escHtml(k)}</option>`).join('');
   const preferido = (DEEPLINK_KIOSKO && KIOSKOS.includes(DEEPLINK_KIOSKO)) ? DEEPLINK_KIOSKO : localStorage.getItem('kiosko_actual');
@@ -1765,13 +1770,21 @@ function buildEmail(prov, orden, items) {
   return { asunto: 'Pedido ' + orden.id + ' - ' + orden.kiosko, cuerpo: cuerpo };
 }
 function buildWA(prov, orden, items) {
-  var total = items.reduce(function(a,i){ return a+(i.monto||0); }, 0);
   var lineas = items.map(function(i){
     // Nombre tal como aparece en la factura del proveedor (para que lo reconozca); cae al nombre estándar si no hay.
     var nombre = (i.nombre_factura||'').trim() || i.nombre;
-    return '- ' + nombre + ': ' + i.pedido + ' ' + (i.presentacion||'u') + ' ' + (i.tamano||'');
+    // Cantidad en negrita (*..* = negrita en WhatsApp).
+    return '- ' + nombre + ': *' + i.pedido + '* ' + (i.presentacion||'u') + ' ' + (i.tamano||'');
   }).join('\n');
-  return '*Pedido ' + orden.id + ' - ' + orden.kiosko + '*\nFecha: ' + orden.fecha + '\nProveedor: ' + prov + '\n\n' + lineas + '\n\n*Total: ' + fmt(total) + '*';
+  // Encabezado con los datos fiscales del kiosko (Configuración): nombre de la sociedad y cédula jurídica.
+  var info      = KIOSKOS_INFO[orden.kiosko] || {};
+  var sociedad  = (info['Nombre Jurídico'] || '').trim();
+  var cedula    = (info['Cédula Jurídica'] || '').trim();
+  var encabezado = '';
+  if (sociedad) encabezado += '*' + sociedad + '*\n';
+  if (cedula)   encabezado += 'Cédula jurídica: ' + cedula + '\n';
+  if (encabezado) encabezado += '\n';
+  return encabezado + '*Pedido ' + orden.id + ' - ' + orden.kiosko + '*\nFecha: ' + orden.fecha + '\nProveedor: ' + prov + '\n\n' + lineas;
 }
 function abrirEmail(asunto, cuerpo) { window.open('mailto:?subject=' + asunto + '&body=' + cuerpo); }
 function abrirWA(msg) { window.open('https://wa.me/?text=' + encodeURIComponent(decodeURIComponent(msg)), '_blank'); }
