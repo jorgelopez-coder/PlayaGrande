@@ -532,6 +532,18 @@ function costoComparableItem(it) {
 // aporta el proveedor de MEJOR costo (⭐) entre sus facturas asociadas:
 //   precio de compra  → valor del producto cerrado/completo
 //   costo/u. estándar → valor de lo abierto / pesado (cuando hay pesos)
+// Categorías que se cuentan por PESO automáticamente, sin configurar la
+// ficha producto por producto (Jorge 2026-11-19). El valor es la densidad
+// g/ml aproximada usada para convertir el peso neto a ml; si un ítem
+// asociado trae su propia densidad en la ficha, esa manda sobre esta.
+const CATEGORIAS_PESO = {
+  'licores y destilados': 0.94,  // destilados ~40% vol
+  'cerveza draft':        1.0    // cerveza
+};
+function densidadCategoriaPeso(cat){
+  const d = CATEGORIAS_PESO[claveNorm(cat)];
+  return (d !== undefined) ? d : null;
+}
 async function cargarMaestroProductos() {
   try {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Productos_Estandar', 'Nombre');
@@ -552,6 +564,12 @@ async function cargarMaestroProductos() {
       // Ítem con configuración de peso (si alguno la tiene); preferir el mejor
       const itemPeso = (mejor && mejor.tipoControl === 'peso') ? mejor
                      : (items.find(it => it.tipoControl === 'peso') || null);
+      // Peso automático por categoría: licores/destilados y cerveza draft
+      // cuentan por peso aunque ningún ítem tenga la ficha marcada.
+      const _cat     = (r['Categoría de producto']||'').toString().trim();
+      const _densCat = densidadCategoriaPeso(_cat);
+      const _pesoEmp = (r['Peso empaque (g)']!=='' && r['Peso empaque (g)']!=null && !isNaN(parseFloat(r['Peso empaque (g)']))) ? parseFloat(r['Peso empaque (g)']) : '';
+      const _esPeso  = !!itemPeso || (_densCat !== null);
 
       // Aplicabilidad por kiosko: unión de los ítems asociados. Si alguno
       // aplica a "Todos" (o no trae kioskos), o no hay ítems, aplica a todos.
@@ -577,10 +595,10 @@ async function cargarMaestroProductos() {
         precio_sin_iva: mejor ? mejor.precioCompra : 0,  // precio de compra → cerrado/completo
         costo:          mejor ? mejor.costoUnidad : 0,   // valor de la unidad → abierto/pesado
         kioskosTxt:    kioskosTxt,
-        tipoControl:   itemPeso ? 'peso' : 'unitario',
+        tipoControl:   _esPeso ? 'peso' : 'unitario',
         contenidoMl:   itemPeso ? itemPeso.contenidoMl : 0,
-        densidad:      itemPeso ? itemPeso.densidad : 0,
-        taraDefecto:   itemPeso ? itemPeso.taraDefecto : '',
+        densidad:      (itemPeso && itemPeso.densidad>0) ? itemPeso.densidad : (_densCat!==null ? _densCat : 0),
+        taraDefecto:   (itemPeso && itemPeso.taraDefecto!=='' && itemPeso.taraDefecto!=null) ? itemPeso.taraDefecto : _pesoEmp,
       });
     });
     MAESTRO_PRODUCTOS = lista.sort((a,b) => a.nombre.localeCompare(b.nombre));
