@@ -206,6 +206,8 @@ input[type="date"]:focus{border-color:var(--teal)}
         </select>
       </div>
 
+      <div id="alertas-toma"></div>
+
       <div style="border-bottom:1px solid var(--teal-lt);">
         <div class="valor-box">
           <span style="font-size:13px;color:var(--teal);font-weight:500;">Valorización total</span>
@@ -711,12 +713,76 @@ function tieneCompraPeriodo(p){
   return !!(c && (c.unidades>0 || (c.facturas && c.facturas.size)));
 }
 function actualizarMarcaCompra(id){
-  const el = document.getElementById('mk-'+slugIdInv(id));
-  if (!el) return;
   const p = productos.find(x=>x.id===id); if (!p) return;
   const linea = (tomaActual && tomaActual.lineas && tomaActual.lineas[id]) || {};
   const sinValor = !(linea.cerrado!==undefined || linea.abierto!==undefined);
-  el.style.display = (tieneCompraPeriodo(p) && sinValor) ? 'inline-block' : 'none';
+  const el = document.getElementById('mk-'+slugIdInv(id));
+  if (el) el.style.display = (tieneCompraPeriodo(p) && sinValor) ? 'inline-block' : 'none';
+  const sc = document.getElementById('sc-'+slugIdInv(id));
+  if (sc) sc.style.display = subioSinCompra(p) ? 'inline-block' : 'none';
+  renderAlertasToma();
+}
+
+// ── ALERTA: toma mayor a la anterior sin compras en el período ──────
+// Jorge (2026-11-19): si un producto se contó por MÁS que en la toma
+// anterior y no hubo ninguna compra suya en el período, es una señal de
+// que algo no cuadra (no se puede tener más sin haber comprado). Se
+// compara por separado unidades completas (misma presentación) y cantidad
+// en uso (misma unidad de medida); la cantidad en uso lleva 2% + 1 de
+// tolerancia por la variación natural del pesaje.
+function subioSinCompra(p){
+  if (tieneCompraPeriodo(p)) return false;            // sí hubo compras → no aplica
+  const ta = REF_TOMA[claveNorm(p.nombre)];
+  if (!ta) return false;                              // sin toma anterior → nada que comparar
+  const linea = (tomaActual && tomaActual.lineas && tomaActual.lineas[p.id]) || {};
+  if (!(linea.cerrado!==undefined || linea.abierto!==undefined)) return false; // sin contar
+  const cerrado = parseFloat(linea.cerrado)||0;
+  const abierto = parseFloat(linea.abierto)||0;
+  const antCompletos = parseFloat(ta.completos)||0;
+  const antEnUso     = parseFloat(ta.enUso)||0;
+  const subeCompletos = cerrado > antCompletos;                                   // enteros: estricto
+  const subeEnUso     = (abierto > antEnUso * 1.02) && (abierto - antEnUso > 1);  // tolerancia
+  return subeCompletos || subeEnUso;
+}
+// Listas para el panel de acceso rápido
+function productosCompradoSinContar(){
+  return productos.filter(p => {
+    const linea = (tomaActual && tomaActual.lineas && tomaActual.lineas[p.id]) || {};
+    const sinValor = !(linea.cerrado!==undefined || linea.abierto!==undefined);
+    return tieneCompraPeriodo(p) && sinValor;
+  });
+}
+function productosSubioSinCompra(){ return productos.filter(p => subioSinCompra(p)); }
+
+// ── Panel de alertas de la toma (acceso rápido, cambios #1 y #3) ─────
+function renderAlertasToma(){
+  const cont = document.getElementById('alertas-toma');
+  if (!cont) return;
+  if (!tomaActual || (REF_CARGANDO && !REF_META)) { cont.innerHTML=''; return; }
+  const sinContar = productosCompradoSinContar();
+  const subio     = productosSubioSinCompra();
+  if (!sinContar.length && !subio.length) { cont.innerHTML=''; return; }
+  const chip = (p, bg, bd, col) => `<button type="button" onclick="irAProducto('${jsArg(p.id)}')" title="Ver este producto en la lista" style="margin:2px 4px 2px 0;padding:2px 10px;font-size:11px;font-weight:600;color:${col};background:${bg};border:1px solid ${bd};border-radius:999px;cursor:pointer;">${escHtml(p.nombre)}</button>`;
+  let html = '<div style="margin:0 0 14px 0;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
+  if (subio.length){
+    html += `<div style="background:#fef2f2;padding:9px 14px;border-bottom:${sinContar.length?'1px solid var(--border)':'none'};">
+      <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:4px;">⚠ Subió sin compras · ${subio.length} producto${subio.length!==1?'s':''}</div>
+      <div style="font-size:11px;color:#7f1d1d;margin-bottom:5px;">Se contaron por más que en la toma anterior y no tienen compras en el período. Revisá el conteo o la factura.</div>
+      <div>${subio.map(p=>chip(p,'#fee2e2','#fca5a5','#991b1b')).join('')}</div></div>`;
+  }
+  if (sinContar.length){
+    html += `<div style="background:#fffbeb;padding:9px 14px;">
+      <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px;">⚠ Comprado, sin contar · ${sinContar.length} producto${sinContar.length!==1?'s':''}</div>
+      <div style="font-size:11px;color:#854d0e;margin-bottom:5px;">Tienen compras registradas en el período pero todavía no tienen dato en esta toma.</div>
+      <div>${sinContar.map(p=>chip(p,'#fef3c7','#fcd34d','#92400e')).join('')}</div></div>`;
+  }
+  html += '</div>';
+  cont.innerHTML = html;
+}
+function irAProducto(id){
+  const p = productos.find(x=>x.id===id); if(!p) return;
+  const inp = document.getElementById('s-actual');
+  if (inp){ inp.value = p.nombre; renderActual(); inp.scrollIntoView({behavior:'smooth',block:'center'}); }
 }
 
 // ── STORAGE (localStorage, igual que Lorito) ──────────────────────
@@ -807,7 +873,7 @@ function renderActual() {
 
   if (!lista.length) {
     document.getElementById('tabla-actual').innerHTML = '<div class="empty">Sin productos que coincidan. Revisá que el kiosko tenga productos asignados en el Maestro.</div>';
-    actualizarValorLive(); return;
+    actualizarValorLive(); renderAlertasToma(); return;
   }
 
   const thead = `<table><thead><tr>
@@ -862,6 +928,7 @@ function renderActual() {
   content += '</tbody></table>';
   document.getElementById('tabla-actual').innerHTML = content;
   actualizarValorLive();
+  renderAlertasToma();
 }
 
 function agruparLista(lista, fn) {
@@ -919,6 +986,7 @@ function buildFilaToma(p, groupId) {
       <div style="font-weight:500;">${escHtml(p.nombre)}</div>
       <div style="font-size:11px;color:var(--muted);">${escHtml(p.categoria||'')}</div>
       <div><span id="mk-${slugIdInv(p.id)}" style="display:${marcarCompra?'inline-block':'none'};margin-top:3px;padding:1px 8px;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:999px;">⚠ comprado, sin contar</span></div>
+      <div><span id="sc-${slugIdInv(p.id)}" style="display:${subioSinCompra(p)?'inline-block':'none'};margin-top:3px;padding:1px 8px;font-size:10px;font-weight:700;color:#991b1b;background:#fee2e2;border:1px solid #fca5a5;border-radius:999px;">⚠ subió sin compras</span></div>
       <button type="button" onclick="toggleRef('${slugIdInv(p.id)}')" style="margin-top:3px;padding:1px 8px;font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-bg);border:1px solid var(--teal-lt);border-radius:999px;cursor:pointer;">📊 toma anterior y compras</button>
     </td>
     <td style="font-size:12px;color:var(--muted);">${escHtml(presentacion)}</td>
@@ -972,21 +1040,25 @@ function renderPesajesCell(p, linea) {
 
   const filas = pesajes.map((pj, i) => {
     const neto = netoPesaje(p, pj);
-    return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
-      <input type="text" list="${dlId}" placeholder="Marca/envase" value="${escHtml(pj.marca||'')}"
-        style="width:88px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);"
-        oninput="onPesaje('${sid}',${i},'marca',this)" onchange="onPesajeMarcaChange('${sid}',${i},this)">
-      <input type="number" min="0" step="1" placeholder="Tara g" value="${pj.taraG!==undefined&&pj.taraG!==''?pj.taraG:''}"
-        id="tara-${sidSafe}-${i}" title="Peso del envase vacío"
-        style="width:54px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
-        oninput="onPesaje('${sid}',${i},'taraG',this)" onblur="onPesajeTaraBlur('${sid}',${i},this)">
-      <input type="number" min="0" step="1" placeholder="Bruto g" value="${pj.brutoG!==undefined&&pj.brutoG!==''?pj.brutoG:''}"
-        title="Peso en la báscula (botella + contenido)"
-        style="width:54px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
-        oninput="onPesaje('${sid}',${i},'brutoG',this)">
-      <span style="font-size:10px;color:var(--muted);min-width:48px;text-align:right;" id="neto-${sidSafe}-${i}">${neto===''?'—':Math.round(neto)+' ml'}</span>
-      <button type="button" onclick="quitarPesaje('${sid}',${i})" title="Quitar este pesaje"
-        style="border:none;background:transparent;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">×</button>
+    return `<div style="margin-bottom:6px;">
+      <div style="display:flex;gap:4px;align-items:center;">
+        <span style="font-size:9px;color:var(--muted);min-width:14px;text-align:right;">${i+1}.</span>
+        <input type="text" list="${dlId}" placeholder="Marca/envase" value="${escHtml(pj.marca||'')}"
+          style="width:84px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);"
+          oninput="onPesaje('${sid}',${i},'marca',this)" onchange="onPesajeMarcaChange('${sid}',${i},this)">
+        <input type="number" min="0" step="1" placeholder="Envase g" value="${pj.taraG!==undefined&&pj.taraG!==''?pj.taraG:''}"
+          id="tara-${sidSafe}-${i}" title="Peso del envase vacío (tara)"
+          style="width:56px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
+          oninput="onPesaje('${sid}',${i},'taraG',this)" onblur="onPesajeTaraBlur('${sid}',${i},this)">
+        <input type="number" min="0" step="1" placeholder="Bruto g" value="${pj.brutoG!==undefined&&pj.brutoG!==''?pj.brutoG:''}"
+          title="Peso en la báscula (envase + contenido)"
+          style="width:56px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);text-align:right;"
+          oninput="onPesaje('${sid}',${i},'brutoG',this)">
+        <span style="font-size:11px;font-weight:600;color:var(--teal);min-width:52px;text-align:right;" id="neto-${sidSafe}-${i}">${neto===''?'—':fmtCant(Math.round(neto))+' ml'}</span>
+        <button type="button" onclick="quitarPesaje('${sid}',${i})" title="Quitar este pesaje"
+          style="border:none;background:transparent;color:var(--red);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">×</button>
+      </div>
+      <div id="pinfo-${sidSafe}-${i}" style="font-size:9px;color:var(--muted);margin-left:18px;margin-top:1px;line-height:1.4;">${pinfoTexto(p,pj)}</div>
     </div>`;
   }).join('');
 
@@ -996,7 +1068,7 @@ function renderPesajesCell(p, linea) {
     <div style="display:flex;flex-direction:column;align-items:flex-start;">
       ${filas}
       <button type="button" class="btn-sm" style="margin-top:2px;" onclick="agregarPesaje('${sid}')">+ Botella/barril abierto</button>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px;" id="totalpes-${sidSafe}">${pesajes.length ? Math.round(total) + ' ml en uso' : ''}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;" id="totalpes-${sidSafe}">${pesajes.length ? pesajes.length + ' envase' + (pesajes.length!==1?'s':'') + ' · ' + fmtCant(Math.round(total)) + ' ml en uso' : ''}</div>
     </div>`;
 }
 
@@ -1007,6 +1079,26 @@ function pesajesDe(id) {
   return tomaActual.lineas[id].pesajes;
 }
 
+// Refleja, por cada envase pesado, el peso del envase vacío REGISTRADO
+// (si la marca ya tiene tara aprendida en MarcasEnvase) y el desglose
+// bruto − envase = contenido que entra a la valorización. Pedido de
+// Jorge 2026-11-19: "ver reflejado el peso del envase vacío registrado".
+function pinfoTexto(p, pj){
+  if (!pj) return '';
+  const parts = [];
+  const reg = taraConocida(p.nombre, pj.marca);
+  if (reg != null){
+    const actual = parseFloat(pj.taraG);
+    const ok = (actual>=0) && Math.abs(actual-reg) < 0.5;
+    parts.push(`\uD83D\uDCCC envase vac\u00EDo registrado: <b>${fmtCant(reg)} g</b>${ok?' \u2713':''}`);
+  }
+  const n = netoPesaje(p, pj);
+  if (n !== ''){
+    const bruto = parseFloat(pj.brutoG)||0, tara = parseFloat(pj.taraG)||0;
+    parts.push(`bruto ${fmtCant(Math.round(bruto))} \u2212 envase ${fmtCant(Math.round(tara))} g = <b>${fmtCant(Math.round(n))} ml</b>`);
+  }
+  return parts.join(' &nbsp;\u00B7&nbsp; ');
+}
 function netoPesaje(p, pj) {
   if (!pj) return '';
   const bruto = parseFloat(pj.brutoG);
@@ -1029,7 +1121,9 @@ function recalcAbierto(id) {
     const n = netoPesaje(p, pj);
     if (n !== '') { suma += n; algunNeto = true; }
     const el = document.getElementById('neto-' + sidSafe + '-' + i);
-    if (el) el.textContent = n === '' ? '—' : Math.round(n) + ' ml';
+    if (el) el.textContent = n === '' ? '—' : fmtCant(Math.round(n)) + ' ml';
+    const pel = document.getElementById('pinfo-' + sidSafe + '-' + i);
+    if (pel) pel.innerHTML = pinfoTexto(p, pj);
   });
   // Solo se marca como "contado" cuando al menos un pesaje tiene bruto y
   // tara válidos — agregar una fila vacía todavía no cuenta como conteo.
@@ -1037,7 +1131,7 @@ function recalcAbierto(id) {
   else delete tomaActual.lineas[id].abierto;
 
   const totalEl = document.getElementById('totalpes-' + sidSafe);
-  if (totalEl) totalEl.textContent = pesajes.length ? Math.round(suma) + ' ml en uso' : '';
+  if (totalEl) totalEl.textContent = pesajes.length ? pesajes.length + ' envase' + (pesajes.length!==1?'s':'') + ' \u00B7 ' + fmtCant(Math.round(suma)) + ' ml en uso' : '';
 
   const linea = tomaActual.lineas[id];
   const precioC = parseFloat(p.precio_sin_iva)||0;
