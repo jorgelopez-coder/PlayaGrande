@@ -340,6 +340,14 @@ const pad = n => String(n).padStart(2,'0');
 const fechaHoy = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
 const fmt  = n => '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:0});
 const fmt2 = n => '₡' + Number(n||0).toLocaleString('es-CR', {minimumFractionDigits:2, maximumFractionDigits:2});
+// Valorización del historial: siempre 2 decimales y punto como separador
+// decimal (es-CR usa coma). en-US da coma de miles + punto decimal → ₡1,234.56
+const fmtVal = n => '₡' + Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+// Código de administrador para reabrir una toma finalizada (mismo default
+// del ecosistema: horarios/cierres/servicio-10).
+const INV_ADMIN_CODE = 'admin';
+// Caché de las tomas del historial (por ID) para exportar y reabrir.
+let HIST_TOMAS = {};
 
 document.getElementById('date-chip').textContent =
   hoy.toLocaleDateString('es-CR', { weekday:'long', day:'numeric', month:'long' });
@@ -1363,16 +1371,20 @@ async function renderHistorial() {
     if (!INVENTARIO_SHEET_ID || INVENTARIO_SHEET_ID.indexOf('TODO_') === 0) throw new Error('Sin Sheet configurado');
     const rows = await gvizLoad(INVENTARIO_SHEET_ID, 'HISTORIAL_inventario');
     const tomasMap = {};
-    // Comparación insensible a mayúsculas/espacios: HISTORIAL_inventario
-    // puede tener el campo Kiosko con distinta capitalización que kioskoActual
-    // (el nombre canónico elegido en el <select>).
     rows.filter(r => String(r['Kiosko']||'').trim().toLowerCase() === kioskoActual.toLowerCase()).forEach(r => {
       const id = String(r['Toma ID']||'').trim();
       if (!id) return;
-      if (!tomasMap[id]) tomasMap[id] = { id, fecha: String(r['Fecha toma']||'').trim(), lineas: [] };
-      tomasMap[id].lineas.push(r);
+      if (!tomasMap[id]) tomasMap[id] = { id, fecha: String(r['Fecha toma']||'').trim(), lineasMap: {}, i:0 };
+      // Dedupe defensivo: si una misma toma quedó escrita dos veces (doble
+      // envío / reintento del backend viejo), nos quedamos con la ÚLTIMA fila de
+      // cada producto, para no duplicar líneas ni inflar los totales.
+      const prod = String(r['Producto']||'').trim();
+      const key = prod || ('__sinprod_' + (tomasMap[id].i++));
+      tomasMap[id].lineasMap[key] = r;
     });
-    tomasSheet = Object.values(tomasMap).sort((a,b) => b.id.localeCompare(a.id));
+    tomasSheet = Object.values(tomasMap)
+      .map(t => ({ id:t.id, fecha:t.fecha, lineas:Object.values(t.lineasMap) }))
+      .sort((a,b) => b.id.localeCompare(a.id));
   } catch(e) {
     tomasSheet = getTomas().filter(t=>t.estado==='finalizada' && t.kiosko===kioskoActual).reverse().map(t => ({
       id: t.id, fecha: t.fecha_toma, lineas: []
@@ -1384,44 +1396,234 @@ async function renderHistorial() {
     return;
   }
 
+  HIST_TOMAS = {};
   cont.innerHTML = tomasSheet.map(t => {
+    HIST_TOMAS[t.id] = t;
     const areas = [...new Set(t.lineas.map(l=>l['Área']||'Sin área'))].filter(Boolean);
-    const total = t.lineas.reduce((a,l) => a + (parseFloat(l['Valor total línea'])||0), 0);
-    const filas = t.lineas.map(l => `
-      <tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:5px 8px;font-size:12px;">${escHtml(l['Producto']||'—')}</td>
-        <td style="padding:5px 8px;font-size:12px;color:var(--muted);">${escHtml(l['Área']||'—')}</td>
-        <td style="padding:5px 8px;text-align:right;font-size:12px;">${l['Cant. completos']||0}</td>
-        <td style="padding:5px 8px;text-align:right;font-size:12px;">${l['Cant. en uso']||0} ${escHtml(l['Unidad']||'')}</td>
-        <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:var(--teal);">${fmt(parseFloat(l['Valor total línea'])||0)}</td>
-      </tr>`).join('');
-
+    const total = sumaValorLineas(t.lineas);
+    const sid = slugIdInv(t.id);
     return `<div style="border-bottom:1px solid var(--border);">
-      <div class="hist-item" onclick="toggleDetalleHist('det-${slugIdInv(t.id)}')">
+      <div class="hist-item" onclick="toggleDetalleHist('det-${sid}')">
         <div>
           <div style="font-weight:600;">${escHtml(t.id)}</div>
           <div style="font-size:12px;color:var(--muted);">${escHtml(t.fecha)} · ${t.lineas.length} líneas · ${escHtml(areas.join(', '))}</div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
           <span class="status-fin">Finalizada</span>
-          <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--teal);">${fmt(total)}</div>
+          <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--teal);">${fmtVal(total)}</div>
         </div>
       </div>
-      <div id="det-${slugIdInv(t.id)}" style="display:none;padding:0 1.25rem 1rem;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
-          <thead><tr style="background:var(--surface);">
-            <th style="padding:5px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);">Producto</th>
-            <th style="padding:5px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--muted);">Área</th>
-            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">Completos</th>
-            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">En uso</th>
-            <th style="padding:5px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--muted);">Valorización</th>
-          </tr></thead>
-          <tbody>${filas}</tbody>
-        </table>
+      <div id="det-${sid}" style="display:none;padding:0 1.25rem 1rem;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px;">
+          <button type="button" class="btn-sm" style="color:var(--teal);border-color:var(--teal-lt);" onclick="event.stopPropagation();reabrirTomaHist('${escJs(t.id)}')">🔓 Reabrir conteo</button>
+          <button type="button" class="btn-sm" onclick="event.stopPropagation();descargarHistExcel('${escJs(t.id)}')">⤓ Excel</button>
+          <button type="button" class="btn-sm" onclick="event.stopPropagation();descargarHistPDF('${escJs(t.id)}')">⤓ PDF</button>
+        </div>
+        ${histDetalleAgrupado(t.lineas)}
       </div>
     </div>`;
   }).join('');
 }
+
+// Suma la valorización ('Valor total línea') de una lista de filas del historial.
+function sumaValorLineas(lineas){
+  return lineas.reduce((a,l)=> a + (parseFloat(l['Valor total línea'])||0), 0);
+}
+
+// Agrupa las filas de una toma por Área → Categoría.
+function histAgrupar(lineas){
+  const porArea = {};
+  lineas.forEach(l=>{
+    const area = (String(l['Área']||'').trim()) || 'Sin área';
+    const cat  = (String(l['Categoría']||'').trim()) || 'Sin categoría';
+    (porArea[area] = porArea[area] || {});
+    (porArea[area][cat] = porArea[area][cat] || []).push(l);
+  });
+  return porArea;
+}
+
+// Detalle del historial agrupado por Área → Categoría, con subtotales por
+// categoría, por área y total general. Valorización con 2 decimales y punto.
+function histDetalleAgrupado(lineas){
+  if (!lineas.length) return '<div style="padding:8px 4px;color:var(--muted);font-size:12px;">Sin detalle de líneas disponible para esta toma.</div>';
+  const porArea = histAgrupar(lineas);
+  const th = (txt,align)=>`<th style="padding:5px 8px;text-align:${align||'left'};font-size:10px;text-transform:uppercase;color:var(--muted);">${txt}</th>`;
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;">
+    <thead><tr style="background:var(--surface);">
+      ${th('Producto')}${th('Categoría')}${th('Completos','right')}${th('En uso','right')}${th('Valorización','right')}
+    </tr></thead><tbody>`;
+  let totalGeneral = 0;
+  Object.keys(porArea).sort().forEach(area=>{
+    const cats = porArea[area];
+    let subArea = 0;
+    html += `<tr style="background:var(--teal-bg);"><td colspan="5" style="padding:6px 8px;font-weight:700;color:var(--teal);font-size:11px;text-transform:uppercase;letter-spacing:.04em;">▸ ${escHtml(area)}</td></tr>`;
+    Object.keys(cats).sort().forEach(cat=>{
+      let subCat = 0;
+      html += `<tr><td colspan="5" style="padding:4px 8px 4px 16px;font-weight:600;color:var(--muted);font-size:11px;">${escHtml(cat)}</td></tr>`;
+      cats[cat].forEach(l=>{
+        const val = parseFloat(l['Valor total línea'])||0;
+        subCat += val;
+        html += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:5px 8px 5px 24px;font-size:12px;">${escHtml(l['Producto']||'—')}</td>
+          <td style="padding:5px 8px;font-size:12px;color:var(--muted);">${escHtml(l['Categoría']||'—')}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;">${escHtml(String(l['Cant. completos']||0))}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;">${escHtml(String(l['Cant. en uso']||0))} ${escHtml(l['Unidad']||'')}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:var(--teal);">${fmtVal(val)}</td>
+        </tr>`;
+      });
+      subArea += subCat;
+      html += histSubtotalRow('Subtotal ' + cat, subCat, 'var(--surface)', false);
+    });
+    totalGeneral += subArea;
+    html += histSubtotalRow('Subtotal ' + area, subArea, 'var(--teal-bg)', true);
+  });
+  html += `</tbody><tfoot><tr style="border-top:2px solid var(--teal);">
+    <td colspan="4" style="padding:8px;text-align:right;font-weight:700;color:var(--teal);">TOTAL GENERAL</td>
+    <td style="padding:8px;text-align:right;font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--teal);">${fmtVal(totalGeneral)}</td>
+  </tr></tfoot></table>`;
+  return html;
+}
+function histSubtotalRow(label, val, bg, fuerte){
+  return `<tr style="background:${bg};"><td colspan="4" style="padding:5px 8px;text-align:right;font-size:11px;font-weight:${fuerte?'700':'600'};color:var(--muted);">${escHtml(label)}</td><td style="padding:5px 8px;text-align:right;font-weight:700;color:var(--teal);">${fmtVal(val)}</td></tr>`;
+}
+
+// ---- Descargas (Excel / PDF) ----
+function slugArch(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'_').replace(/^_|_$/g,''); }
+function descargarBlob(blob, nombre){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+// Excel (.xls, tabla HTML — lo abren Excel y Google Sheets sin librerías
+// externas). Agrupado por Área → Categoría con subtotales, 2 decimales.
+function descargarHistExcel(tomaId){
+  const t = HIST_TOMAS[tomaId];
+  if (!t){ showToast('No se encontró la toma.','error'); return; }
+  if (!t.lineas.length){ showToast('Esta toma no tiene detalle para exportar.','error'); return; }
+  const porArea = histAgrupar(t.lineas);
+  const num = n => (Number(n)||0).toFixed(2);
+  let filas = '';
+  let totalGeneral = 0;
+  Object.keys(porArea).sort().forEach(area=>{
+    let subA=0;
+    filas += `<tr><td colspan="6" style="background:#1c3a28;color:#fff;font-weight:bold;">${escHtml(area)}</td></tr>`;
+    Object.keys(porArea[area]).sort().forEach(cat=>{
+      let subC=0;
+      filas += `<tr><td colspan="6" style="background:#e8f0ea;font-weight:bold;">${escHtml(cat)}</td></tr>`;
+      porArea[area][cat].forEach(l=>{
+        const val=parseFloat(l['Valor total línea'])||0; subC+=val;
+        filas += `<tr><td>${escHtml(l['Producto']||'')}</td><td>${escHtml(l['Categoría']||'')}</td><td>${escHtml(l['Área']||'')}</td><td style="text-align:right;">${escHtml(String(l['Cant. completos']||0))}</td><td style="text-align:right;">${escHtml(String(l['Cant. en uso']||0))} ${escHtml(l['Unidad']||'')}</td><td style="text-align:right;">${num(val)}</td></tr>`;
+      });
+      subA+=subC;
+      filas += `<tr><td colspan="5" style="text-align:right;font-weight:bold;">Subtotal ${escHtml(cat)}</td><td style="text-align:right;font-weight:bold;">${num(subC)}</td></tr>`;
+    });
+    totalGeneral+=subA;
+    filas += `<tr><td colspan="5" style="text-align:right;font-weight:bold;background:#e8f0ea;">Subtotal ${escHtml(area)}</td><td style="text-align:right;font-weight:bold;background:#e8f0ea;">${num(subA)}</td></tr>`;
+  });
+  filas += `<tr><td colspan="5" style="text-align:right;font-weight:bold;">TOTAL GENERAL</td><td style="text-align:right;font-weight:bold;">${num(totalGeneral)}</td></tr>`;
+  const tabla = `<table border="1"><thead><tr><th>Producto</th><th>Categoría</th><th>Área</th><th>Completos</th><th>En uso</th><th>Valorización</th></tr></thead><tbody>${filas}</tbody></table>`;
+  const encabezado = `<h3>Ecosistema Kioskos — ${escHtml(kioskoActual)}</h3><p>Toma ${escHtml(t.id)} · Fecha ${escHtml(t.fecha)}</p>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>${encabezado}${tabla}</body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel' });
+  descargarBlob(blob, `Inventario_${slugArch(kioskoActual)}_${slugArch(t.id)}.xls`);
+}
+
+// PDF: reutiliza el área de impresión y window.print() (el usuario elige
+// "Guardar como PDF"), mismo mecanismo que el formato de conteo de esta página.
+function descargarHistPDF(tomaId){
+  const t = HIST_TOMAS[tomaId];
+  if (!t){ showToast('No se encontró la toma.','error'); return; }
+  if (!t.lineas.length){ showToast('Esta toma no tiene detalle para el PDF.','error'); return; }
+  const porArea = histAgrupar(t.lineas);
+  const num = n => (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  let html = `<div class="pr-header"><div class="pr-logo">ECOSISTEMA KIOSKOS — ${escHtml(kioskoActual)}</div><div class="pr-meta">Toma de inventario (finalizada) &nbsp;|&nbsp; ID: <strong>${escHtml(t.id)}</strong> &nbsp;|&nbsp; Fecha: <strong>${escHtml(t.fecha)}</strong></div></div>`;
+  let totalGeneral = 0;
+  Object.keys(porArea).sort().forEach(area=>{
+    let subA=0;
+    html += `<div class="pr-area-title">${escHtml(area)}</div>`;
+    Object.keys(porArea[area]).sort().forEach(cat=>{
+      let subC=0;
+      html += `<table class="pr-table"><thead><tr><th style="width:40%">${escHtml(cat)}</th><th style="width:18%;text-align:right;">Completos</th><th style="width:20%;text-align:right;">En uso</th><th style="width:22%;text-align:right;">Valorización</th></tr></thead><tbody>`;
+      porArea[area][cat].forEach(l=>{
+        const val=parseFloat(l['Valor total línea'])||0; subC+=val;
+        html += `<tr><td>${escHtml(l['Producto']||'')}</td><td style="text-align:right;">${escHtml(String(l['Cant. completos']||0))}</td><td style="text-align:right;">${escHtml(String(l['Cant. en uso']||0))} ${escHtml(l['Unidad']||'')}</td><td style="text-align:right;">₡${num(val)}</td></tr>`;
+      });
+      subA+=subC;
+      html += `<tr><td colspan="3" style="text-align:right;font-weight:700;">Subtotal ${escHtml(cat)}</td><td style="text-align:right;font-weight:700;">₡${num(subC)}</td></tr></tbody></table>`;
+    });
+    totalGeneral+=subA;
+    html += `<div style="text-align:right;font-weight:700;margin:4px 0 10px;">Subtotal ${escHtml(area)}: ₡${num(subA)}</div>`;
+  });
+  html += `<div style="text-align:right;font-weight:800;font-size:13px;border-top:2px solid #000;padding-top:6px;margin-top:8px;">TOTAL GENERAL: ₡${num(totalGeneral)}</div>`;
+  document.getElementById('print-contenido').innerHTML = html;
+  document.getElementById('print-area').style.display = 'block';
+  window.print();
+  document.getElementById('print-area').style.display = 'none';
+}
+
+// Reabrir una toma finalizada (pide código de administrador). Reconstruye la
+// toma como "en proceso" desde las filas del Sheet para editarla y volver a
+// finalizarla. Al re-finalizar, el backend REEMPLAZA las filas de esa Toma ID
+// (no duplica) — ver guardarInventario/borrarFilasPorToma_ en el backend.
+function reabrirTomaHist(tomaId){
+  const t = HIST_TOMAS[tomaId];
+  if (!t){ showToast('No se encontró la toma.','error'); return; }
+  if (!t.lineas.length){ showToast('No hay detalle de esta toma para reabrir.','error'); return; }
+  const code = prompt('Código de administrador para reabrir la toma ' + t.id + ':');
+  if (code === null) return;
+  if (String(code).trim().toLowerCase() !== INV_ADMIN_CODE){ showToast('Código incorrecto.','error'); return; }
+
+  const enProceso = tomas.find(x => x.estado === 'en_proceso' && x.kiosko === kioskoActual);
+  if (enProceso && enProceso.id !== t.id){
+    if (!confirm('Ya hay una toma en proceso en ' + kioskoActual + '. ¿Abandonarla para reabrir ' + t.id + '?')) return;
+    enProceso.estado = 'cancelada';
+  }
+
+  const lineas = {};
+  t.lineas.forEach(l=>{
+    const nombre = String(l['Producto']||'').trim();
+    if (!nombre) return;
+    const cerrado = parseFloat(l['Cant. completos'])||0;
+    const abierto = parseFloat(l['Cant. en uso'])||0;
+    const obj = {};
+    if (cerrado) obj.cerrado = cerrado;
+    if (abierto){
+      obj.abierto = abierto;
+      const p = productos.find(x=>x.id===nombre);
+      if (p && p.tipoControl==='peso'){
+        // Reproduce el total en uso con un pesaje "Reapertura" (tara 0), para
+        // que la celda de pesos muestre el valor preservado y no se pierda al
+        // recalcular. El usuario puede borrarlo y re-pesar si hace falta.
+        const dens = parseFloat(p.densidad)||1;
+        obj.pesajes = [{ marca:'Reapertura', taraG:0, brutoG: Math.round(abierto*dens) }];
+      }
+    }
+    if (Object.keys(obj).length) lineas[nombre] = obj;
+  });
+
+  tomas = tomas.filter(x => x.id !== t.id);
+  tomaActual = {
+    id: t.id, kiosko: kioskoActual,
+    fecha_inicio: new Date().toISOString(),
+    fecha_toma: t.fecha || fechaHoy,
+    estado: 'en_proceso',
+    lineas,
+    valor_total: 0,
+    reabierta: true,
+  };
+  tomas.unshift(tomaActual);
+  saveTomas(tomas);
+
+  document.getElementById('tab-btn-actual').style.display = 'block';
+  switchTab('actual', document.getElementById('tab-btn-actual'));
+  renderActualMeta();
+  renderActual();
+  cargarReferenciaToma();
+  showToast('Toma ' + t.id + ' reabierta — ajustá el conteo y volvé a finalizar.','success');
+}
+
 function toggleDetalleHist(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = el.style.display==='none' ? 'block' : 'none';
