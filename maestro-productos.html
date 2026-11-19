@@ -320,7 +320,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </p>
   <div class="field-row-3">
     <div class="field"><label>Buscar</label><input type="text" id="sa-buscar" placeholder="proveedor o producto…" oninput="renderSinAsociar()"/></div>
-    <div class="field"></div>
+    <div class="field"><label>Vista</label>
+      <div style="display:flex;gap:6px">
+        <button class="btn-sm" id="sa-view-grupos" onclick="setSaView('grupos')" title="Agrupa las facturas parecidas y sugiere un producto estándar por grupo">🧩 Agrupado</button>
+        <button class="btn-sm" id="sa-view-lista" onclick="setSaView('lista')" title="Una fila por factura">☰ Lista</button>
+      </div>
+    </div>
     <div class="field"></div>
   </div>
   <div id="sa-bulk" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,.04);border:1px solid var(--border,#0001);border-radius:8px;padding:10px 12px;margin-bottom:10px">
@@ -1699,7 +1704,32 @@ async function cargarDesgloseArchivos(){
   renderAsociacion(); renderSinAsociar();
 }
 
+// ── Despachador de vista (Agrupado / Lista) ──────────────────────────────
+let SA_VIEW = 'grupos';               // 'grupos' (por defecto) | 'lista'
+function setSaView(v){
+  SA_VIEW = (v === 'lista') ? 'lista' : 'grupos';
+  try { localStorage.setItem('mp_sa_view', SA_VIEW); } catch(e){}
+  renderSinAsociar();
+}
+function _syncSaViewBtns(){
+  const g = document.getElementById('sa-view-grupos'), l = document.getElementById('sa-view-lista');
+  if (!g || !l) return;
+  const on = 'var(--brand,#2a7)', onTxt = '#fff';
+  [[g,'grupos'],[l,'lista']].forEach(([b,v])=>{
+    const act = SA_VIEW===v;
+    b.style.background = act ? on : '';
+    b.style.color = act ? onTxt : '';
+    b.style.fontWeight = act ? '700' : '';
+  });
+}
 function renderSinAsociar(){
+  try { const v = localStorage.getItem('mp_sa_view'); if (v==='lista'||v==='grupos') SA_VIEW = v; } catch(e){}
+  _syncSaViewBtns();
+  if (SA_VIEW === 'lista') return renderSinAsociarLista();
+  return renderSinAsociarGrupos();
+}
+
+function renderSinAsociarLista(){
   const cont = document.getElementById('sa-lista');
   if (!cont) return;
   SA_ROWS = [];
@@ -1735,6 +1765,160 @@ function renderSinAsociar(){
   cont.innerHTML = html;
   syncSaChkAll();
 }
+// ── Vista AGRUPADA de "Sin asociar" — clusteriza por nombre y sugiere PE ──
+let SA_GRUPOS = [];
+let SA_GRP_EXP = new Set();       // keys de grupo expandidos (= clave del representante)
+let SA_GRP_PE  = {};              // key de grupo -> peId elegido (override de la sugerencia)
+let SA_GRP_EXCL = new Set();      // claves de ítems excluidos de su grupo
+let SA_GRP_BUSY = false;
+let SA_NUEVO_PE_GRUPO = null;     // key del grupo que abrió el modal de nuevo PE
+const SA_GROUP_THRESHOLD = 0.5;   // similitud mínima de tokens para caer en el mismo grupo
+
+function _toksDe(m){ return new Set(_normAs((m.nombreFactura||'')+' '+(m.nombreEstandar||'')).split(' ').filter(t=>t.length>1)); }
+function _tokSim(a,b){ if(!a.size||!b.size) return 0; let inter=0; a.forEach(t=>{ if(b.has(t)) inter++; }); return inter/Math.max(a.size,b.size); }
+function peNombreDe(id){ const p = PRODUCTOS_ESTANDAR.find(x=>String(x.id)===String(id)); return p ? p.nombre : ''; }
+
+// Agrupa la lista de facturas sin asociar por similitud de nombre (greedy) y,
+// por grupo, sugiere el producto estándar más parecido.
+function agruparSinAsociar(lista){
+  const nodes = lista.map(m => ({ m, toks:_toksDe(m) }));
+  const grupos = [];
+  nodes.forEach(nd => {
+    let best=null, bestS=0;
+    grupos.forEach(g => {
+      let s=0; g.nodes.forEach(x => { s += _tokSim(nd.toks, x.toks); }); s /= g.nodes.length;
+      if (s > bestS){ bestS=s; best=g; }
+    });
+    if (best && bestS >= SA_GROUP_THRESHOLD) best.nodes.push(nd);
+    else grupos.push({ nodes:[nd] });
+  });
+  const activos = PRODUCTOS_ESTANDAR.filter(p=>p.activo==='Sí');
+  grupos.forEach(g => {
+    g.items = g.nodes.map(n=>n.m);
+    let rep = g.items[0];                                  // representante = nombre más corto (base limpia)
+    g.items.forEach(m => { if ((m.nombreFactura||'').length < (rep.nombreFactura||'').length) rep = m; });
+    g.rep = rep;
+    g.key = rep.clave;
+    const texto = g.items.map(m => (m.nombreFactura||'')+' '+(m.nombreEstandar||'')).join(' ');
+    let bp=null, bps=0; activos.forEach(p=>{ const s=scoreMatch(texto,p.nombre); if (s>bps){ bps=s; bp=p; } });
+    g.sugId = bps>=0.34 ? bp.id : '';
+  });
+  grupos.sort((a,b)=> b.items.length - a.items.length || (a.rep.nombreFactura||'').localeCompare(b.rep.nombreFactura||'','es'));
+  return grupos;
+}
+
+function renderSinAsociarGrupos(){
+  const cont = document.getElementById('sa-lista');
+  if (!cont) return;
+  const bulk = document.getElementById('sa-bulk'); if (bulk) bulk.style.display='none';
+  let lista = MAESTRO.filter(m => m.aplica==='Sí' && !m.productoEstandarId);
+  const total = lista.length;
+  const cEl = document.getElementById('sa-count'); if (cEl) cEl.textContent = total;
+  const q = (document.getElementById('sa-buscar').value||'').trim().toLowerCase();
+  if (q) lista = lista.filter(m => (m.proveedor+' '+m.nombreFactura).toLowerCase().indexOf(q)!==-1);
+  if (!total){ cont.innerHTML = '<div class="empty-state">Todo lo que aplica ya está asociado. 🎉</div>'; return; }
+  if (!lista.length){ cont.innerHTML = '<div class="empty-state">Sin resultados para esa búsqueda.</div>'; return; }
+  SA_GRUPOS = agruparSinAsociar(lista);
+  const vivas = new Set(lista.map(m=>m.clave));
+  [...SA_GRP_EXCL].forEach(c => { if (!vivas.has(c)) SA_GRP_EXCL.delete(c); });
+
+  let html = `<p style="font-size:12px;color:var(--muted);margin:2px 0 12px">
+    ${SA_GRUPOS.length} grupo(s) sugerido(s) a partir de ${lista.length} factura(s)${total>lista.length?(' (de '+total+')'):''}.
+    Revisá el producto estándar sugerido de cada grupo y asociá el grupo completo de una vez.</p>`;
+
+  SA_GRUPOS.forEach(g => {
+    const k = g.key;
+    const exp = SA_GRP_EXP.has(k);
+    const incluidos = g.items.filter(m => !SA_GRP_EXCL.has(m.clave));
+    const peSel = (SA_GRP_PE[k] !== undefined) ? SA_GRP_PE[k] : g.sugId;
+    const sugTxt = g.sugId ? ('💡 Sugerido: '+escHtml(peNombreDe(g.sugId))) : '⚠️ sin sugerencia automática — elegí o creá uno';
+    html += `<div class="card" style="padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn-sm" onclick="toggleGrp('${_jsq(k)}')" title="Ver/ocultar ítems">${exp?'▾':'▸'}</button>
+        <div style="flex:1;min-width:150px">
+          <b>${escHtml(g.rep.nombreFactura||'—')}</b>
+          <span style="color:var(--muted);font-size:12px"> · ${g.items.length} ítem(s)${incluidos.length!==g.items.length?(', '+incluidos.length+' incluido(s)'):''}</span>
+          <div style="font-size:11.5px;color:var(--muted)">${sugTxt}</div>
+        </div>
+        <select style="min-width:190px" onchange="setGrpPe('${_jsq(k)}', this.value)">${peOptions(peSel)}</select>
+        <button class="btn-sm" onclick="abrirNuevoPeGrupo('${_jsq(k)}')" title="Crear un producto estándar nuevo para este grupo">+ Nuevo</button>
+        <button class="btn-sm" style="background:var(--green,#2a7);color:#fff" onclick="asociarGrupo('${_jsq(k)}')" ${incluidos.length?'':'disabled'}>Asociar grupo (${incluidos.length})</button>
+      </div>`;
+    if (exp){
+      html += `<table class="stock-table" style="margin-top:10px"><thead><tr><th style="width:30px">✓</th><th>Proveedor</th><th>Producto en factura</th><th>Precio compra</th><th>Cant.</th><th>Costo u.</th></tr></thead><tbody>`;
+      g.items.forEach(m=>{
+        const inc = !SA_GRP_EXCL.has(m.clave);
+        const precio = m.costoSugerido || m.precioSinIva || '';
+        const cant = m.cantidadPresentacion || '';
+        const r = _calcCosto(precio||0, cant||null, null);
+        html += `<tr style="${inc?'':'opacity:.45'}">
+          <td><input type="checkbox" ${inc?'checked':''} onchange="toggleGrpMiembro('${_jsq(m.clave)}', this.checked)" title="Incluir en la asociación del grupo"/></td>
+          <td>${escHtml(m.proveedor||'—')}</td>
+          <td>${escHtml(m.nombreFactura||'')}${m.vecesVisto?` <span style="color:var(--muted)">·${m.vecesVisto}×</span>`:''}</td>
+          <td>${_money(precio||0)}</td>
+          <td>${cant||'—'}</td>
+          <td><b>${_money(r.cu)}</b></td></tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+  });
+  cont.innerHTML = html;
+}
+
+function toggleGrp(k){ if (SA_GRP_EXP.has(k)) SA_GRP_EXP.delete(k); else SA_GRP_EXP.add(k); renderSinAsociar(); }
+function setGrpPe(k, v){ SA_GRP_PE[k] = v; }
+function toggleGrpMiembro(clave, checked){
+  if (checked) SA_GRP_EXCL.delete(clave); else SA_GRP_EXCL.add(clave);
+  renderSinAsociar();
+}
+async function asociarGrupo(k){
+  if (SA_GRP_BUSY) return;
+  const g = SA_GRUPOS.find(x => String(x.key)===String(k)); if (!g) return;
+  const peId = (SA_GRP_PE[k] !== undefined) ? SA_GRP_PE[k] : g.sugId;
+  if (!peId){ showToast('Elegí (o creá) el producto estándar del grupo', 'error'); return; }
+  const claves = g.items.filter(m => !SA_GRP_EXCL.has(m.clave)).map(m=>m.clave);
+  if (!claves.length){ showToast('No hay ítems incluidos en el grupo', 'error'); return; }
+  SA_GRP_BUSY = true;
+  try {
+    let asociados = 0;
+    try {
+      const r = await postAP({ modulo:'maestro_asociar_pe_lote', claves: claves, pe_id: peId });
+      asociados = (r && r.asociados) || claves.length;
+    } catch (eLote){
+      for (const c of claves){
+        try { await postAP({ modulo:'maestro_asociar_pe', clave: c, pe_id: peId, conversion: '' }); asociados++; }
+        catch (e1){}
+      }
+      if (!asociados) throw eLote;
+    }
+    showToast('Grupo asociado — '+asociados+' de '+claves.length+' ✓');
+    await cargarMaestro();
+    renderAsociacion(); renderSinAsociar();
+  } catch (e){
+    showToast('No se pudo asociar el grupo — '+e.message, 'error');
+  } finally {
+    SA_GRP_BUSY = false;
+  }
+}
+// Crear un producto estándar nuevo para un grupo (reusa el modal de nuevo PE)
+function abrirNuevoPeGrupo(k){
+  const g = SA_GRUPOS.find(x => String(x.key)===String(k)); if (!g) return;
+  SA_NUEVO_PE_CLAVE = null;
+  SA_NUEVO_PE_GRUPO = k;
+  const opt = (arr) => '<option value="">—</option>' + (arr || []).map(x => `<option value="${escapeAttr(x)}">${escHtml(x)}</option>`).join('');
+  document.getElementById('np-unidad').innerHTML = opt(CONFIG.unidadesReceta);
+  document.getElementById('np-categoria').innerHTML = opt(CONFIG.categorias);
+  document.getElementById('np-area').innerHTML = opt(CONFIG.areas);
+  document.getElementById('np-nombre').value = g.rep.nombreFactura || '';
+  document.getElementById('np-unidad').value = '';
+  document.getElementById('np-categoria').value = '';
+  document.getElementById('np-area').value = '';
+  document.getElementById('np-ref').textContent = g.items.length + ' ítem(s) · ej.: ' + (g.rep.proveedor||'—') + ' · ' + (g.rep.nombreFactura||'');
+  document.getElementById('modal-nuevo-pe').classList.add('open');
+  setTimeout(() => document.getElementById('np-nombre').focus(), 50);
+}
+
 // ── Selección múltiple para asociar varias facturas a la vez ─────────────
 let SA_SEL = new Set();
 function populateSaBulkSelect(){
@@ -1826,6 +2010,7 @@ let SA_NUEVO_PE_CLAVE = null;  // clave de la fila que abrió el modal
 function abrirNuevoPe(i){
   const clave = SA_ROWS[i]; if (clave == null) return;
   SA_NUEVO_PE_CLAVE = clave;
+  SA_NUEVO_PE_GRUPO = null;
   const m = MAESTRO.find(x => x.clave === clave);
   const opt = (arr) => '<option value="">—</option>' + (arr || []).map(x => `<option value="${escapeAttr(x)}">${escHtml(x)}</option>`).join('');
   document.getElementById('np-unidad').innerHTML = opt(CONFIG.unidadesReceta);
@@ -1842,6 +2027,7 @@ function abrirNuevoPe(i){
 function cerrarNuevoPe(){
   document.getElementById('modal-nuevo-pe').classList.remove('open');
   SA_NUEVO_PE_CLAVE = null;
+  SA_NUEVO_PE_GRUPO = null;
 }
 async function guardarNuevoPe(){
   const nombre = document.getElementById('np-nombre').value.trim();
@@ -1853,12 +2039,15 @@ async function guardarNuevoPe(){
   const btn = document.getElementById('btn-np-guardar');
   if (btn){ btn.disabled = true; btn.textContent = 'Creando…'; }
   const clave = SA_NUEVO_PE_CLAVE;
+  const grupoK = SA_NUEVO_PE_GRUPO;
   try {
     const r = await postAP({ modulo:'pe_agregar', nombre: nombre, unidad_estandar: unidad, categoria: categoria, area: area, activo: 'Sí', notas: '' });
-    if (clave != null && r && r.id) SA_FORCE_PE[clave] = r.id;  // preseleccionarlo al redibujar
+    if (clave != null && r && r.id) SA_FORCE_PE[clave] = r.id;  // preseleccionarlo al redibujar (vista lista)
+    if (grupoK != null && r && r.id){ SA_GRP_PE[grupoK] = r.id; SA_GRP_EXP.add(grupoK); }  // preseleccionarlo en el grupo
     showToast('Producto estándar creado ✓');
     document.getElementById('modal-nuevo-pe').classList.remove('open');
     SA_NUEVO_PE_CLAVE = null;
+    SA_NUEVO_PE_GRUPO = null;
     await cargarProductosEstandar();  // recarga catálogo + redibuja tablas (incl. sin asociar)
   } catch (e){
     showToast('No se pudo crear — ' + e.message, 'error');
