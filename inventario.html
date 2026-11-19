@@ -263,6 +263,22 @@ input[type="date"]:focus{border-color:var(--teal)}
   <div id="print-contenido"></div>
 </div>
 
+<!-- Modal del reporte gerencial (2026-11-19) -->
+<div id="modal-reporte" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(28,58,40,.45);align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;">
+  <div style="background:#fff;border-radius:12px;max-width:920px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;border-radius:12px 12px 0 0;flex-wrap:wrap;">
+      <div style="font-weight:700;color:var(--teal);">📄 Reporte gerencial de la toma</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span id="reporte-modal-envio" style="font-size:12px;"></span>
+        <button type="button" id="btn-enviar-reporte" class="btn-sm" style="color:#fff;background:var(--teal);border-color:var(--teal);font-weight:600;" onclick="enviarReporteCorreo()">📧 Enviar a gerencia</button>
+        <button type="button" class="btn-sm" onclick="imprimirReporte()">⤓ Imprimir / PDF</button>
+        <button type="button" class="btn-sm" onclick="cerrarModalReporte()">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="reporte-modal-body" style="padding:22px 20px;max-height:72vh;overflow:auto;"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toast-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
   <span id="toast-msg"></span>
@@ -622,6 +638,8 @@ function actualizarProductosDelKiosko() {
 let REF_TOMA    = {};   // claveNorm(nombre) → { completos, enUso, unidad }
 let REF_COMPRAS = {};   // claveNorm(nombre) → { unidades, facturas:Set }
 let REF_META    = null; // { tomaId, fecha } de la toma anterior usada
+let REF_ANT_RESUMEN = null; // { [area]: { [cat]: valor } } de la toma anterior (para comparación en el reporte)
+let REF_ANT_TOTAL = 0;      // valorización total de la toma anterior
 let REF_CARGANDO = false;
 
 function fmtCant(n){ n = Number(n)||0; return Number.isInteger(n) ? n.toLocaleString('es-CR') : n.toLocaleString('es-CR',{maximumFractionDigits:2}); }
@@ -642,7 +660,7 @@ function kioskoKey(s){ return claveNorm(s).replace(/^(las|la|los|el)\s+/,''); }
 function mismoKiosko(a,b){ return kioskoKey(a) === kioskoKey(b); }
 
 async function cargarReferenciaToma(){
-  REF_TOMA={}; REF_COMPRAS={}; REF_META=null;
+  REF_TOMA={}; REF_COMPRAS={}; REF_META=null; REF_ANT_RESUMEN=null; REF_ANT_TOTAL=0;
   if (!kioskoActual) return;
   REF_CARGANDO = true;
   if (tomaActual) renderActual();
@@ -665,13 +683,22 @@ async function cargarReferenciaToma(){
     const anterior = lista[0];
     if (!anterior){ REF_CARGANDO=false; if (tomaActual) renderActual(); return; }
     REF_META = { tomaId: anterior.id, fecha: anterior.fecha };
+    REF_ANT_RESUMEN = {}; REF_ANT_TOTAL = 0;
     anterior.lineas.forEach(r => {
       const k = claveNorm(r['Producto']); if (!k) return;
+      const valLinea = numRef(r['Valor total línea']);
       REF_TOMA[k] = {
         completos: numRef(r['Cant. completos']),
         enUso:     numRef(r['Cant. en uso']),
-        unidad:    String(r['Unidad']||'').trim()
+        unidad:    String(r['Unidad']||'').trim(),
+        valor:     valLinea
       };
+      // Resumen por Área → Categoría de la toma anterior (para comparar en el reporte)
+      const area = (String(r['Área']||'').trim()) || 'Sin área';
+      const cat  = (String(r['Categoría']||'').trim()) || 'Sin categoría';
+      REF_ANT_RESUMEN[area] = REF_ANT_RESUMEN[area] || {};
+      REF_ANT_RESUMEN[area][cat] = (REF_ANT_RESUMEN[area][cat] || 0) + valLinea;
+      REF_ANT_TOTAL += valLinea;
     });
     // 2) Compras: Desglose_IA del kiosko con Fecha de factura posterior a la toma
     const desde = anterior.fecha;
@@ -1344,6 +1371,280 @@ function imprimirFormato() {
   document.getElementById('print-area').style.display = 'none';
 }
 
+// ── REPORTE GERENCIAL AL FINALIZAR TOMA (2026-11-19) ────────────────
+// Arma el reporte gerencial de una toma a partir de la toma activa
+// (tomaActual + productos) y de la referencia ya cargada (REF_TOMA /
+// REF_COMPRAS / REF_ANT_RESUMEN: toma anterior + compras del período). El
+// MISMO HTML se muestra en el modal (abrirlo desde la herramienta) y se
+// manda por correo a gerencia (acción 'enviar_reporte' del backend). Por eso
+// usa estilos en línea y <table>, sin CSS externo ni JS: tiene que verse
+// igual en un cliente de correo.
+function reporteLineasContadas(){
+  const out = [];
+  (productos||[]).forEach(p => {
+    const l = (tomaActual && tomaActual.lineas && tomaActual.lineas[p.id]) || null;
+    if (!l || (l.cerrado === undefined && l.abierto === undefined)) return;
+    const precioC = parseFloat(p.precio_sin_iva)||0;
+    const precioU = parseFloat(p.costo)||0;
+    const cerrado = parseFloat(l.cerrado)||0;
+    const abierto = parseFloat(l.abierto)||0;
+    const valC = cerrado*precioC, valA = abierto*precioU;
+    out.push({ p, cerrado, abierto, precioC, precioU, valC, valA, valor: valC+valA,
+               ant: REF_TOMA[claveNorm(p.nombre)] || null });
+  });
+  return out;
+}
+
+function generarReporteGerencialHTML(){
+  const t = tomaActual;
+  const kiosko = t ? t.kiosko : (kioskoActual||'');
+  const fechaToma = (t && t.fecha_toma) || fechaHoy;
+  const fechaFin  = (t && t.fecha_fin) ? new Date(t.fecha_fin).toLocaleString('es-CR') : new Date().toLocaleString('es-CR');
+  const responsable = (PORTAL_SESION && (PORTAL_SESION.nombre || PORTAL_SESION.rol)) || '';
+  const lineas = reporteLineasContadas();
+  const totalActual = lineas.reduce((a,x)=>a+x.valor,0);
+  const C = { teal:'#0e7a7a', dark:'#1c3a28', border:'#d8e3dc', muted:'#5a8a6a',
+              head:'#eaf6f6', amberBg:'#fffbeb', amberBd:'#fcd34d', amberTx:'#92400e',
+              redBg:'#fef2f2', redBd:'#fca5a5', redTx:'#991b1b', zebra:'#f7faf8' };
+  const esc = escHtml;
+  const money = fmtVal;
+  const cant  = fmtCant;
+  const deltaCell = (dv) => {
+    const up = dv > 0.005, dn = dv < -0.005;
+    const col = up ? C.teal : (dn ? C.redTx : C.muted);
+    const sig = up ? '▲ ' : (dn ? '▼ ' : '');
+    return '<span style="color:'+col+';white-space:nowrap;">'+sig+money(dv)+'</span>';
+  };
+  let html = ''
+  + '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c3a28;max-width:860px;margin:0 auto;">'
+  + '<div style="border-bottom:3px solid '+C.teal+';padding-bottom:12px;margin-bottom:6px;">'
+  +   '<div style="font-size:20px;font-weight:700;color:'+C.dark+';">Ecosistema Kioskos · '+esc(kiosko)+'</div>'
+  +   '<div style="font-size:13px;font-weight:700;color:'+C.teal+';margin-top:2px;">Reporte gerencial de toma de inventario</div>'
+  + '</div>'
+  + '<table style="width:100%;border-collapse:collapse;font-size:12px;margin:10px 0 18px;">'
+  +   '<tr>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';width:130px;">Fecha de inventario</td><td style="padding:3px 0;font-weight:700;">'+esc(fechaToma)+'</td>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';width:130px;">Toma ID</td><td style="padding:3px 0;font-weight:700;">'+esc(t?t.id:'—')+'</td>'
+  +   '</tr>'
+  +   '<tr>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';">Finalizada</td><td style="padding:3px 0;">'+esc(fechaFin)+'</td>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';">Productos contados</td><td style="padding:3px 0;font-weight:700;">'+lineas.length+'</td>'
+  +   '</tr>'
+  +   '<tr>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';">Responsable</td><td style="padding:3px 0;">'+esc(responsable||'—')+'</td>'
+  +     '<td style="padding:3px 0;color:'+C.muted+';">Valorización total</td><td style="padding:3px 0;font-weight:700;color:'+C.teal+';font-size:14px;">'+money(totalActual)+'</td>'
+  +   '</tr>'
+  + '</table>';
+  const hayAnterior = !!REF_META;
+  const notaAnterior = hayAnterior
+    ? '<span style="color:'+C.muted+';font-size:11px;">Comparación contra la toma '+esc(REF_META.tomaId)+' ('+esc(REF_META.fecha||'—')+').</span>'
+    : '<span style="color:'+C.amberTx+';font-size:11px;">No hay una toma anterior finalizada para este kiosko; no se puede comparar.</span>';
+  const secTitle = (txt) => '<div style="background:'+C.dark+';color:#fff;padding:6px 12px;font-size:13px;font-weight:700;border-radius:6px;margin:22px 0 8px;">'+txt+'</div>';
+  html += secTitle('1 · Resumen por área y categoría');
+  html += '<div style="margin:0 0 8px;">'+notaAnterior+'</div>';
+  const curRes = {};
+  lineas.forEach(x => {
+    const a = x.p.area || 'Sin área', c = x.p.categoria || 'Sin categoría';
+    curRes[a] = curRes[a] || {}; curRes[a][c] = (curRes[a][c]||0) + x.valor;
+  });
+  const antRes = REF_ANT_RESUMEN || {};
+  const areas = [...new Set([...Object.keys(curRes), ...Object.keys(antRes)])].sort();
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+       +  '<thead><tr style="background:'+C.head+';">'
+       +   '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.border+';">Área</th>'
+       +   '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.border+';">Categoría</th>'
+       +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Valor actual</th>'
+       +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Toma anterior</th>'
+       +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Diferencia</th>'
+       +  '</tr></thead><tbody>';
+  let gActual=0, gAnterior=0;
+  areas.forEach(a => {
+    const cats = [...new Set([...Object.keys(curRes[a]||{}), ...Object.keys(antRes[a]||{})])].sort();
+    let aAct=0, aAnt=0;
+    cats.forEach(c => {
+      const va = (curRes[a]||{})[c]||0;
+      const vn = (antRes[a]||{})[c]||0;
+      aAct+=va; aAnt+=vn;
+      html += '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.border+';color:'+C.muted+';">'+esc(a)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.border+';">'+esc(c)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;">'+money(va)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;color:'+C.muted+';">'+(hayAnterior?money(vn):'—')+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;">'+(hayAnterior?deltaCell(va-vn):'—')+'</td>'
+      + '</tr>';
+    });
+    gActual+=aAct; gAnterior+=aAnt;
+    html += '<tr style="background:'+C.zebra+';font-weight:700;">'
+      + '<td style="padding:5px 8px;border:1px solid '+C.border+';" colspan="2">Subtotal '+esc(a)+'</td>'
+      + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;">'+money(aAct)+'</td>'
+      + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;color:'+C.muted+';">'+(hayAnterior?money(aAnt):'—')+'</td>'
+      + '<td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;">'+(hayAnterior?deltaCell(aAct-aAnt):'—')+'</td>'
+    + '</tr>';
+  });
+  html += '<tr style="background:'+C.dark+';color:#fff;font-weight:700;">'
+    + '<td style="padding:7px 8px;border:1px solid '+C.dark+';" colspan="2">TOTAL GENERAL</td>'
+    + '<td style="padding:7px 8px;border:1px solid '+C.dark+';text-align:right;">'+money(gActual)+'</td>'
+    + '<td style="padding:7px 8px;border:1px solid '+C.dark+';text-align:right;">'+(hayAnterior?money(gAnterior):'—')+'</td>'
+    + '<td style="padding:7px 8px;border:1px solid '+C.dark+';text-align:right;">'+(hayAnterior?('<span style="color:#fff;">'+(gActual-gAnterior>=0?'▲ ':'▼ ')+money(gActual-gAnterior)+'</span>'):'—')+'</td>'
+  + '</tr>';
+  html += '</tbody></table>';
+  html += secTitle('2 · Detalle por producto');
+  if (!lineas.length){
+    html += '<div style="padding:8px;color:'+C.muted+';font-size:12px;">No se contó ningún producto en esta toma.</div>';
+  } else {
+    const porArea = {};
+    lineas.forEach(x => {
+      const a = x.p.area||'Sin área', c = x.p.categoria||'Sin categoría';
+      porArea[a] = porArea[a]||{}; (porArea[a][c] = porArea[a][c]||[]).push(x);
+    });
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+         +  '<thead><tr style="background:'+C.head+';">'
+         +   '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.border+';">Producto</th>'
+         +   '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.border+';">Presentación</th>'
+         +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Completos<br><span style="font-weight:400;color:'+C.muted+';">(ant.)</span></th>'
+         +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">En uso<br><span style="font-weight:400;color:'+C.muted+';">(ant.)</span></th>'
+         +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Precio s/IVA</th>'
+         +   '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.border+';">Valor</th>'
+         +  '</tr></thead><tbody>';
+    let gTot=0;
+    Object.keys(porArea).sort().forEach(a => {
+      html += '<tr><td colspan="6" style="padding:5px 8px;background:'+C.zebra+';font-weight:700;color:'+C.teal+';border:1px solid '+C.border+';">'+esc(a)+'</td></tr>';
+      let aTot=0;
+      Object.keys(porArea[a]).sort().forEach(c => {
+        let cTot=0;
+        porArea[a][c].forEach(x => {
+          const pres = [x.p.presentacion, x.p.tamano].filter(Boolean).join(' ') || '—';
+          const uni  = x.p.unidad || '';
+          const antC = x.ant ? cant(x.ant.completos) : '—';
+          const antU = x.ant ? cant(x.ant.enUso) : '—';
+          cTot += x.valor;
+          html += '<tr>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';"><b>'+esc(x.p.nombre)+'</b><br><span style="font-size:10px;color:'+C.muted+';">'+esc(c)+'</span></td>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';">'+esc(pres)+'</td>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;">'+cant(x.cerrado)+' <span style="color:'+C.muted+';font-size:10px;">('+antC+')</span></td>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;">'+cant(x.abierto)+(uni?(' <span style="color:'+C.muted+';font-size:10px;">'+esc(uni)+'</span>'):'')+' <span style="color:'+C.muted+';font-size:10px;">('+antU+')</span></td>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;">'+money(x.precioC)+'</td>'
+            + '<td style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;font-weight:600;">'+money(x.valor)+'</td>'
+          + '</tr>';
+        });
+        aTot += cTot;
+        html += '<tr style="background:'+C.zebra+';"><td colspan="5" style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;color:'+C.muted+';">Subtotal '+esc(c)+'</td><td style="padding:4px 8px;border:1px solid '+C.border+';text-align:right;font-weight:700;">'+money(cTot)+'</td></tr>';
+      });
+      gTot += aTot;
+      html += '<tr style="background:'+C.head+';"><td colspan="5" style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;font-weight:700;color:'+C.teal+';">Subtotal área · '+esc(a)+'</td><td style="padding:5px 8px;border:1px solid '+C.border+';text-align:right;font-weight:700;color:'+C.teal+';">'+money(aTot)+'</td></tr>';
+    });
+    html += '<tr style="background:'+C.dark+';color:#fff;"><td colspan="5" style="padding:7px 8px;text-align:right;font-weight:700;">TOTAL GENERAL</td><td style="padding:7px 8px;text-align:right;font-weight:700;">'+money(gTot)+'</td></tr>';
+    html += '</tbody></table>';
+  }
+  const sinContar = productosCompradoSinContar();
+  html += secTitle('3 · Productos con compra registrada y sin conteo');
+  if (!sinContar.length){
+    html += '<div style="padding:8px;color:'+C.muted+';font-size:12px;">Ninguno: todos los productos con compras en el período fueron contados.</div>';
+  } else {
+    html += '<div style="font-size:11px;color:'+C.amberTx+';margin:0 0 6px;">Tienen compras registradas desde la toma anterior pero no quedaron contados en esta toma. Revisar si falta contarlos.</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+      + '<thead><tr style="background:'+C.amberBg+';">'
+      + '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.amberBd+';">Producto</th>'
+      + '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.amberBd+';">Área · Categoría</th>'
+      + '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.amberBd+';">Facturas</th>'
+      + '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.amberBd+';">Unidades compradas</th>'
+      + '</tr></thead><tbody>';
+    sinContar.forEach(p => {
+      const co = REF_COMPRAS[claveNorm(p.nombre)] || {unidades:0, facturas:new Set()};
+      html += '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.amberBd+';font-weight:600;">'+esc(p.nombre)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.amberBd+';color:'+C.muted+';">'+esc((p.area||'Sin área')+' · '+(p.categoria||'Sin categoría'))+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.amberBd+';text-align:right;">'+(co.facturas?co.facturas.size:0)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.amberBd+';text-align:right;">'+cant(co.unidades||0)+'</td>'
+      + '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+  const subio = productosSubioSinCompra();
+  html += secTitle('4 · Productos contados por más que la toma anterior sin compras');
+  if (!subio.length){
+    html += '<div style="padding:8px;color:'+C.muted+';font-size:12px;">Ninguno: no hay productos que hayan subido sin compras que lo respalden.</div>';
+  } else {
+    html += '<div style="font-size:11px;color:'+C.redTx+';margin:0 0 6px;">Se contaron por más que en la toma anterior y no tienen ninguna compra en el período. Revisar el conteo o la factura.</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+      + '<thead><tr style="background:'+C.redBg+';">'
+      + '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.redBd+';">Producto</th>'
+      + '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.redBd+';">Completos ant. → actual</th>'
+      + '<th style="text-align:right;padding:6px 8px;border:1px solid '+C.redBd+';">En uso ant. → actual</th>'
+      + '</tr></thead><tbody>';
+    subio.forEach(p => {
+      const ta = REF_TOMA[claveNorm(p.nombre)] || {completos:0, enUso:0};
+      const l = (tomaActual.lineas||{})[p.id]||{};
+      const cerrado = parseFloat(l.cerrado)||0, abierto = parseFloat(l.abierto)||0;
+      html += '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.redBd+';font-weight:600;">'+esc(p.nombre)+'</td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.redBd+';text-align:right;">'+cant(ta.completos)+' → <b style="color:'+C.redTx+';">'+cant(cerrado)+'</b></td>'
+        + '<td style="padding:5px 8px;border:1px solid '+C.redBd+';text-align:right;">'+cant(ta.enUso)+' → <b style="color:'+C.redTx+';">'+cant(abierto)+'</b></td>'
+      + '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '<div style="margin-top:22px;padding-top:10px;border-top:1px solid '+C.border+';font-size:10px;color:'+C.muted+';">Generado automáticamente por el módulo Toma de inventario · Ecosistema Kioskos · '+new Date().toLocaleString('es-CR')+'</div>';
+  html += '</div>';
+  const asunto = 'Inventario '+kiosko+' · '+fechaToma+' · '+money(totalActual);
+  return { asunto, html };
+}
+
+// ── MODAL DEL REPORTE (abrirlo desde la herramienta) ────────────────
+let REPORTE_MODAL_STATE = null; // { html, asunto, idToma }
+function abrirModalReporte(html, asunto, idToma){
+  REPORTE_MODAL_STATE = { html, asunto, idToma: idToma||'' };
+  document.getElementById('reporte-modal-body').innerHTML = html;
+  document.getElementById('reporte-modal-envio').innerHTML = '';
+  document.getElementById('modal-reporte').style.display = 'flex';
+}
+function cerrarModalReporte(){ document.getElementById('modal-reporte').style.display = 'none'; }
+
+function imprimirReporte(){
+  const html = REPORTE_MODAL_STATE ? REPORTE_MODAL_STATE.html : document.getElementById('reporte-modal-body').innerHTML;
+  const w = window.open('', '_blank');
+  if (!w){ showToast('El navegador bloqueó la ventana de impresión.','error'); return; }
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+escHtml(REPORTE_MODAL_STATE?REPORTE_MODAL_STATE.asunto:'Reporte')+'</title></head><body style="margin:20px;">'+html+'</body></html>');
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); }, 300);
+}
+
+async function enviarReporteCorreo(){
+  if (!REPORTE_MODAL_STATE){ return; }
+  const btn = document.getElementById('btn-enviar-reporte');
+  const info = document.getElementById('reporte-modal-envio');
+  if (btn){ btn.disabled = true; btn.style.opacity = '0.6'; }
+  info.innerHTML = '<span class="spinner"></span> Enviando a gerencia…';
+  try {
+    const resp = await fetchConTimeout(APPS_SCRIPT_INVENTARIO, {
+      method: 'POST',
+      body: new URLSearchParams({ data: JSON.stringify({
+        modulo: 'enviar_reporte',
+        asunto: REPORTE_MODAL_STATE.asunto,
+        html: REPORTE_MODAL_STATE.html
+      }) })
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Error del backend');
+    const dest = (out.result && out.result.enviado_a) ? out.result.enviado_a.join(', ') : 'gerencia';
+    info.innerHTML = '<span style="color:var(--green);font-weight:600;">✓ Enviado a '+escHtml(dest)+'</span>';
+    showToast('Reporte enviado por correo ✓','success');
+  } catch(e){
+    info.innerHTML = '<span style="color:#991b1b;">No se pudo enviar: '+escHtml(e.message)+'. Podés reintentar.</span>';
+    showToast('No se pudo enviar el reporte: '+e.message,'error');
+  } finally {
+    if (btn){ btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+// Abrir el reporte guardado de una toma del Historial (localStorage).
+function abrirReporteGuardado(idToma){
+  const t = getTomas().find(function(x){ return x.id === idToma; });
+  if (!t || !t.reporte_html){ showToast('Esta toma no tiene reporte guardado (finalizala de nuevo para generarlo).','error'); return; }
+  abrirModalReporte(t.reporte_html, t.reporte_asunto || ('Reporte '+idToma), idToma);
+}
+
 // ── FINALIZAR TOMA ────────────────────────────────────────────────
 async function finalizarToma() {
   if (!tomaActual) return;
@@ -1364,10 +1665,33 @@ async function finalizarToma() {
     showToast('Toma finalizada localmente, pero no se pudo guardar en el Sheet: ' + e.message, 'error');
   }
 
+  // Reporte gerencial: se arma con la toma todavía cargada (tomaActual +
+  // referencia ya leída), se guarda en la toma (para poder reabrirlo desde el
+  // Historial) y se muestra en el modal. El envío a gerencia por correo se
+  // dispara solo, con estado visible dentro del modal.
+  let repGenerado = null;
+  try {
+    const rep = generarReporteGerencialHTML();
+    repGenerado = rep;
+    const idToma = tomaActual.id;
+    tomaActual.reporte_html   = rep.html;
+    tomaActual.reporte_asunto = rep.asunto;
+    const ref = tomas.find(function(x){ return x.id === idToma; });
+    if (ref){ ref.reporte_html = rep.html; ref.reporte_asunto = rep.asunto; }
+    saveTomas(tomas);
+  } catch(e){
+    showToast('No se pudo generar el reporte gerencial: ' + e.message, 'error');
+  }
+
   tomaActual = null;
   document.getElementById('tab-btn-actual').style.display = 'none';
   switchTab('historial', document.querySelectorAll('.tab')[2]);
   renderListaTomas();
+
+  if (repGenerado){
+    abrirModalReporte(repGenerado.html, repGenerado.asunto, '');
+    enviarReporteCorreo(); // envío automático a gerencia (estado visible en el modal)
+  }
 }
 
 async function guardarTomaEnSheet(toma) {
@@ -1505,6 +1829,7 @@ async function renderHistorial() {
   }
 
   HIST_TOMAS = {};
+  const repIds = new Set(getTomas().filter(function(x){return x.reporte_html;}).map(function(x){return x.id;}));
   cont.innerHTML = tomasSheet.map(t => {
     HIST_TOMAS[t.id] = t;
     const areas = [...new Set(t.lineas.map(l=>l['Área']||'Sin área'))].filter(Boolean);
@@ -1526,6 +1851,7 @@ async function renderHistorial() {
           <button type="button" class="btn-sm" style="color:var(--teal);border-color:var(--teal-lt);" onclick="event.stopPropagation();reabrirTomaHist('${escJs(t.id)}')">🔓 Reabrir conteo</button>
           <button type="button" class="btn-sm" onclick="event.stopPropagation();descargarHistExcel('${escJs(t.id)}')">⤓ Excel</button>
           <button type="button" class="btn-sm" onclick="event.stopPropagation();descargarHistPDF('${escJs(t.id)}')">⤓ PDF</button>
+          ${repIds.has(t.id) ? `<button type="button" class="btn-sm" style="color:var(--teal);border-color:var(--teal-lt);" onclick="event.stopPropagation();abrirReporteGuardado('${escJs(t.id)}')">📄 Reporte gerencial</button>` : ``}
         </div>
         ${histDetalleAgrupado(t.lineas)}
       </div>
