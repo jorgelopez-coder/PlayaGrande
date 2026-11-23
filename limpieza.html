@@ -515,6 +515,35 @@ function kioskosPermitidos(lista){
   return (lista||[]).filter(k => { const _k=_n(k); return PORTAL_SESION.kioskos.some(p => _n(p)===_k); });
 }
 
+// ── VISTA LIMITADA PARA EL ROL "USUARIO" (rol_usuario) ──────────────────
+// Un colaborador que entra desde el portal solo ve y marca SUS tareas asignadas.
+const ES_USUARIO_LIMITADO = !!(PORTAL_SESION && PORTAL_SESION.rol_id === 'rol_usuario');
+let MI_NOMBRE = '';
+function resolverMiNombre(){
+  if (!ES_USUARIO_LIMITADO) return '';
+  const correo = normNom(PORTAL_SESION && PORTAL_SESION.email || '');
+  let mi = correo ? personalData.find(p=>normNom(p['Email'])===correo) : null;
+  if(!mi) mi = personalData.find(p=>normNom(p['Nombre completo'])===normNom(PORTAL_SESION && PORTAL_SESION.nombre));
+  MI_NOMBRE = mi ? (mi['Nombre completo']||'') : (PORTAL_SESION && PORTAL_SESION.nombre || '');
+  return MI_NOMBRE;
+}
+function asignadaAMi(tareaId, iso){
+  const a = asignDe(tareaId, iso);
+  if (!a) return false;
+  return String(a['Responsable']||'').split(',').map(x=>normNom(x)).filter(Boolean).includes(normNom(MI_NOMBRE));
+}
+function aplicarVistaUsuario(){
+  if (!ES_USUARIO_LIMITADO) return;
+  // El colaborador no administra el catálogo ni las asignaciones: solo su checklist.
+  ['tareas','config'].forEach(tb=>{
+    const btn = document.querySelector('.tab[data-tab="'+tb+'"]'); if (btn) btn.style.display = 'none';
+  });
+  const bh = document.getElementById('banner-holder');
+  if (bh && !bh.innerHTML.trim()){
+    bh.innerHTML = '<div style="margin:0 0 1rem;padding:9px 13px;border-radius:9px;background:#e8f3ec;color:#1c3a28;font-size:13px">👤 Estás viendo solo las tareas asignadas a tu nombre.</div>';
+  }
+}
+
 // ── CONFIG ─────────────────────────────────────────────────────────────
 const APPS_SCRIPT_RRHH = 'https://script.google.com/macros/s/AKfycby_qocfx6f1d0qDgz6KS1B9DpACtVXtvGtWFSIPJzx1jkPdcNn144kGGBa0ndSsCWBzzg/exec';
 const LIMPIEZA_URL = 'https://script.google.com/macros/s/AKfycbzwY34EePdqV6yunYEdblREbhlurNgFAZZs4-NPeAf4A4OVVFlgKdz4da7pNDxPc85Dhg/exec';
@@ -551,6 +580,7 @@ if (LIMPIEZA_URL.includes('TODO_PEGAR')) {
   document.getElementById('banner-holder').innerHTML = '<div class="banner">⚠️ Este módulo todavía no está conectado a su backend (Code-limpieza-backend.gs sin desplegar). Pegá la URL /exec en la constante LIMPIEZA_URL.</div>';
 }
 
+aplicarVistaUsuario();
 init();
 async function init(){
   await Promise.all([cargarKioskos(), cargarPersonal()]);
@@ -574,6 +604,7 @@ async function cargarPersonal(){
     const resp = await fetchConTimeout(APPS_SCRIPT_RRHH+'?modulo=personal', {}, 20000);
     const data = await resp.json();
     if (data.ok) personalData = data.registros||[];
+    resolverMiNombre();
   }catch(e){ personalData = []; }
 }
 function colaboradoresDe(kiosko){
@@ -648,10 +679,12 @@ function tareasDelDia(iso){
       .filter(a => String(a['Fecha']||'') === iso && normNom(a['Kiosko'])===normNom(kioskoSel))
       .map(a => String(a['Tarea ID']))
   );
-  return TAREAS.filter(t => {
+  let _res = TAREAS.filter(t => {
     const activa = String(t['Activa']||'Sí').toLowerCase().charAt(0) !== 'n';
     return tareaTocaEn(t, iso) || (activa && idsAsignados.has(String(t['ID'])));
   }).sort((a,b)=> ordenMomento(a['Momento']) - ordenMomento(b['Momento']) || String(a['Nombre']||'').localeCompare(String(b['Nombre']||'')));
+  if (ES_USUARIO_LIMITADO){ if(!MI_NOMBRE) resolverMiNombre(); _res = _res.filter(t => asignadaAMi(t['ID'], iso)); }
+  return _res;
 }
 function ordenMomento(m){ m=String(m||'durante').toLowerCase(); return m==='apertura'?0:m==='cierre'?2:1; }
 // estado efectivo de una tarea en una fecha (deriva "vencida")
@@ -709,7 +742,8 @@ function filaControl(t, iso, colabs){
     const evFoto = a['Foto Evidencia URL'] ? `<img class="thumb-ev" src="${escapeAttr(a['Foto Evidencia URL'])}" title="Ver evidencia" onclick="verFoto('${escapeAttr(a['Foto Evidencia URL'])}')" onerror="this.style.display='none'"/>` : '';
     side = `<span class="estado-tag completada">✓ Completada</span>${evFoto}`;
   } else {
-    side = `<select onchange="asignarResponsable('${t['ID']}','${iso}', this.value)">${opc}</select>
+    const selResp = ES_USUARIO_LIMITADO ? '' : `<select onchange="asignarResponsable('${t['ID']}','${iso}', this.value)">${opc}</select>`;
+    side = `${selResp}
       <button class="btn-add" style="justify-content:center;width:100%" onclick="abrirEvidencia('${t['ID']}','${iso}')">${pideFoto?'📷':'✓'} Marcar hecha</button>`;
   }
   const metaResp = (est==='completada' && (a['Completada por']||a['Responsable'])) ? `<span>👤 <b>${escapeAttr(a['Completada por']||a['Responsable'])}</b></span>` : (responsable?`<span>👤 <b>${escapeAttr(responsable)}</b></span>`:'');
