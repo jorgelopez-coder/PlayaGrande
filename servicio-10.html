@@ -144,6 +144,9 @@ tr:last-child td{border-bottom:none}
 .hist-fecha{font-weight:600;font-size:13px}
 .hist-ref{font-size:12px;color:var(--muted);font-family:var(--font-m)}
 .hist-total{font-family:var(--font-m);font-size:15px;font-weight:700;color:var(--amber);text-align:right}
+.hist-nota{margin-top:8px;font-size:11px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:7px;padding:5px 9px;line-height:1.4}
+.btn-reabrir{border-color:var(--amber-lt)!important;color:var(--amber)!important}
+.btn-reabrir:hover{border-color:var(--amber)!important;background:var(--amber-bg)}
 .hist-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--subtle);font-size:13px}
 .hist-detail{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1rem 1.25rem;margin-top:-9px;margin-bottom:8px;font-size:12px;display:none}
@@ -1421,6 +1424,80 @@ async function desbloquearFecha(i, btn) {
   }
 }
 
+// ── REABRIR PERIODO COMPLETO desde el Historial (código admin) ──────
+// Reabre todo un reparto cerrado (toda su "periodo"): borra su detalle,
+// anula la maestra y guarda en Notas la marca de tiempo exacta del momento
+// en que se reabrió (la muestra luego la tarjeta del Historial). Pide el
+// código de administrador (una sola vez por sesión, igual que el desbloqueo
+// por fecha). Si el reparto incluía tips, los libera en Control de Tips para
+// que vuelvan a quedar pendientes. No se puede si alguien ya cobró.
+async function reabrirReparto(i, btn) {
+  const r = histListaActual[i];
+  if (!r) return;
+  const idReparto = String(r['ID']);
+  const kiosko = String(r['Kiosko'] || '');
+  const rango = `${fechaLbl(r['Fecha inicio'])} – ${fechaLbl(r['Fecha fin'])}`;
+
+  let codigo = codigoAdminSesion;
+  if (!codigo) {
+    codigo = prompt(`Código de administrador para reabrir el periodo ${rango} de ${kiosko}:`);
+    if (codigo === null) return;
+    codigo = codigo.trim();
+    if (!codigo) { showToast('Falta el código de administrador', 'error'); return; }
+  }
+  if (!confirm(`¿Reabrir TODO el periodo ${rango} de ${kiosko} (reparto #${idReparto})?\n\nSe anula el reparto cerrado completo: se borran todas sus asignaciones (10% y tips), el periodo vuelve a quedar disponible para recalcularlo y se guarda una nota con el momento exacto de la reapertura.\n\nSolo se puede si nadie ha cobrado todavía en ese periodo.`)) return;
+
+  const txtOriginal = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Reabriendo…'; }
+  try {
+    const resp = await postRRHH({
+      modulo: 'servicio_reabrir', idReparto, codigo,
+      usuario: (PORTAL_SESION && PORTAL_SESION.nombre) || ''
+    }, 60000);
+    if (!resp.ok) {
+      if (/código de administrador/i.test(resp.error || '')) codigoAdminSesion = '';
+      throw new Error(resp.error || 'Error desconocido');
+    }
+    codigoAdminSesion = codigo;
+    const info = resp.result || {};
+    const fechas = info.fechas || [];
+    const tipsReparto = Number(info.tips) || 0;
+
+    // Si el reparto incluía tips, liberarlos en Control de Tips (TipsPagos)
+    // para que esos cierres vuelvan a aparecer como pendientes. Mejor
+    // esfuerzo: si falla, se avisa pero la reapertura ya quedó hecha.
+    if (tipsReparto > 0.5 && fechas.length) {
+      try {
+        const rC = await fetchConTimeout(SHEETS_URL + '?action=read').then(x => x.json());
+        const cierres = rC.records || [];
+        const fechasSet = new Set(fechas);
+        const idsLiberar = cierres
+          .filter(c => mismoKiosko(c[COL_KIOSKO], kiosko) && fechasSet.has(soloFecha(c[COL_FECHA])) && (Number(c[COL_TIPS]) || 0) > 0)
+          .map(c => String(c[COL_ID]));
+        if (idsLiberar.length) {
+          await fetch(SHEETS_URL, {
+            method: 'POST', mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ type: 'tipsLiberar', idsLiberar, liberaciones: [{ referencia: 'Servicio 10% #' + idReparto, monto: tipsReparto }] })
+          });
+        }
+      } catch (e) {
+        console.warn('No se pudieron liberar los tips en Control de Tips', e);
+        showToast('Aviso: el periodo se reabrió pero no se pudieron liberar sus tips en Control de Tips', 'error');
+      }
+    }
+
+    // Secuencial: cargarPendientes() refresca detalleTodos y recién después
+    // cargarHistorial() lo lee, para que la tarjeta refleje el detalle real.
+    await cargarPendientes();
+    await cargarHistorial();
+    showToast(`Periodo ${rango} reabierto 🔓 (reparto #${idReparto} anulado)${info.momento ? ' · ' + info.momento : ''} — ya se puede recalcular`, 'success');
+  } catch (e) {
+    showToast('No se pudo reabrir: ' + (e && e.message ? e.message : e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = txtOriginal; }
+  }
+}
+
 // Busca en ServicioRepartos un reparto por ID (tras un timeout del POST).
 // Reintenta unas veces porque el servidor puede seguir terminando de guardar.
 async function buscarRepartoGuardado(idReparto) {
@@ -1881,6 +1958,12 @@ function renderHistorialServicio() {
     const montoTips = Number(r['Monto Tips ₡']) || 0;
     const montoTotal = r['Monto Total ₡'] != null ? Number(r['Monto Total ₡']) || 0 : (Number(r['Monto Servicio ₡']) || 0) + montoTips;
     const tipsTxt = montoTips > 0 ? ` · Servicio ${fmtCRC(r['Monto Servicio ₡'])} + Tips ${fmtCRC(montoTips)}` : '';
+    const esAnulado = String(r['Estado'] || '') === 'Anulado';
+    const notasTxt = String(r['Notas'] || '');
+    const notaReabrir = /Reabierto/.test(notasTxt)
+      ? `<div class="hist-nota">🔓 ${escHtml(notasTxt.split(' · ').filter(x => /Reabierto/.test(x)).join(' · '))}</div>` : '';
+    const btnReabrir = esAnulado ? ''
+      : `<button type="button" class="btn-mini btn-reabrir" onclick="event.stopPropagation();reabrirReparto(${i}, this)">Reabrir periodo 🔓</button>`;
     return `<div class="hist-card" onclick="toggleDetalleReparto(${i})">
       <div class="hist-head">
         <div>
@@ -1897,7 +1980,9 @@ function renderHistorialServicio() {
         <button type="button" class="btn-mini" onclick="event.stopPropagation();abrirPagoFirmaModal('${escHtml(String(r['ID']))}')" style="border-color:var(--green-lt);color:var(--green)">Firma / pago</button>
         ${r['Firma URL'] ? `<a href="${escHtml(r['Firma URL'])}" target="_blank" class="btn-mini" onclick="event.stopPropagation()" style="color:var(--green)">Firmado ✓</a>` : ''}
         ${pdfLink}
+        ${btnReabrir}
       </div>
+      ${notaReabrir}
     </div>
     <div class="hist-detail" id="sv-hist-detail-${i}">${renderDetalleReparto(detalle)}</div>`;
   }).join('');
