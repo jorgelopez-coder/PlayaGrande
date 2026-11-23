@@ -330,6 +330,11 @@ const INVENTARIO_SHEET_ID = '1Ghdop5T0VoDomANJcdtqZclsu6Z4220eYxltJgnvDuA';
 // Este módulo no tiene catálogo propio.
 const COMPRAS_SHEET_ID = '1Qf3JgKR8ZKhWAxUscKnA5xwqKMm6qvDjgtq8-3P0G4E';
 
+// Tipo de cambio ₡/US$ para valorizar costos facturados en dólares
+// (algunos barriles de Papagayo vienen en US$). Mismo default del
+// ecosistema (asistente IA / reporte semanal / recetas = 520). Ajustar si cambia.
+const TIPO_CAMBIO_USD = 520;
+
 let KIOSKOS = []; // siempre se llena desde Configuración (cargarKioskosDesdeBackend); sin nombres hardcodeados
 // Ayudante: siempre trae la lista de kioskos desde Configuración (backend),
 // reintentando automáticamente si falla la conexión. No hay lista de
@@ -507,7 +512,16 @@ let MAESTRO_ITEMS = [];
 async function cargarMaestroItems() {
   try {
     const datos = await gvizLoad(COMPRAS_SHEET_ID, 'Maestro_Productos', 'Nombre en Factura');
-    MAESTRO_ITEMS = datos.filter(r => r['Aplica'] !== 'No' && r['Activo'] !== 'No').map(r => ({
+    MAESTRO_ITEMS = datos.filter(r => r['Aplica'] !== 'No' && r['Activo'] !== 'No').map(r => {
+      // Moneda del costo del ítem (sale de la última factura). Si es USD se
+      // convierte a colones con el tipo de cambio del ecosistema, para
+      // comparar proveedores y valorizar en una sola moneda (Jorge 2026-11-22):
+      // sin esto, un keg facturado en US$ (p.ej. 0.00462/ml) le ganaba como
+      // "más barato" a su equivalente en ₡ (2.079/ml) y el barril abierto se
+      // valorizaba ~450× por debajo de su valor real.
+      const _moneda = (r['Moneda sugerida']||'').toString().trim().toUpperCase();
+      const _tcItem = _moneda === 'USD' ? TIPO_CAMBIO_USD : 1;
+      return {
       peId:          (r['Producto Estándar ID']||'').toString().trim(),
       nombreEstandar:(r['Nombre Estándar']||'').toString().trim(),
       proveedor:     (r['Proveedor']||'').toString().trim(),
@@ -515,17 +529,19 @@ async function cargarMaestroItems() {
       familia:       (r['Familia']||'').toString().trim(),
       presentacion:  (r['Presentación']||'').toString().trim(),
       tamano:        (r['Tamaño']||'').toString().trim(),
-      // Precio de compra (presentación completa, sin IVA): última compra o ficha
-      precioCompra:  parseFloat(r['Costo sugerido (última compra)']) || parseFloat(r['Precio sin IVA']) || 0,
-      // Valor de la unidad (costo por unidad estándar / de receta)
-      costoUnidad:   parseFloat(r['Costo por unidad estándar']) || parseFloat(r['Costo por unidad']) || 0,
+      moneda:        _moneda || 'CRC',
+      // Precio de compra (presentación completa, sin IVA): última compra o ficha, ya en ₡
+      precioCompra:  (parseFloat(r['Costo sugerido (última compra)']) || parseFloat(r['Precio sin IVA']) || 0) * _tcItem,
+      // Valor de la unidad (costo por unidad estándar / de receta), ya en ₡
+      costoUnidad:   (parseFloat(r['Costo por unidad estándar']) || parseFloat(r['Costo por unidad']) || 0) * _tcItem,
       kioskosTxt:    (r['Kioskos']||'').toString().trim(),
       // Control por peso (botellas de licor / cerveza en sifón)
       tipoControl:   (r['Tipo de Control']||'').toString().trim() === 'peso' ? 'peso' : 'unitario',
       contenidoMl:   parseFloat(r['Contenido Envase (ml)'])||0,
       densidad:      parseFloat(r['Densidad (g/ml)'])||0,
       taraDefecto:   (r['Tara por Defecto (g)']!=='' && r['Tara por Defecto (g)']!=null) ? parseFloat(r['Tara por Defecto (g)']) : '',
-    }));
+    };
+    });
   } catch(e) { MAESTRO_ITEMS = []; }
 }
 
@@ -1000,13 +1016,13 @@ function headerGrupo(titulo, n, subtotal, cols, groupId) {
   const colapsado = gruposColapsados.has(groupId);
   return `<tr class="grupo-header" onclick="toggleGrupo('${escJs(groupId)}')" style="cursor:pointer;"><td colspan="${cols}">
     <span style="display:inline-block;transition:transform .15s;transform:rotate(${colapsado?'-90deg':'0deg'});margin-right:6px;">▾</span>
-    ${escHtml(titulo)} · ${n} producto${n!==1?'s':''} <span style="font-weight:400;font-size:11px;margin-left:8px;opacity:.8;">${fmt(subtotal)}</span></td></tr>`;
+    ${escHtml(titulo)} · ${n} producto${n!==1?'s':''} <span style="font-weight:400;font-size:11px;margin-left:8px;opacity:.8;">${fmtVal(subtotal)}</span></td></tr>`;
 }
 function footerSubtotal(val, cols, label, groupId) {
   const colapsado = gruposColapsados.has(groupId);
   return `<tr data-grupo="${groupId}" style="background:var(--surface);${colapsado?'display:none;':''}">
     <td colspan="${cols-1}" style="padding:7px 12px;font-size:12px;font-weight:600;color:var(--muted);text-align:right;">${label}</td>
-    <td style="padding:7px 12px;text-align:right;font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--teal);">${fmt(val)}</td>
+    <td style="padding:7px 12px;text-align:right;font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--teal);">${fmtVal(val)}</td>
   </tr>`;
 }
 function buildFilaToma(p, groupId) {
@@ -1056,7 +1072,7 @@ function buildFilaToma(p, groupId) {
       </div>`}
     </td>
     <td class="num" style="font-weight:600;color:var(--teal);" id="val-${slugIdInv(p.id)}">
-      ${tieneData ? fmt(valor) : '—'}
+      ${tieneData ? fmtVal(valor) : '—'}
     </td>
   </tr>
   <tr class="ref-row" data-grupo="${groupId}" id="ref-${slugIdInv(p.id)}" style="display:none;">
@@ -1180,7 +1196,7 @@ function recalcAbierto(id) {
   const valC = (parseFloat(linea.cerrado)||0) * precioC;
   const valA = (parseFloat(linea.abierto)||0) * precioU;
   const valEl = document.getElementById('val-' + sidSafe);
-  if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+  if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmtVal(valC+valA) : '—';
   actualizarMarcaCompra(id);
 
   saveTomas(tomas);
@@ -1267,7 +1283,7 @@ function onLinea(id, campo, input) {
     const valC     = (parseFloat(linea.cerrado)||0) * precioC;
     const valA     = (parseFloat(linea.abierto)||0) * precioU;
     const valEl    = document.getElementById('val-' + slugIdInv(id));
-    if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmt(valC+valA) : '—';
+    if (valEl) valEl.textContent = (linea.cerrado!==undefined||linea.abierto!==undefined) ? fmtVal(valC+valA) : '—';
     actualizarMarcaCompra(id);
   }
 
@@ -1296,7 +1312,7 @@ function actualizarValorLive() {
   });
 
   tomaActual.valor_total = total;
-  document.getElementById('valor-live').textContent = fmt(total);
+  document.getElementById('valor-live').textContent = fmtVal(total);
 
   const totalesEl = document.getElementById('totales-area');
   if (totalesEl && Object.keys(porArea).length) {
@@ -1306,7 +1322,7 @@ function actualizarValorLive() {
       return `
       <div style="flex:1;min-width:160px;padding:8px 14px;border-right:1px solid var(--teal-lt);">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--teal);font-weight:600;">${escHtml(area)}</div>
-        <div style="font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--teal);">${fmt(a.valor)}</div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--teal);">${fmtVal(a.valor)}</div>
         <div style="font-size:11px;color:${completo?'var(--green)':'var(--muted)'};margin-top:2px;">${a.contados}/${a.total} producto${a.total!==1?'s':''} contados</div>
       </div>`;
     }).join('');
@@ -1395,6 +1411,72 @@ function reporteLineasContadas(){
   return out;
 }
 
+// Construye el bloque "Análisis de resultados" del reporte gerencial a partir
+// de los agregados ya calculados (total vs toma anterior, valor por área,
+// alertas de comprado-sin-contar y subió-sin-compras). Devuelve HTML con
+// estilos en línea (email-safe), igual que el resto del reporte.
+function construirAnalisisHTML(x){
+  const C = x.C, esc = x.esc, money = x.money;
+  const hayAnterior = x.hayAnterior, totalActual = x.totalActual, antTotal = x.antTotal;
+  const curArea = x.curArea, antArea = x.antArea;
+  const sinContar = x.sinContar, subio = x.subio;
+  const topProd = x.topProd, nProd = x.nProd, nContados = x.nContados, noContados = x.noContados;
+  const pct = (num,den)=> den>0 ? ((num>=0?'+':'')+(num/den*100).toLocaleString('es-CR',{maximumFractionDigits:1})+'%') : '—';
+  const puntos = [];
+
+  if (hayAnterior){
+    const diff = totalActual - antTotal;
+    const flecha = diff>0.005?'▲':(diff<-0.005?'▼':'■');
+    const col = diff>0.005?C.teal:(diff<-0.005?C.redTx:C.muted);
+    puntos.push('<b>Valorización:</b> '+money(totalActual)+' <span style="color:'+col+';white-space:nowrap;">'+flecha+' '+money(Math.abs(diff))+(antTotal>0?(' ('+pct(diff,antTotal)+')'):'')+'</span> frente a la toma anterior ('+money(antTotal)+').');
+  } else {
+    puntos.push('<b>Valorización:</b> '+money(totalActual)+'. Primera toma con reporte: queda como línea base para comparar en adelante.');
+  }
+
+  let cob = '<b>Cobertura del conteo:</b> '+nContados+' de '+nProd+' productos del catálogo';
+  const extras = [];
+  if (noContados>0) extras.push(noContados+' sin contar');
+  if (sinContar.length) extras.push(sinContar.length+' de ellos con compras del período');
+  cob += (extras.length?(' ('+extras.join('; ')+')'):'')+'.';
+  puntos.push(cob);
+
+  if (hayAnterior){
+    let up=null, dn=null;
+    Object.keys(curArea).forEach(a=>{
+      const d=(curArea[a]||0)-(antArea[a]||0);
+      if(up===null||d>up.d) up={a,d};
+      if(dn===null||d<dn.d) dn={a,d};
+    });
+    const partes=[];
+    if(up && up.d>0.005) partes.push(esc(up.a)+' es la que más sube ('+money(up.d)+')');
+    if(dn && dn.d<-0.005) partes.push(esc(dn.a)+' la que más baja ('+money(dn.d)+')');
+    if(partes.length) puntos.push('<b>Movimiento por área:</b> '+partes.join('; ')+'.');
+  }
+
+  if (topProd && totalActual>0){
+    const share=(topProd.valor/totalActual*100).toLocaleString('es-CR',{maximumFractionDigits:1});
+    puntos.push('<b>Concentración:</b> '+esc(topProd.p.nombre)+' concentra el '+share+'% del valor contado ('+money(topProd.valor)+').');
+  }
+
+  const names=(arr)=>arr.slice(0,3).map(p=>esc(p.nombre)).join(', ')+(arr.length>3?(' y '+(arr.length-3)+' más'):'');
+  if (subio.length) puntos.push('<span style="color:'+C.redTx+';">⚠ <b>'+subio.length+'</b> producto(s) se contaron por más que la toma anterior sin compras que lo respalden: '+names(subio)+'. Posible error de conteo o factura sin registrar.</span>');
+  if (sinContar.length) puntos.push('<span style="color:'+C.amberTx+';">⚠ <b>'+sinContar.length+'</b> producto(s) con compras del período quedaron sin contar: '+names(sinContar)+'. El inventario podría estar subvaluado.</span>');
+  if (!subio.length && !sinContar.length) puntos.push('<span style="color:#1a7a4a;">✓ Sin inconsistencias frente a compras: ningún producto subió sin respaldo ni quedó comprado sin contar.</span>');
+
+  const rec = (subio.length||sinContar.length)
+    ? 'Recomendación: revisar los puntos marcados antes de dar por cerrada la toma.'
+    : 'La toma se ve consistente para cierre.';
+
+  let html = '<div style="margin:14px 0 2px;border:1px solid '+C.border+';border-left:4px solid '+C.teal+';border-radius:8px;background:'+C.head+';padding:12px 16px;">';
+  html += '<div style="font-size:13px;font-weight:700;color:'+C.teal+';margin-bottom:8px;">Análisis de resultados</div>';
+  html += '<ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.75;color:#1c3a28;">';
+  puntos.forEach(p=>{ html += '<li style="margin-bottom:3px;">'+p+'</li>'; });
+  html += '</ul>';
+  html += '<div style="margin-top:8px;font-size:12px;font-weight:600;color:'+C.dark+';">'+rec+'</div>';
+  html += '</div>';
+  return html;
+}
+
 function generarReporteGerencialHTML(){
   const t = tomaActual;
   const kiosko = t ? t.kiosko : (kioskoActual||'');
@@ -1415,6 +1497,26 @@ function generarReporteGerencialHTML(){
     const sig = up ? '▲ ' : (dn ? '▼ ' : '');
     return '<span style="color:'+col+';white-space:nowrap;">'+sig+money(dv)+'</span>';
   };
+  const hayAnterior = !!REF_META;
+  // Agregados para el resumen por área/categoría y el análisis de resultados
+  const curRes = {};
+  lineas.forEach(x => {
+    const a = x.p.area || 'Sin área', c = x.p.categoria || 'Sin categoría';
+    curRes[a] = curRes[a] || {}; curRes[a][c] = (curRes[a][c]||0) + x.valor;
+  });
+  const antRes = REF_ANT_RESUMEN || {};
+  const areas = [...new Set([...Object.keys(curRes), ...Object.keys(antRes)])].sort();
+  const curArea = {}, antArea = {};
+  areas.forEach(a => {
+    curArea[a] = Object.values(curRes[a]||{}).reduce((s0,v)=>s0+v,0);
+    antArea[a] = Object.values(antRes[a]||{}).reduce((s0,v)=>s0+v,0);
+  });
+  const antTotal = REF_ANT_TOTAL || 0;
+  const sinContar = productosCompradoSinContar();
+  const subio = productosSubioSinCompra();
+  const noContados = Math.max(0, (productos||[]).length - lineas.length);
+  const topProd = lineas.slice().sort((a,b)=>b.valor-a.valor)[0] || null;
+  const analisisHTML = construirAnalisisHTML({ C, esc, money, cant, hayAnterior, totalActual, antTotal, curArea, antArea, sinContar, subio, noContados, topProd, nProd:(productos||[]).length, nContados:lineas.length });
   let html = ''
   + '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c3a28;max-width:860px;margin:0 auto;">'
   + '<div style="border-bottom:3px solid '+C.teal+';padding-bottom:12px;margin-bottom:6px;">'
@@ -1434,21 +1536,14 @@ function generarReporteGerencialHTML(){
   +     '<td style="padding:3px 0;color:'+C.muted+';">Responsable</td><td style="padding:3px 0;">'+esc(responsable||'—')+'</td>'
   +     '<td style="padding:3px 0;color:'+C.muted+';">Valorización total</td><td style="padding:3px 0;font-weight:700;color:'+C.teal+';font-size:14px;">'+money(totalActual)+'</td>'
   +   '</tr>'
-  + '</table>';
-  const hayAnterior = !!REF_META;
+  + '</table>'
+  + analisisHTML;
   const notaAnterior = hayAnterior
     ? '<span style="color:'+C.muted+';font-size:11px;">Comparación contra la toma '+esc(REF_META.tomaId)+' ('+esc(REF_META.fecha||'—')+').</span>'
     : '<span style="color:'+C.amberTx+';font-size:11px;">No hay una toma anterior finalizada para este kiosko; no se puede comparar.</span>';
   const secTitle = (txt) => '<div style="background:'+C.dark+';color:#fff;padding:6px 12px;font-size:13px;font-weight:700;border-radius:6px;margin:22px 0 8px;">'+txt+'</div>';
   html += secTitle('1 · Resumen por área y categoría');
   html += '<div style="margin:0 0 8px;">'+notaAnterior+'</div>';
-  const curRes = {};
-  lineas.forEach(x => {
-    const a = x.p.area || 'Sin área', c = x.p.categoria || 'Sin categoría';
-    curRes[a] = curRes[a] || {}; curRes[a][c] = (curRes[a][c]||0) + x.valor;
-  });
-  const antRes = REF_ANT_RESUMEN || {};
-  const areas = [...new Set([...Object.keys(curRes), ...Object.keys(antRes)])].sort();
   html += '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
        +  '<thead><tr style="background:'+C.head+';">'
        +   '<th style="text-align:left;padding:6px 8px;border:1px solid '+C.border+';">Área</th>'
@@ -1536,7 +1631,6 @@ function generarReporteGerencialHTML(){
     html += '<tr style="background:'+C.dark+';color:#fff;"><td colspan="5" style="padding:7px 8px;text-align:right;font-weight:700;">TOTAL GENERAL</td><td style="padding:7px 8px;text-align:right;font-weight:700;">'+money(gTot)+'</td></tr>';
     html += '</tbody></table>';
   }
-  const sinContar = productosCompradoSinContar();
   html += secTitle('3 · Productos con compra registrada y sin conteo');
   if (!sinContar.length){
     html += '<div style="padding:8px;color:'+C.muted+';font-size:12px;">Ninguno: todos los productos con compras en el período fueron contados.</div>';
@@ -1560,7 +1654,6 @@ function generarReporteGerencialHTML(){
     });
     html += '</tbody></table>';
   }
-  const subio = productosSubioSinCompra();
   html += secTitle('4 · Productos contados por más que la toma anterior sin compras');
   if (!subio.length){
     html += '<div style="padding:8px;color:'+C.muted+';font-size:12px;">Ninguno: no hay productos que hayan subido sin compras que lo respalden.</div>';
