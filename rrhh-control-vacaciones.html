@@ -405,7 +405,7 @@ function calcularSaldo(p) {
   // campo tenía un valor, el saldo quedaba congelado para siempre y solo
   // bajaba al aprobar vacaciones, sin sumar los meses de antigüedad que
   // seguían corriendo (ver feedback_vacaciones_antiguedad_no_acumula.md).
-  const ingreso = p['Fecha ingreso'] || p['fecha_ingreso'] || '';
+  const ingreso = (p['Fecha reingreso'] || p['fecha_reingreso'] || '').toString().slice(0,10) || p['Fecha ingreso'] || p['fecha_ingreso'] || '';
   const dIng    = parsearFecha(ingreso);
 
   if (dIng) {
@@ -546,12 +546,13 @@ function renderSaldos() {
 
   const filas = lista.map((p, idx) => {
     const nombre  = p['Nombre completo'] || `${p['Nombre']||''} ${p['Apellidos']||''}`;
-    const ingreso = p['Fecha ingreso'] || '—';
+    const _reing  = (p['Fecha reingreso'] || '').toString().slice(0,10);
+    const ingreso = (_reing || p['Fecha ingreso'] || '—') + (_reing ? ' ↻' : '');
     const puesto  = p['Puesto'] || '—';
     const saldo   = calcularSaldo(p);
 
-    // Antigüedad
-    const dIng = parsearFecha(p['Fecha ingreso'] || '');
+    // Antigüedad — desde el reingreso si fue recontratado
+    const dIng = parsearFecha((p['Fecha reingreso'] || '').toString().slice(0,10) || p['Fecha ingreso'] || '');
     let antig = '—';
     if (dIng) {
       let a = hoy.getFullYear() - dIng.getFullYear();

@@ -381,7 +381,7 @@ function renderLista(lista) {
   cont.innerHTML = lista.map((p, i) => {
     const nombre  = p['Nombre completo'] || `${p['Nombre']||''} ${p['Apellidos']||''}`;
     const puesto  = p['Puesto'] || '—';
-    const ingreso = p['Fecha ingreso'] || '';
+    const ingreso = (p['Fecha reingreso'] || '').toString().slice(0,10) || p['Fecha ingreso'] || '';
     return `<div class="colab-item" id="ci-${i}" onclick="seleccionarColab(${i})">
       <div class="avatar">${iniciales(nombre)}</div>
       <div class="ci-info">
@@ -411,7 +411,7 @@ function renderPanel(p) {
   const puesto   = p['Puesto']          || '—';
   const depto    = p['Departamento']    || '—';
   const salario  = parseFloat(p['Salario'] || 0);
-  const ingreso  = p['Fecha ingreso']   || '';
+  const ingreso  = (p['Fecha reingreso'] || '').toString().slice(0,10) || p['Fecha ingreso'] || '';
   const balance  = calcularBalanceColaborador(nombre, ingreso, p['Saldo vacaciones']);
   const pagado   = (p['Estado'] || '').toUpperCase() === 'INACTIVO';
 

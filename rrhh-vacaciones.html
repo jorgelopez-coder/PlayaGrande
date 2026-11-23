@@ -580,7 +580,7 @@ async function cargarColaboradores() {
         const balance = p['Saldo vacaciones']  || p.balance_vacaciones || 0;
         const puesto  = p['Puesto']            || p.puesto            || '';
         const depto   = p['Departamento']      || p.departamento      || '';
-        const ingreso = p['Fecha ingreso']     || p.fecha_ingreso     || '';
+        const ingreso = (p['Fecha reingreso'] || p.fecha_reingreso || '').toString().slice(0,10) || p['Fecha ingreso'] || p.fecha_ingreso || '';
 
         if (nombre.trim()) {
           const o = document.createElement('option');

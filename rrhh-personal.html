@@ -445,6 +445,16 @@
             <input type="date" id="edit-fecha-ingreso">
           </div>
         </div>
+        <div class="edit-field-row">
+          <div class="edit-field">
+            <label for="edit-fecha-reingreso">Fecha de reingreso <span style="font-weight:400;color:var(--muted);font-size:11px;">(si se fue y volvió)</span></label>
+            <input type="date" id="edit-fecha-reingreso">
+          </div>
+          <div class="edit-field" style="display:flex;align-items:flex-end;">
+            <button type="button" onclick="document.getElementById('edit-fecha-reingreso').value=''" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--muted);cursor:pointer;">Quitar reingreso</button>
+          </div>
+        </div>
+        <p class="edit-hint">La fecha de ingreso es el inicio del primer período y no se borra. Si ponés una fecha de reingreso, la antigüedad y las vacaciones se cuentan de nuevo desde ella.</p>
         <p class="edit-hint">El salario y el estado se cambian desde "Cambio de salario" y "Terminación laboral" — así queda el historial guardado. Acá no se modifican.</p>
       </div>
 
@@ -893,7 +903,7 @@ function calcVacExpediente(p) {
   // acumulable. Recalculado siempre en vivo — "Saldo vacaciones" ya NO es
   // un techo fijo (congelaba el saldo sin sumar la antigüedad que seguía
   // corriendo; ver feedback_vacaciones_antiguedad_no_acumula.md).
-  const ingreso = p['Fecha ingreso'] || '';
+  const ingreso = fechaBaseExp(p);
   const dIng    = parsearFechaExp(ingreso);
 
   if (dIng) {
@@ -940,10 +950,11 @@ function verExpediente(idx) {
   // calcVacExpediente maneja saldo manual y cálculo por antigüedad
   const balance = calcVacExpediente(p);
   const ingreso   = p['Fecha ingreso'] || '';
+  const reingreso = (p['Fecha reingreso'] || '').toString().slice(0, 10);
   const [bgCol, txCol] = avatarColor(nombre);
 
-  // Antigüedad
-  const antiguedad = calcularAntiguedad(ingreso);
+  // Antigüedad — desde el reingreso si fue recontratado, si no desde el ingreso
+  const antiguedad = calcularAntiguedad(fechaBaseExp(p));
 
   // Estado badge
   const badgeEstado = estado === 'ACTIVO'
@@ -1097,8 +1108,9 @@ function verExpediente(idx) {
         <div class="dato-row"><span class="dato-label">Departamento</span><span class="dato-valor">${depto}</span></div>
         <div class="dato-row"><span class="dato-label">Puesto</span><span class="dato-valor">${puesto}</span></div>
         <div class="dato-row"><span class="dato-label">Salario base</span><span class="dato-valor">₡${salario.toLocaleString('es-CR')}</span></div>
-        <div class="dato-row"><span class="dato-label">Fecha ingreso</span><span class="dato-valor">${ingreso || '—'}</span></div>
-        <div class="dato-row"><span class="dato-label">Antigüedad</span><span class="dato-valor">${p['Antigüedad'] || antiguedad}</span></div>
+        <div class="dato-row"><span class="dato-label">Fecha ingreso</span><span class="dato-valor">${ingreso || '—'}${reingreso ? ' <span style="font-size:10px;opacity:.65;">(1.er período)</span>' : ''}</span></div>
+        ${reingreso ? `<div class="dato-row"><span class="dato-label">Fecha reingreso</span><span class="dato-valor">${reingreso}</span></div>` : ''}
+        <div class="dato-row"><span class="dato-label">Antigüedad${reingreso ? ' <span style="font-size:10px;opacity:.65;">(desde reingreso)</span>' : ''}</span><span class="dato-valor">${antiguedad}</span></div>
         <div class="dato-row"><span class="dato-label">Estado</span><span class="dato-valor">${estado}</span></div>
       </div>
 
@@ -1159,6 +1171,15 @@ function calcularAntiguedad(fechaIngreso) {
   } catch { return '—'; }
 }
 
+// ── FECHA BASE PARA ANTIGÜEDAD / VACACIONES ───────────────────────
+// Si el colaborador se fue y volvió (tiene "Fecha reingreso"), el conteo de
+// antigüedad y vacaciones arranca de nuevo desde esa fecha. El primer
+// período queda guardado en "Fecha ingreso" (no se borra).
+function fechaBaseExp(p) {
+  const re = (p['Fecha reingreso'] || p['fecha_reingreso'] || '').toString().slice(0, 10).trim();
+  return re || (p['Fecha ingreso'] || '');
+}
+
 // ── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
@@ -1212,6 +1233,7 @@ function abrirModalEditar() {
   document.getElementById('edit-departamento').value = p['Departamento'] || '';
   document.getElementById('edit-puesto').value = p['Puesto'] || '';
   document.getElementById('edit-fecha-ingreso').value = (p['Fecha ingreso'] || '').toString().slice(0,10);
+  document.getElementById('edit-fecha-reingreso').value = (p['Fecha reingreso'] || '').toString().slice(0,10);
   document.getElementById('edit-telefono').value = p['Teléfono'] || '';
   document.getElementById('edit-email').value = p['Email'] || '';
   document.getElementById('edit-banco').value = p['Banco'] || '';
@@ -1361,6 +1383,7 @@ document.getElementById('form-editar').addEventListener('submit', async e => {
   const departamento   = document.getElementById('edit-departamento').value;
   const puesto         = document.getElementById('edit-puesto').value.trim();
   const fechaIngreso   = document.getElementById('edit-fecha-ingreso').value;
+  const fechaReingreso = document.getElementById('edit-fecha-reingreso').value;
   const telefono       = document.getElementById('edit-telefono').value.trim();
   const email          = document.getElementById('edit-email').value.trim();
   const banco          = document.getElementById('edit-banco').value;
@@ -1370,6 +1393,11 @@ document.getElementById('form-editar').addEventListener('submit', async e => {
 
   if (!nombre || !puesto) {
     showToast('Completá al menos nombre y puesto.', 'error');
+    return;
+  }
+
+  if (fechaReingreso && fechaIngreso && fechaReingreso <= fechaIngreso) {
+    showToast('La fecha de reingreso debe ser posterior a la de ingreso.', 'error');
     return;
   }
 
@@ -1390,7 +1418,8 @@ document.getElementById('form-editar').addEventListener('submit', async e => {
     nacionalidad,
     kiosko, departamento, puesto,
     fecha_ingreso: fechaIngreso,
-    antiguedad: calcAntiguedadParaGuardar(fechaIngreso),
+    fecha_reingreso: fechaReingreso,
+    antiguedad: calcAntiguedadParaGuardar(fechaReingreso || fechaIngreso),
     telefono, email,
     banco, cuenta,
     tipo_cuenta: tipoCuenta,
