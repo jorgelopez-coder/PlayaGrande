@@ -1168,7 +1168,15 @@ function enviarResumenContabilidad() {
   // filtros de periodo/kiosko que calcularResumen()) y las agrupa acá mismo.
   const filas = construirDetallePagosProgramados();
   const porKiosko = {};
+  // Agregados para el resumen ejecutivo del inicio del correo (misma fuente
+  // que el detalle: construirDetallePagosProgramados(), así todo reconcilia).
+  const porTipoTotal = {};      // tipo de pago -> monto (todo el periodo)
+  const porFechaTotal = {};     // fecha -> monto (suma de todos los kioskos)
+  let totalPeriodo = 0;
   filas.forEach(fila => {
+    totalPeriodo += fila.monto;
+    porTipoTotal[fila.categoria] = (porTipoTotal[fila.categoria] || 0) + fila.monto;
+    porFechaTotal[fila.fecha] = (porFechaTotal[fila.fecha] || 0) + fila.monto;
     const k = porKiosko[fila.kiosko] || (porKiosko[fila.kiosko] = { total: 0, porFecha: {} });
     k.total += fila.monto;
     const d = k.porFecha[fila.fecha] || (k.porFecha[fila.fecha] = { total: 0, porTipo: {}, porProveedorAP: {}, porProveedorCompras: {} });
@@ -1184,45 +1192,68 @@ function enviarResumenContabilidad() {
     }
   });
   const kioskosOrdenados = Object.entries(porKiosko).sort((a, b) => b[1].total - a[1].total);
+  const SEP = '────────────────────────────────────';
 
+  // ── Encabezado + resumen ejecutivo ──────────────────────────────
   const lineasCuerpo = [
-    'Resumen de pagos programados — ' + periodoTxt + ' (' + kioskosTxt + ')',
+    negrita('PAGOS PROGRAMADOS'),
+    periodoTxt + '  ·  ' + kioskosTxt,
+    SEP,
     '',
-    'Detalle completo y edición de fechas de pago en Cuentas por Pagar:',
-    URL_CUENTAS_POR_PAGAR,
+    negrita('TOTAL A PAGAR:  ' + fmt(totalPeriodo)),
     '',
+    // Vista de liquidez: cuánto hay que tener disponible cada día (Jorge, 2026-11-23).
+    negrita('Cuánto se necesita cada día'),
   ];
+  Object.keys(porFechaTotal).sort().forEach(f => {
+    const esHoy = f === hoyISO;
+    lineasCuerpo.push('  ' + (esHoy ? '▸ ' : '  ') + fechaLarga(f) + (esHoy ? ' (hoy)' : '') + '  —  ' + fmt(porFechaTotal[f]));
+  });
+  lineasCuerpo.push('');
+  lineasCuerpo.push(negrita('Por tipo de pago'));
+  Object.entries(porTipoTotal).sort((a, b) => b[1] - a[1])
+    .forEach(([tipo, monto]) => lineasCuerpo.push('  • ' + tipo + '  —  ' + fmt(monto)));
+  lineasCuerpo.push('');
+  lineasCuerpo.push(negrita('Por kiosko'));
+  kioskosOrdenados.forEach(([kiosko, dk]) => lineasCuerpo.push('  • ' + kiosko + '  —  ' + fmt(dk.total)));
+  lineasCuerpo.push('');
+
+  // ── Detalle por kiosko ──────────────────────────────────────────
+  lineasCuerpo.push(SEP);
+  lineasCuerpo.push(negrita('DETALLE POR KIOSKO'));
+  lineasCuerpo.push(SEP);
 
   kioskosOrdenados.forEach(([kiosko, datosKiosko]) => {
-    lineasCuerpo.push(kiosko + ' — TOTAL: ' + fmt(datosKiosko.total));
+    lineasCuerpo.push('');
+    lineasCuerpo.push('▌ ' + negrita(kiosko.toUpperCase()) + '   ' + fmt(datosKiosko.total));
     const fechasOrdenadas = Object.keys(datosKiosko.porFecha).sort();
-    fechasOrdenadas.forEach((f, idx) => {
+    fechasOrdenadas.forEach(f => {
       const d = datosKiosko.porFecha[f];
-      const etiqueta = negrita(fechaLarga(f) + (f === hoyISO ? ' (hoy)' : ''));
-      lineasCuerpo.push('   ' + etiqueta + ': ' + fmt(d.total));
+      lineasCuerpo.push('');
+      lineasCuerpo.push('  ' + negrita(fechaLarga(f) + (f === hoyISO ? ' (hoy)' : '')) + '  —  ' + fmt(d.total));
       Object.entries(d.porTipo).sort((a, b) => b[1] - a[1])
         .forEach(([tipo, monto]) => {
-          lineasCuerpo.push('      - ' + tipo + ': ' + fmt(monto));
+          lineasCuerpo.push('    ' + tipo + ': ' + fmt(monto));
           if (tipo === ETIQUETAS_TIPO_PAGO.ap) {
-            // Detalle por proveedor: número de cuenta + facturas que cancela este pago.
+            // Detalle por proveedor: monto + facturas que cancela + número de cuenta.
             Object.entries(d.porProveedorAP).sort((a, b) => b[1].monto - a[1].monto)
               .forEach(([proveedor, reg]) => {
                 const cuenta = cuentaDeProveedor(proveedor) || 'sin registrar';
-                lineasCuerpo.push('         · ' + proveedor + ' — Cta: ' + cuenta + ': ' + fmt(reg.monto));
-                if (reg.facturas.length) lineasCuerpo.push('            Facturas: ' + reg.facturas.join(', '));
+                lineasCuerpo.push('       ' + proveedor + ' — ' + fmt(reg.monto) + (reg.facturas.length ? '  (fact. ' + reg.facturas.join(', ') + ')' : ''));
+                lineasCuerpo.push('       Cta: ' + cuenta);
               });
           } else if (tipo === ETIQUETAS_TIPO_PAGO.comprasProv) {
             Object.entries(d.porProveedorCompras).sort((a, b) => b[1] - a[1])
-              .forEach(([proveedor, montoProv]) => lineasCuerpo.push('         · ' + proveedor + ': ' + fmt(montoProv)));
+              .forEach(([proveedor, montoProv]) => lineasCuerpo.push('       ' + proveedor + ' — ' + fmt(montoProv)));
           }
         });
-      // Espacio entre grupos de fecha para que se lea mejor (Jorge, pedido).
-      if (idx < fechasOrdenadas.length - 1) lineasCuerpo.push('');
     });
-    lineasCuerpo.push('');
   });
 
-  lineasCuerpo.push('TOTAL del periodo: ' + fmt(t.total));
+  lineasCuerpo.push('');
+  lineasCuerpo.push(SEP);
+  lineasCuerpo.push('Detalle y edición de fechas de pago → Cuentas por Pagar:');
+  lineasCuerpo.push(URL_CUENTAS_POR_PAGAR);
   const cuerpo = lineasCuerpo.join('\n');
 
   const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1'
