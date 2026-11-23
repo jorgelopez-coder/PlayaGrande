@@ -393,6 +393,11 @@
       <div class="hint-strip">
         <span class="hint-chip">Saldo pendiente de pago a hoy, sin importar el periodo elegido arriba. Pagalo desde <a href="servicio-10.html" style="color:var(--green);">Servicio 10% →</a>.</span>
       </div>
+      <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.1rem 0 .75rem;">
+        <label for="fc-tc" style="font-size:13px">Tipo de cambio Catalinas (₡ por $1)</label>
+        <input type="number" id="fc-tc" min="0" step="0.01" placeholder="520" style="max-width:150px" oninput="setTcUSD(this.value)"/>
+        <span style="font-size:11.5px;color:var(--subtle);">Catalinas cobra el 10% en dólares; se convierte a colones para el flujo de caja.</span>
+      </div>
       <div class="tabla-wrap" id="tabla-servicio"><div class="empty"><span class="spinner"></span></div></div>
     </div>
     <div class="card">
@@ -501,6 +506,29 @@ document.getElementById('date-chip').textContent =
 const hoyISO = hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0')+'-'+String(hoy.getDate()).padStart(2,'0');
 
 const fmt = n => '₡' + Number(n||0).toLocaleString('es-CR', { minimumFractionDigits:0, maximumFractionDigits:0 });
+// Catalinas opera en dólares (igual que cierres.html/servicio-10.html): su
+// Servicio 10% se guarda por colaborador EN DÓLARES en la columna 'Monto ₡'.
+// Como el flujo de caja está todo en colones, acá lo convertimos a ₡ con el
+// tipo de cambio estándar del ecosistema (520, igual que inventario / reporte
+// semanal / recetas). Ajustar si cambia.
+const TIPO_CAMBIO_USD_DEFAULT = 520;
+const TC_USD_LS_KEY = 'flujoCajaTcUSD';
+let tcUSD = Number(localStorage.getItem(TC_USD_LS_KEY)) || TIPO_CAMBIO_USD_DEFAULT;
+const KIOSKOS_USD = ['catalinas'];
+const esKioskoUSD = k => KIOSKOS_USD.includes(String(k||'').trim().toLowerCase());
+// Monto del Servicio 10% (detalle real) de una fila, SIEMPRE en colones.
+const montoServicioCRC = r => {
+  const m = Number(r['Monto ₡']) || 0;
+  return esKioskoUSD(r['Kiosko']) ? m * tcUSD : m;
+};
+// Tipo de cambio editable (₡ por $1) para convertir el Servicio 10% de
+// Catalinas a colones. Se recuerda en el navegador y re-renderiza todo.
+function setTcUSD(v) {
+  const n = Number(v) || 0;
+  tcUSD = n > 0 ? n : TIPO_CAMBIO_USD_DEFAULT;
+  try { localStorage.setItem(TC_USD_LS_KEY, String(tcUSD)); } catch (e) {}
+  renderTodo();
+}
 const escapeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
 function pad(n) { return String(n).padStart(2,'0'); }
 function fechaISO(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
@@ -892,7 +920,7 @@ function calcularResumen() {
   dataServicioDetalle.forEach(r => {
     if (String(r['Pagado']||'').trim().toLowerCase() === 'sí') return;
     if (!kioskoVisible(r['Kiosko'])) return;
-    asegurarFila(r['Kiosko']).servicio += Number(r['Monto ₡']) || 0;
+    asegurarFila(r['Kiosko']).servicio += montoServicioCRC(r);
   });
 
   // Montos manuales de Servicio 10% — a diferencia del saldo real de arriba,
@@ -967,7 +995,7 @@ function calcularLineaTiempo() {
   if (hoyISO >= desde && hoyISO <= hasta) {
     dataServicioDetalle.forEach(r => {
       if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
-      sumar(hoyISO, r['Kiosko'], 'servicio', Number(r['Monto ₡']) || 0);
+      sumar(hoyISO, r['Kiosko'], 'servicio', montoServicioCRC(r));
     });
   }
 
@@ -1057,7 +1085,7 @@ function construirDetallePagosProgramados() {
   const saldoServicioPorKiosko = {};
   dataServicioDetalle.forEach(r => {
     if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
-    saldoServicioPorKiosko[r['Kiosko']] = (saldoServicioPorKiosko[r['Kiosko']] || 0) + (Number(r['Monto ₡']) || 0);
+    saldoServicioPorKiosko[r['Kiosko']] = (saldoServicioPorKiosko[r['Kiosko']] || 0) + (montoServicioCRC(r));
   });
   Object.keys(saldoServicioPorKiosko).forEach(k => {
     if (!saldoServicioPorKiosko[k]) return;
@@ -1444,7 +1472,7 @@ function renderTabServicio() {
     if (String(r['Pagado']||'').trim().toLowerCase() === 'sí' || !kioskoVisible(r['Kiosko'])) return;
     const k = r['Kiosko'];
     if (!porKiosko[k]) porKiosko[k] = { monto:0, fechas:new Set() };
-    porKiosko[k].monto += Number(r['Monto ₡']) || 0;
+    porKiosko[k].monto += montoServicioCRC(r);
     porKiosko[k].fechas.add(String(r['Fecha']||'').slice(0,10));
   });
   const filas = Object.entries(porKiosko).sort((a,b) => b[1].monto - a[1].monto);
@@ -1770,6 +1798,7 @@ function switchTab(tab, el) {
 // ── ARRANQUE ─────────────────────────────────────────────────────
 aplicarAtajoFecha('30');
 (async function main() {
+  const _tcInp = document.getElementById('fc-tc'); if (_tcInp) _tcInp.value = tcUSD;
   await Promise.all([cargarKioskos(), cargarProveedores()]);
   await cargarTodo();
 })();
