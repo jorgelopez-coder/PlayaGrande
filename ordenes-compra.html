@@ -1393,6 +1393,16 @@ function onPrecioManual(id, input) {
 }
 
 // ── RESUMEN POR PROVEEDOR vs. PRESUPUESTO ─────────────────────────
+var resProvAbiertos = {};
+function toggleResProv(id){
+  var d = document.getElementById(id); if(!d) return;
+  var abierto = (d.style.display === 'none' || d.style.display === '');
+  resProvAbiertos[id] = abierto;
+  d.style.display = abierto ? 'block' : 'none';
+  var hdr = d.previousElementSibling;
+  var c = hdr && hdr.querySelector('.resprov-caret');
+  if (c) c.style.transform = abierto ? 'rotate(90deg)' : 'rotate(0deg)';
+}
 function renderResumenProveedores() {
   if (!ordenActual || ordenActual.estado !== 'en_proceso') return;
   var cont  = document.getElementById('resumen-proveedores');
@@ -1406,15 +1416,18 @@ function renderResumenProveedores() {
     if (!pedido) return;
     var prov  = (linea.proveedor !== undefined ? linea.proveedor : (p.proveedor||'')).trim() || 'Sin proveedor';
     var monto = pedido * precioLinea(p, linea);
-    porProv[prov] = (porProv[prov] || 0) + monto;
+    var pres  = p.presentacionCatalogo || ([p.presentacion, p.tamano].filter(Boolean).join(' ')) || (p.unidad ? 'est.: ' + p.unidad : '');
+    if (!porProv[prov]) porProv[prov] = { monto: 0, items: [] };
+    porProv[prov].monto += monto;
+    porProv[prov].items.push({ nombre: p.nombre, pedido: pedido, pres: pres, monto: monto });
   });
 
-  var provs = Object.keys(porProv).sort(function(a,b){ return porProv[b] - porProv[a]; });
+  var provs = Object.keys(porProv).sort(function(a,b){ return porProv[b].monto - porProv[a].monto; });
   if (!provs.length) { cont.style.display = 'none'; return; }
   cont.style.display = 'block';
 
   var saldoPrevio    = ordenActual.saldo_disponible !== undefined ? ordenActual.saldo_disponible : ordenActual.presupuesto;
-  var totalEstimado  = provs.reduce(function(a,p){ return a + porProv[p]; }, 0);
+  var totalEstimado  = provs.reduce(function(a,p){ return a + porProv[p].monto; }, 0);
   var saldo          = (saldoPrevio !== undefined) ? saldoPrevio - totalEstimado : null;
 
   var resumenTop = '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:8px;border-bottom:1px dashed var(--border);font-size:12px;">'
@@ -1425,16 +1438,35 @@ function renderResumenProveedores() {
     + '</div>';
 
   var filasProv = provs.map(function(prov) {
-    var monto  = porProv[prov];
+    var monto  = porProv[prov].monto;
+    var items  = porProv[prov].items.slice().sort(function(a,b){ return b.monto - a.monto; });
     var pctTxt = (saldoPrevio && saldoPrevio > 0)
       ? (monto / saldoPrevio * 100).toFixed(1) + '% del saldo disponible'
       : 'Presupuesto sin calcular';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;">'
-      + '<span style="font-weight:500;">' + escHtml(prov) + '</span>'
+    var detId   = 'resprov-det-' + slugId(prov);
+    var abierto = !!resProvAbiertos[detId];
+
+    var detFilas = items.map(function(it){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;">'
+        + '<span style="color:var(--text);">' + escHtml(it.nombre)
+        + (it.pres ? ' <span style="color:var(--muted);">· ' + escHtml(it.pres) + '</span>' : '') + '</span>'
+        + '<span style="display:flex;align-items:center;gap:12px;white-space:nowrap;color:var(--muted);">'
+        + '<span style="min-width:34px;text-align:right;color:var(--text);">' + it.pedido + '</span>'
+        + '<span style="min-width:84px;text-align:right;">' + fmt(it.monto) + '</span>'
+        + '</span></div>';
+    }).join('');
+
+    return '<div style="padding-bottom:6px;">'
+      + '<div onclick="toggleResProv(\'' + detId + '\')" style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;cursor:pointer;user-select:none;">'
+      + '<span style="font-weight:500;display:flex;align-items:center;gap:6px;">'
+      + '<span class="resprov-caret" style="color:var(--muted);font-size:10px;display:inline-block;transition:transform .15s;transform:rotate(' + (abierto?'90':'0') + 'deg);">▶</span>'
+      + escHtml(prov) + ' <span style="color:var(--muted);font-size:11px;font-weight:400;">(' + items.length + ')</span></span>'
       + '<span style="display:flex;align-items:center;gap:10px;">'
       + '<span style="color:var(--muted);font-size:12px;">' + pctTxt + ' · Estimado:</span>'
       + '<span style="font-weight:600;color:var(--blue);min-width:90px;text-align:right;">' + fmt(monto) + '</span>'
-      + '</span></div>';
+      + '</span></div>'
+      + '<div id="' + detId + '" style="display:' + (abierto?'block':'none') + ';margin:6px 0 2px 16px;padding-left:10px;border-left:2px solid var(--border);">' + detFilas + '</div>'
+      + '</div>';
   }).join('');
 
   lista.innerHTML = resumenTop + filasProv;
