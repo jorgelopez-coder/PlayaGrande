@@ -446,6 +446,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <input type="text" id="plt-buscar" placeholder="Buscar plato…" oninput="renderPlatos()"/>
     <select id="plt-nivel1" onchange="onFiltroNivel1Change()" style="display:none"><option value="">Nivel 1: todos</option></select>
     <select id="plt-nivel2" onchange="renderPlatos()"><option value="">Categoría: todas</option></select>
+    <select id="plt-kiosko" onchange="renderPlatos()"><option value="">Kiosko: todos</option></select>
     <select id="plt-estado" onchange="renderPlatos()">
       <option value="">Todos los estados</option>
       <option value="sinReceta">Sin receta</option>
@@ -1474,6 +1475,7 @@ async function cargarTodo() {
     showToast('No se pudo cargar todo — revisá la conexión. (' + e.message + ')', 'error');
   }
   renderN1Strip();
+  poblarFiltroKioskoMenu();
   renderPlatos();
   renderRecetas();
   renderIndicadores();
@@ -1749,6 +1751,7 @@ function renderPlatos() {
   const q = document.getElementById('plt-buscar').value.trim().toLowerCase();
   const nivel1Sel = document.getElementById('plt-nivel1').value;
   const nivel2Sel = document.getElementById('plt-nivel2').value;
+  const kioskoSel = document.getElementById('plt-kiosko').value;
   const estadoSel = document.getElementById('plt-estado').value;
   const incluirInactivos = document.getElementById('plt-incluir-inactivos').checked;
 
@@ -1763,6 +1766,7 @@ function renderPlatos() {
     if (!incluirInactivos && !p.activo) return false;
     if (nivel1Sel && p.nivel1 !== nivel1Sel) return false;
     if (nivel2Sel && p.nivel2 !== nivel2Sel) return false;
+    if (kioskoSel && !platoAplicaKiosko(p, kioskoSel)) return false;
     if (estadoSel === 'sinReceta' && !estado.sinReceta) return false;
     if (estadoSel === 'sinPrecio' && !estado.sinPrecio) return false;
     if (estadoSel === 'sinSquare' && !estado.sinSquare) return false;
@@ -2170,6 +2174,22 @@ function onNivel2ModalChange() {
 function listaIncluyeKiosko(lista, kiosko) {
   const norm = String(kiosko||'').trim().toLowerCase();
   return (lista||[]).some(k => String(k||'').trim().toLowerCase() === norm);
+}
+// Un plato aplica a un kiosko si su campo Kioskos está vacío/"Todos" o lo lista.
+function platoAplicaKiosko(p, kiosko) {
+  const str = String((p && p.kioskos) || '').trim();
+  if (!str || str.toLowerCase() === 'todos') return true;
+  const lista = str.split(',').map(s => s.trim()).filter(Boolean);
+  return listaIncluyeKiosko(lista, kiosko);
+}
+// Llena el <select> de filtro por kiosko de la pestaña Menú desde KIOSKOS.
+function poblarFiltroKioskoMenu() {
+  const sel = document.getElementById('plt-kiosko');
+  if (!sel) return;
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Kiosko: todos</option>' +
+    KIOSKOS.map(k => `<option value="${escapeAttr(k)}">${escHtml(k)}</option>`).join('');
+  if (actual && KIOSKOS.some(k => k === actual)) sel.value = actual;
 }
 function marcarKioskosPlatoModal(kioskosStr) {
   document.getElementById('pm-kioskos-lista').innerHTML = KIOSKOS.map(k =>
@@ -2785,7 +2805,15 @@ function hintIngredienteHtml(idx, fuente, sinCoincidencia) {
     const costoTxt = c > 0
       ? ' · ' + label + ': <b>' + fmtCRC(c) + '</b> /' + u
       : ' · <span style="color:var(--amber)">sin costo aún (asociá facturas en el Maestro)</span>';
-    return 'Unidad: ' + u + costoTxt;
+    // Solo los productos tienen estándar: link para abrir ese producto en el
+    // Maestro, pestaña "Estándar y sus facturas", y actualizar proveedores/precio.
+    // Abre en pestaña nueva para no perder lo que se esté editando en la ficha.
+    let linkMaestro = '';
+    if (fuente.tipoFuente === 'producto') {
+      const url = 'maestro-productos.html?peasoc=' + encodeURIComponent(fuente.nombre || '');
+      linkMaestro = ' · <a href="' + url + '" target="_blank" rel="noopener" class="ing-link" title="Abrir este producto en el Maestro (Estándar y sus facturas) para actualizar proveedores y precio">↗ Actualizar en Maestro</a>';
+    }
+    return 'Unidad: ' + u + costoTxt + linkMaestro;
   }
   if (sinCoincidencia) {
     const nom = (EDITANDO_RECETA && EDITANDO_RECETA.ingredientes[idx]) ? (EDITANDO_RECETA.ingredientes[idx].nombre || '') : '';

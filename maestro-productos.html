@@ -3257,7 +3257,26 @@ function aplicarDeepLinkPe() {
 cargarMaestro();
 cargarKioskosDisponibles();
 cargarConfiguracion();
-cargarProductosEstandar().then(aplicarDeepLinkPe);
+// Deep-link desde la ficha de Menú y Recetas: ?peasoc=<nombre> abre la pestaña
+// "3 · Estándar y sus facturas" filtrada a ese producto y, si hay match exacto
+// por nombre, lo despliega para ver/actualizar sus proveedores y precio.
+function aplicarDeepLinkPeAsoc() {
+  try {
+    var nombre = new URLSearchParams(location.search).get('peasoc');
+    if (!nombre) return;
+    if (typeof switchTab === 'function') switchTab('estandar');
+    var inp = document.getElementById('as-buscar'); if (inp) inp.value = nombre;
+    var filtro = document.getElementById('as-filtro'); if (filtro) filtro.value = '';
+    var norm = function(x){ return (x||'').toString().trim().toLowerCase(); };
+    var match = (PRODUCTOS_ESTANDAR || []).filter(function(pp){ return norm(pp.nombre) === norm(nombre); });
+    if (match.length === 1 && typeof PE_EXP !== 'undefined') PE_EXP.add(match[0].id);
+    if (typeof renderAsociacion === 'function') renderAsociacion();
+    var cont = document.getElementById('as-lista');
+    if (cont && cont.scrollIntoView) setTimeout(function(){ cont.scrollIntoView({ behavior:'smooth', block:'start' }); }, 60);
+  } catch (e) {}
+}
+
+cargarProductosEstandar().then(function(){ aplicarDeepLinkPe(); aplicarDeepLinkPeAsoc(); });
 cargarDesgloseArchivos();
 </script>
 </body>
