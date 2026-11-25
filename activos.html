@@ -332,7 +332,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <option value="todos">Todos</option>
     </select>
     <input type="text" id="inv-buscar" placeholder="Buscar…" style="width:160px" oninput="renderInventario()"/>
-    <button class="btn-sm" onclick="cargarActivosDesdeSheet()" style="margin-left:auto">↻ Actualizar</button>
+    <button class="btn-sm btn-green" onclick="descargarReporteActivos()" style="margin-left:auto">⤓ Descargar reporte</button>
+    <button class="btn-sm" onclick="cargarActivosDesdeSheet()">↻ Actualizar</button>
   </div>
   <div id="inv-count" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
   <div id="inv-lista">
@@ -919,14 +920,12 @@ function poblarCategoriasInventario() {
   if (categorias.includes(actual)) sel.value = actual;
 }
 
-function renderInventario() {
-  const cont = document.getElementById('inv-lista');
+function activosFiltradosActual() {
   const kioskoFiltro = document.getElementById('inv-kiosko')?.value || '';
   const categoriaFiltro = document.getElementById('inv-categoria')?.value || '';
   const estadoFiltro = document.getElementById('inv-estado')?.value || 'activos';
   const busq = (document.getElementById('inv-buscar')?.value || '').toLowerCase().trim();
-
-  let lista = activosDataSheet.filter(a => {
+  return activosDataSheet.filter(a => {
     if (kioskoFiltro && normKiosko(a.kiosko) !== normKiosko(kioskoFiltro)) return false;
     if (categoriaFiltro && a.categoria !== categoriaFiltro) return false;
     const esBaja = (a.estado || '').toLowerCase().includes('baja');
@@ -935,6 +934,97 @@ function renderInventario() {
     if (busq && !(a.nombre+a.descripcion+a.categoria+a.kiosko+a.marca+a.modelo).toLowerCase().includes(busq)) return false;
     return true;
   });
+}
+
+function descargarReporteActivos() {
+  const lista = activosFiltradosActual();
+  if (!lista.length) { alert('No hay activos para incluir en el reporte con los filtros actuales.'); return; }
+
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmt = n => '₡' + Number(n||0).toLocaleString('es-CR');
+
+  const kioskoFiltro = document.getElementById('inv-kiosko')?.value || '';
+  const categoriaFiltro = document.getElementById('inv-categoria')?.value || '';
+  const estadoFiltro = document.getElementById('inv-estado')?.value || 'activos';
+  const busq = (document.getElementById('inv-buscar')?.value || '').trim();
+  const estadoLabel = {activos:'Activos', baja:'Dados de baja', todos:'Todos'}[estadoFiltro] || estadoFiltro;
+  const filtros = [
+    'Kiosko: ' + (kioskoFiltro || 'Todos'),
+    'Categoría: ' + (categoriaFiltro || 'Todas'),
+    'Estado: ' + estadoLabel
+  ];
+  if (busq) filtros.push('Búsqueda: "' + busq + '"');
+
+  const totalValor = lista.reduce((s,a)=> s + (Number(a.valorEstimado)||0), 0);
+  const totalCant  = lista.reduce((s,a)=> s + (Number(a.cantidad)||1), 0);
+  const hoy = new Date().toLocaleDateString('es-CR', {year:'numeric',month:'long',day:'numeric'});
+
+  const filas = lista.map(a => {
+    const esBaja = (a.estado||'').toLowerCase().includes('baja');
+    const medidas = [a.alto,a.ancho,a.fondo].some(Boolean) ? `${a.alto||'—'}×${a.ancho||'—'}×${a.fondo||'—'}` : '—';
+    const mm = [a.marca,a.modelo].filter(Boolean).join(' · ') || '—';
+    const foto = a.fotoUrl
+      ? `<img src="${esc(a.fotoUrl)}" class="foto" referrerpolicy="no-referrer" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('div'),{className:'nofoto',textContent:'📦'}))"/>`
+      : `<div class="nofoto">📦</div>`;
+    return `<tr class="${esBaja?'baja':''}">
+      <td class="cfoto">${foto}</td>
+      <td><b>${esc(a.nombre)}</b>${a.descripcion?`<div class="desc">${esc(a.descripcion)}</div>`:''}</td>
+      <td>${esc(a.categoria||'—')}</td>
+      <td>${esc(mm)}</td>
+      <td>${esc(a.kiosko||'—')}</td>
+      <td class="num">${esc(a.cantidad||1)}</td>
+      <td class="num">${a.valorEstimado?fmt(a.valorEstimado):'—'}</td>
+      <td>${esc(medidas)}</td>
+      <td>${esBaja?'Baja':'Activo'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
+  <title>Reporte de Activos Menores</title>
+  <style>
+   *{box-sizing:border-box}
+   body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1a1a1a;margin:0;padding:24px;font-size:12px}
+   h1{font-size:20px;margin:0 0 2px}
+   .sub{color:#666;font-size:12px}
+   .filtros{margin:10px 0 4px}
+   .filtros span{display:inline-block;background:#f0f0f0;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0;font-size:11px;color:#444}
+   .resumen{font-size:12px;margin:8px 0 16px;font-weight:600}
+   table{width:100%;border-collapse:collapse}
+   th,td{border:1px solid #ddd;padding:5px 7px;text-align:left;vertical-align:top}
+   th{background:#f5f5f5;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+   td.num{text-align:right;white-space:nowrap}
+   td.cfoto{width:64px;text-align:center}
+   .foto{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid #ddd}
+   .nofoto{width:54px;height:54px;display:inline-flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:6px;font-size:22px}
+   .desc{color:#666;font-size:11px;margin-top:2px}
+   tr.baja td{background:#fafafa;color:#999}
+   tfoot td{font-weight:700;background:#f5f5f5;border-top:2px solid #bbb}
+   .toolbar{margin-bottom:14px}
+   .btn{background:#1f9d55;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer}
+   @media print{.toolbar{display:none}body{padding:0}table{font-size:10px}}
+  </style></head><body>
+  <div class="toolbar"><button class="btn" onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
+  <h1>📦 Reporte de Activos Menores</h1>
+  <div class="sub">Ecosistema Kioskos · Generado el ${hoy}</div>
+  <div class="filtros">${filtros.map(f=>`<span>${esc(f)}</span>`).join('')}</div>
+  <div class="resumen">${lista.length} activo${lista.length===1?'':'s'} · ${totalCant} unidad${totalCant===1?'':'es'} · Valor estimado total: ${fmt(totalValor)}</div>
+  <table>
+   <thead><tr>
+     <th>Foto</th><th>Nombre</th><th>Categoría</th><th>Marca / Modelo</th><th>Kiosko</th><th>Cant.</th><th>Valor est.</th><th>Medidas (cm)</th><th>Estado</th>
+   </tr></thead>
+   <tbody>${filas}</tbody>
+   <tfoot><tr><td colspan="5">Totales</td><td class="num">${totalCant}</td><td class="num">${fmt(totalValor)}</td><td colspan="2"></td></tr></tfoot>
+  </table>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('El navegador bloqueó la ventana del reporte. Permití las ventanas emergentes e intentá de nuevo.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+function renderInventario() {
+  const cont = document.getElementById('inv-lista');
+  let lista = activosFiltradosActual();
 
   document.getElementById('inv-count').textContent = `${lista.length} activo${lista.length===1?'':'s'}`;
 
